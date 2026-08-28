@@ -145,7 +145,34 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
 
 ---
 
-## 5. Estado actual
+## 5. Cliente de MU Online (Season 6)
+
+- Cliente: **`MU Client 1.04d - Season 6E3`** (cliente retail S6, `main.exe` + `Mu.exe`
+  + GameGuard). Descomprimido en:
+  `C:\Users\aruiz\Proyectos\mu-client-s6\MU Client 1.04d - Season 6E3\`
+  (fuera del repo a propósito, ~1,1 GB).
+- **No tiene archivo de conexión editable** (`IGC.dll` / `.ini` / `.cfg`). `config.ini`
+  solo trae la versión; `MuEng.ini` y `Data/Local/ServerList.bmd` están cifrados.
+  La IP/puerto de destino de este cliente se define en el **registro de Windows**:
+  `HKLM\SOFTWARE\WebZen\Mu\Connection` (vista de 32 bits).
+- Para apuntarlo al servidor local se usa el **OpenMU ClientLauncher** (ya compilado
+  en `src/ClientLauncher/bin/Debug/MUnique.OpenMU.ClientLauncher.exe`). El launcher
+  escribe ese registro + pasa `connect /u<ip> /p<puerto>` y arranca `main.exe`.
+  - Ejecutar el launcher **como Administrador** (escribe en HKLM).
+  - IP: `127.127.127.127`  ·  Puerto: `44405` (cliente retail; `44406` es para el
+    cliente open source MuMain).
+  - main.exe: `C:\Users\aruiz\Proyectos\mu-client-s6\MU Client 1.04d - Season 6E3\main.exe`
+  - Requiere el runtime de .NET 10 (ya cubierto por el SDK instalado).
+- Cuentas de prueba (contraseña = nombre de usuario): `test0`..`test9`, `test300`,
+  `test400`, `testgm`, `testgm2`, `testunlock`, `quest1`..`quest3`, `ancient`, `socket`.
+- Si hay desconexión justo al elegir servidor: el connect server responde con la IP
+  que determina su *IP resolver*. Con `-resolveIp:local` responde la IP LAN
+  (192.168.1.87). Para test en la misma máquina, poner el resolver en `Loopback`
+  en **Configuration → System** del panel, o arrancar con `-resolveIp:loopback`.
+
+---
+
+## 6. Estado actual
 
 - [x] .NET SDK 10 instalado
 - [x] PostgreSQL 17 instalado y servicio corriendo
@@ -156,12 +183,18 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
 - [x] Arranque en modo `-demo` (en memoria) validado: host arriba en ~11 s,
       panel admin respondiendo en `http://localhost/`, listeners de connect
       (44405/44406), game (55901–55906) y chat OK, 0 errores/warnings en runtime
-- [ ] Base de datos `openmu` inicializada (pendiente – primer arranque con PostgreSQL)
-- [ ] Servidor levantado con PostgreSQL y validado con cliente S6
+- [x] Arranque real contra **PostgreSQL** validado: la primera ejecución creó la
+      base `openmu`, los esquemas (`config`, `data`, `friend`, `guild`, todos
+      propiedad de `postgres`), los roles con login (`config`, `account`, `friend`,
+      `guild`) con grants de mínimo privilegio, y los datos de **Season 6 Episode 3
+      English** + 20 cuentas de prueba. Host arriba en ~36 s, 0 errores en runtime.
+      Setup page: `Up-to-date`.
+- [x] Cliente S6 descomprimido; método de conexión identificado (ClientLauncher)
+- [ ] Cliente lanzado y login validado en el juego
 
 ---
 
-## 6. Documentación oficial de referencia
+## 7. Documentación oficial de referencia
 
 - Requisitos y puertos: `docs-website/docs/getting-started/requirements.md`
 - Correr desde código: `docs-website/docs/getting-started/from-source.md`
