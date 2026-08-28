@@ -163,6 +163,10 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
     cliente open source MuMain).
   - main.exe: `C:\Users\aruiz\Proyectos\mu-client-s6\MU Client 1.04d - Season 6E3\main.exe`
   - Requiere el runtime de .NET 10 (ya cubierto por el SDK instalado).
+  - El launcher lee/escribe `launcher.config` (XML) en su carpeta de trabajo; se dejó
+    pre-cargado con los hosts `127.127.127.127:44405` y `:44406` y la ruta de `main.exe`.
+  - **Probado OK 2026-08-28**: GameGuard no dio problema, login con `test0`/`test0`
+    y entrada al juego correctas.
 - Cuentas de prueba (contraseña = nombre de usuario): `test0`..`test9`, `test300`,
   `test400`, `testgm`, `testgm2`, `testunlock`, `quest1`..`quest3`, `ancient`, `socket`.
 - Si hay desconexión justo al elegir servidor: el connect server responde con la IP
@@ -190,7 +194,10 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
       English** + 20 cuentas de prueba. Host arriba en ~36 s, 0 errores en runtime.
       Setup page: `Up-to-date`.
 - [x] Cliente S6 descomprimido; método de conexión identificado (ClientLauncher)
-- [ ] Cliente lanzado y login validado en el juego
+- [x] Cliente lanzado con el ClientLauncher y **login validado en el juego**
+      (`test0`/`test0`, entrada correcta) — 2026-08-28
+
+**Entorno de desarrollo local completo y funcionando de punta a punta.**
 
 ---
 
