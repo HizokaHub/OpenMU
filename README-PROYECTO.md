@@ -153,8 +153,11 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
 - [x] `ConnectionSettings.xml` ajustado a la contraseña real
 - [x] `dotnet restore` OK
 - [x] `dotnet build -c Debug` OK (0 errores)
-- [ ] Base de datos `openmu` inicializada (pendiente – primer arranque)
-- [ ] Servidor levantado y validado con cliente
+- [x] Arranque en modo `-demo` (en memoria) validado: host arriba en ~11 s,
+      panel admin respondiendo en `http://localhost/`, listeners de connect
+      (44405/44406), game (55901–55906) y chat OK, 0 errores/warnings en runtime
+- [ ] Base de datos `openmu` inicializada (pendiente – primer arranque con PostgreSQL)
+- [ ] Servidor levantado con PostgreSQL y validado con cliente S6
 
 ---
 
