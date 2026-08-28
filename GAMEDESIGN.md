@@ -31,6 +31,33 @@ hacia un **MOBA completo** si el resultado funciona bien.
 
 ---
 
+## Cliente base — decidido: MuMain (open source)
+
+**Repo:** <https://github.com/sven-n/MuMain> (mantenido por un dev núcleo de OpenMU).
+
+- Fork modernizado del cliente de MU Online (base S5.2) llevado a paridad con
+  **S6E3** (casi completo; solo faltan "Lucky Items"). **C++ + OpenGL 3.3** para
+  render + librería de red en **C# .NET 10** (Native AOT). Conecta
+  **exclusivamente a OpenMU** por el protocolo extendido (**puerto 44406**).
+- **Cámara con distancia de zoom configurable** (valor por defecto 1735) — es
+  un setting, no un parche. Resoluciones múltiples, modo ventana, V-Sync, FPS.
+- **Por qué este y no el cliente retail 1.04d:** el modo MOBA necesita muchos
+  cambios de cliente (HUD de cooldowns / timer / marcador, UI de tienda,
+  indicador de reducción de CD por nivel, minimapa de arena…). Nada de eso se
+  puede hacer sobre un binario cerrado. El `main.exe` del repack S6 descargado
+  difiere ~7,8 MB del original (probablemente *packed*) → cada mod sería
+  ingeniería inversa desechable.
+- **El cliente retail descargado NO se descarta:** MuMain carga los assets
+  (`Data/`: modelos, mapas, efectos, sonidos) de un cliente MU real. Se siguen
+  usando los del cliente extraído en
+  `C:\Users\aruiz\Proyectos\mu-client-s6\...\Data`. El repack queda como fuente
+  de assets y para pruebas de sanidad rápidas.
+- **Coste asumido:** hay que montar un toolchain de C++ (Visual Studio 2022+
+  con workload de C++ / Build Tools, CMake 3.25+) y compilar MuMain — paso de
+  setup nuevo. Estado: **pendiente de instalar y compilar.**
+
+---
+
 ## Fase 1 — ARAM básico (prioridad actual)
 
 - **Un solo mapa** reciclado de Season 6 (a definir cuál; forma
@@ -97,8 +124,17 @@ Antes de empezar a programar, se cierran estas decisiones **una por una**.
 
 ### Registro de decisiones cerradas
 
-_(Se irá completando a medida que se resuelvan las preguntas de la Fase 1.)_
-
 | # | Decisión | Valor acordado | Fecha |
 |---|----------|----------------|-------|
-| — | — | — | — |
+| 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables. Assets desde el cliente retail S6 ya extraído. | 2026-08-28 |
+
+### Notas de diseño relacionadas
+
+- **Límites de la arena:** no dependemos de la forma nativa del mapa. Se recorta
+  la zona jugable con (A) un **plugin de borde** en el servidor que rebota al
+  jugador si sale del polígono de arena + mensaje, y opcionalmente (B) "hornear"
+  el `TerrainData` del mapa para que oleadas/torretas/spawns respeten el mismo
+  límite (Fase 2), y (C) editar el `.att` del cliente para el muro visual
+  (pulido posterior). Los límites viven en config → ajustables sin recompilar.
+  Consecuencia: se puede tallar un carril alargado dentro de *cualquier* mapa,
+  así que la elección de mapa pesa más por ambiente/assets que por geometría.
