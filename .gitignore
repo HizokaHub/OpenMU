@@ -325,3 +325,15 @@ src/AdminPanel/wwwroot/content/js/app.js.map
 .opencode/
 # Keys which are generated when the server runs locally.
 data-protection-keys/
+
+# --- fork local (aram): archivos autogenerados por el build ---
+# NOTA: estos archivos YA están versionados por el upstream (MUnique/OpenMU los
+# regenera y commitea a proposito). git ignore NO deja de rastrear archivos ya
+# rastreados, asi que esto solo evita que se agreguen archivos autogenerados
+# NUEVOS. La rebuild-churn de los existentes se maneja NO haciendo `git add` de
+# ellos, o con `git checkout -- .` despues de compilar. Ver README-PROYECTO.md.
+*.Generated.cs
+src/Network/Packets/**/ClientToServerPackets*.cs
+src/Network/Packets/**/ServerToClientPackets*.cs
+src/Network/Packets/**/ConnectionExtensions.cs
+src/Web/Map/wwwroot/js/MUnique.OpenMU.Web.Map.js
