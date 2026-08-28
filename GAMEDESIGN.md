@@ -52,9 +52,19 @@ hacia un **MOBA completo** si el resultado funciona bien.
   usando los del cliente extraído en
   `C:\Users\aruiz\Proyectos\mu-client-s6\...\Data`. El repack queda como fuente
   de assets y para pruebas de sanidad rápidas.
-- **Coste asumido:** hay que montar un toolchain de C++ (Visual Studio 2022+
-  con workload de C++ / Build Tools, CMake 3.25+) y compilar MuMain — paso de
-  setup nuevo. Estado: **pendiente de instalar y compilar.**
+- **Coste asumido:** toolchain de C++ (Visual Studio 2022 + CMake/Ninja).
+  Estado: **hecho** — VS Community 2022 (workloads C++ y .NET) + CMake 4.4.3
+  instalados; MuMain clonado en `C:\Users\aruiz\Proyectos\mu-main`, configurado
+  (`cmake --preset windows-x64`) y compilado (`cmake --build --preset
+  windows-x64-release`, ~7 min). Binario en
+  `mu-main\out\build\windows-x64\src\Release\Main.exe` (con `config.ini`
+  sembrado, `MUnique.Client.Library.dll` y `Data\` copiados al lado).
+  `config.ini`: `ServerIP=127.127.127.127`, `ServerPort=44406`, `Locale=es`,
+  ventana 1366×768. Arranca OK contra el servidor local.
+- **Recompilar MuMain** (desde `C:\Users\aruiz\Proyectos\mu-main`, en una
+  *Developer PowerShell for VS 2022* con `C:\Program Files\dotnet` en el PATH):
+  `cmake --build --preset windows-x64-release`. Preset con editor in-game
+  (ImGui, tecla F12): `windows-x64-mueditor`.
 
 ---
 
@@ -126,7 +136,7 @@ Antes de empezar a programar, se cierran estas decisiones **una por una**.
 
 | # | Decisión | Valor acordado | Fecha |
 |---|----------|----------------|-------|
-| 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables. Assets desde el cliente retail S6 ya extraído. | 2026-08-28 |
+| 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables (F9/F10/F11, `config.ini [Camera] Zoom`). Trae su propio `Data\` completo (~739 MB, World1–82 salvo 30/33/37) — no requiere fusionar assets del cliente retail. Instalado y compilado OK. | 2026-08-28 |
 
 ### Notas de diseño relacionadas
 

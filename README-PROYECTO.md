@@ -174,6 +174,28 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
   (192.168.1.87). Para test en la misma máquina, poner el resolver en `Loopback`
   en **Configuration → System** del panel, o arrancar con `-resolveIp:loopback`.
 
+### 5.1 Cliente de desarrollo: MuMain (open source) — el que se usa de aquí en adelante
+
+Ver `GAMEDESIGN.md` para el porqué. Resumen operativo:
+
+- Repo clonado en `C:\Users\aruiz\Proyectos\mu-main` (con submódulos).
+- Toolchain: **Visual Studio Community 2022** (workloads *Desktop C++* y *Desktop
+  .NET*) + **CMake 4.4.3** + .NET SDK 10. Todo instalado.
+- **Configurar** (una vez): en *Developer PowerShell for VS 2022*, con
+  `C:\Program Files\dotnet` en el PATH, desde `C:\Users\aruiz\Proyectos\mu-main`:
+  `cmake --preset windows-x64`
+- **Compilar**: `cmake --build --preset windows-x64-release` (~7 min la 1ª vez).
+  Preset con editor in-game ImGui (F12): `windows-x64-mueditor`.
+- **Binario y assets**: `mu-main\out\build\windows-x64\src\Release\` →
+  `Main.exe` + `MUnique.Client.Library.dll` + `config.ini` + `Data\` (copiado).
+- **`config.ini`** (en esa carpeta Release): `ServerIP=127.127.127.127`,
+  `ServerPort=44406`, `[UI] Locale=es`, ventana 1366×768. `[Camera] Zoom`
+  (default 1735) se puede subir para alejar la cámara.
+- **Ejecutar**: `Main.exe` (o `Main.exe connect /u127.127.127.127 /p44406`).
+  Cámara: **F9** Default↔Orbital, **F10** desbloquea rueda de zoom, **F11**
+  reset. Login con las cuentas de prueba (password = usuario).
+- El cliente retail 1.04d queda como respaldo de assets / pruebas rápidas.
+
 ---
 
 ## 6. Estado actual
@@ -193,11 +215,14 @@ Para pruebas con cliente en la misma máquina, usar una IP `127.x.x.x`
       `guild`) con grants de mínimo privilegio, y los datos de **Season 6 Episode 3
       English** + 20 cuentas de prueba. Host arriba en ~36 s, 0 errores en runtime.
       Setup page: `Up-to-date`.
-- [x] Cliente S6 descomprimido; método de conexión identificado (ClientLauncher)
-- [x] Cliente lanzado con el ClientLauncher y **login validado en el juego**
-      (`test0`/`test0`, entrada correcta) — 2026-08-28
+- [x] Cliente retail S6 descomprimido; login validado en el juego vía
+      ClientLauncher (`test0`/`test0`) — 2026-08-28
+- [x] **MuMain** (cliente open source, elegido como base de desarrollo)
+      instalado, compilado (`windows-x64-release`) y arrancando OK contra el
+      servidor local por el puerto 44406 — 2026-08-28
 
 **Entorno de desarrollo local completo y funcionando de punta a punta.**
+Diseño del modo de juego: ver `GAMEDESIGN.md`.
 
 ---
 
