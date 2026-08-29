@@ -59,7 +59,7 @@ internal sealed class PlayerPersistence
     /// <returns>Success of the save operation.</returns>
     public async ValueTask<bool> SaveProgressAsync(CancellationToken cancellationToken = default)
     {
-        if (this._player.IsTemplatePlayer)
+        if (this._player.IsTemplatePlayer || this._player.SuppressPersistence)
         {
             return true;
         }

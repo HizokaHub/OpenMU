@@ -174,6 +174,17 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public bool IsTemplatePlayer => this.Account?.IsTemplate is true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether progress saving is suppressed for this
+    /// session while it is running (in memory only, never touches the account).
+    /// </summary>
+    /// <remarks>
+    /// Used by the custom MOBA game mode: while a player is in a MOBA match the whole
+    /// session state is ephemeral, so <see cref="SaveProgressAsync"/> must be a no-op
+    /// exactly like it is for <see cref="IsTemplatePlayer"/>.
+    /// </remarks>
+    public bool SuppressPersistence { get; set; }
+
+    /// <summary>
     /// Gets the culture setting of the player.
     /// </summary>
     public CultureInfo Culture { get; internal set; }

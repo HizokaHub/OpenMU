@@ -12,13 +12,15 @@ using MUnique.OpenMU.Pathfinding;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// GM chat command which warps the caller into the MOBA Arena (map 200).
+/// GM chat command which warps the caller into the MOBA Arena (map 200) and marks
+/// the session as non-persisted for the duration.
 /// </summary>
 /// <remarks>
-/// First building block of the custom MOBA game mode (see GAMEDESIGN.md). For now this
-/// is only a fast way to reach the dedicated arena map while the mode is being built;
-/// the real entry flow is the queue NPC in Lorencia + matchmaking + ready-check, and
-/// the ephemeral clone setup happens on top of this later.
+/// Building block of the custom MOBA game mode (see GAMEDESIGN.md). For now this is a
+/// fast way to reach the dedicated arena map and exercise the no-save behaviour while
+/// the mode is built; the real entry flow is the queue NPC in Lorencia + matchmaking
+/// + ready-check, and the ephemeral clone setup happens on top of this later. Use
+/// <c>/mobaleave</c> to return to Lorencia and re-enable saving.
 /// </remarks>
 [Guid("58B0FF0B-4DCA-4B90-AC0F-10CE2D89EE9B")]
 [PlugIn]
@@ -47,7 +49,8 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
             return;
         }
 
+        player.SuppressPersistence = true;
         await player.WarpToAsync(exitGate).ConfigureAwait(false);
-        await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.MovedPlayerResult), this.Key, player.Name, exitGate.Map!.Name.GetTranslation(player.Culture), player.Position.X, player.Position.Y).ConfigureAwait(false);
+        await player.ShowBlueMessageAsync("[MOBA] Entered the arena - session progress is NOT saved here. Use /mobaleave to return.").ConfigureAwait(false);
     }
 }
