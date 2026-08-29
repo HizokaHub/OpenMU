@@ -261,6 +261,9 @@ public class Gates : InitializerBase
         targetGates.Add(258, this.CreateExitGate(maps[34], 227, 41, 229, 43, 0, true));
         targetGates.Add(114, this.CreateExitGate(maps[34], 231, 37, 234, 45, 0));
 
+        // MOBA Arena (custom game mode, terrain copied from Crywolf)
+        targetGates.Add(400, this.CreateExitGate(maps[200], 229, 37, 239, 46, 0, true));
+
         // Aida
         targetGates.Add(119, this.CreateExitGate(maps[33], 82, 8, 87, 14, 0, true));
         targetGates.Add(140, this.CreateExitGate(maps[33], 186, 173, 190, 177, 0));

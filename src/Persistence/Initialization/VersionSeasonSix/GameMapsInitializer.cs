@@ -100,6 +100,7 @@ public class GameMapsInitializer : GameMapsInitializerBase
             yield return typeof(FortressOfImperialGuardian2);
             yield return typeof(FortressOfImperialGuardian3);
             yield return typeof(FortressOfImperialGuardian4);
+            yield return typeof(MobaArena);
         }
     }
 }

@@ -41,6 +41,7 @@
     <None Remove="Resources\Terrain33_7.att" />
     <None Remove="Resources\Terrain34.att" />
     <None Remove="Resources\Terrain34_Close.att" />
+    <None Remove="Resources\Terrain200.att" />
     <None Remove="Resources\Terrain35.att" />
     <None Remove="Resources\Terrain35_OCCUPIED.att" />
     <None Remove="Resources\Terrain35_PEACE.att" />
@@ -120,6 +121,7 @@
     <EmbeddedResource Include="Resources\Terrain33_5.att" />
     <EmbeddedResource Include="Resources\Terrain34.att" />
     <EmbeddedResource Include="Resources\Terrain34_Close.att" />
+    <EmbeddedResource Include="Resources\Terrain200.att" />
     <EmbeddedResource Include="Resources\Terrain35.att" />
     <EmbeddedResource Include="Resources\Terrain35_OCCUPIED.att" />
     <EmbeddedResource Include="Resources\Terrain35_PEACE.att" />
