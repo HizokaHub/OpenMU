@@ -185,6 +185,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public bool SuppressPersistence { get; set; }
 
     /// <summary>
+    /// Gets or sets the player's real character while the session is temporarily
+    /// playing an ephemeral MOBA match clone. Restored when the match ends. Runtime
+    /// only - never persisted.
+    /// </summary>
+    public Character? MobaRealCharacter { get; set; }
+
+    /// <summary>
     /// Gets the culture setting of the player.
     /// </summary>
     public CultureInfo Culture { get; internal set; }
