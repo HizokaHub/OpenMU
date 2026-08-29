@@ -152,6 +152,10 @@ Se juega con un **clon efímero** del personaje (ver decisión #6): un `Characte
 en memoria, copiado del real, que **nunca se persiste**. El personaje real no se
 toca en ningún momento. Sobre el clon se aplica:
 
+- **Stats completos e idénticos por clase**: el clon entra con el reparto full de
+  puntos de nivel 400, **igual para todos los jugadores de esa clase** (nadie
+  arrastra el build de su personaje real). La distribución exacta STR/AGI/VIT/
+  ENE/CMD por clase se afina en balanceo.
 - **Sin inventario heredado**: se le entrega solo un **arma básica acorde a su
   clase** (ej. espada básica para Dark Knight, staff básico para Dark Wizard) —
   **sin armadura, alas ni accesorios**.
@@ -210,6 +214,7 @@ Fuentes de oro:
 ### Pendiente de definir en desarrollo (no bloqueante para empezar)
 
 - Balance específico de **daño / cooldown por clase** para este modo.
+- **Distribución exacta de puntos** STR/AGI/VIT/ENE/CMD del baseline por clase.
 - Sistema **anti-AFK / abandono** de partida.
 - Si se **restringe o no** tener clases duplicadas en el mismo equipo.
 
