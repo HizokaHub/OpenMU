@@ -146,11 +146,30 @@ sus propios jugadores (modelo Blood Castle / Devil Square).
 - Contador de advertencias y tiempo de bloqueo se **persisten en BD** (sobreviven
   reinicio del server y relog).
 
+### Dónde vive el estado del match (RAM, no BD)
+
+- El clon y todo el estado de partida (inventario, oro, Master Level, posición,
+  cooldowns) los posee un **objeto de match server-side**, uno por partida activa
+  (modelo `MiniGameContext` de los mini-juegos), **no** la conexión del jugador.
+  Vive en RAM toda la partida y se descarta al terminar.
+- **Desconexión / reconexión:** al perder conexión el clon **no se destruye** —
+  el match lo mantiene y corre el anti-AFK (15 s tomable por aliados, 20 s recall
+  a base). Los aliados que lo controlan mutan **ese mismo clon en RAM**. Al
+  reconectar, el jugador loguea normal, y el server detecta que su cuenta tiene
+  un match activo y **re-vincula la sesión al clon** en el estado que tenga en
+  ese momento (sus compras + las de los aliados + muertes / posición). No vuelve
+  a town con el personaje real.
+- Lo único que se persiste en BD del modo son las **advertencias / bloqueos del
+  matchmaking**. Nada del estado de partida.
+
 ### Al entrar a la partida (setup automático)
 
 Se juega con un **clon efímero** del personaje (ver decisión #6): un `Character`
-en memoria, copiado del real, que **nunca se persiste**. El personaje real no se
-toca en ningún momento. Sobre el clon se aplica:
+**desprendido** (construido con `new`, nunca metido en el change-tracker de EF) +
+un **flag transitorio por jugador** que hace `SaveProgressAsync` un no-op
+mientras dura el match (misma lógica que `Account.IsTemplate` pero en RAM, sin
+tocar la cuenta real). El personaje real **no se toca en ningún momento** — la
+sesión se aleja de él, no lo edita. Sobre el clon se aplica:
 
 - **Stats completos e idénticos por clase**: el clon entra con el reparto full de
   puntos de nivel 400, **igual para todos los jugadores de esa clase** (nadie
@@ -307,7 +326,7 @@ programar.
 | 3 | Cliente MOBA — features de UI/cámara ya implementadas en MuMain (rama `moba-camera`, fork HizokaHub/MuMain) | Cámara MOBA (F9, edge-pan con foco de mundo, zoom de rueda 0.7×–1.8×, `Y` snap/follow, F11 reset), walk-to-far-click + chase de click derecho, mapa de Tab completo, y **minimapa fijo estilo LoL en Crywolf** (esquina inferior derecha). Falta: apuntar todo esto al mapa #200 en vez de al 34. | 2026-08-28 |
 | 4 | Alcance completo de la Fase 1 (moba básico) | Entrada solo con **cuenta nivel 400 + Master Skill activo**; al entrar: **arma básica por clase** sin equipo, **Master Tree a vacío / Master Level 1**, **loadout de 4–6 skills activas** de las ya desbloqueadas a 400. Progresión: Master Level 1→~30 (**5 MP/nivel**), Master EXP por mobs/kills/objetivos. **Oro de partida** (separado del Zen) por farmeo *last-hit*, subir de Master Level, kills, **shutdown gold** y **renta pasiva mayor para el que pierde**. **Tienda sin requisito de nivel**, **3 tiers** con precio por **fórmula de stats totales**, **buffs se compran con oro** (no van en el loadout), ítems **instance-bound**. Al salir se descarta todo lo de la partida. **Respawn escala con la duración** del match. Formato **5v5** en **instancias simultáneas** del mapa #200. | 2026-08-29 |
 | 5 | Entrada y matchmaking de la Fase 1 | **NPC de cola en Lorencia** con 3 opciones: (1) solo, (2) party de 2–4, (3) equipo de 5. Pools: 1+2 se combinan hasta armar equipos de 5 (party siempre junto); 3 es pool aparte, solo 5-preformados vs 5-preformados. **Ready-check** al completar los 10, ventana **10 s**; rechazo/timeout → la partida no arranca, el jugador se reemplaza y recibe **1 advertencia**. **3 advertencias → bloqueo 1 h** (cola y party); reincidencia tras cumplir → bloqueo escala (1 h → 2 h → …); aceptar tras cumplir un bloqueo resetea advertencias a 0. Advertencias/bloqueos persistidos en BD. | 2026-08-29 |
-| 6 | Aislamiento del personaje real durante la partida | **Clon efímero por partida** (Opción B): al entrar se construye un `Character` en memoria copiado del real, nunca atado al `IContext` de persistencia (ningún `SaveChanges` lo escribe); al salir se descarta. El personaje real **jamás se muta**, un crash no puede corromper la cuenta. | 2026-08-29 |
+| 6 | Aislamiento del personaje real durante la partida | **Clon efímero por partida** (Opción B). Impl: `Character` **desprendido** (`new`, nunca en el change-tracker de EF) + **flag transitorio por jugador** que hace `SaveProgressAsync` un no-op durante el match (misma idea que `Account.IsTemplate`, en RAM). El clon + estado de partida los posee un **objeto de match server-side** (uno por partida, estilo `MiniGameContext`), no la conexión — sobrevive DC del jugador; al reconectar se re-vincula la sesión al clon en RAM. El personaje real jamás se muta ni se persiste el clon. | 2026-08-29 |
 | 7 | Condición de victoria de la Fase 1 | Se gana **destruyendo el nexo rival** (estructura con HP, lógica de puertas de Castle Siege). **Sin timer**, duración indefinida. Ritmo de progresión objetivo: **~Master Level 30 en el minuto 30–40** para un jugador con buen desempeño; curva de Master EXP (kill / last-hit / objetivo / EXP por nivel) queda como **config afinable**. Provisional en dev hasta tener la estructura: corte por comando de GM o tope de kills. | 2026-08-29 |
 
 ### Notas de diseño relacionadas
