@@ -11,7 +11,8 @@ using MUnique.OpenMU.DataModel.Configuration;
 /// </summary>
 /// <remarks>
 /// Dedicated map for the custom MOBA game mode (see GAMEDESIGN.md). Its terrain is
-/// a copy of Crywolf Fortress (map 34) via <c>Resources/Terrain200.att</c>, so the
+/// a copy of Crywolf Fortress (map 34) via <c>Resources/Terrain201.att</c> (OpenMU
+/// names terrain resources by server map number + 1), so the
 /// public Crywolf map and its event stay untouched. Per-match instancing, NPC
 /// spawns, lane mobs, turrets and the nexus structure are added by the MOBA mode
 /// plugin in later blocks; this initializer only registers the base map so it can
