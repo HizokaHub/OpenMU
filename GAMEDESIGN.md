@@ -104,14 +104,58 @@ sus propios jugadores (modelo Blood Castle / Devil Square).
 - Solo personajes con **nivel de cuenta real = 400** pueden entrar a la partida
   (no se admite nivel inferior), y con **Master Skill activo**.
 
+### Entrada y matchmaking
+
+**NPC de cola en Lorencia** con 3 opciones:
+
+1. **Buscar partida solo** — entrás a la cola individual.
+2. **Buscar partida con party (2–4)** — tu party ya formado entra junto a la cola.
+3. **Buscar partida por equipo de 5** — party de exactamente 5.
+
+**Emparejado:**
+
+- Opciones **1 y 2 comparten pool**: el matchmaker combina solos + parties de 2–4
+  hasta armar dos equipos de 5 (ej. party de 3 + party de 2 vs party de 4 + 1
+  solo; cualquier combinación que sume 5 por lado). Los integrantes de un mismo
+  party siempre caen en el **mismo equipo**.
+- Opción **3 tiene pool propio**: solo empareja **5 preformados vs 5
+  preformados**. Nunca se mezcla con el pool 1+2.
+
+**Confirmación de partida (ready-check):**
+
+- Al completar los 10, a cada jugador le llega un prompt de "unirse a la
+  partida".
+- Ventana de respuesta: **10 segundos**.
+- Si alguien **rechaza o no responde** en 10 s:
+  - La partida **no arranca**.
+  - Ese jugador recibe **una advertencia**.
+  - Se lo saca y se busca un **reemplazo** para su slot; el resto vuelve al frente
+    de la cola.
+  - *(A definir en dev: si los 9 que ya aceptaron quedan pre-confirmados un rato o
+    si el ready-check se reemite completo.)*
+
+**Penalización por no responder / rechazar (solo afecta la cola MOBA):**
+
+- **3 advertencias → bloqueo de 1 hora** (no puede entrar a cola ni por party).
+- Tras cumplir el bloqueo, si **vuelve a fallar** el siguiente bloqueo **escala**
+  (1 h → 2 h → …, curva exacta a definir en dev).
+- Si tras cumplir un bloqueo **vuelve a la cola y esta vez acepta**, las
+  advertencias se **resetean a 0**.
+  - *(A definir en dev: si un accept exitoso resetea las advertencias siempre, o
+    solo después de haber cumplido un bloqueo.)*
+- Contador de advertencias y tiempo de bloqueo se **persisten en BD** (sobreviven
+  reinicio del server y relog).
+
 ### Al entrar a la partida (setup automático)
 
-- **Inventario real** del jugador → se guarda como **snapshot temporal**.
-- Se le entrega solo un **arma básica acorde a su clase** (ej. espada básica para
-  Dark Knight, staff básico para Dark Wizard) — **sin armadura, alas ni
-  accesorios**.
-- **Árbol de Master Skill Tree** → se **resetea a vacío**, **Master Level vuelve
-  a 1** (temporal, solo dentro de la instancia).
+Se juega con un **clon efímero** del personaje (ver decisión #6): un `Character`
+en memoria, copiado del real, que **nunca se persiste**. El personaje real no se
+toca en ningún momento. Sobre el clon se aplica:
+
+- **Sin inventario heredado**: se le entrega solo un **arma básica acorde a su
+  clase** (ej. espada básica para Dark Knight, staff básico para Dark Wizard) —
+  **sin armadura, alas ni accesorios**.
+- **Árbol de Master Skill Tree** → **vacío**, **Master Level = 1**.
 - El jugador elige un **loadout de 4 a 6 skills activas** (excluyendo buffs) de
   entre todas las que su clase ya tenía **desbloqueadas a nivel 400** en su
   progreso real.
@@ -152,11 +196,11 @@ Fuentes de oro:
 
 ### Al salir de la partida (cleanup automático)
 
-- Se **restaura el inventario real** guardado al entrar.
-- Se **restauran el árbol de Master Skill Tree y el Master Level reales**, tal
-  como estaban antes de entrar.
-- Todo el **oro, ítems comprados y progreso de Master Level** ganado en la
-  partida se **descarta**.
+- El **clon se descarta** (nunca se persistió). El personaje real vuelve a
+  cargarse **exactamente como estaba**: inventario, Master Skill Tree y Master
+  Level intactos.
+- Todo el **oro, ítems comprados y progreso de Master Level** de la partida se
+  pierde con el clon.
 
 ### Duración y timers
 
@@ -221,7 +265,9 @@ programar.
 | 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables (F9/F10/F11, `config.ini [Camera] Zoom`). Trae su propio `Data\` completo (~739 MB, World1–82 salvo 30/33/37) — no requiere fusionar assets del cliente retail. Instalado y compilado OK. | 2026-08-28 |
 | 2 | Mapa de la arena MOBA | **Mapa dedicado #200** (número provisional), `TerrainData` = copia de Crywolf (34), corrido como **instancia** por partida. Crywolf real (34) intacto. Cliente: alias en MuMain `World200 → assets de World34`. | 2026-08-28 |
 | 3 | Cliente MOBA — features de UI/cámara ya implementadas en MuMain (rama `moba-camera`, fork HizokaHub/MuMain) | Cámara MOBA (F9, edge-pan con foco de mundo, zoom de rueda 0.7×–1.8×, `Y` snap/follow, F11 reset), walk-to-far-click + chase de click derecho, mapa de Tab completo, y **minimapa fijo estilo LoL en Crywolf** (esquina inferior derecha). Falta: apuntar todo esto al mapa #200 en vez de al 34. | 2026-08-28 |
-| 4 | Alcance completo de la Fase 1 (moba básico) | Entrada solo con **cuenta nivel 400 + Master Skill activo**; al entrar: snapshot de inventario, **arma básica por clase** sin equipo, **Master Tree a vacío / Master Level 1**, **loadout de 4–6 skills activas** de las ya desbloqueadas a 400. Progresión: Master Level 1→~30 (**5 MP/nivel**), Master EXP por mobs/kills/objetivos. **Oro de partida** (separado del Zen) por farmeo *last-hit*, subir de Master Level, kills, **shutdown gold** y **renta pasiva mayor para el que pierde**. **Tienda sin requisito de nivel**, **3 tiers** con precio por **fórmula de stats totales**, **buffs se compran con oro** (no van en el loadout), ítems **instance-bound**. Al salir: restaurar inventario + Master Tree/Level reales, descartar oro/ítems/Master Level de la partida. **Respawn escala con la duración** del match. Formato **5v5** en **instancias simultáneas** del mapa #200. | 2026-08-29 |
+| 4 | Alcance completo de la Fase 1 (moba básico) | Entrada solo con **cuenta nivel 400 + Master Skill activo**; al entrar: **arma básica por clase** sin equipo, **Master Tree a vacío / Master Level 1**, **loadout de 4–6 skills activas** de las ya desbloqueadas a 400. Progresión: Master Level 1→~30 (**5 MP/nivel**), Master EXP por mobs/kills/objetivos. **Oro de partida** (separado del Zen) por farmeo *last-hit*, subir de Master Level, kills, **shutdown gold** y **renta pasiva mayor para el que pierde**. **Tienda sin requisito de nivel**, **3 tiers** con precio por **fórmula de stats totales**, **buffs se compran con oro** (no van en el loadout), ítems **instance-bound**. Al salir se descarta todo lo de la partida. **Respawn escala con la duración** del match. Formato **5v5** en **instancias simultáneas** del mapa #200. | 2026-08-29 |
+| 5 | Entrada y matchmaking de la Fase 1 | **NPC de cola en Lorencia** con 3 opciones: (1) solo, (2) party de 2–4, (3) equipo de 5. Pools: 1+2 se combinan hasta armar equipos de 5 (party siempre junto); 3 es pool aparte, solo 5-preformados vs 5-preformados. **Ready-check** al completar los 10, ventana **10 s**; rechazo/timeout → la partida no arranca, el jugador se reemplaza y recibe **1 advertencia**. **3 advertencias → bloqueo 1 h** (cola y party); reincidencia tras cumplir → bloqueo escala (1 h → 2 h → …); aceptar tras cumplir un bloqueo resetea advertencias a 0. Advertencias/bloqueos persistidos en BD. | 2026-08-29 |
+| 6 | Aislamiento del personaje real durante la partida | **Clon efímero por partida** (Opción B): al entrar se construye un `Character` en memoria copiado del real, nunca atado al `IContext` de persistencia (ningún `SaveChanges` lo escribe); al salir se descarta. El personaje real **jamás se muta**, un crash no puede corromper la cuenta. | 2026-08-29 |
 
 ### Notas de diseño relacionadas
 
