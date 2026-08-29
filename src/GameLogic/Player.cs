@@ -824,6 +824,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public ValueTask WarpToSafezoneAsync() => this._mapTransitions.WarpToSafezoneAsync();
 
     /// <summary>
+    /// Removes the player from the map it is currently on, if any, and clears
+    /// <see cref="CurrentMap"/>. Used by the MOBA game mode when swapping the
+    /// selected character mid-session, so no ghost object is left on the map.
+    /// </summary>
+    public ValueTask RemoveFromCurrentMapAsync() => this._mapTransitions.RemoveFromCurrentMapAsync();
+
+    /// <summary>
     /// Respawns the player to the specified gate.
     /// </summary>
     /// <param name="gate">The gate at which the player should be respawned.</param>

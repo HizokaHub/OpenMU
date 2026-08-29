@@ -54,6 +54,7 @@ public class MobaLeaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
 
         var clone = player.SelectedCharacter;
 
+        await player.RemoveFromCurrentMapAsync().ConfigureAwait(false);
         await player.SetSelectedCharacterAsync(null).ConfigureAwait(false);
 
         if (clone is not null && !ReferenceEquals(clone, real))

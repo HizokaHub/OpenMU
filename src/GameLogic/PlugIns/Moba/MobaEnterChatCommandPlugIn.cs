@@ -64,6 +64,7 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
         player.MobaRealCharacter = real;
         player.SuppressPersistence = true;
 
+        await player.RemoveFromCurrentMapAsync().ConfigureAwait(false);
         await player.SetSelectedCharacterAsync(null).ConfigureAwait(false);
         await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
         await player.WarpToAsync(exitGate).ConfigureAwait(false);
