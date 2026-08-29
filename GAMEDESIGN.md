@@ -227,11 +227,30 @@ Fuentes de oro:
 - El **tiempo de respawn tras morir** escala con el **tiempo transcurrido de
   partida** (mecánica estándar anti-snowball).
 
+### Sistema anti-AFK / desconexión
+
+Cuando un personaje (el clon del jugador) queda **sin uso** — sin input del
+dueño, ya sea porque se desconectó o porque lo dejó quieto ("soltado") — se
+aplican dos etapas **escalonadas**, no simultáneas:
+
+1. **A los 15 s sin uso** → el personaje queda **disponible para que cualquier
+   aliado lo tome**. El primer input de un compañero gana el control (regla
+   "el primer input gana"). El personaje sigue en el lugar donde quedó.
+2. **Si pasan 5 s más sin uso (20 s totales)** → recién ahí el personaje se
+   **auto-retorna a la base del equipo** (recall automático a la zona segura de
+   spawn).
+
+El retraso extra entre las dos etapas es deliberado: le da al dueño original una
+ventana para **reconectarse y retomar el personaje en el punto donde quedó**,
+antes de que el servidor ya lo haya movido a base.
+
 ### Pendiente de definir en desarrollo (no bloqueante para empezar)
 
 - Balance específico de **daño / cooldown por clase** para este modo.
 - **Distribución exacta de puntos** STR/AGI/VIT/ENE/CMD del baseline por clase.
-- Sistema **anti-AFK / abandono** de partida.
+- Detalles finos del anti-AFK: qué cuenta exactamente como "uso" (mover, atacar,
+  castear), si el takeover por un aliado es exclusivo o cooperativo, y qué pasa
+  al reconectar si un aliado ya tomó el personaje.
 - Si se **restringe o no** tener clases duplicadas en el mismo equipo.
 
 ---
