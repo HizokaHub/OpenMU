@@ -68,10 +68,34 @@ hacia un **MOBA completo** si el resultado funciona bien.
 
 ---
 
+## Arquitectura de mapa — decidido: mapa dedicado + instancias
+
+El MOBA **no corre sobre el mapa público de Crywolf (34)**. Se crea un mapa
+propio, número alto para no chocar nunca con un mapa oficial de OpenMU
+(**mapa 200 = "Arena MOBA"**, provisional):
+
+- **Servidor (OpenMU):** nuevo `GameMapDefinition` #200 cuyo `TerrainData` es
+  una copia del de Crywolf (34) — o una versión ya acordonada. A ese mapa se le
+  enganchan **solo** los plugins del MOBA (oleadas, torretas, límites de arena,
+  estado de partida, timer, equipos, tienda). El Crywolf real (mapa 34) queda
+  **intacto**, con su evento nativo.
+- **Instancias:** cada partida MOBA es una **instancia aislada** del mapa 200
+  (mismo modelo que Blood Castle / Chaos Castle / Devil Square). Estado propio
+  por instancia; varias partidas en paralelo sin interferencia. OpenMU ya trae
+  la infraestructura de instancias.
+- **Cliente (MuMain):** el cliente carga `Data/World<N>/`. Se resuelve con un
+  **alias en MuMain**: `WorldActive == 200` → cargar los assets de `World34`
+  (evita duplicar la carpeta de assets; MuMain es nuestro). Alternativa simple:
+  copiar `Data/World34/` → `Data/World200/`.
+- Esto es también el **primer ladrillo de la Fase 3** (multi-mapa + instancias).
+  Para una sola arena no hace falta sincronizar estado entre instancias todavía.
+
+---
+
 ## Fase 1 — ARAM básico (prioridad actual)
 
-- **Un solo mapa** reciclado de Season 6 (a definir cuál; forma
-  alargada / angosta preferible), acordonado como arena.
+- **Un solo mapa dedicado** (mapa 200, ver *Arquitectura de mapa*): copia del
+  terreno de Crywolf, acordonado como arena vía plugin de borde.
 - **Cooldowns y daño de skills editables** vía configuración / código para
   balancear el modo.
 - Los personajes **empiezan en nivel 100** (temporal, dentro de la instancia),
@@ -126,7 +150,8 @@ hacia un **MOBA completo** si el resultado funciona bien.
 
 Aún **no se ha cerrado el alcance exacto de la Fase 1**:
 
-- Qué mapa de S6 reciclar.
+- ~~Qué mapa de S6 reciclar.~~ → Cerrado: mapa dedicado #200 con terreno de
+  Crywolf (34), como instancia. Ver *Arquitectura de mapa*.
 - Valores exactos de nivel / daño / cooldown.
 - Diseño de la tienda (moneda, catálogo, precios, cómo se gana la moneda).
 
@@ -137,6 +162,8 @@ Antes de empezar a programar, se cierran estas decisiones **una por una**.
 | # | Decisión | Valor acordado | Fecha |
 |---|----------|----------------|-------|
 | 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables (F9/F10/F11, `config.ini [Camera] Zoom`). Trae su propio `Data\` completo (~739 MB, World1–82 salvo 30/33/37) — no requiere fusionar assets del cliente retail. Instalado y compilado OK. | 2026-08-28 |
+| 2 | Mapa de la arena MOBA | **Mapa dedicado #200** (número provisional), `TerrainData` = copia de Crywolf (34), corrido como **instancia** por partida. Crywolf real (34) intacto. Cliente: alias en MuMain `World200 → assets de World34`. | 2026-08-28 |
+| 3 | Cliente MOBA — features de UI/cámara ya implementadas en MuMain (rama `moba-camera`, fork HizokaHub/MuMain) | Cámara MOBA (F9, edge-pan con foco de mundo, zoom de rueda 0.7×–1.8×, `Y` snap/follow, F11 reset), walk-to-far-click + chase de click derecho, mapa de Tab completo, y **minimapa fijo estilo LoL en Crywolf** (esquina inferior derecha). Falta: apuntar todo esto al mapa #200 en vez de al 34. | 2026-08-28 |
 
 ### Notas de diseño relacionadas
 
