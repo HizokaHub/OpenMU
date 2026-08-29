@@ -92,21 +92,82 @@ propio, número alto para no chocar nunca con un mapa oficial de OpenMU
 
 ---
 
-## Fase 1 — ARAM básico (prioridad actual)
+## Fase 1 — moba básico (diseño cerrado, listo para implementar)
 
-- **Un solo mapa dedicado** (mapa 200, ver *Arquitectura de mapa*): copia del
-  terreno de Crywolf, acordonado como arena vía plugin de borde.
-- **Cooldowns y daño de skills editables** vía configuración / código para
-  balancear el modo.
-- Los personajes **empiezan en nivel 100** (temporal, dentro de la instancia),
-  con **snapshot** del personaje real que se **restaura al salir**.
-- **Experiencia acelerada** dentro de la partida para subir de nivel y escalar
-  el daño de las skills.
-- **Reducción de cooldown por nivel** dentro de la partida (regla custom, no
-  nativa de MU).
-- **Tienda de ítems**: moneda de partida **separada del Zen normal**, catálogo
-  de ítems reescalados o custom, vendida vía **NPC vendedor** (reutilizando el
-  sistema de NPC vendedor existente).
+Arena: **mapa dedicado #200** (ver *Arquitectura de mapa*), corrido como
+**instancia por partida**. Formato objetivo **5v5**; con demanda para varios
+equipos se abren **varias instancias simultáneas** del mismo mapa, cada una con
+sus propios jugadores (modelo Blood Castle / Devil Square).
+
+### Elegibilidad
+
+- Solo personajes con **nivel de cuenta real = 400** pueden entrar a la partida
+  (no se admite nivel inferior), y con **Master Skill activo**.
+
+### Al entrar a la partida (setup automático)
+
+- **Inventario real** del jugador → se guarda como **snapshot temporal**.
+- Se le entrega solo un **arma básica acorde a su clase** (ej. espada básica para
+  Dark Knight, staff básico para Dark Wizard) — **sin armadura, alas ni
+  accesorios**.
+- **Árbol de Master Skill Tree** → se **resetea a vacío**, **Master Level vuelve
+  a 1** (temporal, solo dentro de la instancia).
+- El jugador elige un **loadout de 4 a 6 skills activas** (excluyendo buffs) de
+  entre todas las que su clase ya tenía **desbloqueadas a nivel 400** en su
+  progreso real.
+
+### Progresión dentro de la partida
+
+- **Master Level** sube de 1 hasta **~30** durante el match (ganando **5 Master
+  Point por Master Level**).
+- **No** se espera ni se busca completar el árbol de Master Skill Tree en una
+  partida — la idea es que cada match resulte en una **build parcial /
+  estratégica** distinta.
+- **Master EXP** se gana matando **mobs de oleada**, **jugadores rivales**, y por
+  **objetivos** (torretas / base, cuando lleguemos a Fase 2).
+
+### Economía (oro de partida, separado del Zen del servidor)
+
+Fuentes de oro:
+
+- **Farmeo de mobs / oleadas** (recompensa individual, tipo *last hit* de LoL).
+- Cada vez que **sube de Master Level** (recompensa de progresión general).
+- **Bono por matar a un jugador rival.**
+- **Shutdown gold**: bono extra por matar a un rival que viene en **racha de
+  kills** (mecánica anti-snowball).
+- **Ingreso pasivo de oro por tiempo** transcurrido, **mayor para el equipo que
+  va perdiendo** (anti-snowball adicional).
+
+### Tienda de ítems
+
+- **Sin requisito de nivel** — todo se desbloquea solo con **oro de partida**.
+- **3 tiers de precio**: Tier 1 (barato, stats bajos-medios), Tier 2 (medio, con
+  opciones / excelente), Tier 3 (caro, ítems raros / ancestrales o custom).
+  Precio calculado con una **fórmula proporcional al total de stats** del ítem,
+  no asignado a mano ítem por ítem.
+- Los **buffs** (defensa, ataque, etc.) se compran en la tienda con oro; **NO**
+  forman parte del loadout de skills elegido al inicio.
+- Todos los ítems comprados en partida son **instance-bound** (se pierden al
+  salir, no se transfieren al inventario real del servidor).
+
+### Al salir de la partida (cleanup automático)
+
+- Se **restaura el inventario real** guardado al entrar.
+- Se **restauran el árbol de Master Skill Tree y el Master Level reales**, tal
+  como estaban antes de entrar.
+- Todo el **oro, ítems comprados y progreso de Master Level** ganado en la
+  partida se **descarta**.
+
+### Duración y timers
+
+- El **tiempo de respawn tras morir** escala con la **duración de la partida**
+  (mecánica estándar anti-snowball).
+
+### Pendiente de definir en desarrollo (no bloqueante para empezar)
+
+- Balance específico de **daño / cooldown por clase** para este modo.
+- Sistema **anti-AFK / abandono** de partida.
+- Si se **restringe o no** tener clases duplicadas en el mismo equipo.
 
 ---
 
@@ -146,16 +207,12 @@ propio, número alto para no chocar nunca con un mapa oficial de OpenMU
 
 ---
 
-## Decisión pendiente
+## Decisiones cerradas
 
-Aún **no se ha cerrado el alcance exacto de la Fase 1**:
-
-- ~~Qué mapa de S6 reciclar.~~ → Cerrado: mapa dedicado #200 con terreno de
-  Crywolf (34), como instancia. Ver *Arquitectura de mapa*.
-- Valores exactos de nivel / daño / cooldown.
-- Diseño de la tienda (moneda, catálogo, precios, cómo se gana la moneda).
-
-Antes de empezar a programar, se cierran estas decisiones **una por una**.
+El **alcance de la Fase 1 está cerrado** (ver *Fase 1 — moba básico*). Lo que
+queda abierto es balance fino y anti-abuso, listado en *Pendiente de definir en
+desarrollo* dentro de esa misma sección — nada de eso bloquea empezar a
+programar.
 
 ### Registro de decisiones cerradas
 
@@ -164,6 +221,7 @@ Antes de empezar a programar, se cierran estas decisiones **una por una**.
 | 1 | Cliente base para el desarrollo del modo | **MuMain** (open source, C++/OpenGL + red .NET 10). Conexión por puerto 44406. Cámara/zoom configurables (F9/F10/F11, `config.ini [Camera] Zoom`). Trae su propio `Data\` completo (~739 MB, World1–82 salvo 30/33/37) — no requiere fusionar assets del cliente retail. Instalado y compilado OK. | 2026-08-28 |
 | 2 | Mapa de la arena MOBA | **Mapa dedicado #200** (número provisional), `TerrainData` = copia de Crywolf (34), corrido como **instancia** por partida. Crywolf real (34) intacto. Cliente: alias en MuMain `World200 → assets de World34`. | 2026-08-28 |
 | 3 | Cliente MOBA — features de UI/cámara ya implementadas en MuMain (rama `moba-camera`, fork HizokaHub/MuMain) | Cámara MOBA (F9, edge-pan con foco de mundo, zoom de rueda 0.7×–1.8×, `Y` snap/follow, F11 reset), walk-to-far-click + chase de click derecho, mapa de Tab completo, y **minimapa fijo estilo LoL en Crywolf** (esquina inferior derecha). Falta: apuntar todo esto al mapa #200 en vez de al 34. | 2026-08-28 |
+| 4 | Alcance completo de la Fase 1 (moba básico) | Entrada solo con **cuenta nivel 400 + Master Skill activo**; al entrar: snapshot de inventario, **arma básica por clase** sin equipo, **Master Tree a vacío / Master Level 1**, **loadout de 4–6 skills activas** de las ya desbloqueadas a 400. Progresión: Master Level 1→~30 (**5 MP/nivel**), Master EXP por mobs/kills/objetivos. **Oro de partida** (separado del Zen) por farmeo *last-hit*, subir de Master Level, kills, **shutdown gold** y **renta pasiva mayor para el que pierde**. **Tienda sin requisito de nivel**, **3 tiers** con precio por **fórmula de stats totales**, **buffs se compran con oro** (no van en el loadout), ítems **instance-bound**. Al salir: restaurar inventario + Master Tree/Level reales, descartar oro/ítems/Master Level de la partida. **Respawn escala con la duración** del match. Formato **5v5** en **instancias simultáneas** del mapa #200. | 2026-08-29 |
 
 ### Notas de diseño relacionadas
 
