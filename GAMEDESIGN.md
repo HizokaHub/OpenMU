@@ -164,15 +164,29 @@ toca en ningún momento. Sobre el clon se aplica:
   entre todas las que su clase ya tenía **desbloqueadas a nivel 400** en su
   progreso real.
 
+### Fin de partida / victoria
+
+- Se gana **destruyendo el nexo del equipo rival** (estructura con HP; reutiliza
+  la lógica de **puertas de Castle Siege**, ver *Fase 2 — Base enemiga*).
+- **Duración indefinida**: no hay timer, la partida dura hasta que cae un nexo.
+- *Provisional para desarrollo:* mientras la estructura del nexo no exista, el
+  match se corta con un **comando de GM** (`/mobaend <equipo>`) o un tope de
+  kills configurable. No bloquea el bloque 1.
+
 ### Progresión dentro de la partida
 
-- **Master Level** sube de 1 hasta **~30** durante el match (ganando **5 Master
-  Point por Master Level**).
+- **Master Level** sube de 1 hasta **~30** (tope práctico) durante el match,
+  ganando **5 Master Point por Master Level**.
+- **Objetivo de ritmo:** un jugador con buen desempeño (kills + *last hit* de
+  mobs + objetivos) llega a **~ML 30 en el minuto 30–40**. Un jugador flojo
+  llega bastante menos. La curva de **Master EXP** (valor por kill, por last-hit,
+  por objetivo, y EXP requerida por nivel) es **config afinable** y se calibra
+  jugando.
 - **No** se espera ni se busca completar el árbol de Master Skill Tree en una
   partida — la idea es que cada match resulte en una **build parcial /
   estratégica** distinta.
 - **Master EXP** se gana matando **mobs de oleada**, **jugadores rivales**, y por
-  **objetivos** (torretas / base, cuando lleguemos a Fase 2).
+  **objetivos** (torretas / nexo, cuando lleguemos a Fase 2).
 
 ### Economía (oro de partida, separado del Zen del servidor)
 
@@ -208,8 +222,10 @@ Fuentes de oro:
 
 ### Duración y timers
 
-- El **tiempo de respawn tras morir** escala con la **duración de la partida**
-  (mecánica estándar anti-snowball).
+- La partida es de **duración indefinida** (termina al caer un nexo, ver *Fin de
+  partida*).
+- El **tiempo de respawn tras morir** escala con el **tiempo transcurrido de
+  partida** (mecánica estándar anti-snowball).
 
 ### Pendiente de definir en desarrollo (no bloqueante para empezar)
 
@@ -273,6 +289,7 @@ programar.
 | 4 | Alcance completo de la Fase 1 (moba básico) | Entrada solo con **cuenta nivel 400 + Master Skill activo**; al entrar: **arma básica por clase** sin equipo, **Master Tree a vacío / Master Level 1**, **loadout de 4–6 skills activas** de las ya desbloqueadas a 400. Progresión: Master Level 1→~30 (**5 MP/nivel**), Master EXP por mobs/kills/objetivos. **Oro de partida** (separado del Zen) por farmeo *last-hit*, subir de Master Level, kills, **shutdown gold** y **renta pasiva mayor para el que pierde**. **Tienda sin requisito de nivel**, **3 tiers** con precio por **fórmula de stats totales**, **buffs se compran con oro** (no van en el loadout), ítems **instance-bound**. Al salir se descarta todo lo de la partida. **Respawn escala con la duración** del match. Formato **5v5** en **instancias simultáneas** del mapa #200. | 2026-08-29 |
 | 5 | Entrada y matchmaking de la Fase 1 | **NPC de cola en Lorencia** con 3 opciones: (1) solo, (2) party de 2–4, (3) equipo de 5. Pools: 1+2 se combinan hasta armar equipos de 5 (party siempre junto); 3 es pool aparte, solo 5-preformados vs 5-preformados. **Ready-check** al completar los 10, ventana **10 s**; rechazo/timeout → la partida no arranca, el jugador se reemplaza y recibe **1 advertencia**. **3 advertencias → bloqueo 1 h** (cola y party); reincidencia tras cumplir → bloqueo escala (1 h → 2 h → …); aceptar tras cumplir un bloqueo resetea advertencias a 0. Advertencias/bloqueos persistidos en BD. | 2026-08-29 |
 | 6 | Aislamiento del personaje real durante la partida | **Clon efímero por partida** (Opción B): al entrar se construye un `Character` en memoria copiado del real, nunca atado al `IContext` de persistencia (ningún `SaveChanges` lo escribe); al salir se descarta. El personaje real **jamás se muta**, un crash no puede corromper la cuenta. | 2026-08-29 |
+| 7 | Condición de victoria de la Fase 1 | Se gana **destruyendo el nexo rival** (estructura con HP, lógica de puertas de Castle Siege). **Sin timer**, duración indefinida. Ritmo de progresión objetivo: **~Master Level 30 en el minuto 30–40** para un jugador con buen desempeño; curva de Master EXP (kill / last-hit / objetivo / EXP por nivel) queda como **config afinable**. Provisional en dev hasta tener la estructura: corte por comando de GM o tope de kills. | 2026-08-29 |
 
 ### Notas de diseño relacionadas
 
