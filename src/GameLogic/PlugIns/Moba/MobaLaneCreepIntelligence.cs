@@ -36,8 +36,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
     private const int AcquisitionRangeBonus = 6;
 
-    /// <summary>How far the creep will chase a target from where it picked it up before giving up.</summary>
+    /// <summary>How far off its lane the creep will stray chasing a target before giving up.</summary>
     private const double ChaseLeashTiles = 10;
+
+    /// <summary>The creep is considered "back on its lane" once this close to it.</summary>
+    private const double BackOnLaneTiles = 3;
 
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(150);
 
@@ -57,7 +60,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private IAttackable? _combatTarget;
 
-    private Point _chaseAnchor;
+    private bool _returningToLane;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
@@ -150,21 +153,33 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         var pos = monster.Position;
         var attackRange = monster.Definition.AttackRange;
         var acquisitionRange = attackRange + AcquisitionRangeBonus;
+        var distanceToLane = this.DistanceToLane(pos);
 
-        // Drop an invalid / leashed / lost target.
+        // Strayed too far chasing: drop the target and head back to the lane, ignoring
+        // enemies until we're back on it.
+        if (distanceToLane > ChaseLeashTiles)
+        {
+            this._combatTarget = null;
+            this._returningToLane = true;
+        }
+        else if (this._returningToLane && distanceToLane <= BackOnLaneTiles)
+        {
+            this._returningToLane = false;
+        }
+
+        // Drop an invalid / out-of-range target.
         if (this._combatTarget is { } current
-            && (!current.IsActive()
-                || current.GetDistanceTo(pos) > acquisitionRange
-                || pos.EuclideanDistanceTo(this._chaseAnchor) > ChaseLeashTiles))
+            && (!current.IsActive() || current.GetDistanceTo(pos) > acquisitionRange))
         {
             this._combatTarget = null;
         }
 
-        // Acquire a new target if we have none.
-        if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
+        // Acquire a new target if we have none (and we're not walking back to the lane).
+        if (this._combatTarget is null
+            && !this._returningToLane
+            && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
         {
             this._combatTarget = acquired;
-            this._chaseAnchor = pos;
         }
 
         if (this._combatTarget is { } target)
@@ -181,7 +196,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return;
         }
 
-        // No target: march the lane.
+        // No target: march the lane (also the path back to it when returning).
         await this.MarchAsync(pos).ConfigureAwait(false);
     }
 
@@ -222,6 +237,36 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     // Structures (turrets / nexus) are a later W-topic; nothing is a structure yet.
     private static bool IsStructure(Monster monster) => false;
+
+    /// <summary>Shortest distance (tiles) from a point to this creep's lane polyline.</summary>
+    private double DistanceToLane(Point p)
+    {
+        if (this._waypoints.Count == 1)
+        {
+            return this._waypoints[0].EuclideanDistanceTo(p);
+        }
+
+        var best = double.MaxValue;
+        for (var i = 0; i < this._waypoints.Count - 1; i++)
+        {
+            best = Math.Min(best, DistanceToSegment(p, this._waypoints[i], this._waypoints[i + 1]));
+        }
+
+        return best;
+    }
+
+    private static double DistanceToSegment(Point p, Point a, Point b)
+    {
+        double ax = a.X, ay = a.Y, bx = b.X, by = b.Y, px = p.X, py = p.Y;
+        var dx = bx - ax;
+        var dy = by - ay;
+        var lenSq = (dx * dx) + (dy * dy);
+        var t = lenSq <= 0 ? 0 : (((px - ax) * dx) + ((py - ay) * dy)) / lenSq;
+        t = Math.Clamp(t, 0, 1);
+        var cx = ax + (t * dx);
+        var cy = ay + (t * dy);
+        return Math.Sqrt(((px - cx) * (px - cx)) + ((py - cy) * (py - cy)));
+    }
 
     private async ValueTask MarchAsync(Point pos)
     {
