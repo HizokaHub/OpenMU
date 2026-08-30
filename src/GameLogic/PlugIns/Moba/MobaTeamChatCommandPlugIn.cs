@@ -28,7 +28,7 @@ public class MobaTeamChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     public override string Key => Command;
 
     /// <inheritdoc />
-    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
+    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
 
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaTeamChatCommandArgs arguments)
