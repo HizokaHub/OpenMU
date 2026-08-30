@@ -30,14 +30,21 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     private const string Command = "/mobawave";
 
     /// <summary>
-    /// The wave composition: monster definition number and how many of it. Small,
-    /// low-level S6 mobs so they read as "creeps".
+    /// The wave composition, front rank first. Each entry is spawned as a horizontal
+    /// line; ranks are stacked a few tiles behind each other. Small, low-level S6 mobs
+    /// so they read as "creeps".
     /// </summary>
     private static readonly (short Number, int Count)[] WaveComposition =
     {
-        (3, 3),  // Spider - small melee
-        (15, 3), // Skeleton Archer - small ranged (AttackRange 5)
+        (3, 3), // Spider - small melee (front)
+        (2, 3), // Budge Dragon - small dragon (back). Gets a ranged fire skill in W2.
     };
+
+    /// <summary>Horizontal spacing (tiles) between creeps in a rank.</summary>
+    private const int RankSpacingX = 4;
+
+    /// <summary>Distance (tiles) between successive ranks, measured back from the lane start.</summary>
+    private const int RankGapY = 4;
 
     /// <summary>
     /// Ordered lane waypoints. Placeholder straight lane down column x=120, which is a
@@ -67,7 +74,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
         }
 
         var spawn = LaneWaypoints[0];
-        var index = 0;
+        var rank = 0;
         var total = 0;
         foreach (var (number, count) in WaveComposition)
         {
@@ -78,10 +85,13 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
                 continue;
             }
 
-            for (var i = 0; i < count; i++, index++)
+            var rankY = (byte)(spawn.Y - (rank * RankGapY));
+            var lineWidth = (count - 1) * RankSpacingX;
+            for (var i = 0; i < count; i++)
             {
-                // Stagger the creeps in a column behind the lane start, along the clear corridor.
-                var startPoint = new Point(spawn.X, (byte)(spawn.Y - index));
+                // Horizontal line, centred on the lane start x.
+                var startX = spawn.X - (lineWidth / 2) + (i * RankSpacingX);
+                var startPoint = new Point((byte)Math.Clamp(startX, 0, 255), rankY);
                 var area = new MonsterSpawnArea
                 {
                     GameMap = map.Definition,
@@ -108,6 +118,8 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
                 monster.OnSpawn();
                 total++;
             }
+
+            rank++;
         }
 
         await player.ShowBlueMessageAsync($"[MOBA] Spawned a lane wave of {total} creeps on '{map.Definition.Name}'.").ConfigureAwait(false);

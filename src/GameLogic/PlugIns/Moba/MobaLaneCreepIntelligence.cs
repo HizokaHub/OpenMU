@@ -31,9 +31,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// Maximum tiles per walk request on any axis. Kept below the scoped grid network's
     /// 16-tile segment limit.
     /// </summary>
-    private const int MaxHopTiles = 15;
+    private const int MaxHopTiles = 10;
 
-    private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(50);
 
     private readonly IReadOnlyList<Point> _waypoints;
 
