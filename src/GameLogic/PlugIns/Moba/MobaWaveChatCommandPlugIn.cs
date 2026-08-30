@@ -30,11 +30,14 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     private const string Command = "/mobawave";
 
     /// <summary>
-    /// Monster definition number used for the creep (Hammer Scout - a humanoid that ships with S6).
+    /// The wave composition: monster definition number and how many of it. Small,
+    /// low-level S6 mobs so they read as "creeps".
     /// </summary>
-    private const short CreepMonsterNumber = 310;
-
-    private const int CreepsPerWave = 5;
+    private static readonly (short Number, int Count)[] WaveComposition =
+    {
+        (3, 3),   // Spider
+        (419, 3), // Polluted Butterfly
+    };
 
     /// <summary>
     /// Ordered lane waypoints. Placeholder straight lane down column x=120, which is a
@@ -63,44 +66,50 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
             return;
         }
 
-        var creepDefinition = player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == CreepMonsterNumber);
-        if (creepDefinition is null)
-        {
-            await player.ShowBlueMessageAsync($"[MOBA] Creep monster #{CreepMonsterNumber} is not configured.").ConfigureAwait(false);
-            return;
-        }
-
         var spawn = LaneWaypoints[0];
-        for (var i = 0; i < CreepsPerWave; i++)
+        var index = 0;
+        var total = 0;
+        foreach (var (number, count) in WaveComposition)
         {
-            // Stagger the creeps in a column behind the lane start, along the clear corridor.
-            var startPoint = new Point(spawn.X, (byte)(spawn.Y - i));
-            var area = new MonsterSpawnArea
+            var definition = player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
+            if (definition is null)
             {
-                GameMap = map.Definition,
-                MonsterDefinition = creepDefinition,
-                SpawnTrigger = SpawnTrigger.OnceAtEventStart,
-                Quantity = 1,
-                X1 = startPoint.X,
-                X2 = startPoint.X,
-                Y1 = startPoint.Y,
-                Y2 = startPoint.Y,
-            };
+                await player.ShowBlueMessageAsync($"[MOBA] Monster #{number} is not configured.").ConfigureAwait(false);
+                continue;
+            }
 
-            var monster = new Monster(
-                area,
-                creepDefinition,
-                map,
-                player.GameContext.DropGenerator,
-                new MobaLaneCreepIntelligence(LaneWaypoints),
-                player.GameContext.PlugInManager,
-                player.GameContext.PathFinderPool);
+            for (var i = 0; i < count; i++, index++)
+            {
+                // Stagger the creeps in a column behind the lane start, along the clear corridor.
+                var startPoint = new Point(spawn.X, (byte)(spawn.Y - index));
+                var area = new MonsterSpawnArea
+                {
+                    GameMap = map.Definition,
+                    MonsterDefinition = definition,
+                    SpawnTrigger = SpawnTrigger.OnceAtEventStart,
+                    Quantity = 1,
+                    X1 = startPoint.X,
+                    X2 = startPoint.X,
+                    Y1 = startPoint.Y,
+                    Y2 = startPoint.Y,
+                };
 
-            monster.Initialize();
-            await map.AddAsync(monster).ConfigureAwait(false);
-            monster.OnSpawn();
+                var monster = new Monster(
+                    area,
+                    definition,
+                    map,
+                    player.GameContext.DropGenerator,
+                    new MobaLaneCreepIntelligence(LaneWaypoints),
+                    player.GameContext.PlugInManager,
+                    player.GameContext.PathFinderPool);
+
+                monster.Initialize();
+                await map.AddAsync(monster).ConfigureAwait(false);
+                monster.OnSpawn();
+                total++;
+            }
         }
 
-        await player.ShowBlueMessageAsync($"[MOBA] Spawned a lane wave of {CreepsPerWave} creeps on '{map.Definition.Name}'.").ConfigureAwait(false);
+        await player.ShowBlueMessageAsync($"[MOBA] Spawned a lane wave of {total} creeps on '{map.Definition.Name}'.").ConfigureAwait(false);
     }
 }
