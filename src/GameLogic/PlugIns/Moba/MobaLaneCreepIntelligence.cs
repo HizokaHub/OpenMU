@@ -251,10 +251,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
 
         var inRange = map.GetAttackablesInRange(pos, range).Where(a => a.IsActive()).ToList();
+
+        // #1 fires on a champion damaging an ALLY (champ or creep) - not this creep
+        // itself (that is the lower-tier reactive #6). So a champion that only pokes a
+        // single creep still makes the *rest* of the wave swarm it, but not by hitting
+        // the creep that reacts.
         var allyVictims = inRange
             .Where(a => !ReferenceEquals(a, self) && MobaTeams.AreAllies(self, a))
             .Cast<object>()
-            .Append(self)
             .ToList();
 
         return inRange
