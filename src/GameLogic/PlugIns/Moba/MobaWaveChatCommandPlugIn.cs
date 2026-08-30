@@ -39,7 +39,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     private const float CreepHpMultiplier = 150f;
 
     /// <summary>Absolute minimum HP for a wave creep, regardless of the base mob.</summary>
-    private const float CreepHpFloor = 4000f;
+    private const float CreepHpFloor = 8000f;
 
     /// <summary>
     /// The wave composition, front rank first. Each entry is spawned as a horizontal
@@ -103,12 +103,17 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
                 continue;
             }
 
-            // Per-match copy with boosted HP; the shared config stays untouched.
+            // Per-match copy of the definition (kept for future per-match tweaks like a
+            // fireball skill). NOTE: MonsterDefinition.Clone re-links each MonsterAttribute
+            // to the SHARED config instance (AssignCollection matches by Id), so mutating
+            // definition.Attributes[...] would corrupt the real Lorencia mobs. Instead we
+            // boost HP per-spawn via MonsterSpawnArea.MaximumHealthOverride, which
+            // AttackableNpcBase.Initialize applies directly to Health (same mechanism
+            // PlayerSummon uses).
             var definition = baseDefinition.Clone(player.GameContext.Configuration);
-            if (definition.Attributes.FirstOrDefault(a => a.AttributeDefinition?.Id == Stats.MaximumHealth.Id) is { } hpAttr)
-            {
-                hpAttr.Value = Math.Max(hpAttr.Value * CreepHpMultiplier, CreepHpFloor);
-            }
+            var baseHp = baseDefinition.Attributes
+                .FirstOrDefault(a => a.AttributeDefinition?.Id == Stats.MaximumHealth.Id)?.Value ?? 0f;
+            var creepHp = (int)Math.Max(baseHp * CreepHpMultiplier, CreepHpFloor);
 
             var rankY = (byte)Math.Clamp(spawn.Y + (rank * behindStep), 0, 255);
             var lineWidth = (count - 1) * RankSpacingX;
@@ -132,6 +137,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
                     X2 = startPoint.X,
                     Y1 = startPoint.Y,
                     Y2 = startPoint.Y,
+                    MaximumHealthOverride = creepHp,
                 };
 
                 var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
