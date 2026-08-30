@@ -237,10 +237,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// #1 of the LoL priority: an enemy champion that has damaged any of this creep's
-    /// allies (champions or creeps) in the last <see cref="ChampAggroWindow"/> within
-    /// acquisition range. This is a force-switch interrupt (unless the creep is locked
-    /// on a structure). Returns null if no such champion.
+    /// #1 of the LoL priority: an enemy champion involved in champion-vs-champion combat
+    /// with one of this creep's allied champions in the last <see cref="ChampAggroWindow"/>
+    /// (either direction - the enemy hit our champ, or our champ hit the enemy). Damage to
+    /// creeps never triggers this: a player may last-hit freely. This is a force-switch
+    /// interrupt (unless the creep is locked on a structure).
     /// </summary>
     private Player? FindChampionAggro(Monster self, Point pos, int range)
     {
@@ -251,19 +252,22 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
 
         var inRange = map.GetAttackablesInRange(pos, range).Where(a => a.IsActive()).ToList();
-
-        // #1 fires on a champion damaging an ALLY (champ or creep) - not this creep
-        // itself (that is the lower-tier reactive #6). So a champion that only pokes a
-        // single creep still makes the *rest* of the wave swarm it, but not by hitting
-        // the creep that reacts.
-        var allyVictims = inRange
+        var alliedChampions = inRange
             .Where(a => !ReferenceEquals(a, self) && MobaTeams.AreAllies(self, a))
+            .OfType<Player>()
             .Cast<object>()
             .ToList();
 
+        if (alliedChampions.Count == 0)
+        {
+            return null;
+        }
+
         return inRange
             .OfType<Player>()
-            .Where(c => MobaTeams.AreEnemies(self, c) && MobaCombatLog.HitAnyOf(c, allyVictims, ChampAggroWindow))
+            .Where(c => MobaTeams.AreEnemies(self, c)
+                && (MobaCombatLog.HitAnyOf(c, alliedChampions, ChampAggroWindow)
+                    || alliedChampions.Any(ac => MobaCombatLog.HitAnyOf(ac, new object[] { c }, ChampAggroWindow))))
             .MinBy(self.GetDistanceTo);
     }
 
@@ -289,6 +293,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         var allyCreeps = inRange.Where(a => MobaTeams.AreAllies(self, a)).OfType<Monster>().Where(m => !IsStructure(m)).Cast<object>().ToList();
         var me = new object[] { self };
 
+        // Reactive rules #2-#4: react to an enemy CREEP attacking an ally / me. Enemy
+        // CHAMPIONS attacking creeps never pull aggro here - only the #1 champ-vs-champ
+        // interrupt or #8 (nothing else in range) makes a creep target a champion, so a
+        // player can last-hit the wave freely.
+
         // #2 enemy creep attacking an allied champion.
         var t = enemyCreeps.Where(c => MobaCombatLog.HitAnyOf(c, allyChampions, ReactWindow)).MinBy(self.GetDistanceTo);
         if (t is not null)
@@ -310,20 +319,6 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return t;
         }
 
-        // #5 enemy champion attacking an allied creep.
-        var p = enemyChampions.Where(c => MobaCombatLog.HitAnyOf(c, allyCreeps, ReactWindow)).MinBy(self.GetDistanceTo);
-        if (p is not null)
-        {
-            return p;
-        }
-
-        // #6 enemy champion attacking me.
-        p = enemyChampions.Where(c => MobaCombatLog.HitAnyOf(c, me, ReactWindow)).MinBy(self.GetDistanceTo);
-        if (p is not null)
-        {
-            return p;
-        }
-
         // #7 nearest enemy creep.
         var creep = enemyCreeps.MinBy(self.GetDistanceTo);
         if (creep is not null)
@@ -331,7 +326,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return creep;
         }
 
-        // #8 nearest enemy champion.
+        // #8 nearest enemy champion (only reached when no enemy creeps in range).
         var champion = enemyChampions.MinBy(self.GetDistanceTo);
         if (champion is not null)
         {

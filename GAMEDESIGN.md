@@ -292,17 +292,22 @@ cuando el creep no tiene objetivo válido). "Está atacando a X" = ese enemigo h
 una acción dañina sobre X en los últimos ~2 s. Todo dentro del rango de
 adquisición.
 
-1. **[INTERRUPCIÓN] Campeón enemigo que hizo daño a un aliado** (campeón o creep)
-   en los últimos **3 s** — evento de aggro temporal, *interrumpe el ataque en
-   curso* (salvo lock de estructura). Al expirar los 3 s, revierte a esta lista.
+1. **[INTERRUPCIÓN] Campeón enemigo en combate campeón-vs-campeón** con un
+   **campeón aliado** del creep en los últimos **3 s**, en cualquier dirección
+   (el enemigo pegó a nuestro campeón, o nuestro campeón le pegó al enemigo).
+   *Interrumpe el ataque en curso* (salvo lock de estructura). Al expirar los 3 s
+   revierte a esta lista. **El daño a creeps NUNCA dispara esto** — un jugador
+   puede hacer *last hit* a la oleada libremente (como en LoL).
 2. **Creep enemigo que está atacando a un campeón aliado.**
 3. **Creep enemigo que está atacando a un creep aliado** (foco de fuego).
 4. **Creep enemigo que me está atacando a mí** (a este creep).
-5. **Campeón enemigo que está atacando a un creep aliado.**
-6. **Campeón enemigo que me está atacando a mí.**
-7. **Creep enemigo más cercano.**
-8. **Campeón enemigo más cercano.**
-9. **Estructura enemiga más cercana** (torreta → nexo).
+5. **Creep enemigo más cercano.**
+6. **Campeón enemigo más cercano** (solo si no hay ningún creep enemigo en rango).
+7. **Estructura enemiga más cercana** (torreta → nexo).
+
+*(No existe "campeón enemigo atacando a un aliado/a mí" como regla propia: en LoL
+un campeón que golpea minions no entra a la tabla de aggro de minions salvo por
+la regla #1 campeón-vs-campeón.)*
 
 **Reglas de estado:**
 
@@ -329,10 +334,10 @@ adquisición.
 - **Cadencia de re-targeting:** la IA re-evalúa su objetivo cada **~250 ms** (no
   cada frame): suficiente para reaccionar sin verse errático ni costar CPU.
 
-**Implementación:** un **registro de eventos de combate por partida** (RAM) anota
-cada golpe `(atacante, víctima, bando, tiempo)` en el mapa; la evaluación de
-prioridad consulta ese registro (ventanas de ~2 s para #2–#6, 3 s para el aggro
-de campeón #1).
+**Implementación:** un **registro de eventos de combate** (RAM, poda 5 s) anota
+cada golpe `(atacante, víctima, tiempo)` entre participantes MOBA; la evaluación
+de prioridad lo consulta (ventana ~2 s para #2–#4, 3 s para el aggro de campeón
+#1).
 
 **Diferido a después de v1** (impacto bajo): leash con invulnerabilidad + boost de
 velocidad en el regreso, tipos de minion (melee / caster / cañón / super), y

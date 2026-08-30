@@ -36,7 +36,10 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     /// the shared config (that would buff the real Lorencia mobs). Real per-class creep
     /// stats come in a later balance pass.
     /// </summary>
-    private const float CreepHpMultiplier = 60f;
+    private const float CreepHpMultiplier = 150f;
+
+    /// <summary>Absolute minimum HP for a wave creep, regardless of the base mob.</summary>
+    private const float CreepHpFloor = 4000f;
 
     /// <summary>
     /// The wave composition, front rank first. Each entry is spawned as a horizontal
@@ -104,7 +107,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
             var definition = baseDefinition.Clone(player.GameContext.Configuration);
             if (definition.Attributes.FirstOrDefault(a => a.AttributeDefinition?.Id == Stats.MaximumHealth.Id) is { } hpAttr)
             {
-                hpAttr.Value *= CreepHpMultiplier;
+                hpAttr.Value = Math.Max(hpAttr.Value * CreepHpMultiplier, CreepHpFloor);
             }
 
             var rankY = (byte)Math.Clamp(spawn.Y + (rank * behindStep), 0, 255);

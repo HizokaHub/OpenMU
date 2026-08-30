@@ -83,10 +83,20 @@ public static class MobaCloneFactory
         clone.MasterLevelUpPoints = 0;
         clone.LevelUpPoints = 0;
 
-        // No inherited items (starter weapon per class is a later topic) and no
-        // inherited skills (the active loadout picker is a later topic).
+        // No inherited items (starter weapon per class is a later topic).
         clone.Inventory = context.CreateNew<ItemStorage>();
         clone.Inventory.Money = 0;
+
+        // Skills: TEST placeholder - copy the real character's learned skills so the
+        // player can cast something. The real flow is the 4-6 active-skill loadout
+        // picker (later topic).
+        foreach (var learned in real.LearnedSkills.Where(s => s.Skill is not null))
+        {
+            var entry = context.CreateNew<SkillEntry>();
+            entry.Skill = learned.Skill;
+            entry.Level = learned.Level;
+            clone.LearnedSkills.Add(entry);
+        }
 
         var arenaMap = await player.GameContext.GetMapAsync(ArenaMapNumber).ConfigureAwait(false);
         clone.CurrentMap = arenaMap?.Definition
