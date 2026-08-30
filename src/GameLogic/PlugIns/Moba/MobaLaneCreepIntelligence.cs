@@ -62,6 +62,10 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private bool _returningToLane;
 
+    private Point _engageAnchor;
+
+    private bool _hasEngageAnchor;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
     /// </summary>
@@ -153,18 +157,35 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         var pos = monster.Position;
         var attackRange = monster.Definition.AttackRange;
         var acquisitionRange = attackRange + AcquisitionRangeBonus;
-        var distanceToLane = this.DistanceToLane(pos);
 
-        // Strayed too far chasing: drop the target and head back to the lane, ignoring
-        // enemies until we're back on it.
-        if (distanceToLane > ChaseLeashTiles)
+        // Returning to the spot where the last fight started: ignore enemies, walk back.
+        if (this._returningToLane)
+        {
+            if (pos.EuclideanDistanceTo(this._engageAnchor) <= BackOnLaneTiles)
+            {
+                this._returningToLane = false;
+                this._hasEngageAnchor = false;
+            }
+            else
+            {
+                if (!monster.IsWalking)
+                {
+                    await this.FeedChunkTowardAsync(pos, this._engageAnchor).ConfigureAwait(false);
+                }
+
+                return;
+            }
+        }
+
+        // Strayed too far from where this engagement started (or off the lane axis):
+        // drop the target and head back.
+        if (this._hasEngageAnchor
+            && (pos.EuclideanDistanceTo(this._engageAnchor) > ChaseLeashTiles
+                || this.DistanceToLane(pos) > ChaseLeashTiles))
         {
             this._combatTarget = null;
             this._returningToLane = true;
-        }
-        else if (this._returningToLane && distanceToLane <= BackOnLaneTiles)
-        {
-            this._returningToLane = false;
+            return;
         }
 
         // Drop an invalid / out-of-range target.
@@ -174,12 +195,16 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             this._combatTarget = null;
         }
 
-        // Acquire a new target if we have none (and we're not walking back to the lane).
+        // Acquire a new target if we have none.
         if (this._combatTarget is null
-            && !this._returningToLane
             && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
         {
             this._combatTarget = acquired;
+            if (!this._hasEngageAnchor)
+            {
+                this._engageAnchor = pos;
+                this._hasEngageAnchor = true;
+            }
         }
 
         if (this._combatTarget is { } target)
@@ -270,6 +295,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private async ValueTask MarchAsync(Point pos)
     {
+        // Marching normally on the lane -> the next engagement gets a fresh anchor.
+        if (this._hasEngageAnchor && this.DistanceToLane(pos) <= BackOnLaneTiles)
+        {
+            this._hasEngageAnchor = false;
+        }
+
         if (this._currentWaypoint >= this._waypoints.Count)
         {
             return;
