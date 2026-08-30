@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel;
+using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 
@@ -120,6 +121,11 @@ public static class MobaCloneFactory
             clone.LearnedSkills.Add(entry);
         }
 
+        // TEST: the test accounts often have no gear / no skills, which makes the clone
+        // unable to attack at all (a bow with no arrows, a caster with no spell). Give it
+        // a working minimum for its class so creep targeting can actually be tested.
+        EnsureUsableLoadout(context, player.GameContext.Configuration, clone, characterClass);
+
         var arenaMap = await player.GameContext.GetMapAsync(ArenaMapNumber).ConfigureAwait(false);
         clone.CurrentMap = arenaMap?.Definition
             ?? player.GameContext.Configuration.Maps.FirstOrDefault(m => m.Number == ArenaMapNumber)
@@ -150,6 +156,97 @@ public static class MobaCloneFactory
         }
 
         context.Detach(clone);
+    }
+
+    /// <summary>Group 4 weapon numbers that are bows (fire arrows); the rest are crossbows (fire bolts).</summary>
+    private static readonly HashSet<short> BowNumbers = new() { 0, 1, 2, 3, 4, 5, 6, 17, 20, 21, 22, 23, 24 };
+
+    private const byte AmmunitionGroup = 4;
+    private const short ArrowsNumber = 15;
+    private const short BoltNumber = 7;
+
+    /// <summary>
+    /// Makes sure the clone can attack for its class: a basic weapon if the hand slots
+    /// are empty, a full ammo stack behind any bow / crossbow, and one class-appropriate
+    /// attack skill if it learned none. All TEST scaffolding until the real class weapon
+    /// + loadout picker exist.
+    /// </summary>
+    private static void EnsureUsableLoadout(Persistence.IContext context, GameConfiguration config, Character clone, CharacterClass characterClass)
+    {
+        var inventory = clone.Inventory ?? throw new InvalidOperationException("Clone has no inventory.");
+        var classNumber = characterClass.Number;
+        var isWizard = classNumber is 0 or 2 or 3;
+        var isElf = classNumber is 8 or 10 or 11;
+        var isSummoner = classNumber is 20 or 22 or 23;
+
+        Item? MakeItem(byte group, short number, byte slot)
+        {
+            var definition = config.Items.FirstOrDefault(d => d.Group == group && d.Number == number);
+            if (definition is null)
+            {
+                return null;
+            }
+
+            var item = context.CreateNew<Item>();
+            item.Definition = definition;
+            item.Durability = definition.Durability;
+            item.Level = 0;
+            item.ItemSlot = slot;
+            inventory.Items.Add(item);
+            return item;
+        }
+
+        var rightHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.RightHandSlot);
+        var leftHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot);
+
+        // No weapon at all -> give the class its stock one.
+        if (rightHand is null && leftHand is null)
+        {
+            rightHand = isWizard || isSummoner
+                ? MakeItem(5, 0, InventoryConstants.RightHandSlot)   // Skull Staff
+                : isElf
+                    ? MakeItem(4, 0, InventoryConstants.RightHandSlot) // Short Bow
+                    : MakeItem(0, 1, InventoryConstants.RightHandSlot); // Short Sword
+        }
+
+        // Bow / crossbow in either hand -> make sure the matching ammo stack is present.
+        var rangedWeapon = new[] { rightHand, leftHand }
+            .FirstOrDefault(i => i?.Definition is { Group: AmmunitionGroup } d && d.Number != ArrowsNumber && d.Number != BoltNumber);
+        if (rangedWeapon?.Definition is { } rangedDef)
+        {
+            var ammoNumber = BowNumbers.Contains((short)rangedDef.Number) ? ArrowsNumber : BoltNumber;
+            var hasAmmo = inventory.Items.Any(i => i.Definition is { Group: AmmunitionGroup } d && (d.Number == ArrowsNumber || d.Number == BoltNumber));
+            if (!hasAmmo)
+            {
+                var ammoSlot = leftHand is null ? InventoryConstants.LeftHandSlot : InventoryConstants.RightHandSlot;
+                if (rangedWeapon.ItemSlot == ammoSlot)
+                {
+                    ammoSlot = ammoSlot == InventoryConstants.LeftHandSlot ? InventoryConstants.RightHandSlot : InventoryConstants.LeftHandSlot;
+                }
+
+                MakeItem(AmmunitionGroup, ammoNumber, ammoSlot);
+            }
+        }
+
+        // No skills learned -> grant one attack skill the class can actually use.
+        if (!clone.LearnedSkills.Any(s => s.Skill is not null))
+        {
+            short defaultSkill = classNumber switch
+            {
+                0 or 2 or 3 => 17,          // Energy Ball (wizards)
+                8 or 10 or 11 => 24,        // Triple Shot (elves)
+                4 or 6 or 7 or 24 or 25 => 19, // Falling Slash (knights, rage fighter)
+                _ => 17,
+            };
+
+            if (config.Skills.FirstOrDefault(s => s.Number == defaultSkill) is { } skill)
+            {
+                var entry = context.CreateNew<SkillEntry>();
+                entry.Skill = skill;
+                entry.Level = 1;
+                clone.LearnedSkills.Add(entry);
+            }
+        }
     }
 
     private static void EnsureAttribute(Persistence.IContext context, Character character, AttributeDefinition definition, float value)

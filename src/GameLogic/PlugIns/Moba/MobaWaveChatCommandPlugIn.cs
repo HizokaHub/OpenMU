@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
+using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
@@ -31,15 +32,23 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     private const string Command = "/mobawave";
 
     /// <summary>
-    /// Placeholder HP multiplier for the wave creeps so fights last long enough to
-    /// observe targeting. Applied to a per-match COPY of the monster definition, never
-    /// the shared config (that would buff the real Lorencia mobs). Real per-class creep
-    /// stats come in a later balance pass.
+    /// Flat combat stats forced onto every wave creep of both teams, per instance (via
+    /// the monster's <see cref="Attributes"/> holder, never the shared config), so a
+    /// blue Spider and a red Butterfly fight on exactly equal terms - only the sprite
+    /// differs. Placeholder numbers; the real per-class creep table comes in the balance
+    /// pass.
     /// </summary>
-    private const float CreepHpMultiplier = 150f;
+    private const float CreepHealth = 3000f;
 
-    /// <summary>Absolute minimum HP for a wave creep, regardless of the base mob.</summary>
-    private const float CreepHpFloor = 8000f;
+    private const float CreepMinDamage = 45f;
+
+    private const float CreepMaxDamage = 60f;
+
+    private const float CreepDefense = 20f;
+
+    private const float CreepAttackRate = 150f;
+
+    private const float CreepDefenseRate = 30f;
 
     /// <summary>
     /// Wave composition per team, front rank first. Each entry is spawned as a
@@ -114,14 +123,10 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
             // Per-match copy of the definition (kept for future per-match tweaks like a
             // fireball skill). NOTE: MonsterDefinition.Clone re-links each MonsterAttribute
             // to the SHARED config instance (AssignCollection matches by Id), so mutating
-            // definition.Attributes[...] would corrupt the real Lorencia mobs. Instead we
-            // boost HP per-spawn via MonsterSpawnArea.MaximumHealthOverride, which
-            // AttackableNpcBase.Initialize applies directly to Health (same mechanism
-            // PlayerSummon uses).
+            // definition.Attributes[...] would corrupt the real Lorencia mobs. Combat stats
+            // are instead forced per-instance below (ForceCreepStats), and starting HP via
+            // MonsterSpawnArea.MaximumHealthOverride (same mechanism PlayerSummon uses).
             var definition = baseDefinition.Clone(player.GameContext.Configuration);
-            var baseHp = baseDefinition.Attributes
-                .FirstOrDefault(a => a.AttributeDefinition?.Id == Stats.MaximumHealth.Id)?.Value ?? 0f;
-            var creepHp = (int)Math.Max(baseHp * CreepHpMultiplier, CreepHpFloor);
 
             var rankY = (byte)Math.Clamp(spawn.Y + (rank * behindStep), 0, 255);
             var lineWidth = (count - 1) * RankSpacingX;
@@ -145,7 +150,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
                     X2 = startPoint.X,
                     Y1 = startPoint.Y,
                     Y2 = startPoint.Y,
-                    MaximumHealthOverride = creepHp,
+                    MaximumHealthOverride = (int)CreepHealth,
                 };
 
                 var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
@@ -159,6 +164,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
                     player.GameContext.PathFinderPool);
 
                 monster.Initialize();
+                ForceCreepStats(monster);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
 
@@ -172,5 +178,26 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
         }
 
         await player.ShowBlueMessageAsync($"[MOBA] Spawned a {team} lane wave of {total} creeps on '{map.Definition.Name}'.").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Forces the flat creep combat stats onto a single spawned monster instance, so
+    /// both teams' creeps fight identically no matter which base mob they use. Works on
+    /// the per-instance <see cref="MonsterAttributeHolder"/> (an added raw element that
+    /// cancels the base value and sets the target), never the shared configuration.
+    /// </summary>
+    private static void ForceCreepStats(Monster monster)
+    {
+        SetAbsolute(monster, Stats.MinimumPhysBaseDmg, CreepMinDamage);
+        SetAbsolute(monster, Stats.MaximumPhysBaseDmg, CreepMaxDamage);
+        SetAbsolute(monster, Stats.DefenseBase, CreepDefense);
+        SetAbsolute(monster, Stats.AttackRatePvm, CreepAttackRate);
+        SetAbsolute(monster, Stats.DefenseRatePvm, CreepDefenseRate);
+
+        static void SetAbsolute(Monster monster, AttributeDefinition stat, float value)
+        {
+            var current = monster.Attributes[stat];
+            monster.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
+        }
     }
 }
