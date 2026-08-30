@@ -260,6 +260,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             this._hasEngageAnchor = true;
         }
 
+        // Anti-stack: if we've come to rest on a tile another unit also holds, step off it
+        // (staying in attack range of the current target when possible).
+        if (!monster.IsWalking && this.TileSharedWithOther(pos))
+        {
+            await this.StepOffSharedTileAsync(pos, this._combatTarget, attackRange).ConfigureAwait(false);
+            return;
+        }
+
         if (this._combatTarget is { } target)
         {
             if (target.GetDistanceTo(pos) <= attackRange)
@@ -484,16 +492,93 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private HashSet<Point> OccupiedTilesNear(Point around)
     {
         var occupied = new HashSet<Point>();
-        foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(around, MaxStepsPerChunk + 2))
+        foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(around, MaxStepsPerChunk + 3))
         {
-            if (!ReferenceEquals(other, this.Monster) && other.IsActive()
-                && (other is Monster || other is MUnique.OpenMU.GameLogic.Player))
+            if (ReferenceEquals(other, this.Monster) || !other.IsActive())
+            {
+                continue;
+            }
+
+            if (other is Monster m)
+            {
+                occupied.Add(m.Position);
+
+                // Reserve where the other creep is walking to, so we don't both aim
+                // for the same tile and arrive stacked.
+                if (m.IsWalking)
+                {
+                    occupied.Add(m.WalkTarget);
+                }
+            }
+            else if (other is MUnique.OpenMU.GameLogic.Player)
             {
                 occupied.Add(other.Position);
             }
         }
 
         return occupied;
+    }
+
+    /// <summary>Whether another living creep / champion is standing on <paramref name="tile"/>.</summary>
+    private bool TileSharedWithOther(Point tile)
+    {
+        foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(tile, 1))
+        {
+            if (!ReferenceEquals(other, this.Monster) && other.IsActive()
+                && (other is Monster || other is MUnique.OpenMU.GameLogic.Player)
+                && other.Position == tile)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// One-tile sidestep off a tile shared with another unit. Prefers a free neighbour
+    /// that keeps <paramref name="keepInRangeOf"/> within <paramref name="attackRange"/>
+    /// so the creep can go straight back to attacking; otherwise any free neighbour.
+    /// </summary>
+    private async ValueTask StepOffSharedTileAsync(Point pos, IAttackable? keepInRangeOf, int attackRange)
+    {
+        var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
+        var occupied = this.OccupiedTilesNear(pos);
+        Point? fallback = null;
+
+        // Start the search from a per-creep direction so two creeps sharing a tile tend
+        // to pick different neighbours instead of chasing each other around.
+        var start = this.Monster.Id % 8;
+        for (var i = 0; i < 8; i++)
+        {
+            var dir = (start + i) % 8;
+            var (dx, dy) = dir switch
+            {
+                0 => (0, -1), 1 => (1, -1), 2 => (1, 0), 3 => (1, 1),
+                4 => (0, 1), 5 => (-1, 1), 6 => (-1, 0), _ => (-1, -1),
+            };
+
+            var n = new Point((byte)(pos.X + dx), (byte)(pos.Y + dy));
+            if (n == pos || terrain[n.X, n.Y] == 0 || occupied.Contains(n))
+            {
+                continue;
+            }
+
+            fallback ??= n;
+            if (keepInRangeOf is null || n.EuclideanDistanceTo(keepInRangeOf.Position) <= attackRange)
+            {
+                fallback = n;
+                break;
+            }
+        }
+
+        if (fallback is { } dest)
+        {
+            var steps = new WalkingStep[] { new(pos, dest, GetDirection(pos, dest)) };
+            await this.Monster.WalkToAsync(dest, steps.AsMemory()).ConfigureAwait(false);
+            this._chunkStartedUtc = DateTime.UtcNow;
+            this._chunkStepCount = 1;
+        }
     }
 
     private async ValueTask FeedChunkTowardAsync(Point from, Point to)

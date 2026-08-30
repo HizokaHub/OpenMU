@@ -50,7 +50,7 @@ public static class MobaCloneFactory
     /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
     private const int TestLevelUpPoints = 5000;
 
-    private static readonly (byte X, byte Y) ArenaSpawn = (116, 60);
+    private static readonly (byte X, byte Y) ArenaSpawn = (124, 140);
 
     /// <summary>
     /// Builds a fresh clone character from the given real character.
