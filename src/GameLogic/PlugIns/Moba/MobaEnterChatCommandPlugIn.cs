@@ -53,7 +53,6 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
 
         var clone = await MobaCloneFactory.BuildCloneAsync(player, real).ConfigureAwait(false);
         MobaMatchRegistry.Enter(account.GetId(), clone);
-        player.Logger.LogInformation("[MOBA] /moba: registered clone for accountId={0} (login {1}).", account.GetId(), account.LoginName);
         await player.ShowBlueMessageAsync("[MOBA] Match starting - reconnecting you as a clone...").ConfigureAwait(false);
         await player.DisconnectAsync().ConfigureAwait(false);
     }

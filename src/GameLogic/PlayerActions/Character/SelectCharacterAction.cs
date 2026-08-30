@@ -29,10 +29,6 @@ public class SelectCharacterAction
 
         var realCharacter = player.Account?.Characters.FirstOrDefault(c => c.Name.Equals(characterName));
 
-        var accountIdForMoba = player.Account?.GetId();
-        var hasMobaClone = accountIdForMoba is { } id && MobaMatchRegistry.TryGetClone(id, out _);
-        player.Logger.LogInformation("[MOBA] SelectCharacter '{0}': accountId={1}, inMatch={2}, realFound={3}", characterName, accountIdForMoba, hasMobaClone, realCharacter is not null);
-
         if (realCharacter is not null
             && player.Account is { } account
             && MobaMatchRegistry.TryGetClone(account.GetId(), out var clone)
