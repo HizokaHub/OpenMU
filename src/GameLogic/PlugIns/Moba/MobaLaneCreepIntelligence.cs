@@ -11,19 +11,21 @@ using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
-/// AI for a MOBA lane creep: it marches along a fixed list of lane waypoints.
+/// AI for a MOBA lane creep: it marches along a fixed list of lane waypoints and
+/// fights enemies of its team along the way.
 /// </summary>
 /// <remarks>
-/// First building block of Fase 2 (see GAMEDESIGN.md). This version only walks the
-/// lane - no faction, no target selection. Team-aware aggression, turrets and the
-/// nexus come in later topics.
+/// Fase 2 building block (see GAMEDESIGN.md). W1 = the lane march. W2 slice 1 (this
+/// version) adds a <see cref="MobaTeam"/> and the passive part of the LoL targeting
+/// priority: nearest enemy creep, then nearest enemy champion, then nearest enemy
+/// structure. The reactive rules (#1-#6: react to who is attacking whom), the
+/// champion-aggro interrupt, chase leash and target lock come with the combat-events
+/// ledger in the next slice.
 ///
 /// Movement: a dedicated fast timer feeds the walker straight-line step chunks and
 /// re-feeds the next chunk a few steps before the current one runs out, so the walk
-/// is continuous instead of stop-and-go. Each creep gets its own (already offset)
-/// waypoint list from the spawner, so a wave marches in parallel lanes without
-/// piling onto the same tiles. The current test lane is axis-aligned, so a
-/// tile-by-tile straight line is enough; a real pathfinder comes with curved lanes.
+/// is continuous. The timer yields while the creep has a combat target (the base AI
+/// tick drives the attack / approach then).
 /// </remarks>
 public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 {
@@ -34,9 +36,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>Re-feed the walker when this many steps of the current chunk are left.</summary>
     private const int RefeedWhenStepsLeft = 3;
 
+    /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
+    private const int AcquisitionRangeBonus = 6;
+
     private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(60);
 
     private readonly IReadOnlyList<Point> _waypoints;
+
+    private readonly MobaTeam _team;
 
     private Timer? _marchTimer;
 
@@ -52,22 +59,62 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
     /// </summary>
     /// <param name="waypoints">The ordered lane waypoints (already offset for this creep's parallel track).</param>
-    public MobaLaneCreepIntelligence(IReadOnlyList<Point> waypoints)
+    /// <param name="team">The creep's team.</param>
+    public MobaLaneCreepIntelligence(IReadOnlyList<Point> waypoints, MobaTeam team)
     {
         this._waypoints = waypoints ?? throw new ArgumentNullException(nameof(waypoints));
+        this._team = team;
     }
 
     /// <inheritdoc />
-    /// <remarks>Starts the dedicated march timer (Start/Pause are not virtual on the base).</remarks>
+    /// <remarks>Registers the team and starts the dedicated march timer (Start/Pause are not virtual on the base).</remarks>
     protected override void OnStart()
     {
         base.OnStart();
+        MobaTeams.Set(this.Monster, this._team);
         this._marchTimer ??= new Timer(_ => this.SafeMarchTick(), null, MarchInterval, MarchInterval);
     }
 
     /// <inheritdoc />
-    /// <remarks>W1: no targets, the creep only marches.</remarks>
-    protected override ValueTask<IAttackable?> SearchNextTargetAsync() => ValueTask.FromResult<IAttackable?>(null);
+    protected override async ValueTask<IAttackable?> SearchNextTargetAsync()
+    {
+        var monster = this.Monster;
+        var map = monster.CurrentMap;
+        if (map is null)
+        {
+            return null;
+        }
+
+        var acquisitionRange = monster.Definition.AttackRange + AcquisitionRangeBonus;
+        var enemies = map.GetAttackablesInRange(monster.Position, acquisitionRange)
+            .Where(a => a.IsActive() && !ReferenceEquals(a, monster) && MobaTeams.AreEnemies(monster, a))
+            .ToList();
+
+        if (enemies.Count == 0)
+        {
+            return null;
+        }
+
+        // #7 nearest enemy creep.
+        var creep = enemies.OfType<NPC.Monster>().Where(m => !IsStructure(m)).MinBy(monster.GetDistanceTo);
+        if (creep is not null)
+        {
+            return creep;
+        }
+
+        // #8 nearest enemy champion.
+        var champion = enemies.OfType<Player>().MinBy(monster.GetDistanceTo);
+        if (champion is not null)
+        {
+            return champion;
+        }
+
+        // #9 nearest enemy structure.
+        return enemies.OfType<NPC.Monster>().Where(IsStructure).MinBy(monster.GetDistanceTo);
+    }
+
+    // Structures (turrets / nexus) are a later W-topic; nothing is a structure yet.
+    private static bool IsStructure(NPC.Monster monster) => false;
 
     /// <inheritdoc />
     /// <remarks>Marching is done on the dedicated timer; keep the base AI tick idle.</remarks>
@@ -126,6 +173,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     {
         var monster = this.Monster;
         if (!monster.IsAlive || this._currentWaypoint >= this._waypoints.Count)
+        {
+            return;
+        }
+
+        // Fighting: let the base AI tick drive the attack / approach, don't march.
+        if (this.CurrentTarget is { } target && target.IsActive())
         {
             return;
         }

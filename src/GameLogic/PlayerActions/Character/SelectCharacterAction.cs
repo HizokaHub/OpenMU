@@ -40,6 +40,13 @@ public class SelectCharacterAction
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
+
+            // Default team until real matchmaking assigns one; overridable with /mobateam.
+            if (MobaTeams.GetTeam(player) == MobaTeam.None)
+            {
+                MobaTeams.Set(player, MobaTeam.Blue);
+            }
+
             player.Logger.LogInformation("Account {0} entered the MOBA match as a clone of '{1}'.", account.LoginName, characterName);
             return;
         }
