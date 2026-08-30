@@ -287,16 +287,22 @@ Un creep **marcha su carril** (W1) mientras no tenga objetivo válido; cuando lo
 tiene, ataca; al perderlo (muere / sale de rango / termina la persecución),
 reanuda la marcha.
 
-**Prioridad de adquisición** (de un objetivo nuevo, de mayor a menor):
+**Prioridad de adquisición** (lista completa de LoL, de mayor a menor; se evalúa
+cuando el creep no tiene objetivo válido). "Está atacando a X" = ese enemigo hizo
+una acción dañina sobre X en los últimos ~2 s. Todo dentro del rango de
+adquisición.
 
-1. **Campeón enemigo que está atacando a un aliado** (campeón o creep) cerca —
-   *evento de aggro, temporal* (ver abajo).
-2. **Algo enemigo que está atacando a un creep aliado** cerca → el creep se suma
-   al **foco de fuego** (regla #5/#6 de LoL, incluida en v1). Si son varios, el
-   más cercano de ellos.
-3. **Creep enemigo más cercano** en rango de adquisición.
-4. **Campeón enemigo más cercano** en rango de adquisición.
-5. **Estructura enemiga más cercana** (torreta → nexo).
+1. **[INTERRUPCIÓN] Campeón enemigo que hizo daño a un aliado** (campeón o creep)
+   en los últimos **3 s** — evento de aggro temporal, *interrumpe el ataque en
+   curso* (salvo lock de estructura). Al expirar los 3 s, revierte a esta lista.
+2. **Creep enemigo que está atacando a un campeón aliado.**
+3. **Creep enemigo que está atacando a un creep aliado** (foco de fuego).
+4. **Creep enemigo que me está atacando a mí** (a este creep).
+5. **Campeón enemigo que está atacando a un creep aliado.**
+6. **Campeón enemigo que me está atacando a mí.**
+7. **Creep enemigo más cercano.**
+8. **Campeón enemigo más cercano.**
+9. **Estructura enemiga más cercana** (torreta → nexo).
 
 **Reglas de estado:**
 
@@ -323,10 +329,14 @@ reanuda la marcha.
 - **Cadencia de re-targeting:** la IA re-evalúa su objetivo cada **~250 ms** (no
   cada frame): suficiente para reaccionar sin verse errático ni costar CPU.
 
-**Diferido a después de v1** (impacto bajo): sub-prioridades finas #3/#4 de LoL
-("prioriza a quien me ataca a mí"), leash con invulnerabilidad + boost, tipos de
-minion (melee / caster / cañón / super), y requisito de visión (relevante recién
-con arbustos / jungla en Fase 3).
+**Implementación:** un **registro de eventos de combate por partida** (RAM) anota
+cada golpe `(atacante, víctima, bando, tiempo)` en el mapa; la evaluación de
+prioridad consulta ese registro (ventanas de ~2 s para #2–#6, 3 s para el aggro
+de campeón #1).
+
+**Diferido a después de v1** (impacto bajo): leash con invulnerabilidad + boost de
+velocidad en el regreso, tipos de minion (melee / caster / cañón / super), y
+requisito de visión (relevante recién con arbustos / jungla en Fase 3).
 - **Torretas**: NPCs estáticos (velocidad de movimiento 0) con **skill de
   ataque a rango**, agrediendo automáticamente a lo que entre en su radio según
   **facción / bando**.
