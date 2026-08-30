@@ -279,6 +279,54 @@ antes de que el servidor ya lo haya movido a base.
 - **Mobs de oleada** con **ruta de waypoints fija** que avanzan por un carril,
   atacando solo si detectan enemigos en el camino (reutilizando la **IA de
   agresividad** existente de OpenMU).
+
+### IA de creeps de oleada — targeting estilo LoL (diseño cerrado)
+
+Cada creep, jugador (clon), torreta y nexo pertenece a un **bando** (Azul / Rojo).
+Un creep **marcha su carril** (W1) mientras no tenga objetivo válido; cuando lo
+tiene, ataca; al perderlo (muere / sale de rango / termina la persecución),
+reanuda la marcha.
+
+**Prioridad de adquisición** (de un objetivo nuevo, de mayor a menor):
+
+1. **Campeón enemigo que está atacando a un aliado** (campeón o creep) cerca —
+   *evento de aggro, temporal* (ver abajo).
+2. **Algo enemigo que está atacando a un creep aliado** cerca → el creep se suma
+   al **foco de fuego** (regla #5/#6 de LoL, incluida en v1). Si son varios, el
+   más cercano de ellos.
+3. **Creep enemigo más cercano** en rango de adquisición.
+4. **Campeón enemigo más cercano** en rango de adquisición.
+5. **Estructura enemiga más cercana** (torreta → nexo).
+
+**Reglas de estado:**
+
+- **Lock:** un creep que ya está atacando algo **no cambia de objetivo** por ver
+  aparecer algo de mayor prioridad. Solo re-adquiere cuando su objetivo muere o
+  sale de rango. **Excepción:** el evento de aggro de campeón (#1) **sí
+  interrumpe** el ataque actual.
+- **Lock sobre estructura:** cuando un creep empieza a pegarle a una torreta o al
+  nexo, se **queda ahí** hasta que la estructura muera o el creep salga de rango,
+  ignorando creeps y campeones enemigos que lleguen.
+- **Evento de aggro de campeón (#1):** se dispara cuando un campeón enemigo
+  ejecuta **cualquier acción dañina** (auto, skill, DoT) sobre un aliado del creep
+  (campeón o creep) dentro del rango del creep. Dura **3 s** desde la última
+  acción dañina de ese campeón; al expirar, el creep **revierte a la prioridad
+  normal** (creep más cercano primero, **no** el campeón).
+- **Persecución (leash):** el creep persigue a su objetivo hasta **10 tiles**
+  fuera de su carril; si el objetivo se aleja más, abandona y vuelve al carril.
+  (v1 sin invulnerabilidad ni boost de velocidad en el regreso, a diferencia de
+  LoL.)
+- **Creeps se atacan entre sí:** creep Azul vs creep Rojo se pelean al cruzarse
+  (choque de oleada en el punto medio del carril), como en LoL.
+- **Rango de adquisición:** rango de ataque del creep **+ 6 tiles** (para caminar
+  hacia el objetivo antes de estar en rango).
+- **Cadencia de re-targeting:** la IA re-evalúa su objetivo cada **~250 ms** (no
+  cada frame): suficiente para reaccionar sin verse errático ni costar CPU.
+
+**Diferido a después de v1** (impacto bajo): sub-prioridades finas #3/#4 de LoL
+("prioriza a quien me ataca a mí"), leash con invulnerabilidad + boost, tipos de
+minion (melee / caster / cañón / super), y requisito de visión (relevante recién
+con arbustos / jungla en Fase 3).
 - **Torretas**: NPCs estáticos (velocidad de movimiento 0) con **skill de
   ataque a rango**, agrediendo automáticamente a lo que entre en su radio según
   **facción / bando**.
