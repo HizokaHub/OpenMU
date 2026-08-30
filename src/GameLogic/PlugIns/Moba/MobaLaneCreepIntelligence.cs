@@ -39,6 +39,16 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>How far off its lane the creep will stray chasing a target before giving up.</summary>
     private const double ChaseLeashTiles = 10;
 
+    /// <summary>
+    /// Radius (tiles) in which the champion-aggro rule (#1) looks for the enemy champion.
+    /// Wider than the normal acquisition range: once an allied champion near the creep is
+    /// in champion-vs-champion combat, the creep should switch onto the enemy champion even
+    /// if that champion is attacking from range (a caster / archer well outside the tiny
+    /// creep acquisition range). The allied champion itself still has to be in normal range
+    /// for the creep to "care".
+    /// </summary>
+    private const int ChampAggroRevealTiles = 16;
+
     /// <summary>The creep is considered "back on its lane" once this close to it.</summary>
     private const double BackOnLaneTiles = 3;
 
@@ -188,9 +198,13 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return;
         }
 
-        // Drop an invalid / out-of-range target.
+        // Drop an invalid / out-of-range target. A champion target (set by the #1
+        // champ-aggro rule) is kept out to the wider reveal radius so the creep can
+        // actually close on a ranged poker; the leash check above still yanks it back
+        // once it has strayed too far from where the fight started.
+        var dropRange = this._combatTarget is Player ? ChampAggroRevealTiles : acquisitionRange;
         if (this._combatTarget is { } current
-            && (!current.IsActive() || current.GetDistanceTo(pos) > acquisitionRange))
+            && (!current.IsActive() || current.GetDistanceTo(pos) > dropRange))
         {
             this._combatTarget = null;
         }
@@ -251,9 +265,10 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return null;
         }
 
-        var inRange = map.GetAttackablesInRange(pos, range).Where(a => a.IsActive()).ToList();
-        var alliedChampions = inRange
-            .Where(a => !ReferenceEquals(a, self) && MobaTeams.AreAllies(self, a))
+        // The allied champion must be near the creep (normal acquisition range) for the
+        // creep to react on its behalf...
+        var alliedChampions = map.GetAttackablesInRange(pos, range)
+            .Where(a => a.IsActive() && !ReferenceEquals(a, self) && MobaTeams.AreAllies(self, a))
             .OfType<Player>()
             .Cast<object>()
             .ToList();
@@ -263,7 +278,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return null;
         }
 
-        return inRange
+        // ...but the enemy champion that triggered the aggro is looked for in a wider
+        // radius, so a caster / archer poking an ally from outside the creep's tiny
+        // acquisition range still gets focused.
+        return map.GetAttackablesInRange(pos, ChampAggroRevealTiles)
+            .Where(a => a.IsActive())
             .OfType<Player>()
             .Where(c => MobaTeams.AreEnemies(self, c)
                 && (MobaCombatLog.HitAnyOf(c, alliedChampions, ChampAggroWindow)

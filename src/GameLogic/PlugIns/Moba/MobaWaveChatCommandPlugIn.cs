@@ -42,14 +42,21 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     private const float CreepHpFloor = 8000f;
 
     /// <summary>
-    /// The wave composition, front rank first. Each entry is spawned as a horizontal
-    /// line; ranks are stacked a few tiles behind each other. Small, low-level S6 mobs
-    /// so they read as "creeps".
+    /// Wave composition per team, front rank first. Each entry is spawned as a
+    /// horizontal line; ranks are stacked a few tiles behind each other. The two teams
+    /// use visibly different small S6 mobs so that, in a melee, you can tell whose
+    /// creeps are whose at a glance (a proper team-coloured HP bar comes later).
     /// </summary>
-    private static readonly (short Number, int Count)[] WaveComposition =
+    private static readonly (short Number, int Count)[] BlueWaveComposition =
     {
         (3, 3), // Spider - small melee (front)
         (2, 3), // Budge Dragon - small dragon (back). Gets a ranged fire skill in W2.
+    };
+
+    private static readonly (short Number, int Count)[] RedWaveComposition =
+    {
+        (420, 3), // Hideous Rabbit - small melee (front)
+        (419, 3), // Polluted Butterfly - small flyer (back)
     };
 
     /// <summary>Horizontal spacing (tiles) between creeps in a rank and between their parallel tracks.</summary>
@@ -86,6 +93,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
         }
 
         var team = arguments.ResolveTeam();
+        var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
         var lane = team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
         var spawn = lane[0];
 
@@ -94,7 +102,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
 
         var rank = 0;
         var total = 0;
-        foreach (var (number, count) in WaveComposition)
+        foreach (var (number, count) in composition)
         {
             var baseDefinition = player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
             if (baseDefinition is null)
