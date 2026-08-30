@@ -37,7 +37,7 @@ public static class MobaCloneFactory
     /// </summary>
     private const int BaselineStatValue = 10;
 
-    private static readonly (byte X, byte Y) ArenaSpawn = (161, 60);
+    private static readonly (byte X, byte Y) ArenaSpawn = (116, 60);
 
     /// <summary>
     /// Builds a fresh clone character from the given real character.

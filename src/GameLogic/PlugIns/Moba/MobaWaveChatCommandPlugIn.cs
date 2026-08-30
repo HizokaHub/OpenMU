@@ -47,16 +47,16 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     private const int RankGapY = 2;
 
     /// <summary>
-    /// Ordered lane waypoints. Placeholder straight lane down column x=161; x=158-164 is a
-    /// wide fully-walkable corridor of the flattened arena terrain, so the creeps' parallel
-    /// tracks all stay clear. Real per-map lane data comes later.
+    /// Ordered lane waypoints: a straight mid lane down column x=116, inside the carved
+    /// mid-lane corridor (x108-124 forced walkable in Terrain201.att), so every creep's
+    /// parallel track stays clear. Real per-map lane data comes later.
     /// </summary>
     private static readonly Point[] LaneWaypoints =
     {
-        new(161, 60),
-        new(161, 110),
-        new(161, 160),
-        new(161, 205),
+        new(116, 60),
+        new(116, 110),
+        new(116, 160),
+        new(116, 205),
     };
 
     /// <inheritdoc />
