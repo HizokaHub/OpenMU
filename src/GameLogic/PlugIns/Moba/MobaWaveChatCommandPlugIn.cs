@@ -35,8 +35,8 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     /// </summary>
     private static readonly (short Number, int Count)[] WaveComposition =
     {
-        (3, 3),   // Spider
-        (419, 3), // Polluted Butterfly
+        (3, 3),  // Spider - small melee
+        (15, 3), // Skeleton Archer - small ranged (AttackRange 5)
     };
 
     /// <summary>
