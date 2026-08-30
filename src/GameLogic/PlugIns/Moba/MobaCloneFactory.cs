@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using MUnique.OpenMU.AttributeSystem;
+using MUnique.OpenMU.DataModel;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 
@@ -44,6 +45,9 @@ public static class MobaCloneFactory
     /// </summary>
     private const int TestVitality = 2000;
 
+    /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
+    private const int TestLevelUpPoints = 5000;
+
     private static readonly (byte X, byte Y) ArenaSpawn = (116, 60);
 
     /// <summary>
@@ -81,11 +85,29 @@ public static class MobaCloneFactory
         // Master progression starts from scratch every match.
         clone.MasterExperience = 0;
         clone.MasterLevelUpPoints = 0;
-        clone.LevelUpPoints = 0;
 
-        // No inherited items (starter weapon per class is a later topic).
+        // TEST: free stat points for the tester to distribute (never auto-assigned).
+        clone.LevelUpPoints = TestLevelUpPoints;
+
         clone.Inventory = context.CreateNew<ItemStorage>();
         clone.Inventory.Money = 0;
+
+        // Weapon: TEST placeholder - copy the real character's equipped weapon / ammo
+        // (hand slots), no armor. The real flow is a basic class weapon (later topic).
+        foreach (var equipped in real.Inventory?.Items.Where(i => i.ItemSlot == InventoryConstants.LeftHandSlot || i.ItemSlot == InventoryConstants.RightHandSlot) ?? Enumerable.Empty<Item>())
+        {
+            if (equipped.Definition is null)
+            {
+                continue;
+            }
+
+            var copy = context.CreateNew<Item>();
+            copy.Definition = equipped.Definition;
+            copy.Durability = equipped.Durability;
+            copy.Level = equipped.Level;
+            copy.ItemSlot = equipped.ItemSlot;
+            clone.Inventory.Items.Add(copy);
+        }
 
         // Skills: TEST placeholder - copy the real character's learned skills so the
         // player can cast something. The real flow is the 4-6 active-skill loadout
