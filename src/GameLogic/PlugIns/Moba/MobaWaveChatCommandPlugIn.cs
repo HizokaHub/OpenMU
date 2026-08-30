@@ -37,15 +37,15 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     private const int CreepsPerWave = 5;
 
     /// <summary>
-    /// Ordered lane waypoints (diagonal across the arena). Placeholder until per-map lane data exists.
+    /// Ordered lane waypoints. Placeholder central lane until per-map lane data exists;
+    /// the spawn (first point) is inside the arena's walkable area.
     /// </summary>
     private static readonly Point[] LaneWaypoints =
     {
-        new(40, 40),
-        new(90, 90),
-        new(128, 128),
-        new(170, 170),
-        new(215, 215),
+        new(120, 60),
+        new(128, 110),
+        new(132, 160),
+        new(138, 205),
     };
 
     /// <inheritdoc />
