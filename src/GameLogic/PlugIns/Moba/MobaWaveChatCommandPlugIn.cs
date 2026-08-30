@@ -37,15 +37,16 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
     private const int CreepsPerWave = 5;
 
     /// <summary>
-    /// Ordered lane waypoints. Placeholder central lane until per-map lane data exists;
-    /// the spawn (first point) is inside the arena's walkable area.
+    /// Ordered lane waypoints. Placeholder straight lane down column x=120, which is a
+    /// fully-walkable corridor of the flattened arena terrain. Real per-map lane data
+    /// comes later.
     /// </summary>
     private static readonly Point[] LaneWaypoints =
     {
         new(120, 60),
-        new(128, 110),
-        new(132, 160),
-        new(138, 205),
+        new(120, 110),
+        new(120, 160),
+        new(120, 205),
     };
 
     /// <inheritdoc />
@@ -72,7 +73,8 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
         var spawn = LaneWaypoints[0];
         for (var i = 0; i < CreepsPerWave; i++)
         {
-            var startPoint = new Point((byte)(spawn.X + i), spawn.Y);
+            // Stagger the creeps in a column behind the lane start, along the clear corridor.
+            var startPoint = new Point(spawn.X, (byte)(spawn.Y - i));
             var area = new MonsterSpawnArea
             {
                 GameMap = map.Definition,

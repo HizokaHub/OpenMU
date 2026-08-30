@@ -46,7 +46,7 @@ public class MobaLeaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
         var clone = MobaMatchRegistry.Leave(account.GetId());
         if (clone is not null && !ReferenceEquals(clone, player.SelectedCharacter))
         {
-            MobaCloneFactory.DiscardClone(player, clone);
+            MobaCloneFactory.DetachClone(player, clone);
         }
 
         await player.ShowBlueMessageAsync("[MOBA] Match ended - reconnecting you as your real character...").ConfigureAwait(false);

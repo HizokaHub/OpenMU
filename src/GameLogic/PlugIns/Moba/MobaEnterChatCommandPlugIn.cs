@@ -52,6 +52,13 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
         }
 
         var clone = await MobaCloneFactory.BuildCloneAsync(player, real).ConfigureAwait(false);
+
+        // The clone is created through this session's persistence context, so detach it
+        // and suppress this session's save: DisconnectAsync() would otherwise try to
+        // INSERT the clone (duplicate character name).
+        MobaCloneFactory.DetachClone(player, clone);
+        player.SuppressPersistence = true;
+
         MobaMatchRegistry.Enter(account.GetId(), clone);
         await player.ShowBlueMessageAsync("[MOBA] Match starting - reconnecting you as a clone...").ConfigureAwait(false);
         await player.DisconnectAsync().ConfigureAwait(false);

@@ -54,7 +54,7 @@ public class MobaClonePreviewChatCommandPlugIn : ChatCommandPlugInBase<EmptyChat
 
         await player.ShowBlueMessageAsync($"[MOBA] Clone: class={clone.CharacterClass?.Name}, level={cloneLevel}, items={cloneInventoryCount}, skills={cloneSkillCount}, masterLvlPts={clone.MasterLevelUpPoints}, map={clone.CurrentMap?.Number} @ {clone.PositionX},{clone.PositionY}").ConfigureAwait(false);
 
-        MobaCloneFactory.DiscardClone(player, clone);
+        MobaCloneFactory.DetachClone(player, clone);
 
         var realInventoryAfter = real.Inventory?.Items.Count ?? 0;
         var realSkillAfter = real.LearnedSkills?.Count ?? 0;

@@ -37,7 +37,7 @@ public static class MobaCloneFactory
     /// </summary>
     private const int BaselineStatValue = 10;
 
-    private static readonly (byte X, byte Y) ArenaSpawn = (128, 128);
+    private static readonly (byte X, byte Y) ArenaSpawn = (120, 60);
 
     /// <summary>
     /// Builds a fresh clone character from the given real character.
@@ -96,7 +96,7 @@ public static class MobaCloneFactory
     /// </summary>
     /// <param name="player">The player.</param>
     /// <param name="clone">The clone to discard.</param>
-    public static void DiscardClone(Player player, Character clone)
+    public static void DetachClone(Player player, Character clone)
     {
         var context = player.PersistenceContext;
         if (clone.Inventory is { } inventory)
