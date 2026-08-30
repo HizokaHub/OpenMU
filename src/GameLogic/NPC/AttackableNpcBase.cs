@@ -9,6 +9,7 @@ using System.Threading;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Pathfinding;
 using MUnique.OpenMU.Persistence;
@@ -106,8 +107,12 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
     {
         if (this.Definition.ObjectKind == NpcObjectKind.Guard
             || this.IsAttackBlockedBySafezone(attacker)
-            || !this.CanBeAttackedBy(attacker))
+            || !this.CanBeAttackedBy(attacker)
+            || MobaTeams.AreAllies(attacker, this))
         {
+            // MobaTeams.AreAllies is false unless BOTH sides are MOBA-match participants
+            // on the same team, so this is a no-op for the rest of the game. It stops a
+            // champion (or an allied creep) from damaging its own wave - no friendly fire.
             return null;
         }
 

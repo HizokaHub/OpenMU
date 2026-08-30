@@ -29,9 +29,16 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 {
     private const float WaypointReachedDistance = 1.5f;
 
-    private const int MaxStepsPerChunk = 16;
+    /// <summary>
+    /// Tiles walked per march chunk. Deliberately short: a creep that has just committed
+    /// to a long walk cannot react, so with a big chunk two waves marching at each other
+    /// walk clean through the meeting point before the fight starts and then have to walk
+    /// back. Keep this below <see cref="AcquisitionRangeBonus"/> so a creep notices the
+    /// enemy wave and stops before it can overshoot.
+    /// </summary>
+    private const int MaxStepsPerChunk = 4;
 
-    private const int RefeedWhenStepsLeft = 3;
+    private const int RefeedWhenStepsLeft = 1;
 
     /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
     private const int AcquisitionRangeBonus = 6;
@@ -76,6 +83,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// as soon as the aggro expires, so the creep goes straight back to the enemy wave.
     /// </summary>
     private bool _combatTargetFromChampAggro;
+
+    /// <summary>The target the creep last fed a walk chunk toward, so a fresh acquisition interrupts an in-progress march but an ongoing chase does not re-path every tick.</summary>
+    private IAttackable? _lastChaseTarget;
 
     private bool _returningToLane;
 
@@ -254,17 +264,27 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         {
             if (target.GetDistanceTo(pos) <= attackRange)
             {
+                if (monster.IsWalking)
+                {
+                    await monster.StopWalkingAsync().ConfigureAwait(false);
+                }
+
+                this._lastChaseTarget = null;
                 await monster.AttackAsync(target).ConfigureAwait(false);
             }
-            else if (!monster.IsWalking)
+            else if (!monster.IsWalking || !ReferenceEquals(target, this._lastChaseTarget))
             {
+                // Fresh target while mid-march -> cut the march chunk short and head at
+                // it now, so two waves meeting engage on contact instead of walking past.
                 await this.FeedChunkTowardAsync(pos, target.Position).ConfigureAwait(false);
+                this._lastChaseTarget = target;
             }
 
             return;
         }
 
         // No target: march the lane (also the path back to it when returning).
+        this._lastChaseTarget = null;
         await this.MarchAsync(pos).ConfigureAwait(false);
     }
 
@@ -273,10 +293,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>
     /// How recently an enemy champion must have damaged an allied champion for the #1
     /// rule to keep this creep on that champion. Once the enemy champion stops (no hit
-    /// within this window) the creep drops it and returns to the enemy wave. Kept short
-    /// on purpose - "aggro me for ~1s after I hit your ally, then let go".
+    /// within this window) the creep drops it and returns to the enemy wave.
     /// </summary>
-    private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// #1 of the LoL priority: an enemy champion that has damaged one of this creep's
@@ -457,27 +476,70 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         await this.FeedChunkTowardAsync(pos, waypoint).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Tiles occupied by other living creeps / champions near <paramref name="around"/>,
+    /// so a march / chase step never lands on another unit or on a player. Snapshot taken
+    /// once per chunk; a rare same-tick race just resolves itself on the next tick.
+    /// </summary>
+    private HashSet<Point> OccupiedTilesNear(Point around)
+    {
+        var occupied = new HashSet<Point>();
+        foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(around, MaxStepsPerChunk + 2))
+        {
+            if (!ReferenceEquals(other, this.Monster) && other.IsActive()
+                && (other is Monster || other is MUnique.OpenMU.GameLogic.Player))
+            {
+                occupied.Add(other.Position);
+            }
+        }
+
+        return occupied;
+    }
+
     private async ValueTask FeedChunkTowardAsync(Point from, Point to)
     {
         var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
+        var occupied = this.OccupiedTilesNear(from);
         var buffer = ArrayPool<WalkingStep>.Shared.Rent(MaxStepsPerChunk);
+
+        bool Passable(Point p) => terrain[p.X, p.Y] != 0 && !occupied.Contains(p);
+
         try
         {
             var count = 0;
             var cursor = from;
             while (count < MaxStepsPerChunk && cursor != to)
             {
-                var next = new Point(
-                    (byte)(cursor.X + Math.Sign(to.X - cursor.X)),
-                    (byte)(cursor.Y + Math.Sign(to.Y - cursor.Y)));
+                var dx = Math.Sign(to.X - cursor.X);
+                var dy = Math.Sign(to.Y - cursor.Y);
 
-                if (terrain[next.X, next.Y] == 0)
+                // Prefer the straight step; if it is blocked or taken, try the two steps
+                // either side of it that still make progress, then give up (wait a tick).
+                Point? Try(int sx, int sy)
+                {
+                    if (sx == 0 && sy == 0)
+                    {
+                        return null;
+                    }
+
+                    var p = new Point((byte)(cursor.X + sx), (byte)(cursor.Y + sy));
+                    return Passable(p) ? p : null;
+                }
+
+                var next = Try(dx, dy)
+                    ?? (dx != 0 && dy != 0 ? Try(dx, 0) ?? Try(0, dy) : null)
+                    ?? (dx == 0 ? Try(1, dy) ?? Try(-1, dy) : null)
+                    ?? (dy == 0 ? Try(dx, 1) ?? Try(dx, -1) : null);
+
+                if (next is not { } step)
                 {
                     break;
                 }
 
-                buffer[count++] = new WalkingStep(cursor, next, GetDirection(cursor, next));
-                cursor = next;
+                buffer[count++] = new WalkingStep(cursor, step, GetDirection(cursor, step));
+                occupied.Remove(cursor);
+                occupied.Add(step);
+                cursor = step;
             }
 
             if (count == 0)

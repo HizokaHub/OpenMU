@@ -64,8 +64,8 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
 
     private static readonly (short Number, int Count)[] RedWaveComposition =
     {
-        (420, 3), // Hideous Rabbit - small melee (front)
-        (419, 3), // Polluted Butterfly - small flyer (back)
+        (26, 3),  // Goblin - small melee (front)
+        (418, 3), // Strange Rabbit - small melee (back)
     };
 
     /// <summary>Horizontal spacing (tiles) between creeps in a rank and between their parallel tracks.</summary>

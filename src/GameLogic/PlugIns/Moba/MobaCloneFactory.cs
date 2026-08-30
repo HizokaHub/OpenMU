@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel;
 using MUnique.OpenMU.DataModel.Configuration;
@@ -126,6 +127,16 @@ public static class MobaCloneFactory
         // a working minimum for its class so creep targeting can actually be tested.
         EnsureUsableLoadout(context, player.GameContext.Configuration, clone, characterClass);
 
+        player.Logger.LogInformation(
+            "[MOBA] Clone '{Name}' (class {Class}) loadout: hands=[{Hands}], skills=[{Skills}], points={Points}",
+            clone.Name,
+            characterClass.Number,
+            string.Join(", ", clone.Inventory!.Items
+                .Where(i => i.ItemSlot is 0 or 1)
+                .Select(i => $"slot{i.ItemSlot}:{i.Definition?.Name}({i.Durability:0})")),
+            string.Join(", ", clone.LearnedSkills.Where(s => s.Skill is not null).Select(s => $"{s.Skill!.Name}#{s.Skill.Number}")),
+            clone.LevelUpPoints);
+
         var arenaMap = await player.GameContext.GetMapAsync(ArenaMapNumber).ConfigureAwait(false);
         clone.CurrentMap = arenaMap?.Definition
             ?? player.GameContext.Configuration.Maps.FirstOrDefault(m => m.Number == ArenaMapNumber)
@@ -189,18 +200,21 @@ public static class MobaCloneFactory
 
             var item = context.CreateNew<Item>();
             item.Definition = definition;
-            item.Durability = definition.Durability;
+            item.Durability = definition.Durability > 0 ? definition.Durability : 255d;
             item.Level = 0;
             item.ItemSlot = slot;
             inventory.Items.Add(item);
             return item;
         }
 
+        bool IsRealWeapon(Item? i) => i?.Definition is { } d
+            && !(d.Group == AmmunitionGroup && (d.Number == ArrowsNumber || d.Number == BoltNumber));
+
         var rightHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.RightHandSlot);
         var leftHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot);
 
         // No weapon at all -> give the class its stock one.
-        if (rightHand is null && leftHand is null)
+        if (!IsRealWeapon(rightHand) && !IsRealWeapon(leftHand))
         {
             rightHand = isWizard || isSummoner
                 ? MakeItem(5, 0, InventoryConstants.RightHandSlot)   // Skull Staff
@@ -209,23 +223,35 @@ public static class MobaCloneFactory
                     : MakeItem(0, 1, InventoryConstants.RightHandSlot); // Short Sword
         }
 
-        // Bow / crossbow in either hand -> make sure the matching ammo stack is present.
+        // Bow / crossbow -> force it into the right hand and a full ammo stack into the
+        // left (MU requires ammo in the left-hand slot), clearing anything else there.
         var rangedWeapon = new[] { rightHand, leftHand }
             .FirstOrDefault(i => i?.Definition is { Group: AmmunitionGroup } d && d.Number != ArrowsNumber && d.Number != BoltNumber);
         if (rangedWeapon?.Definition is { } rangedDef)
         {
-            var ammoNumber = BowNumbers.Contains((short)rangedDef.Number) ? ArrowsNumber : BoltNumber;
-            var hasAmmo = inventory.Items.Any(i => i.Definition is { Group: AmmunitionGroup } d && (d.Number == ArrowsNumber || d.Number == BoltNumber));
-            if (!hasAmmo)
-            {
-                var ammoSlot = leftHand is null ? InventoryConstants.LeftHandSlot : InventoryConstants.RightHandSlot;
-                if (rangedWeapon.ItemSlot == ammoSlot)
-                {
-                    ammoSlot = ammoSlot == InventoryConstants.LeftHandSlot ? InventoryConstants.RightHandSlot : InventoryConstants.LeftHandSlot;
-                }
+            rangedWeapon.ItemSlot = InventoryConstants.RightHandSlot;
 
-                MakeItem(AmmunitionGroup, ammoNumber, ammoSlot);
+            foreach (var occupant in inventory.Items
+                         .Where(i => !ReferenceEquals(i, rangedWeapon) && i.ItemSlot == InventoryConstants.LeftHandSlot)
+                         .ToList())
+            {
+                inventory.Items.Remove(occupant);
+                context.Detach(occupant);
             }
+
+            var ammoNumber = BowNumbers.Contains((short)rangedDef.Number) ? ArrowsNumber : BoltNumber;
+            if (inventory.Items.All(i => i.Definition is not { Group: AmmunitionGroup } d || (d.Number != ArrowsNumber && d.Number != BoltNumber)))
+            {
+                MakeItem(AmmunitionGroup, ammoNumber, InventoryConstants.LeftHandSlot);
+            }
+        }
+
+        // Top up durability on everything in the hands so nothing breaks mid-test.
+        foreach (var handItem in inventory.Items.Where(i =>
+                     (i.ItemSlot == InventoryConstants.LeftHandSlot || i.ItemSlot == InventoryConstants.RightHandSlot)
+                     && i.Definition is not null))
+        {
+            handItem.Durability = handItem.Definition!.Durability > 0 ? handItem.Definition.Durability : 255d;
         }
 
         // No skills learned -> grant one attack skill the class can actually use.
