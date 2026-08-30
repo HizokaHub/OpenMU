@@ -115,18 +115,23 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
                     Y2 = startPoint.Y,
                 };
 
+                var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
                 var monster = new Monster(
                     area,
                     definition,
                     map,
                     player.GameContext.DropGenerator,
-                    new MobaLaneCreepIntelligence(creepWaypoints, team),
+                    intelligence,
                     player.GameContext.PlugInManager,
                     player.GameContext.PathFinderPool);
 
                 monster.Initialize();
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
+
+                // Start the AI now so the creep marches / fights even with no player
+                // watching (the base only starts it on the first observer).
+                intelligence.Start();
                 total++;
             }
 

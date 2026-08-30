@@ -11,21 +11,19 @@ using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
-/// AI for a MOBA lane creep: it marches along a fixed list of lane waypoints and
-/// fights enemies of its team along the way.
+/// Self-contained AI for a MOBA lane creep: it marches its lane and fights enemies of
+/// its <see cref="MobaTeam"/> along the way.
 /// </summary>
 /// <remarks>
-/// Fase 2 building block (see GAMEDESIGN.md). W1 = the lane march. W2 slice 1 (this
-/// version) adds a <see cref="MobaTeam"/> and the passive part of the LoL targeting
-/// priority: nearest enemy creep, then nearest enemy champion, then nearest enemy
-/// structure. The reactive rules (#1-#6: react to who is attacking whom), the
-/// champion-aggro interrupt, chase leash and target lock come with the combat-events
-/// ledger in the next slice.
+/// The base <see cref="BasicMonsterIntelligence"/> is kept idle
+/// (<see cref="SearchNextTargetAsync"/> returns null) - everything runs on one
+/// dedicated timer, started by the spawner so creeps march and fight even when no
+/// player is watching (the base AI only starts on the first observer).
 ///
-/// Movement: a dedicated fast timer feeds the walker straight-line step chunks and
-/// re-feeds the next chunk a few steps before the current one runs out, so the walk
-/// is continuous. The timer yields while the creep has a combat target (the base AI
-/// tick drives the attack / approach then).
+/// W2 slice (this version): teams + the passive part of the LoL priority - nearest
+/// enemy creep, then nearest enemy champion, then nearest enemy structure - plus a
+/// simple chase leash. Reactive rules (#1-#6), the champion-aggro interrupt and the
+/// hard structure lock come with the combat-events ledger next.
 /// </remarks>
 public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 {
@@ -33,27 +31,33 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private const int MaxStepsPerChunk = 16;
 
-    /// <summary>Re-feed the walker when this many steps of the current chunk are left.</summary>
     private const int RefeedWhenStepsLeft = 3;
 
     /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
     private const int AcquisitionRangeBonus = 6;
 
-    private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(60);
+    /// <summary>How far the creep will chase a target from where it picked it up before giving up.</summary>
+    private const double ChaseLeashTiles = 10;
+
+    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(150);
 
     private readonly IReadOnlyList<Point> _waypoints;
 
     private readonly MobaTeam _team;
 
-    private Timer? _marchTimer;
-
-    private int _currentWaypoint;
+    private Timer? _aiTimer;
 
     private volatile bool _ticking;
+
+    private int _currentWaypoint;
 
     private DateTime _chunkStartedUtc;
 
     private int _chunkStepCount;
+
+    private IAttackable? _combatTarget;
+
+    private Point _chaseAnchor;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
@@ -67,64 +71,25 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     /// <inheritdoc />
-    /// <remarks>Registers the team and starts the dedicated march timer (Start/Pause are not virtual on the base).</remarks>
     protected override void OnStart()
     {
         base.OnStart();
         MobaTeams.Set(this.Monster, this._team);
-        this._marchTimer ??= new Timer(_ => this.SafeMarchTick(), null, MarchInterval, MarchInterval);
+        this._aiTimer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
     }
 
     /// <inheritdoc />
-    protected override async ValueTask<IAttackable?> SearchNextTargetAsync()
-    {
-        var monster = this.Monster;
-        var map = monster.CurrentMap;
-        if (map is null)
-        {
-            return null;
-        }
-
-        var acquisitionRange = monster.Definition.AttackRange + AcquisitionRangeBonus;
-        var enemies = map.GetAttackablesInRange(monster.Position, acquisitionRange)
-            .Where(a => a.IsActive() && !ReferenceEquals(a, monster) && MobaTeams.AreEnemies(monster, a))
-            .ToList();
-
-        if (enemies.Count == 0)
-        {
-            return null;
-        }
-
-        // #7 nearest enemy creep.
-        var creep = enemies.OfType<NPC.Monster>().Where(m => !IsStructure(m)).MinBy(monster.GetDistanceTo);
-        if (creep is not null)
-        {
-            return creep;
-        }
-
-        // #8 nearest enemy champion.
-        var champion = enemies.OfType<Player>().MinBy(monster.GetDistanceTo);
-        if (champion is not null)
-        {
-            return champion;
-        }
-
-        // #9 nearest enemy structure.
-        return enemies.OfType<NPC.Monster>().Where(IsStructure).MinBy(monster.GetDistanceTo);
-    }
-
-    // Structures (turrets / nexus) are a later W-topic; nothing is a structure yet.
-    private static bool IsStructure(NPC.Monster monster) => false;
+    /// <remarks>The base AI stays idle; this creep runs its own timer.</remarks>
+    protected override ValueTask<IAttackable?> SearchNextTargetAsync() => ValueTask.FromResult<IAttackable?>(null);
 
     /// <inheritdoc />
-    /// <remarks>Marching is done on the dedicated timer; keep the base AI tick idle.</remarks>
     protected override ValueTask TickWithoutTargetAsync() => ValueTask.CompletedTask;
 
     /// <inheritdoc />
     protected override void Dispose(bool managed)
     {
-        this._marchTimer?.Dispose();
-        this._marchTimer = null;
+        this._aiTimer?.Dispose();
+        this._aiTimer = null;
         base.Dispose(managed);
     }
 
@@ -147,7 +112,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Timer callback; exceptions swallowed to keep the timer alive.")]
-    private async void SafeMarchTick()
+    private async void SafeTick()
     {
         if (this._ticking)
         {
@@ -157,7 +122,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         this._ticking = true;
         try
         {
-            await this.MarchTickAsync().ConfigureAwait(false);
+            await this.TickAsync().ConfigureAwait(false);
         }
         catch
         {
@@ -169,16 +134,10 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
     }
 
-    private async ValueTask MarchTickAsync()
+    private async ValueTask TickAsync()
     {
         var monster = this.Monster;
-        if (!monster.IsAlive || this._currentWaypoint >= this._waypoints.Count)
-        {
-            return;
-        }
-
-        // Fighting: let the base AI tick drive the attack / approach, don't march.
-        if (this.CurrentTarget is { } target && target.IsActive())
+        if (!monster.IsAlive)
         {
             return;
         }
@@ -189,8 +148,89 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
 
         var pos = monster.Position;
-        var waypoint = this._waypoints[this._currentWaypoint];
+        var attackRange = monster.Definition.AttackRange;
+        var acquisitionRange = attackRange + AcquisitionRangeBonus;
 
+        // Drop an invalid / leashed / lost target.
+        if (this._combatTarget is { } current
+            && (!current.IsActive()
+                || current.GetDistanceTo(pos) > acquisitionRange
+                || pos.EuclideanDistanceTo(this._chaseAnchor) > ChaseLeashTiles))
+        {
+            this._combatTarget = null;
+        }
+
+        // Acquire a new target if we have none.
+        if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
+        {
+            this._combatTarget = acquired;
+            this._chaseAnchor = pos;
+        }
+
+        if (this._combatTarget is { } target)
+        {
+            if (target.GetDistanceTo(pos) <= attackRange)
+            {
+                await monster.AttackAsync(target).ConfigureAwait(false);
+            }
+            else if (!monster.IsWalking)
+            {
+                await this.FeedChunkTowardAsync(pos, target.Position).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        // No target: march the lane.
+        await this.MarchAsync(pos).ConfigureAwait(false);
+    }
+
+    private IAttackable? AcquireTarget(Monster self, Point pos, int range)
+    {
+        var map = self.CurrentMap;
+        if (map is null)
+        {
+            return null;
+        }
+
+        var enemies = map.GetAttackablesInRange(pos, range)
+            .Where(a => a.IsActive() && !ReferenceEquals(a, self) && MobaTeams.AreEnemies(self, a))
+            .ToList();
+
+        if (enemies.Count == 0)
+        {
+            return null;
+        }
+
+        // #7 nearest enemy creep.
+        var creep = enemies.OfType<Monster>().Where(m => !IsStructure(m)).MinBy(self.GetDistanceTo);
+        if (creep is not null)
+        {
+            return creep;
+        }
+
+        // #8 nearest enemy champion.
+        var champion = enemies.OfType<Player>().MinBy(self.GetDistanceTo);
+        if (champion is not null)
+        {
+            return champion;
+        }
+
+        // #9 nearest enemy structure.
+        return enemies.OfType<Monster>().Where(IsStructure).MinBy(self.GetDistanceTo);
+    }
+
+    // Structures (turrets / nexus) are a later W-topic; nothing is a structure yet.
+    private static bool IsStructure(Monster monster) => false;
+
+    private async ValueTask MarchAsync(Point pos)
+    {
+        if (this._currentWaypoint >= this._waypoints.Count)
+        {
+            return;
+        }
+
+        var waypoint = this._waypoints[this._currentWaypoint];
         if (waypoint.EuclideanDistanceTo(pos) <= WaypointReachedDistance)
         {
             this._currentWaypoint++;
@@ -207,17 +247,17 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         if (this._chunkStepCount > 0)
         {
             var elapsed = DateTime.UtcNow - this._chunkStartedUtc;
-            var consumed = (int)(elapsed.TotalMilliseconds / Math.Max(1, monster.StepDelay.TotalMilliseconds));
+            var consumed = (int)(elapsed.TotalMilliseconds / Math.Max(1, this.Monster.StepDelay.TotalMilliseconds));
             if (consumed < this._chunkStepCount - RefeedWhenStepsLeft)
             {
                 return;
             }
         }
 
-        await this.FeedNextChunkAsync(pos, waypoint).ConfigureAwait(false);
+        await this.FeedChunkTowardAsync(pos, waypoint).ConfigureAwait(false);
     }
 
-    private async ValueTask FeedNextChunkAsync(Point from, Point to)
+    private async ValueTask FeedChunkTowardAsync(Point from, Point to)
     {
         var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
         var buffer = ArrayPool<WalkingStep>.Shared.Rent(MaxStepsPerChunk);
