@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Buffers;
 using System.Threading;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
@@ -17,23 +18,23 @@ using MUnique.OpenMU.Pathfinding;
 /// lane - no faction, no target selection. Team-aware aggression, turrets and the
 /// nexus come in later topics.
 ///
-/// The monster pathfinder uses a <see cref="ScopedGridNetwork"/> which rejects any
-/// path whose start/end differ by more than 16 tiles on an axis, so a far waypoint
-/// is walked toward in short hops. Marching runs on its own fast timer (not the
-/// base AI tick, which fires only every <c>AttackDelay</c>) so the walk looks
-/// continuous instead of stop-and-go at each hop.
+/// Movement: a dedicated fast timer feeds the walker straight-line step chunks and
+/// re-feeds the next chunk a few steps before the current one runs out, so the walk
+/// is continuous instead of stop-and-go. Each creep gets its own (already offset)
+/// waypoint list from the spawner, so a wave marches in parallel lanes without
+/// piling onto the same tiles. The current test lane is axis-aligned, so a
+/// tile-by-tile straight line is enough; a real pathfinder comes with curved lanes.
 /// </remarks>
 public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 {
-    private const float WaypointReachedDistance = 2.5f;
+    private const float WaypointReachedDistance = 1.5f;
 
-    /// <summary>
-    /// Maximum tiles per walk request on any axis. Kept below the scoped grid network's
-    /// 16-tile segment limit.
-    /// </summary>
-    private const int MaxHopTiles = 10;
+    private const int MaxStepsPerChunk = 16;
 
-    private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(50);
+    /// <summary>Re-feed the walker when this many steps of the current chunk are left.</summary>
+    private const int RefeedWhenStepsLeft = 3;
+
+    private static readonly TimeSpan MarchInterval = TimeSpan.FromMilliseconds(60);
 
     private readonly IReadOnlyList<Point> _waypoints;
 
@@ -41,19 +42,23 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private int _currentWaypoint;
 
-    private volatile bool _marching;
+    private volatile bool _ticking;
+
+    private DateTime _chunkStartedUtc;
+
+    private int _chunkStepCount;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
     /// </summary>
-    /// <param name="waypoints">The ordered lane waypoints the creep walks through.</param>
+    /// <param name="waypoints">The ordered lane waypoints (already offset for this creep's parallel track).</param>
     public MobaLaneCreepIntelligence(IReadOnlyList<Point> waypoints)
     {
         this._waypoints = waypoints ?? throw new ArgumentNullException(nameof(waypoints));
     }
 
     /// <inheritdoc />
-    /// <remarks>Starts the dedicated fast march timer (Start/Pause are not virtual on the base).</remarks>
+    /// <remarks>Starts the dedicated march timer (Start/Pause are not virtual on the base).</remarks>
     protected override void OnStart()
     {
         base.OnStart();
@@ -61,7 +66,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     /// <inheritdoc />
-    /// <remarks>W1: no targets, the creep only marches (handled by the march timer).</remarks>
+    /// <remarks>W1: no targets, the creep only marches.</remarks>
     protected override ValueTask<IAttackable?> SearchNextTargetAsync() => ValueTask.FromResult<IAttackable?>(null);
 
     /// <inheritdoc />
@@ -76,15 +81,33 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         base.Dispose(managed);
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Timer callback; all exceptions are swallowed.")]
+    private static Direction GetDirection(Point from, Point to)
+    {
+        var dx = Math.Sign(to.X - from.X);
+        var dy = Math.Sign(to.Y - from.Y);
+        return (dx, dy) switch
+        {
+            (0, -1) => Direction.North,
+            (1, -1) => Direction.NorthEast,
+            (1, 0) => Direction.East,
+            (1, 1) => Direction.SouthEast,
+            (0, 1) => Direction.South,
+            (-1, 1) => Direction.SouthWest,
+            (-1, 0) => Direction.West,
+            (-1, -1) => Direction.NorthWest,
+            _ => Direction.Undefined,
+        };
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Timer callback; exceptions swallowed to keep the timer alive.")]
     private async void SafeMarchTick()
     {
-        if (this._marching)
+        if (this._ticking)
         {
             return;
         }
 
-        this._marching = true;
+        this._ticking = true;
         try
         {
             await this.MarchTickAsync().ConfigureAwait(false);
@@ -95,19 +118,19 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
         finally
         {
-            this._marching = false;
+            this._ticking = false;
         }
     }
 
     private async ValueTask MarchTickAsync()
     {
         var monster = this.Monster;
-        if (!monster.IsAlive || monster.IsWalking || this._currentWaypoint >= this._waypoints.Count)
+        if (!monster.IsAlive || this._currentWaypoint >= this._waypoints.Count)
         {
             return;
         }
 
-        if (monster.Attributes[Stats.IsStunned] > 0 || monster.Attributes[Stats.IsAsleep] > 0)
+        if (monster.Attributes[Stats.IsStunned] > 0 || monster.Attributes[Stats.IsAsleep] > 0 || monster.Attributes[Stats.IsFrozen] > 0)
         {
             return;
         }
@@ -118,6 +141,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         if (waypoint.EuclideanDistanceTo(pos) <= WaypointReachedDistance)
         {
             this._currentWaypoint++;
+            this._chunkStepCount = 0;
             if (this._currentWaypoint >= this._waypoints.Count)
             {
                 return;
@@ -126,21 +150,55 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             waypoint = this._waypoints[this._currentWaypoint];
         }
 
-        await monster.WalkToAsync(NextHopToward(pos, waypoint)).ConfigureAwait(false);
-    }
-
-    private static Point NextHopToward(Point from, Point to)
-    {
-        int dx = to.X - from.X;
-        int dy = to.Y - from.Y;
-        int steps = Math.Max(Math.Abs(dx), Math.Abs(dy));
-        if (steps <= MaxHopTiles)
+        // Only re-feed once the current chunk is (almost) consumed, so the walk stays fluid.
+        if (this._chunkStepCount > 0)
         {
-            return to;
+            var elapsed = DateTime.UtcNow - this._chunkStartedUtc;
+            var consumed = (int)(elapsed.TotalMilliseconds / Math.Max(1, monster.StepDelay.TotalMilliseconds));
+            if (consumed < this._chunkStepCount - RefeedWhenStepsLeft)
+            {
+                return;
+            }
         }
 
-        var hopX = from.X + (dx * MaxHopTiles / steps);
-        var hopY = from.Y + (dy * MaxHopTiles / steps);
-        return new Point((byte)Math.Clamp(hopX, 0, 255), (byte)Math.Clamp(hopY, 0, 255));
+        await this.FeedNextChunkAsync(pos, waypoint).ConfigureAwait(false);
+    }
+
+    private async ValueTask FeedNextChunkAsync(Point from, Point to)
+    {
+        var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
+        var buffer = ArrayPool<WalkingStep>.Shared.Rent(MaxStepsPerChunk);
+        try
+        {
+            var count = 0;
+            var cursor = from;
+            while (count < MaxStepsPerChunk && cursor != to)
+            {
+                var next = new Point(
+                    (byte)(cursor.X + Math.Sign(to.X - cursor.X)),
+                    (byte)(cursor.Y + Math.Sign(to.Y - cursor.Y)));
+
+                if (terrain[next.X, next.Y] == 0)
+                {
+                    break;
+                }
+
+                buffer[count++] = new WalkingStep(cursor, next, GetDirection(cursor, next));
+                cursor = next;
+            }
+
+            if (count == 0)
+            {
+                return;
+            }
+
+            await this.Monster.WalkToAsync(cursor, buffer.AsMemory(0, count)).ConfigureAwait(false);
+            this._chunkStartedUtc = DateTime.UtcNow;
+            this._chunkStepCount = count;
+        }
+        finally
+        {
+            ArrayPool<WalkingStep>.Shared.Return(buffer);
+        }
     }
 }

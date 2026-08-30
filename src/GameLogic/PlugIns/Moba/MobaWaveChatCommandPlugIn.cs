@@ -40,23 +40,23 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
         (2, 3), // Budge Dragon - small dragon (back). Gets a ranged fire skill in W2.
     };
 
-    /// <summary>Horizontal spacing (tiles) between creeps in a rank.</summary>
-    private const int RankSpacingX = 4;
+    /// <summary>Horizontal spacing (tiles) between creeps in a rank and between their parallel tracks.</summary>
+    private const int RankSpacingX = 2;
 
     /// <summary>Distance (tiles) between successive ranks, measured back from the lane start.</summary>
-    private const int RankGapY = 4;
+    private const int RankGapY = 2;
 
     /// <summary>
-    /// Ordered lane waypoints. Placeholder straight lane down column x=120, which is a
-    /// fully-walkable corridor of the flattened arena terrain. Real per-map lane data
-    /// comes later.
+    /// Ordered lane waypoints. Placeholder straight lane down column x=161; x=158-164 is a
+    /// wide fully-walkable corridor of the flattened arena terrain, so the creeps' parallel
+    /// tracks all stay clear. Real per-map lane data comes later.
     /// </summary>
     private static readonly Point[] LaneWaypoints =
     {
-        new(120, 60),
-        new(120, 110),
-        new(120, 160),
-        new(120, 205),
+        new(161, 60),
+        new(161, 110),
+        new(161, 160),
+        new(161, 205),
     };
 
     /// <inheritdoc />
@@ -89,9 +89,15 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
             var lineWidth = (count - 1) * RankSpacingX;
             for (var i = 0; i < count; i++)
             {
-                // Horizontal line, centred on the lane start x.
-                var startX = spawn.X - (lineWidth / 2) + (i * RankSpacingX);
-                var startPoint = new Point((byte)Math.Clamp(startX, 0, 255), rankY);
+                // Horizontal line, centred on the lane start x. Each creep keeps this X
+                // offset for its whole march (its own parallel track), so the wave never
+                // piles onto the same tiles.
+                var offsetX = (i * RankSpacingX) - (lineWidth / 2);
+                var startPoint = new Point((byte)Math.Clamp(spawn.X + offsetX, 0, 255), rankY);
+                var creepWaypoints = LaneWaypoints
+                    .Select(w => new Point((byte)Math.Clamp(w.X + offsetX, 0, 255), w.Y))
+                    .ToArray();
+
                 var area = new MonsterSpawnArea
                 {
                     GameMap = map.Definition,
@@ -109,7 +115,7 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandA
                     definition,
                     map,
                     player.GameContext.DropGenerator,
-                    new MobaLaneCreepIntelligence(LaneWaypoints),
+                    new MobaLaneCreepIntelligence(creepWaypoints),
                     player.GameContext.PlugInManager,
                     player.GameContext.PathFinderPool);
 
