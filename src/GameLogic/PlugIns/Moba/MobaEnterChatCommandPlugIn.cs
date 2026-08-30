@@ -8,30 +8,28 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands.Arguments;
-using MUnique.OpenMU.Pathfinding;
+using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// GM chat command which enters a MOBA match: swaps the session onto an ephemeral
-/// clone of the real character and warps it into the MOBA Arena (map 200).
+/// GM chat command which enters a MOBA match. It flags the account as being in a
+/// match and disconnects the client; on reconnect the session enters the world as
+/// an ephemeral clone in the MOBA Arena instead of the real character.
 /// </summary>
 /// <remarks>
 /// Building block of the custom MOBA game mode (see GAMEDESIGN.md). The real entry
-/// flow is the queue NPC in Lorencia + matchmaking + ready-check; this is the GM
-/// shortcut used to build and play-test the mode. Use <c>/mobaleave</c> to drop the
-/// clone and return to the real character. This first version keeps the clone in the
-/// live session, so a disconnect ends the match (reconnection survival is a later
-/// topic).
+/// flow is the queue NPC + matchmaking + ready-check; this is the GM shortcut for
+/// play-testing. The reconnect is deliberate: it lets the client run its normal
+/// select-character / enter-world sequence, which avoids the desync a live
+/// selected-character swap caused. Use <c>/mobaleave</c> to end the match.
 /// </remarks>
 [Guid("58B0FF0B-4DCA-4B90-AC0F-10CE2D89EE9B")]
 [PlugIn]
-[Display(Name = "MOBA: enter arena command", Description = "GM command '/moba' - enter a MOBA match as an ephemeral clone.")]
-[ChatCommandHelp(Command, "Enter a MOBA match as an ephemeral clone (map 200).", typeof(EmptyChatCommandArgs))]
+[Display(Name = "MOBA: enter arena command", Description = "GM command '/moba' - enter a MOBA match as an ephemeral clone (reconnects).")]
+[ChatCommandHelp(Command, "Enter a MOBA match as an ephemeral clone (map 200). Reconnects the client.", typeof(EmptyChatCommandArgs))]
 public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
 {
     private const string Command = "/moba";
-
-    private static readonly Point ArenaEntryPoint = new(128, 128);
 
     /// <inheritdoc />
     public override string Key => Command;
@@ -42,33 +40,19 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, EmptyChatCommandArgs arguments)
     {
-        if (player.SelectedCharacter is not { } real)
+        if (player.Account is not { } account)
         {
             return;
         }
 
-        if (player.MobaRealCharacter is not null)
+        if (MobaMatchRegistry.IsInMatch(account.GetId()))
         {
-            await player.ShowBlueMessageAsync("[MOBA] You are already in a match. Use /mobaleave first.").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[MOBA] You are already in a match. Use /mobaleave to end it.").ConfigureAwait(false);
             return;
         }
 
-        var exitGate = await this.GetExitGateAsync(player, MobaCloneFactory.ArenaMapNumber.ToString(), ArenaEntryPoint).ConfigureAwait(false);
-        if (exitGate is null)
-        {
-            return;
-        }
-
-        var clone = await MobaCloneFactory.BuildCloneAsync(player).ConfigureAwait(false);
-
-        player.MobaRealCharacter = real;
-        player.SuppressPersistence = true;
-
-        await player.RemoveFromCurrentMapAsync().ConfigureAwait(false);
-        await player.SetSelectedCharacterAsync(null).ConfigureAwait(false);
-        await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
-        await player.WarpToAsync(exitGate).ConfigureAwait(false);
-
-        await player.ShowBlueMessageAsync("[MOBA] Entered the arena as a clone - level 400, no items, progress NOT saved. Use /mobaleave to return.").ConfigureAwait(false);
+        MobaMatchRegistry.Enter(account.GetId());
+        await player.ShowBlueMessageAsync("[MOBA] Match starting - reconnecting you as a clone...").ConfigureAwait(false);
+        await player.DisconnectAsync().ConfigureAwait(false);
     }
 }

@@ -46,7 +46,7 @@ public class MobaClonePreviewChatCommandPlugIn : ChatCommandPlugInBase<EmptyChat
         var realSkillCount = real.LearnedSkills?.Count ?? 0;
         var realMasterLevelPoints = real.MasterLevelUpPoints;
 
-        var clone = await MobaCloneFactory.BuildCloneAsync(player).ConfigureAwait(false);
+        var clone = await MobaCloneFactory.BuildCloneAsync(player, real).ConfigureAwait(false);
 
         var cloneLevel = clone.Attributes.FirstOrDefault(a => a.Definition.Id == Stats.Level.Id)?.Value ?? 0;
         var cloneInventoryCount = clone.Inventory?.Items.Count ?? 0;

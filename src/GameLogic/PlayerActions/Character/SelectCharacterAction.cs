@@ -4,6 +4,9 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Character;
 
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
+using MUnique.OpenMU.Persistence;
+
 /// <summary>
 /// Action to select a character and enter the world with it.
 /// </summary>
@@ -24,7 +27,23 @@ public class SelectCharacterAction
             return;
         }
 
-        await player.SetSelectedCharacterAsync(player.Account?.Characters.FirstOrDefault(c => c.Name.Equals(characterName))).ConfigureAwait(false);
+        var realCharacter = player.Account?.Characters.FirstOrDefault(c => c.Name.Equals(characterName));
+
+        if (realCharacter is not null
+            && player.Account is { } account
+            && MobaMatchRegistry.IsInMatch(account.GetId()))
+        {
+            // The account is in a MOBA match: enter the world as an ephemeral clone
+            // instead of the real character. Rebuilt fresh on every (re)connect for now.
+            var clone = await MobaCloneFactory.BuildCloneAsync(player, realCharacter).ConfigureAwait(false);
+            player.MobaRealCharacter = realCharacter;
+            player.SuppressPersistence = true;
+            await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
+            player.Logger.LogInformation("Account {0} entered the MOBA match as a clone of '{1}'.", account.LoginName, characterName);
+            return;
+        }
+
+        await player.SetSelectedCharacterAsync(realCharacter).ConfigureAwait(false);
         if (player.SelectedCharacter is null)
         {
             player.Logger.LogError("Could not select character because character not found: [{0}]", characterName);

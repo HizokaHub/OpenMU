@@ -30,16 +30,24 @@ public static class MobaCloneFactory
 
     private const int MatchStartLevel = 400;
 
+    /// <summary>
+    /// Flat baseline value assigned to every increasable stat (STR / AGI / VIT / ENE /
+    /// CMD) of every clone, regardless of class or the player's real build. Placeholder
+    /// while damage / scaling is tuned; see GAMEDESIGN.md.
+    /// </summary>
+    private const int BaselineStatValue = 10;
+
     private static readonly (byte X, byte Y) ArenaSpawn = (128, 128);
 
     /// <summary>
-    /// Builds a fresh clone character from the given player's selected (real) character.
+    /// Builds a fresh clone character from the given real character.
     /// </summary>
-    /// <param name="player">The player whose real character is cloned.</param>
-    /// <returns>The detached-in-spirit clone character, ready to be used as the selected character for a match.</returns>
-    public static async ValueTask<Character> BuildCloneAsync(Player player)
+    /// <param name="player">The player who will play the clone (its persistence context is used to create the entities).</param>
+    /// <param name="realCharacter">The real character to clone. Only read, never mutated.</param>
+    /// <returns>The clone character, ready to be used as the selected character for a match.</returns>
+    public static async ValueTask<Character> BuildCloneAsync(Player player, Character realCharacter)
     {
-        var real = player.SelectedCharacter ?? throw new InvalidOperationException("Player has no selected character to clone.");
+        var real = realCharacter ?? throw new ArgumentNullException(nameof(realCharacter));
         var characterClass = real.CharacterClass ?? throw new InvalidOperationException("The character has no class assigned.");
         var context = player.PersistenceContext;
 
@@ -52,11 +60,12 @@ public static class MobaCloneFactory
         clone.State = HeroState.Normal;
         clone.KeyConfiguration = real.KeyConfiguration is { } key ? (byte[])key.Clone() : null;
 
-        // Stats: copy the real distribution for now (per-class baseline table is a later topic),
-        // then force the match starting level.
-        foreach (var stat in real.Attributes)
+        // Stats: every clone of every class starts from the same flat baseline (not the
+        // player's real build), then the fixed match level. The class stat-attribute set
+        // defines which stats exist (STR/AGI/VIT/ENE, plus CMD for Dark Lord).
+        foreach (var classStat in characterClass.StatAttributes.Where(a => a.IncreasableByPlayer))
         {
-            clone.Attributes.Add(context.CreateNew<StatAttribute>(stat.Definition, stat.Value));
+            clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute, BaselineStatValue));
         }
 
         EnsureAttribute(context, clone, Stats.Level, MatchStartLevel);
