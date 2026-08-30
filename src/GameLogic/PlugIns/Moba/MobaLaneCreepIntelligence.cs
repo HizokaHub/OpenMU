@@ -195,16 +195,23 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             this._combatTarget = null;
         }
 
-        // Acquire a new target if we have none.
-        if (this._combatTarget is null
-            && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
+        var lockedOnStructure = this._combatTarget is Monster m && IsStructure(m);
+
+        // #1 champion-aggro interrupt: force-switch onto an enemy champion that just
+        // damaged an ally, for ChampAggroWindow. Does not override a structure lock.
+        if (!lockedOnStructure && this.FindChampionAggro(monster, pos, acquisitionRange) is { } aggroChamp)
+        {
+            this._combatTarget = aggroChamp;
+        }
+        else if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
         {
             this._combatTarget = acquired;
-            if (!this._hasEngageAnchor)
-            {
-                this._engageAnchor = pos;
-                this._hasEngageAnchor = true;
-            }
+        }
+
+        if (this._combatTarget is not null && !this._hasEngageAnchor)
+        {
+            this._engageAnchor = pos;
+            this._hasEngageAnchor = true;
         }
 
         if (this._combatTarget is { } target)
@@ -225,6 +232,37 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         await this.MarchAsync(pos).ConfigureAwait(false);
     }
 
+    private static readonly TimeSpan ReactWindow = TimeSpan.FromSeconds(2);
+
+    private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// #1 of the LoL priority: an enemy champion that has damaged any of this creep's
+    /// allies (champions or creeps) in the last <see cref="ChampAggroWindow"/> within
+    /// acquisition range. This is a force-switch interrupt (unless the creep is locked
+    /// on a structure). Returns null if no such champion.
+    /// </summary>
+    private Player? FindChampionAggro(Monster self, Point pos, int range)
+    {
+        var map = self.CurrentMap;
+        if (map is null)
+        {
+            return null;
+        }
+
+        var inRange = map.GetAttackablesInRange(pos, range).Where(a => a.IsActive()).ToList();
+        var allyVictims = inRange
+            .Where(a => !ReferenceEquals(a, self) && MobaTeams.AreAllies(self, a))
+            .Cast<object>()
+            .Append(self)
+            .ToList();
+
+        return inRange
+            .OfType<Player>()
+            .Where(c => MobaTeams.AreEnemies(self, c) && MobaCombatLog.HitAnyOf(c, allyVictims, ChampAggroWindow))
+            .MinBy(self.GetDistanceTo);
+    }
+
     private IAttackable? AcquireTarget(Monster self, Point pos, int range)
     {
         var map = self.CurrentMap;
@@ -233,24 +271,64 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return null;
         }
 
-        var enemies = map.GetAttackablesInRange(pos, range)
-            .Where(a => a.IsActive() && !ReferenceEquals(a, self) && MobaTeams.AreEnemies(self, a))
-            .ToList();
-
+        var inRange = map.GetAttackablesInRange(pos, range).Where(a => a.IsActive() && !ReferenceEquals(a, self)).ToList();
+        var enemies = inRange.Where(a => MobaTeams.AreEnemies(self, a)).ToList();
         if (enemies.Count == 0)
         {
             return null;
         }
 
+        var enemyCreeps = enemies.OfType<Monster>().Where(m => !IsStructure(m)).ToList();
+        var enemyChampions = enemies.OfType<Player>().ToList();
+
+        var allyChampions = inRange.Where(a => MobaTeams.AreAllies(self, a)).OfType<Player>().Cast<object>().ToList();
+        var allyCreeps = inRange.Where(a => MobaTeams.AreAllies(self, a)).OfType<Monster>().Where(m => !IsStructure(m)).Cast<object>().ToList();
+        var me = new object[] { self };
+
+        // #2 enemy creep attacking an allied champion.
+        var t = enemyCreeps.Where(c => MobaCombatLog.HitAnyOf(c, allyChampions, ReactWindow)).MinBy(self.GetDistanceTo);
+        if (t is not null)
+        {
+            return t;
+        }
+
+        // #3 enemy creep attacking an allied creep (focus fire).
+        t = enemyCreeps.Where(c => MobaCombatLog.HitAnyOf(c, allyCreeps, ReactWindow)).MinBy(self.GetDistanceTo);
+        if (t is not null)
+        {
+            return t;
+        }
+
+        // #4 enemy creep attacking me.
+        t = enemyCreeps.Where(c => MobaCombatLog.HitAnyOf(c, me, ReactWindow)).MinBy(self.GetDistanceTo);
+        if (t is not null)
+        {
+            return t;
+        }
+
+        // #5 enemy champion attacking an allied creep.
+        var p = enemyChampions.Where(c => MobaCombatLog.HitAnyOf(c, allyCreeps, ReactWindow)).MinBy(self.GetDistanceTo);
+        if (p is not null)
+        {
+            return p;
+        }
+
+        // #6 enemy champion attacking me.
+        p = enemyChampions.Where(c => MobaCombatLog.HitAnyOf(c, me, ReactWindow)).MinBy(self.GetDistanceTo);
+        if (p is not null)
+        {
+            return p;
+        }
+
         // #7 nearest enemy creep.
-        var creep = enemies.OfType<Monster>().Where(m => !IsStructure(m)).MinBy(self.GetDistanceTo);
+        var creep = enemyCreeps.MinBy(self.GetDistanceTo);
         if (creep is not null)
         {
             return creep;
         }
 
         // #8 nearest enemy champion.
-        var champion = enemies.OfType<Player>().MinBy(self.GetDistanceTo);
+        var champion = enemyChampions.MinBy(self.GetDistanceTo);
         if (champion is not null)
         {
             return champion;

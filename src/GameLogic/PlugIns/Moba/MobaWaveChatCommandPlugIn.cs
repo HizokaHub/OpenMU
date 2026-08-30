@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.DataModel.Configuration;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.Pathfinding;
@@ -28,6 +29,14 @@ using MUnique.OpenMU.PlugIns;
 public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatCommandArgs>
 {
     private const string Command = "/mobawave";
+
+    /// <summary>
+    /// Placeholder HP multiplier for the wave creeps so fights last long enough to
+    /// observe targeting. Applied to a per-match COPY of the monster definition, never
+    /// the shared config (that would buff the real Lorencia mobs). Real per-class creep
+    /// stats come in a later balance pass.
+    /// </summary>
+    private const float CreepHpMultiplier = 60f;
 
     /// <summary>
     /// The wave composition, front rank first. Each entry is spawned as a horizontal
@@ -84,11 +93,18 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
         var total = 0;
         foreach (var (number, count) in WaveComposition)
         {
-            var definition = player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
-            if (definition is null)
+            var baseDefinition = player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
+            if (baseDefinition is null)
             {
                 await player.ShowBlueMessageAsync($"[MOBA] Monster #{number} is not configured.").ConfigureAwait(false);
                 continue;
+            }
+
+            // Per-match copy with boosted HP; the shared config stays untouched.
+            var definition = baseDefinition.Clone(player.GameContext.Configuration);
+            if (definition.Attributes.FirstOrDefault(a => a.AttributeDefinition?.Id == Stats.MaximumHealth.Id) is { } hpAttr)
+            {
+                hpAttr.Value *= CreepHpMultiplier;
             }
 
             var rankY = (byte)Math.Clamp(spawn.Y + (rank * behindStep), 0, 255);

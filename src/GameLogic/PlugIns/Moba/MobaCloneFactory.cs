@@ -37,6 +37,13 @@ public static class MobaCloneFactory
     /// </summary>
     private const int BaselineStatValue = 10;
 
+    /// <summary>
+    /// Placeholder vitality for the clone so it survives long enough to test creep
+    /// targeting. Overrides the flat baseline just for VIT. Real per-class stats and
+    /// balance come later.
+    /// </summary>
+    private const int TestVitality = 2000;
+
     private static readonly (byte X, byte Y) ArenaSpawn = (116, 60);
 
     /// <summary>
@@ -63,9 +70,10 @@ public static class MobaCloneFactory
         // Stats: every clone of every class starts from the same flat baseline (not the
         // player's real build), then the fixed match level. The class stat-attribute set
         // defines which stats exist (STR/AGI/VIT/ENE, plus CMD for Dark Lord).
-        foreach (var classStat in characterClass.StatAttributes.Where(a => a.IncreasableByPlayer))
+        foreach (var classStat in characterClass.StatAttributes.Where(a => a is { IncreasableByPlayer: true, Attribute: not null }))
         {
-            clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute, BaselineStatValue));
+            var value = classStat.Attribute!.Id == Stats.BaseVitality.Id ? TestVitality : BaselineStatValue;
+            clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute, value));
         }
 
         EnsureAttribute(context, clone, Stats.Level, MatchStartLevel);
