@@ -70,6 +70,13 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private IAttackable? _combatTarget;
 
+    /// <summary>
+    /// True while <see cref="_combatTarget"/> is an enemy champion picked by the #1
+    /// champ-aggro rule (rather than normal acquisition). Such a target is force-dropped
+    /// as soon as the aggro expires, so the creep goes straight back to the enemy wave.
+    /// </summary>
+    private bool _combatTargetFromChampAggro;
+
     private bool _returningToLane;
 
     private Point _engageAnchor;
@@ -194,6 +201,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 || this.DistanceToLane(pos) > ChaseLeashTiles))
         {
             this._combatTarget = null;
+            this._combatTargetFromChampAggro = false;
             this._returningToLane = true;
             return;
         }
@@ -207,19 +215,33 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             && (!current.IsActive() || current.GetDistanceTo(pos) > dropRange))
         {
             this._combatTarget = null;
+            this._combatTargetFromChampAggro = false;
         }
 
         var lockedOnStructure = this._combatTarget is Monster m && IsStructure(m);
 
-        // #1 champion-aggro interrupt: force-switch onto an enemy champion that just
-        // damaged an ally, for ChampAggroWindow. Does not override a structure lock.
-        if (!lockedOnStructure && this.FindChampionAggro(monster, pos, acquisitionRange) is { } aggroChamp)
+        // #1 champion-aggro: an enemy champion that just damaged an allied champion. While
+        // it keeps hitting, the creep stays on it; the moment it stops (no hit within
+        // ChampAggroWindow) the creep drops it here and re-acquires a wave target below.
+        if (!lockedOnStructure)
         {
-            this._combatTarget = aggroChamp;
+            var aggroChamp = this.FindChampionAggro(monster, pos, acquisitionRange);
+            if (aggroChamp is not null)
+            {
+                this._combatTarget = aggroChamp;
+                this._combatTargetFromChampAggro = true;
+            }
+            else if (this._combatTargetFromChampAggro)
+            {
+                this._combatTarget = null;
+                this._combatTargetFromChampAggro = false;
+            }
         }
-        else if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
+
+        if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
         {
             this._combatTarget = acquired;
+            this._combatTargetFromChampAggro = false;
         }
 
         if (this._combatTarget is not null && !this._hasEngageAnchor)
@@ -248,14 +270,21 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private static readonly TimeSpan ReactWindow = TimeSpan.FromSeconds(2);
 
-    private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(3);
+    /// <summary>
+    /// How recently an enemy champion must have damaged an allied champion for the #1
+    /// rule to keep this creep on that champion. Once the enemy champion stops (no hit
+    /// within this window) the creep drops it and returns to the enemy wave. Kept short
+    /// on purpose - "aggro me for ~1s after I hit your ally, then let go".
+    /// </summary>
+    private static readonly TimeSpan ChampAggroWindow = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// #1 of the LoL priority: an enemy champion involved in champion-vs-champion combat
-    /// with one of this creep's allied champions in the last <see cref="ChampAggroWindow"/>
-    /// (either direction - the enemy hit our champ, or our champ hit the enemy). Damage to
-    /// creeps never triggers this: a player may last-hit freely. This is a force-switch
-    /// interrupt (unless the creep is locked on a structure).
+    /// #1 of the LoL priority: an enemy champion that has damaged one of this creep's
+    /// allied champions in the last <see cref="ChampAggroWindow"/>. Only that direction -
+    /// the wave defends its champion; it does NOT pile onto an enemy champion just because
+    /// an allied champion is attacking it (your own minions don't help you engage). Damage
+    /// to creeps never triggers this: a player may last-hit freely. Force-switch interrupt
+    /// unless the creep is locked on a structure.
     /// </summary>
     private Player? FindChampionAggro(Monster self, Point pos, int range)
     {
@@ -285,8 +314,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             .Where(a => a.IsActive())
             .OfType<Player>()
             .Where(c => MobaTeams.AreEnemies(self, c)
-                && (MobaCombatLog.HitAnyOf(c, alliedChampions, ChampAggroWindow)
-                    || alliedChampions.Any(ac => MobaCombatLog.HitAnyOf(ac, new object[] { c }, ChampAggroWindow))))
+                && MobaCombatLog.HitAnyOf(c, alliedChampions, ChampAggroWindow))
             .MinBy(self.GetDistanceTo);
     }
 
