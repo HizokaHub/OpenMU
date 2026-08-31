@@ -96,6 +96,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private bool _hasEngageAnchor;
 
+    /// <summary>Tiles this creep currently holds in <see cref="MobaOccupancyGrid"/> (its position + the committed walk chunk).</summary>
+    private readonly List<Point> _claimedTiles = new();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
     /// </summary>
@@ -112,7 +115,40 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     {
         base.OnStart();
         MobaTeams.Set(this.Monster, this._team);
+        this.SyncClaims(this.Monster.Position, Array.Empty<Point>());
         this._aiTimer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
+    }
+
+    /// <summary>Map id shortcut for the occupancy grid.</summary>
+    private ushort MapId => this.Monster.CurrentMap.MapId;
+
+    /// <summary>
+    /// Makes <see cref="_claimedTiles"/> exactly <paramref name="keep"/> plus whichever of
+    /// <paramref name="want"/> can be claimed, releasing the rest. Race-free: the claim is
+    /// an atomic <see cref="MobaOccupancyGrid.TryClaim"/>.
+    /// </summary>
+    private void SyncClaims(Point keep, IReadOnlyList<Point> want)
+    {
+        var mapId = this.MapId;
+
+        foreach (var held in this._claimedTiles)
+        {
+            if (held != keep && !want.Contains(held))
+            {
+                MobaOccupancyGrid.Release(mapId, held, this);
+            }
+        }
+
+        this._claimedTiles.Clear();
+        MobaOccupancyGrid.TryClaim(mapId, keep, this);
+        this._claimedTiles.Add(keep);
+        foreach (var tile in want)
+        {
+            if (tile != keep && MobaOccupancyGrid.TryClaim(mapId, tile, this))
+            {
+                this._claimedTiles.Add(tile);
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -127,6 +163,16 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     {
         this._aiTimer?.Dispose();
         this._aiTimer = null;
+        try
+        {
+            MobaOccupancyGrid.ReleaseAll(this.MapId, this);
+            this._claimedTiles.Clear();
+        }
+        catch
+        {
+            // map already gone
+        }
+
         base.Dispose(managed);
     }
 
@@ -187,6 +233,13 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         var pos = monster.Position;
         var attackRange = monster.Definition.AttackRange;
         var acquisitionRange = attackRange + AcquisitionRangeBonus;
+
+        // Standing still (attacking / idle): hold only the current tile, free the rest of
+        // the last walk chunk so other creeps can use it.
+        if (!monster.IsWalking)
+        {
+            this.SyncClaims(pos, Array.Empty<Point>());
+        }
 
         // Returning to the spot where the last fight started: ignore enemies, walk back.
         if (this._returningToLane)
@@ -496,48 +549,30 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     /// <summary>
-    /// Tiles occupied by other living creeps / champions near <paramref name="around"/>,
-    /// so a march / chase step never lands on another unit or on a player. Snapshot taken
-    /// once per chunk; a rare same-tick race just resolves itself on the next tick.
+    /// Tiles held by nearby champions. Creep-vs-creep collision is the hard
+    /// <see cref="MobaOccupancyGrid"/>; champions move on client paths and are not in it,
+    /// so a march / chase step still avoids their current tile with this cheap snapshot.
     /// </summary>
-    private HashSet<Point> OccupiedTilesNear(Point around)
+    private HashSet<Point> ChampionTilesNear(Point around)
     {
-        var occupied = new HashSet<Point>();
+        var tiles = new HashSet<Point>();
         foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(around, MaxStepsPerChunk + 3))
         {
-            if (ReferenceEquals(other, this.Monster) || !other.IsActive())
+            if (other is MUnique.OpenMU.GameLogic.Player && other.IsActive())
             {
-                continue;
-            }
-
-            if (other is Monster m)
-            {
-                occupied.Add(m.Position);
-
-                // Reserve where the other creep is walking to, so we don't both aim
-                // for the same tile and arrive stacked.
-                if (m.IsWalking)
-                {
-                    occupied.Add(m.WalkTarget);
-                }
-            }
-            else if (other is MUnique.OpenMU.GameLogic.Player)
-            {
-                occupied.Add(other.Position);
+                tiles.Add(other.Position);
             }
         }
 
-        return occupied;
+        return tiles;
     }
 
-    /// <summary>Whether another living creep / champion is standing on <paramref name="tile"/>.</summary>
+    /// <summary>Whether a champion is standing on <paramref name="tile"/> (the grid already keeps creeps apart).</summary>
     private bool TileSharedWithOther(Point tile)
     {
         foreach (var other in this.Monster.CurrentMap.GetAttackablesInRange(tile, 1))
         {
-            if (!ReferenceEquals(other, this.Monster) && other.IsActive()
-                && (other is Monster || other is MUnique.OpenMU.GameLogic.Player)
-                && other.Position == tile)
+            if (other is MUnique.OpenMU.GameLogic.Player && other.IsActive() && other.Position == tile)
             {
                 return true;
             }
@@ -554,7 +589,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private async ValueTask StepOffSharedTileAsync(Point pos, IAttackable? keepInRangeOf, int attackRange)
     {
         var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
-        var occupied = this.OccupiedTilesNear(pos);
+        var champions = this.ChampionTilesNear(pos);
+        var mapId = this.MapId;
         Point? fallback = null;
 
         // Start the search from a per-creep direction so two creeps sharing a tile tend
@@ -570,7 +606,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             };
 
             var n = new Point((byte)(pos.X + dx), (byte)(pos.Y + dy));
-            if (n == pos || terrain[n.X, n.Y] == 0 || occupied.Contains(n))
+            if (n == pos || terrain[n.X, n.Y] == 0 || champions.Contains(n) || !MobaOccupancyGrid.IsFree(mapId, n, this))
             {
                 continue;
             }
@@ -583,8 +619,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             }
         }
 
-        if (fallback is { } dest)
+        if (fallback is { } dest && MobaOccupancyGrid.TryClaim(mapId, dest, this))
         {
+            this.SyncClaims(pos, new[] { dest });
             var steps = new WalkingStep[] { new(pos, dest, GetDirection(pos, dest)) };
             await this.Monster.WalkToAsync(dest, steps.AsMemory()).ConfigureAwait(false);
             this._chunkStartedUtc = DateTime.UtcNow;
@@ -595,10 +632,15 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private async ValueTask FeedChunkTowardAsync(Point from, Point to)
     {
         var terrain = this.Monster.CurrentMap.Terrain.AIgrid;
-        var occupied = this.OccupiedTilesNear(from);
+        var champions = this.ChampionTilesNear(from);
+        var mapId = this.MapId;
         var buffer = ArrayPool<WalkingStep>.Shared.Rent(MaxStepsPerChunk);
+        var claimed = new List<Point>();
 
-        bool Passable(Point p) => terrain[p.X, p.Y] != 0 && !occupied.Contains(p);
+        // A step is allowed only if the terrain is walkable, no champion holds the tile,
+        // and this creep can atomically claim it in the shared grid (this is what stops
+        // two creeps taking the same free tile in the same tick).
+        bool TryTake(Point p) => terrain[p.X, p.Y] != 0 && !champions.Contains(p) && MobaOccupancyGrid.TryClaim(mapId, p, this);
 
         try
         {
@@ -619,7 +661,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                     }
 
                     var p = new Point((byte)(cursor.X + sx), (byte)(cursor.Y + sy));
-                    return Passable(p) ? p : null;
+                    return TryTake(p) ? p : null;
                 }
 
                 var next = Try(dx, dy)
@@ -633,10 +675,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 }
 
                 buffer[count++] = new WalkingStep(cursor, step, GetDirection(cursor, step));
-                occupied.Remove(cursor);
-                occupied.Add(step);
+                claimed.Add(step);
                 cursor = step;
             }
+
+            this.SyncClaims(from, claimed);
 
             if (count == 0)
             {
