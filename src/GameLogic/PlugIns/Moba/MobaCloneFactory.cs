@@ -34,16 +34,22 @@ public static class MobaCloneFactory
     private const int MatchStartLevel = 400;
 
     /// <summary>
-    /// Flat baseline value assigned to every increasable stat (STR / AGI / VIT / ENE /
-    /// CMD) of every clone, regardless of class or the player's real build. Placeholder
-    /// while damage / scaling is tuned; see GAMEDESIGN.md.
+    /// Flat baseline for STR / AGI / CMD of every clone, regardless of class or the
+    /// player's real build. Combat power is meant to come from skills + a later tuning
+    /// pass, not from stats; see GAMEDESIGN.md.
     /// </summary>
     private const int BaselineStatValue = 10;
 
     /// <summary>
-    /// Placeholder vitality for the clone so it survives long enough to test creep
-    /// targeting. Overrides the flat baseline just for VIT. Real per-class stats and
-    /// balance come later.
+    /// Flat ENE for every clone (all classes the same). Not left at 10 because ENE is the
+    /// mana pool: at 10 a caster can't afford its own spells. Uniform, so "everyone starts
+    /// equal" still holds.
+    /// </summary>
+    private const int BaselineEnergyValue = 300;
+
+    /// <summary>
+    /// Placeholder vitality for the clone so it survives long enough to test. Overrides
+    /// the flat baseline just for VIT. Real per-class stats / balance come later.
     /// </summary>
     private const int TestVitality = 2000;
 
@@ -78,7 +84,16 @@ public static class MobaCloneFactory
         // defines which stats exist (STR/AGI/VIT/ENE, plus CMD for Dark Lord).
         foreach (var classStat in characterClass.StatAttributes.Where(a => a is { IncreasableByPlayer: true, Attribute: not null }))
         {
-            var value = classStat.Attribute!.Id == Stats.BaseVitality.Id ? TestVitality : BaselineStatValue;
+            var value = BaselineStatValue;
+            if (classStat.Attribute!.Id == Stats.BaseVitality.Id)
+            {
+                value = TestVitality;
+            }
+            else if (classStat.Attribute.Id == Stats.BaseEnergy.Id)
+            {
+                value = BaselineEnergyValue;
+            }
+
             clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute, value));
         }
 
@@ -94,38 +109,10 @@ public static class MobaCloneFactory
         clone.Inventory = context.CreateNew<ItemStorage>();
         clone.Inventory.Money = 0;
 
-        // Weapon: TEST placeholder - copy the real character's equipped weapon / ammo
-        // (hand slots), no armor. The real flow is a basic class weapon (later topic).
-        foreach (var equipped in real.Inventory?.Items.Where(i => i.ItemSlot == InventoryConstants.LeftHandSlot || i.ItemSlot == InventoryConstants.RightHandSlot) ?? Enumerable.Empty<Item>())
-        {
-            if (equipped.Definition is null)
-            {
-                continue;
-            }
-
-            var copy = context.CreateNew<Item>();
-            copy.Definition = equipped.Definition;
-            copy.Durability = equipped.Durability;
-            copy.Level = equipped.Level;
-            copy.ItemSlot = equipped.ItemSlot;
-            clone.Inventory.Items.Add(copy);
-        }
-
-        // Skills: TEST placeholder - copy the real character's learned skills so the
-        // player can cast something. The real flow is the 4-6 active-skill loadout
-        // picker (later topic).
-        foreach (var learned in real.LearnedSkills.Where(s => s.Skill is not null))
-        {
-            var entry = context.CreateNew<SkillEntry>();
-            entry.Skill = learned.Skill;
-            entry.Level = learned.Level;
-            clone.LearnedSkills.Add(entry);
-        }
-
-        // TEST: the test accounts often have no gear / no skills, which makes the clone
-        // unable to attack at all (a bow with no arrows, a caster with no spell). Give it
-        // a working minimum for its class so creep targeting can actually be tested.
-        EnsureUsableLoadout(context, player.GameContext.Configuration, clone, characterClass);
+        // Fixed class starter loadout: a basic class weapon (+ ammo for bows) and the
+        // class skill list. Deterministic, independent of the real character. The "pick
+        // 4-6 skills" flow replaces the skill list later.
+        MobaLoadouts.Apply(context, player.GameContext.Configuration, clone, characterClass);
 
         player.Logger.LogInformation(
             "[MOBA] Clone '{Name}' (class {Class}) loadout: hands=[{Hands}], skills=[{Skills}], points={Points}",
@@ -167,112 +154,6 @@ public static class MobaCloneFactory
         }
 
         context.Detach(clone);
-    }
-
-    /// <summary>Group 4 weapon numbers that are bows (fire arrows); the rest are crossbows (fire bolts).</summary>
-    private static readonly HashSet<short> BowNumbers = new() { 0, 1, 2, 3, 4, 5, 6, 17, 20, 21, 22, 23, 24 };
-
-    private const byte AmmunitionGroup = 4;
-    private const short ArrowsNumber = 15;
-    private const short BoltNumber = 7;
-
-    /// <summary>
-    /// Makes sure the clone can attack for its class: a basic weapon if the hand slots
-    /// are empty, a full ammo stack behind any bow / crossbow, and one class-appropriate
-    /// attack skill if it learned none. All TEST scaffolding until the real class weapon
-    /// + loadout picker exist.
-    /// </summary>
-    private static void EnsureUsableLoadout(Persistence.IContext context, GameConfiguration config, Character clone, CharacterClass characterClass)
-    {
-        var inventory = clone.Inventory ?? throw new InvalidOperationException("Clone has no inventory.");
-        var classNumber = characterClass.Number;
-        var isWizard = classNumber is 0 or 2 or 3;
-        var isElf = classNumber is 8 or 10 or 11;
-        var isSummoner = classNumber is 20 or 22 or 23;
-
-        Item? MakeItem(byte group, short number, byte slot)
-        {
-            var definition = config.Items.FirstOrDefault(d => d.Group == group && d.Number == number);
-            if (definition is null)
-            {
-                return null;
-            }
-
-            var item = context.CreateNew<Item>();
-            item.Definition = definition;
-            item.Durability = definition.Durability > 0 ? definition.Durability : 255d;
-            item.Level = 0;
-            item.ItemSlot = slot;
-            inventory.Items.Add(item);
-            return item;
-        }
-
-        bool IsRealWeapon(Item? i) => i?.Definition is { } d
-            && !(d.Group == AmmunitionGroup && (d.Number == ArrowsNumber || d.Number == BoltNumber));
-
-        var rightHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.RightHandSlot);
-        var leftHand = inventory.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot);
-
-        // No weapon at all -> give the class its stock one.
-        if (!IsRealWeapon(rightHand) && !IsRealWeapon(leftHand))
-        {
-            rightHand = isWizard || isSummoner
-                ? MakeItem(5, 0, InventoryConstants.RightHandSlot)   // Skull Staff
-                : isElf
-                    ? MakeItem(4, 0, InventoryConstants.RightHandSlot) // Short Bow
-                    : MakeItem(0, 1, InventoryConstants.RightHandSlot); // Short Sword
-        }
-
-        // Bow / crossbow -> force it into the right hand and a full ammo stack into the
-        // left (MU requires ammo in the left-hand slot), clearing anything else there.
-        var rangedWeapon = new[] { rightHand, leftHand }
-            .FirstOrDefault(i => i?.Definition is { Group: AmmunitionGroup } d && d.Number != ArrowsNumber && d.Number != BoltNumber);
-        if (rangedWeapon?.Definition is { } rangedDef)
-        {
-            rangedWeapon.ItemSlot = InventoryConstants.RightHandSlot;
-
-            foreach (var occupant in inventory.Items
-                         .Where(i => !ReferenceEquals(i, rangedWeapon) && i.ItemSlot == InventoryConstants.LeftHandSlot)
-                         .ToList())
-            {
-                inventory.Items.Remove(occupant);
-                context.Detach(occupant);
-            }
-
-            var ammoNumber = BowNumbers.Contains((short)rangedDef.Number) ? ArrowsNumber : BoltNumber;
-            if (inventory.Items.All(i => i.Definition is not { Group: AmmunitionGroup } d || (d.Number != ArrowsNumber && d.Number != BoltNumber)))
-            {
-                MakeItem(AmmunitionGroup, ammoNumber, InventoryConstants.LeftHandSlot);
-            }
-        }
-
-        // Top up durability on everything in the hands so nothing breaks mid-test.
-        foreach (var handItem in inventory.Items.Where(i =>
-                     (i.ItemSlot == InventoryConstants.LeftHandSlot || i.ItemSlot == InventoryConstants.RightHandSlot)
-                     && i.Definition is not null))
-        {
-            handItem.Durability = handItem.Definition!.Durability > 0 ? handItem.Definition.Durability : 255d;
-        }
-
-        // No skills learned -> grant one attack skill the class can actually use.
-        if (!clone.LearnedSkills.Any(s => s.Skill is not null))
-        {
-            short defaultSkill = classNumber switch
-            {
-                0 or 2 or 3 => 17,          // Energy Ball (wizards)
-                8 or 10 or 11 => 24,        // Triple Shot (elves)
-                4 or 6 or 7 or 24 or 25 => 19, // Falling Slash (knights, rage fighter)
-                _ => 17,
-            };
-
-            if (config.Skills.FirstOrDefault(s => s.Number == defaultSkill) is { } skill)
-            {
-                var entry = context.CreateNew<SkillEntry>();
-                entry.Skill = skill;
-                entry.Level = 1;
-                clone.LearnedSkills.Add(entry);
-            }
-        }
     }
 
     private static void EnsureAttribute(Persistence.IContext context, Character character, AttributeDefinition definition, float value)

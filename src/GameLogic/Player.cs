@@ -185,6 +185,14 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public bool SuppressPersistence { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether this session is playing a MOBA match
+    /// clone. Balance in the MOBA mode comes from flat stats + skill levels + tuning,
+    /// not from gear/stat gates, so a clone bypasses the stat requirements of skills
+    /// (mana / ability consumption still applies).
+    /// </summary>
+    public bool IsMobaClone { get; set; }
+
+    /// <summary>
     /// Gets or sets the player's real character while the session is temporarily
     /// playing an ephemeral MOBA match clone. Restored when the match ends. Runtime
     /// only - never persisted.
@@ -1052,7 +1060,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return false;
         }
 
-        if (skill.Requirements.Any(r => r.MinimumValue > this.Attributes![r.Attribute]))
+        if (!this.IsMobaClone && skill.Requirements.Any(r => r.MinimumValue > this.Attributes![r.Attribute]))
         {
             return false;
         }

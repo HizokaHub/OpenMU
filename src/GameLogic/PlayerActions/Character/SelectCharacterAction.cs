@@ -39,6 +39,7 @@ public class SelectCharacterAction
             // character.
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;
+            player.IsMobaClone = true;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
 
             // Default team until real matchmaking assigns one; overridable with /mobateam.
