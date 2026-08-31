@@ -40,6 +40,11 @@ public class SelectCharacterAction
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;
             player.IsMobaClone = true;
+            player.MobaLevel = 1;
+            player.MobaExperience = 0;
+            player.MobaSkillPoints = 0;
+            player.Died -= MobaChampionDiedHandler;
+            player.Died += MobaChampionDiedHandler;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
 
             // Default team until real matchmaking assigns one; overridable with /mobateam.
@@ -57,6 +62,14 @@ public class SelectCharacterAction
         {
             player.Logger.LogError("Could not select character because character not found: [{0}]", characterName);
             await player.DisconnectAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static void MobaChampionDiedHandler(object? sender, DeathInformation death)
+    {
+        if (sender is Player victim)
+        {
+            _ = MobaExperience.HandleChampionDeathAsync(victim, death);
         }
     }
 }

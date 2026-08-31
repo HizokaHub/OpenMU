@@ -147,10 +147,26 @@ public static class MobaStructureSpawner
 
         turret.Initialize();
         ForceTurretStats(turret);
+
+        var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
+        turret.Died += (_, _) => _ = SafeGrantTeamExpAsync(map, enemyTeam, MobaLevels.TurretKillExp, "turret");
+
         await map.AddAsync(turret).ConfigureAwait(false);
         turret.OnSpawn();
         intelligence.Start();
         return turret;
+    }
+
+    private static async Task SafeGrantTeamExpAsync(GameMap map, MobaTeam team, long amount, string reason)
+    {
+        try
+        {
+            await MobaExperience.GrantToTeamAsync(map, team, amount, reason).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     private static void ForceTurretStats(Monster turret)

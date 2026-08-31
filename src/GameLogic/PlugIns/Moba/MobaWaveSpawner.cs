@@ -128,6 +128,7 @@ public static class MobaWaveSpawner
 
                 monster.Initialize();
                 ForceCreepStats(monster);
+                monster.Died += (_, death) => _ = OnCreepKilledAsync(map, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
 
@@ -140,6 +141,29 @@ public static class MobaWaveSpawner
         }
 
         return total;
+    }
+
+    /// <summary>Grants champion EXP when a lane creep is last-hit by a MOBA champion.</summary>
+    private static async Task OnCreepKilledAsync(GameMap map, DeathInformation death)
+    {
+        try
+        {
+            if (map.GetObject(death.KillerId) is not Player killer || !killer.IsMobaClone)
+            {
+                return;
+            }
+
+            await MobaExperience.GrantKillWithShareAsync(
+                map,
+                killer,
+                MobaLevels.CreepKillExp,
+                (long)Math.Round(MobaLevels.CreepKillExp * MobaLevels.CreepKillNearbyShare),
+                "creep").ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     /// <summary>

@@ -193,6 +193,19 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public bool IsMobaClone { get; set; }
 
     /// <summary>
+    /// Gets or sets the champion level (1..30) inside the current MOBA match. Separate
+    /// from the MU character level; grows from match EXP and grants a skill point per
+    /// level. Runtime only.
+    /// </summary>
+    public int MobaLevel { get; set; } = 1;
+
+    /// <summary>Gets or sets the accumulated MOBA-match experience toward the next champion level.</summary>
+    public long MobaExperience { get; set; }
+
+    /// <summary>Gets or sets the unspent MOBA champion skill points (one earned per champion level).</summary>
+    public int MobaSkillPoints { get; set; }
+
+    /// <summary>
     /// Gets or sets the player's real character while the session is temporarily
     /// playing an ephemeral MOBA match clone. Restored when the match ends. Runtime
     /// only - never persisted.
