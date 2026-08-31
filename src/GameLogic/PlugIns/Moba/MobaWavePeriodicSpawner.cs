@@ -15,7 +15,7 @@ using System.Threading;
 public static class MobaWavePeriodicSpawner
 {
     /// <summary>Default seconds between waves when <c>/mobawaves</c> is started without an interval.</summary>
-    public const int DefaultIntervalSeconds = 30;
+    public const int DefaultIntervalSeconds = 48;
 
     private static readonly ConcurrentDictionary<ushort, Timer> Running = new();
 
