@@ -87,6 +87,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>The target the creep last fed a walk chunk toward, so a fresh acquisition interrupts an in-progress march but an ongoing chase does not re-path every tick.</summary>
     private IAttackable? _lastChaseTarget;
 
+    /// <summary>Earliest UTC time the creep may attack again (attack pacing on the fast AI timer).</summary>
+    private DateTime _nextAttackUtc;
+
     private bool _returningToLane;
 
     private Point _engageAnchor;
@@ -278,7 +281,15 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 }
 
                 this._lastChaseTarget = null;
-                await monster.AttackAsync(target).ConfigureAwait(false);
+
+                // Pace attacks: the fast AI timer would otherwise call AttackAsync every
+                // tick (Monster.AttackAsync has no cooldown of its own).
+                if (DateTime.UtcNow >= this._nextAttackUtc)
+                {
+                    var delay = monster.Definition.AttackDelay;
+                    this._nextAttackUtc = DateTime.UtcNow + (delay > TimeSpan.Zero ? delay : TimeSpan.FromMilliseconds(1500));
+                    await monster.AttackAsync(target).ConfigureAwait(false);
+                }
             }
             else if (!monster.IsWalking || !ReferenceEquals(target, this._lastChaseTarget))
             {
@@ -412,7 +423,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     // Structures (turrets / nexus) are a later W-topic; nothing is a structure yet.
-    private static bool IsStructure(Monster monster) => false;
+    private static bool IsStructure(Monster monster) => MobaStructures.IsStructure(monster);
 
     /// <summary>Shortest distance (tiles) from a point to this creep's lane polyline.</summary>
     private double DistanceToLane(Point p)
