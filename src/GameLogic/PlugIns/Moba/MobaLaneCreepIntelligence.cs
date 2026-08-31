@@ -30,15 +30,18 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private const float WaypointReachedDistance = 1.5f;
 
     /// <summary>
-    /// Tiles walked per march chunk. Deliberately short: a creep that has just committed
-    /// to a long walk cannot react, so with a big chunk two waves marching at each other
-    /// walk clean through the meeting point before the fight starts and then have to walk
-    /// back. Keep this below <see cref="AcquisitionRangeBonus"/> so a creep notices the
-    /// enemy wave and stops before it can overshoot.
+    /// Tiles walked (and hard-reserved in <see cref="MobaOccupancyGrid"/>) per march
+    /// chunk. Deliberately tiny: with many creeps in a narrow lane, a big chunk means each
+    /// creep hogs several tiles ahead and the whole wave deadlocks. Small chunk = small
+    /// footprint = the lane keeps flowing, and creeps re-evaluate often enough not to
+    /// overshoot the meeting point.
     /// </summary>
-    private const int MaxStepsPerChunk = 4;
+    private const int MaxStepsPerChunk = 2;
 
     private const int RefeedWhenStepsLeft = 1;
+
+    /// <summary>If the creep has wanted to move but couldn't claim a step for this long, it takes any free neighbour to break a jam.</summary>
+    private static readonly TimeSpan StuckShuffleAfter = TimeSpan.FromMilliseconds(1000);
 
     /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
     private const int AcquisitionRangeBonus = 6;
@@ -99,6 +102,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>Tiles this creep currently holds in <see cref="MobaOccupancyGrid"/> (its position + the committed walk chunk).</summary>
     private readonly List<Point> _claimedTiles = new();
 
+    /// <summary>Captured once at start, so tile release still works after the monster left the map.</summary>
+    private ushort _mapId;
+
+    /// <summary>When the creep first failed to claim any forward step (for the anti-jam shuffle); default = not stuck.</summary>
+    private DateTime _blockedSinceUtc;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
     /// </summary>
@@ -114,13 +123,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     protected override void OnStart()
     {
         base.OnStart();
+        this._mapId = this.Monster.CurrentMap.MapId;
         MobaTeams.Set(this.Monster, this._team);
         this.SyncClaims(this.Monster.Position, Array.Empty<Point>());
         this._aiTimer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
     }
 
-    /// <summary>Map id shortcut for the occupancy grid.</summary>
-    private ushort MapId => this.Monster.CurrentMap.MapId;
+    /// <summary>Map id for the occupancy grid (captured at start).</summary>
+    private ushort MapId => this._mapId;
 
     /// <summary>
     /// Makes <see cref="_claimedTiles"/> exactly <paramref name="keep"/> plus whichever of
@@ -163,16 +173,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     {
         this._aiTimer?.Dispose();
         this._aiTimer = null;
-        try
-        {
-            MobaOccupancyGrid.ReleaseAll(this.MapId, this);
-            this._claimedTiles.Clear();
-        }
-        catch
-        {
-            // map already gone
-        }
-
+        MobaOccupancyGrid.ReleaseAll(this._mapId, this);
+        this._claimedTiles.Clear();
         base.Dispose(managed);
     }
 
@@ -679,13 +681,33 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 cursor = step;
             }
 
-            this.SyncClaims(from, claimed);
-
             if (count == 0)
             {
+                // Wanted to move but every forward step is terrain-blocked or reserved.
+                // After a short grace period, shuffle to ANY free neighbour to break a jam.
+                var now = DateTime.UtcNow;
+                if (this._blockedSinceUtc == default)
+                {
+                    this._blockedSinceUtc = now;
+                }
+                else if (now - this._blockedSinceUtc >= StuckShuffleAfter
+                         && this.PickAnyFreeNeighbour(from, terrain, champions, mapId) is { } wiggle)
+                {
+                    this.SyncClaims(from, new[] { wiggle });
+                    var wiggleStep = new WalkingStep[] { new(from, wiggle, GetDirection(from, wiggle)) };
+                    await this.Monster.WalkToAsync(wiggle, wiggleStep.AsMemory()).ConfigureAwait(false);
+                    this._chunkStartedUtc = now;
+                    this._chunkStepCount = 1;
+                    this._blockedSinceUtc = default;
+                    return;
+                }
+
+                this.SyncClaims(from, Array.Empty<Point>());
                 return;
             }
 
+            this._blockedSinceUtc = default;
+            this.SyncClaims(from, claimed);
             await this.Monster.WalkToAsync(cursor, buffer.AsMemory(0, count)).ConfigureAwait(false);
             this._chunkStartedUtc = DateTime.UtcNow;
             this._chunkStepCount = count;
@@ -694,5 +716,27 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         {
             ArrayPool<WalkingStep>.Shared.Return(buffer);
         }
+    }
+
+    /// <summary>Any walkable, grid-claimable neighbour of <paramref name="from"/> (used only to unstick a jam).</summary>
+    private Point? PickAnyFreeNeighbour(Point from, byte[,] terrain, HashSet<Point> champions, ushort mapId)
+    {
+        var start = this.Monster.Id % 8;
+        for (var i = 0; i < 8; i++)
+        {
+            var (dx, dy) = ((start + i) % 8) switch
+            {
+                0 => (0, -1), 1 => (1, -1), 2 => (1, 0), 3 => (1, 1),
+                4 => (0, 1), 5 => (-1, 1), 6 => (-1, 0), _ => (-1, -1),
+            };
+
+            var n = new Point((byte)(from.X + dx), (byte)(from.Y + dy));
+            if (n != from && terrain[n.X, n.Y] != 0 && !champions.Contains(n) && MobaOccupancyGrid.TryClaim(mapId, n, this))
+            {
+                return n;
+            }
+        }
+
+        return null;
     }
 }

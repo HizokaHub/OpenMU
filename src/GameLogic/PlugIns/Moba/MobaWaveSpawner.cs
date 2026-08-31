@@ -22,10 +22,12 @@ public static class MobaWaveSpawner
     /// the monster's attribute holder, never the shared config), so a blue Spider and a
     /// red Goblin fight on exactly equal terms - only the sprite differs.
     /// </summary>
-    public const float CreepHealth = 3000f;
+    // Lowered from 3000 so a creep-vs-creep front line clears in ~20s instead of a
+    // minute: with a slow front line, reinforcements pile up and the narrow lane jams.
+    public const float CreepHealth = 1000f;
 
-    private const float CreepMinDamage = 45f;
-    private const float CreepMaxDamage = 60f;
+    private const float CreepMinDamage = 60f;
+    private const float CreepMaxDamage = 85f;
     private const float CreepDefense = 20f;
     private const float CreepAttackRate = 150f;
     private const float CreepDefenseRate = 30f;

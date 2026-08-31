@@ -46,6 +46,8 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
 
     private DateTime _nextAttackUtc;
 
+    private ushort _mapId;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaStructureIntelligence"/> class.
     /// </summary>
@@ -63,6 +65,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     protected override void OnStart()
     {
         base.OnStart();
+        this._mapId = this.Monster.CurrentMap.MapId;
         MobaTeams.Set(this.Monster, this._team);
         MobaStructures.Mark(this.Monster, this._type);
         this.ClaimFootprint();
@@ -75,7 +78,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     /// <summary>Permanently reserves a 3x3 footprint in the occupancy grid so lane creeps path around the structure.</summary>
     private void ClaimFootprint()
     {
-        var mapId = this.Monster.CurrentMap.MapId;
+        var mapId = this._mapId;
         var p = this.Monster.Position;
         for (var dx = -1; dx <= 1; dx++)
         {
@@ -97,14 +100,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     {
         this._timer?.Dispose();
         this._timer = null;
-        try
-        {
-            MobaOccupancyGrid.ReleaseAll(this.Monster.CurrentMap.MapId, this);
-        }
-        catch
-        {
-            // map already gone
-        }
+        MobaOccupancyGrid.ReleaseAll(this._mapId, this);
 
         base.Dispose(managed);
     }
