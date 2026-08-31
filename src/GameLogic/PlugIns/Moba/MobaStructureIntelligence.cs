@@ -36,6 +36,8 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
 
     private readonly MobaStructureType _type;
 
+    private readonly bool _attacks;
+
     private Timer? _timer;
 
     private volatile bool _ticking;
@@ -49,10 +51,12 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     /// </summary>
     /// <param name="team">The structure's team.</param>
     /// <param name="type">The structure type (turret / nexus).</param>
-    public MobaStructureIntelligence(MobaTeam team, MobaStructureType type)
+    /// <param name="attacks">Whether the structure shoots (true for turrets, false for the nexus).</param>
+    public MobaStructureIntelligence(MobaTeam team, MobaStructureType type, bool attacks = true)
     {
         this._team = team;
         this._type = type;
+        this._attacks = attacks;
     }
 
     /// <inheritdoc />
@@ -61,7 +65,10 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
         base.OnStart();
         MobaTeams.Set(this.Monster, this._team);
         MobaStructures.Mark(this.Monster, this._type);
-        this._timer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
+        if (this._attacks)
+        {
+            this._timer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
+        }
     }
 
     /// <inheritdoc />

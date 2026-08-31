@@ -141,6 +141,38 @@ public static class MobaWaveSpawner
     }
 
     /// <summary>
+    /// Removes and disposes every living lane creep on the map (team-tagged monsters
+    /// that are not structures). Used on match end.
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The number of creeps removed.</returns>
+    public static async ValueTask<int> DespawnAllCreepsAsync(GameMap map)
+    {
+        var creeps = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<Monster>()
+            .Where(m => MobaTeams.GetTeam(m) != MobaTeam.None && !MobaStructures.IsStructure(m))
+            .ToList();
+
+        var removed = 0;
+        foreach (var creep in creeps)
+        {
+            MobaTeams.Clear(creep);
+            try
+            {
+                await map.RemoveAsync(creep).ConfigureAwait(false);
+                creep.Dispose();
+                removed++;
+            }
+            catch
+            {
+                // already gone
+            }
+        }
+
+        return removed;
+    }
+
+    /// <summary>
     /// Forces the flat creep combat stats onto one spawned monster instance, so both
     /// teams' creeps fight identically no matter the base mob. Per-instance attribute
     /// element (AddRaw that cancels the base and sets the target); never the shared config.

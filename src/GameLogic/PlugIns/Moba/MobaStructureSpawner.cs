@@ -27,17 +27,32 @@ public static class MobaStructureSpawner
     private const byte TurretAttackRange = 7;
     private static readonly TimeSpan TurretAttackDelay = TimeSpan.FromMilliseconds(1100);
 
+    private const short NexusMonsterNumber = 32; // Stone Golem too (bigger, doesn't shoot).
+
+    private const float NexusHealth = 16000f;
+    private const float NexusDefense = 40f;
+
     /// <summary>Mid-lane turret positions: blue guards the north base, red the south base.</summary>
     private static readonly (byte X, byte Y) BlueTurretPos = (116, 92);
     private static readonly (byte X, byte Y) RedTurretPos = (116, 173);
 
-    // Structures spawned per map, so /mobaturrets can toggle them off.
-    private static readonly ConcurrentDictionary<ushort, List<Monster>> SpawnedByMap = new();
+    /// <summary>Nexus positions, behind each base (behind the creep spawn points).</summary>
+    private static readonly (byte X, byte Y) BlueNexusPos = (116, 44);
+    private static readonly (byte X, byte Y) RedNexusPos = (116, 224);
+
+    // Structures spawned per map, so the toggle commands can remove them.
+    private static readonly ConcurrentDictionary<ushort, List<Monster>> TurretsByMap = new();
+    private static readonly ConcurrentDictionary<ushort, List<Monster>> NexusesByMap = new();
 
     /// <summary>Whether turrets are currently spawned on the map.</summary>
     /// <param name="mapId">The map id.</param>
     /// <returns><see langword="true"/> if turrets exist.</returns>
-    public static bool HasTurrets(ushort mapId) => SpawnedByMap.TryGetValue(mapId, out var list) && list.Count > 0;
+    public static bool HasTurrets(ushort mapId) => TurretsByMap.TryGetValue(mapId, out var list) && list.Count > 0;
+
+    /// <summary>Whether nexuses are currently spawned on the map.</summary>
+    /// <param name="mapId">The map id.</param>
+    /// <returns><see langword="true"/> if nexuses exist.</returns>
+    public static bool HasNexuses(ushort mapId) => NexusesByMap.TryGetValue(mapId, out var list) && list.Count > 0;
 
     /// <summary>Spawns one lane turret per team on the map.</summary>
     /// <param name="map">The map.</param>
@@ -45,7 +60,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of turrets spawned.</returns>
     public static async ValueTask<int> SpawnTurretsAsync(GameMap map, IGameContext gameContext)
     {
-        var list = SpawnedByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
+        var list = TurretsByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
         var count = 0;
 
         foreach (var (team, position) in new[] { (MobaTeam.Blue, BlueTurretPos), (MobaTeam.Red, RedTurretPos) })
@@ -66,7 +81,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of turrets removed.</returns>
     public static async ValueTask<int> RemoveTurretsAsync(GameMap map)
     {
-        if (!SpawnedByMap.TryRemove(map.MapId, out var list))
+        if (!TurretsByMap.TryRemove(map.MapId, out var list))
         {
             return 0;
         }
@@ -145,11 +160,128 @@ public static class MobaStructureSpawner
         SetAbsolute(turret, Stats.MaximumPhysBaseDmg, TurretMaxDamage);
         SetAbsolute(turret, Stats.DefenseBase, TurretDefense);
         SetAbsolute(turret, Stats.AttackRatePvm, TurretAttackRate);
+    }
 
-        static void SetAbsolute(Monster turret, AttributeDefinition stat, float value)
+    /// <summary>
+    /// Spawns one nexus per team behind its base. When a nexus dies the match ends
+    /// (<see cref="MobaMatchEnder"/>) - its team is the loser.
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <param name="gameContext">The game context.</param>
+    /// <returns>The number of nexuses spawned.</returns>
+    public static async ValueTask<int> SpawnNexusesAsync(GameMap map, IGameContext gameContext)
+    {
+        var list = NexusesByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
+        var count = 0;
+
+        foreach (var (team, position) in new[] { (MobaTeam.Blue, BlueNexusPos), (MobaTeam.Red, RedNexusPos) })
         {
-            var current = turret.Attributes[stat];
-            turret.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
+            var nexus = await SpawnNexusAsync(map, gameContext, team, position).ConfigureAwait(false);
+            if (nexus is not null)
+            {
+                list.Add(nexus);
+                count++;
+            }
         }
+
+        return count;
+    }
+
+    /// <summary>Removes and disposes every nexus spawned on the map.</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The number of nexuses removed.</returns>
+    public static async ValueTask<int> RemoveNexusesAsync(GameMap map)
+    {
+        if (!NexusesByMap.TryRemove(map.MapId, out var list))
+        {
+            return 0;
+        }
+
+        var removed = 0;
+        foreach (var nexus in list)
+        {
+            MobaStructures.Unmark(nexus);
+            MobaTeams.Clear(nexus);
+            try
+            {
+                await map.RemoveAsync(nexus).ConfigureAwait(false);
+                nexus.Dispose();
+                removed++;
+            }
+            catch
+            {
+                // already gone
+            }
+        }
+
+        return removed;
+    }
+
+    private static async ValueTask<Monster?> SpawnNexusAsync(GameMap map, IGameContext gameContext, MobaTeam team, (byte X, byte Y) position)
+    {
+        var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == NexusMonsterNumber);
+        if (baseDefinition is null)
+        {
+            return null;
+        }
+
+        var definition = baseDefinition.Clone(gameContext.Configuration);
+        definition.AttackRange = 0;
+        definition.ViewRange = 0;
+        definition.MoveRange = 0;
+        definition.MoveDelay = TimeSpan.FromSeconds(60);
+
+        var area = new MonsterSpawnArea
+        {
+            GameMap = map.Definition,
+            MonsterDefinition = definition,
+            SpawnTrigger = SpawnTrigger.OnceAtEventStart,
+            Quantity = 1,
+            X1 = position.X,
+            X2 = position.X,
+            Y1 = position.Y,
+            Y2 = position.Y,
+            MaximumHealthOverride = (int)NexusHealth,
+        };
+
+        var intelligence = new MobaStructureIntelligence(team, MobaStructureType.Nexus, attacks: false);
+        var nexus = new Monster(
+            area,
+            definition,
+            map,
+            gameContext.DropGenerator,
+            intelligence,
+            gameContext.PlugInManager,
+            gameContext.PathFinderPool);
+
+        nexus.Initialize();
+        SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth);
+        SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
+
+        // Losing team = this nexus's team.
+        nexus.Died += (_, _) => _ = SafeEndMatchAsync(map, gameContext, team);
+
+        await map.AddAsync(nexus).ConfigureAwait(false);
+        nexus.OnSpawn();
+        intelligence.Start();
+        return nexus;
+    }
+
+    private static async Task SafeEndMatchAsync(GameMap map, IGameContext gameContext, MobaTeam losingTeam)
+    {
+        try
+        {
+            await MobaMatchEnder.EndMatchAsync(map, gameContext, losingTeam).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    private static void SetAbsolute(Monster structure, AttributeDefinition stat, float value)
+    {
+        var current = structure.Attributes[stat];
+        structure.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
     }
 }
