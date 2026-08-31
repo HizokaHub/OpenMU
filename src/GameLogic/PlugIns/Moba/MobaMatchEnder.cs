@@ -6,8 +6,9 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
 using System.Threading;
+using MUnique.OpenMU.GameLogic.Views;
+using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Persistence;
-using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
 /// Ends a MOBA match when a nexus falls: announces the winner, stops the wave rhythm,
@@ -21,6 +22,10 @@ public static class MobaMatchEnder
     private const int EjectDelaySeconds = 8;
 
     private static readonly ConcurrentDictionary<ushort, byte> Ending = new();
+
+    // Keeps the one-shot eject timers alive until they fire (a discarded Timer can be
+    // collected before its callback runs).
+    private static readonly ConcurrentDictionary<ushort, Timer> EjectTimers = new();
 
     /// <summary>Whether a match on the given map is already ending (guards a double nexus death).</summary>
     /// <param name="mapId">The map id.</param>
@@ -48,26 +53,37 @@ public static class MobaMatchEnder
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
 
-        var players = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Player>().ToList();
-        foreach (var player in players)
+        foreach (var player in await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false))
         {
+            var playerTeam = MobaTeams.GetTeam(player);
+            var banner = playerTeam == MobaTeam.None
+                ? $"{winner} TEAM WINS"
+                : playerTeam == winner ? "VICTORY" : "DEFEAT";
+
+            await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(banner, MessageType.GoldenCenter)).ConfigureAwait(false);
             await player.ShowBlueMessageAsync($"[MOBA] {losingTeam} nexus destroyed - {winner} team wins! Returning to town in {EjectDelaySeconds}s...").ConfigureAwait(false);
         }
 
         // Reconnect the participants a few seconds later, so the win message lands first.
-        _ = new Timer(
-            _ => _ = EjectParticipantsAsync(map),
+        var timer = new Timer(
+            _ => _ = EjectParticipantsAsync(map, gameContext),
             null,
             TimeSpan.FromSeconds(EjectDelaySeconds),
             Timeout.InfiniteTimeSpan);
+        EjectTimers[map.MapId] = timer;
     }
 
-    private static async Task EjectParticipantsAsync(GameMap map)
+    private static async Task<IReadOnlyList<Player>> GetArenaPlayersAsync(GameMap map, IGameContext gameContext)
+    {
+        var all = await gameContext.GetPlayersAsync().ConfigureAwait(false);
+        return all.Where(p => p.CurrentMap?.MapId == map.MapId).ToList();
+    }
+
+    private static async Task EjectParticipantsAsync(GameMap map, IGameContext gameContext)
     {
         try
         {
-            var players = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Player>().ToList();
-            foreach (var player in players)
+            foreach (var player in await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false))
             {
                 if (player.Account is not { } account || !MobaMatchRegistry.IsInMatch(account.GetId()))
                 {
@@ -89,6 +105,11 @@ public static class MobaMatchEnder
         }
         finally
         {
+            if (EjectTimers.TryRemove(map.MapId, out var timer))
+            {
+                await timer.DisposeAsync().ConfigureAwait(false);
+            }
+
             Ending.TryRemove(map.MapId, out _);
         }
     }
