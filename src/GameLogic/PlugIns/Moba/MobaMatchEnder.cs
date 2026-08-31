@@ -56,12 +56,13 @@ public static class MobaMatchEnder
         foreach (var player in await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false))
         {
             var playerTeam = MobaTeams.GetTeam(player);
+            var winnerEs = winner == MobaTeam.Blue ? "AZUL" : "ROJO";
             var banner = playerTeam == MobaTeam.None
-                ? $"{winner} TEAM WINS"
-                : playerTeam == winner ? "VICTORY" : "DEFEAT";
+                ? $"GANA EL EQUIPO {winnerEs}"
+                : playerTeam == winner ? "VICTORIA" : "DERROTA";
 
             await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(banner, MessageType.GoldenCenter)).ConfigureAwait(false);
-            await player.ShowBlueMessageAsync($"[MOBA] {losingTeam} nexus destroyed - {winner} team wins! Returning to town in {EjectDelaySeconds}s...").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync($"[MOBA] Nexo {(losingTeam == MobaTeam.Blue ? "azul" : "rojo")} destruido - gana el equipo {winnerEs}. Volvés a pueblo en {EjectDelaySeconds}s...").ConfigureAwait(false);
         }
 
         // Reconnect the participants a few seconds later, so the win message lands first.

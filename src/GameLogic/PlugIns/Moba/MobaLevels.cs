@@ -21,15 +21,19 @@ public static class MobaLevels
 
     /// <summary>
     /// EXP to the champion that last-hits an enemy lane creep. Deliberately small: the
-    /// passive drip is the steady source, farm is a top-up. (Was 42 - hit level 5 in
-    /// ~4 waves.)
+    /// passive drip is the steady source, farm is a top-up. Gold (later) is what really
+    /// rewards the last hit.
     /// </summary>
-    public const int CreepKillExp = 10;
+    public const int CreepLastHitExp = 10;
 
-    /// <summary>Fraction of <see cref="CreepKillExp"/> shared with each allied champion near the kill.</summary>
-    public const double CreepKillNearbyShare = 0.5;
+    /// <summary>
+    /// EXP to every OTHER champion of the killing team within <see cref="ShareRadius"/>
+    /// of a dying creep (LoL-style proximity XP - you don't need the last hit). ~30% of
+    /// the last-hit value ("70% menos").
+    /// </summary>
+    public const int CreepProximityExp = 3;
 
-    /// <summary>Tiles around a kill within which allied champions get the shared EXP.</summary>
+    /// <summary>Tiles around a creep death within which champions of the killing team get proximity EXP.</summary>
     public const int ShareRadius = 12;
 
     /// <summary>Base EXP for killing an enemy champion, plus <see cref="ChampionKillPerVictimLevel"/> per victim level.</summary>

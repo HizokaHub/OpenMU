@@ -82,7 +82,10 @@ public static class MobaCloneFactory
         clone.CharacterStatus = real.CharacterStatus; // keep GM logo etc.
         clone.Pose = CharacterPose.Standing;
         clone.State = HeroState.Normal;
-        clone.KeyConfiguration = real.KeyConfiguration is { } key ? (byte[])key.Clone() : null;
+        // Fresh hotkey bar: the real character's config maps its own skills, which the
+        // clone doesn't have. A default MOBA bar (base 4 on keys 1-4) is a client-side
+        // task; for now the player drags the 4 base skills from the skill window.
+        clone.KeyConfiguration = null;
 
         // Stats: every clone of every class starts from the same flat baseline (not the
         // player's real build), then the fixed match level. The class stat-attribute set

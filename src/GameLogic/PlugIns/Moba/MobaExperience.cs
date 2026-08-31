@@ -52,17 +52,17 @@ public static class MobaExperience
             if (MobaLevels.IsMilestone(champion.MobaLevel))
             {
                 await champion.InvokeViewPlugInAsync<IShowMessagePlugIn>(p =>
-                    p.ShowMessageAsync($"LEVEL {champion.MobaLevel} - choose a skill", MessageType.GoldenCenter)).ConfigureAwait(false);
-                await champion.ShowBlueMessageAsync($"[MOBA] Level {champion.MobaLevel}! A skill pick is available.").ConfigureAwait(false);
+                    p.ShowMessageAsync($"NIVEL {champion.MobaLevel} - elegí una habilidad", MessageType.GoldenCenter)).ConfigureAwait(false);
+                await champion.ShowBlueMessageAsync($"[MOBA] ¡Nivel {champion.MobaLevel}! Tenés un pick de habilidad disponible.").ConfigureAwait(false);
             }
             else
             {
-                await champion.ShowBlueMessageAsync($"[MOBA] Champion level {champion.MobaLevel} (+1 skill point, {champion.MobaSkillPoints} unspent).").ConfigureAwait(false);
+                await champion.ShowBlueMessageAsync($"[MOBA] Nivel de campeón {champion.MobaLevel} (+1 punto de habilidad, {champion.MobaSkillPoints} sin gastar).").ConfigureAwait(false);
             }
 
             if (champion.MobaLevel >= MobaLevels.MaxLevel)
             {
-                await champion.ShowBlueMessageAsync("[MOBA] Max champion level reached.").ConfigureAwait(false);
+                await champion.ShowBlueMessageAsync("[MOBA] Nivel de campeón máximo alcanzado.").ConfigureAwait(false);
             }
         }
 
@@ -98,36 +98,6 @@ public static class MobaExperience
         foreach (var champion in ChampionsOnMap(map).Where(c => MobaTeams.GetTeam(c) == team).ToList())
         {
             await GrantAsync(champion, amount, reason).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Grants the full <paramref name="killExp"/> to <paramref name="killer"/> and a
-    /// shared fraction to allied champions within <see cref="MobaLevels.ShareRadius"/>.
-    /// </summary>
-    /// <param name="map">The arena map.</param>
-    /// <param name="killer">The champion that got the kill.</param>
-    /// <param name="killExp">The kill EXP for the killer.</param>
-    /// <param name="shareExp">The EXP each nearby ally gets.</param>
-    /// <param name="reason">Log tag.</param>
-    public static async ValueTask GrantKillWithShareAsync(GameMap map, Player killer, long killExp, long shareExp, string reason)
-    {
-        await GrantAsync(killer, killExp, reason).ConfigureAwait(false);
-
-        if (shareExp <= 0)
-        {
-            return;
-        }
-
-        var killerTeam = MobaTeams.GetTeam(killer);
-        var nearby = map.GetAttackablesInRange(killer.Position, MobaLevels.ShareRadius)
-            .OfType<Player>()
-            .Where(p => p.IsMobaClone && !ReferenceEquals(p, killer) && MobaTeams.GetTeam(p) == killerTeam)
-            .ToList();
-
-        foreach (var ally in nearby)
-        {
-            await GrantAsync(ally, shareExp, reason + "-share").ConfigureAwait(false);
         }
     }
 

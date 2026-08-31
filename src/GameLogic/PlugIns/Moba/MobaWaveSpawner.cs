@@ -128,7 +128,7 @@ public static class MobaWaveSpawner
 
                 monster.Initialize();
                 ForceCreepStats(monster);
-                monster.Died += (_, death) => _ = OnCreepKilledAsync(map, death);
+                monster.Died += (sender, death) => _ = OnCreepKilledAsync(map, sender as Monster, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
 
@@ -143,22 +143,45 @@ public static class MobaWaveSpawner
         return total;
     }
 
-    /// <summary>Grants champion EXP when a lane creep is last-hit by a MOBA champion.</summary>
-    private static async Task OnCreepKilledAsync(GameMap map, DeathInformation death)
+    /// <summary>
+    /// Grants EXP when a lane creep dies: the last-hitter gets the full value, every
+    /// other champion of the killing team within range gets the proximity value.
+    /// </summary>
+    private static async Task OnCreepKilledAsync(GameMap map, Monster? creep, DeathInformation death)
     {
         try
         {
-            if (map.GetObject(death.KillerId) is not Player killer || !killer.IsMobaClone)
+            var deadTeam = MobaTeams.GetTeam(creep);
+            if (deadTeam == MobaTeam.None)
             {
                 return;
             }
 
-            await MobaExperience.GrantKillWithShareAsync(
-                map,
-                killer,
-                MobaLevels.CreepKillExp,
-                (long)Math.Round(MobaLevels.CreepKillExp * MobaLevels.CreepKillNearbyShare),
-                "creep").ConfigureAwait(false);
+            var beneficiaryTeam = deadTeam == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
+            var deathPosition = creep?.Position ?? default;
+            var lastHitter = map.GetObject(death.KillerId) as Player;
+
+            var champions = map.GetAttackablesInRange(deathPosition, MobaLevels.ShareRadius)
+                .OfType<Player>()
+                .Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) == beneficiaryTeam)
+                .ToList();
+
+            var lastHitterRewarded = false;
+            foreach (var champion in champions)
+            {
+                var isLastHit = ReferenceEquals(champion, lastHitter);
+                lastHitterRewarded |= isLastHit;
+                await MobaExperience.GrantAsync(
+                    champion,
+                    isLastHit ? MobaLevels.CreepLastHitExp : MobaLevels.CreepProximityExp,
+                    isLastHit ? "creep" : "creep-nearby").ConfigureAwait(false);
+            }
+
+            // Ranged last hit from just outside the proximity radius still gets the full value.
+            if (!lastHitterRewarded && lastHitter is { IsMobaClone: true } && MobaTeams.GetTeam(lastHitter) == beneficiaryTeam)
+            {
+                await MobaExperience.GrantAsync(lastHitter, MobaLevels.CreepLastHitExp, "creep").ConfigureAwait(false);
+            }
         }
         catch
         {
