@@ -58,8 +58,8 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     /// </summary>
     private static readonly (short Number, int Count)[] BlueWaveComposition =
     {
-        (3, 3), // Spider - small melee (front)
-        (2, 3), // Budge Dragon - small dragon (back). Gets a ranged fire skill in W2.
+        (3, 3),  // Spider - small melee (front)
+        (24, 3), // Worm - small melee (back)
     };
 
     private static readonly (short Number, int Count)[] RedWaveComposition =
