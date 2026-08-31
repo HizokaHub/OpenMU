@@ -188,6 +188,10 @@ public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     /// </summary>
     private static void ForceCreepStats(Monster monster)
     {
+        // MaximumHealth must match the MaximumHealthOverride we start Health at, or the
+        // health-percent the client bar shows is current / base-mob-max (~60) and stays
+        // pinned at 100% until the creep is nearly dead.
+        SetAbsolute(monster, Stats.MaximumHealth, CreepHealth);
         SetAbsolute(monster, Stats.MinimumPhysBaseDmg, CreepMinDamage);
         SetAbsolute(monster, Stats.MaximumPhysBaseDmg, CreepMaxDamage);
         SetAbsolute(monster, Stats.DefenseBase, CreepDefense);
