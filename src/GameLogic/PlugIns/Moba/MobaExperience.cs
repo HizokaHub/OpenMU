@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Interfaces;
@@ -84,8 +85,13 @@ public static class MobaExperience
         }
 
         var toNext = champion.MobaLevel >= MobaLevels.MaxLevel ? 0 : MobaLevels.ExpToNext(champion.MobaLevel);
+        var skillLevels = (champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<SkillEntry>())
+            .Where(s => s.Skill is not null)
+            .Select(s => ((short)s.Skill!.Number, (byte)Math.Clamp(s.Level, 0, 255)))
+            .ToList();
+
         return champion.InvokeViewPlugInAsync<IMobaChampionStatePlugIn>(p =>
-            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints));
+            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints, skillLevels));
     }
 
     /// <summary>Grants EXP to every MOBA champion of <paramref name="team"/> on the map.</summary>

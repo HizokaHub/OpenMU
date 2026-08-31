@@ -12,11 +12,12 @@ namespace MUnique.OpenMU.GameLogic.Views.Moba;
 public interface IMobaChampionStatePlugIn : IViewPlugIn
 {
     /// <summary>
-    /// Pushes the current champion level and experience.
+    /// Pushes the current champion level, experience and learned-skill levels.
     /// </summary>
     /// <param name="level">The champion level (1..30).</param>
     /// <param name="experience">Experience accumulated toward the next level.</param>
     /// <param name="experienceToNextLevel">Experience needed for the next level (0 at the cap).</param>
     /// <param name="skillPoints">Unspent champion skill points.</param>
-    ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints);
+    /// <param name="skillLevels">The learned skills as (skill number, level) pairs, so the client can show the "+" buttons.</param>
+    ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, IReadOnlyList<(short Number, byte Level)> skillLevels);
 }
