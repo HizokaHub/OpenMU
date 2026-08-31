@@ -34,22 +34,27 @@ public static class MobaCloneFactory
     private const int MatchStartLevel = 400;
 
     /// <summary>
-    /// Flat baseline for STR / AGI / CMD of every clone, regardless of class or the
-    /// player's real build. Combat power is meant to come from skills + a later tuning
-    /// pass, not from stats; see GAMEDESIGN.md.
+    /// Flat baseline for STR / CMD of every clone, regardless of class or the player's
+    /// real build. Combat power is meant to come from skills + a later tuning pass, not
+    /// from stats; see GAMEDESIGN.md.
     /// </summary>
     private const int BaselineStatValue = 10;
 
     /// <summary>
-    /// Flat ENE for every clone (all classes the same). Not left at 10 because ENE is the
-    /// mana pool: at 10 a caster can't afford its own spells. Uniform, so "everyone starts
-    /// equal" still holds.
+    /// Flat AGI for every clone. High so the clone doesn't get shredded by creeps before
+    /// the balance pass (AGI drives defense / attack rate / block). Uniform across classes.
     /// </summary>
-    private const int BaselineEnergyValue = 300;
+    private const int BaselineAgilityValue = 2000;
 
     /// <summary>
-    /// Placeholder vitality for the clone so it survives long enough to test. Overrides
-    /// the flat baseline just for VIT. Real per-class stats / balance come later.
+    /// Flat ENE for every clone. Not left at 10 because ENE is the mana pool: casters
+    /// need to afford their spells. Uniform across classes.
+    /// </summary>
+    private const int BaselineEnergyValue = 1000;
+
+    /// <summary>
+    /// Placeholder vitality for the clone so it survives long enough to test. Real
+    /// per-class stats / balance come later.
     /// </summary>
     private const int TestVitality = 2000;
 
@@ -88,6 +93,10 @@ public static class MobaCloneFactory
             if (classStat.Attribute!.Id == Stats.BaseVitality.Id)
             {
                 value = TestVitality;
+            }
+            else if (classStat.Attribute.Id == Stats.BaseAgility.Id)
+            {
+                value = BaselineAgilityValue;
             }
             else if (classStat.Attribute.Id == Stats.BaseEnergy.Id)
             {

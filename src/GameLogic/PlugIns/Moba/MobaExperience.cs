@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Views;
+using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Pathfinding;
 
@@ -24,8 +25,14 @@ public static class MobaExperience
     /// <param name="reason">Short tag for logging (creep / champion / turret / passive).</param>
     public static async ValueTask GrantAsync(Player champion, long amount, string reason)
     {
-        if (amount <= 0 || !champion.IsMobaClone || champion.MobaLevel >= MobaLevels.MaxLevel)
+        if (!champion.IsMobaClone)
         {
+            return;
+        }
+
+        if (amount <= 0 || champion.MobaLevel >= MobaLevels.MaxLevel)
+        {
+            await PushStateAsync(champion).ConfigureAwait(false);
             return;
         }
 
@@ -63,6 +70,22 @@ public static class MobaExperience
         {
             // TODO(step 3): open the milestone pick window here instead of just messaging.
         }
+
+        await PushStateAsync(champion).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends the champion its current level / experience / skill points for the HUD bar.</summary>
+    /// <param name="champion">The champion.</param>
+    public static ValueTask PushStateAsync(Player champion)
+    {
+        if (!champion.IsMobaClone)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        var toNext = champion.MobaLevel >= MobaLevels.MaxLevel ? 0 : MobaLevels.ExpToNext(champion.MobaLevel);
+        return champion.InvokeViewPlugInAsync<IMobaChampionStatePlugIn>(p =>
+            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints));
     }
 
     /// <summary>Grants EXP to every MOBA champion of <paramref name="team"/> on the map.</summary>

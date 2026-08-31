@@ -17,7 +17,7 @@ using MUnique.OpenMU.PlugIns;
 [PlugIn]
 [Display(Name = nameof(PlugInResources.AddCommandStatChatCommandPlugIn_Name), Description = nameof(PlugInResources.AddCommandStatChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
 [ChatCommandHelp(Command, typeof(AddSingleStatChatCommandArgs), MinimumStatus)]
-public class AddCommandStatChatCommandPlugIn : AddStatChatCommandPlugIn, IDisabledByDefault
+public class AddCommandStatChatCommandPlugIn : AddStatChatCommandPlugIn
 {
     private const string Command = "/addcmd";
 

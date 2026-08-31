@@ -17,7 +17,7 @@ using MUnique.OpenMU.PlugIns;
 [PlugIn]
 [Display(Name = nameof(PlugInResources.AddAgilityStatChatCommandPlugIn_Name), Description = nameof(PlugInResources.AddAgilityStatChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
 [ChatCommandHelp(Command, typeof(AddSingleStatChatCommandArgs), MinimumStatus)]
-public class AddAgilityStatChatCommandPlugIn : AddStatChatCommandPlugIn, IDisabledByDefault
+public class AddAgilityStatChatCommandPlugIn : AddStatChatCommandPlugIn
 {
     private const string Command = "/addagi";
 

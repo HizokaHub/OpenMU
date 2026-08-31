@@ -17,7 +17,7 @@ using MUnique.OpenMU.PlugIns;
 [PlugIn]
 [Display(Name = nameof(PlugInResources.AddVitalityStatChatCommandPlugIn_Name), Description = nameof(PlugInResources.AddVitalityStatChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
 [ChatCommandHelp(Command, typeof(AddSingleStatChatCommandArgs), MinimumStatus)]
-public class AddVitalityStatChatCommandPlugIn : AddStatChatCommandPlugIn, IDisabledByDefault
+public class AddVitalityStatChatCommandPlugIn : AddStatChatCommandPlugIn
 {
     private const string Command = "/addvit";
 

@@ -17,7 +17,7 @@ using MUnique.OpenMU.PlugIns;
 [PlugIn]
 [Display(Name = nameof(PlugInResources.AddEnergyStatChatCommandPlugIn_Name), Description = nameof(PlugInResources.AddEnergyStatChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
 [ChatCommandHelp(Command, typeof(AddSingleStatChatCommandArgs), MinimumStatus)]
-public class AddEnergyStatChatCommandPlugIn : AddStatChatCommandPlugIn, IDisabledByDefault
+public class AddEnergyStatChatCommandPlugIn : AddStatChatCommandPlugIn
 {
     private const string Command = "/addene";
 
