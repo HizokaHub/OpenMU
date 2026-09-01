@@ -92,6 +92,12 @@ public static class MobaPassives
                 case MobaFamily.Elf when skill is null:
                     MobaHuntersMarkPassive.OnBasicHit(champion, victim);
                     break;
+                case MobaFamily.MagicGladiator when skill is not null:
+                    MobaHybridSurgePassive.OnSpellHit(champion);
+                    break;
+                case MobaFamily.MagicGladiator:
+                    MobaHybridSurgePassive.OnBasicHit(champion, victim, hit);
+                    break;
             }
 
             // Team-wide: an Elf's Hunter's Mark makes the whole team hit harder.

@@ -1092,14 +1092,31 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return false;
         }
 
-        if (skill.ConsumeRequirements.Any(r => this.GetRequiredValue(r, skillEntry) > this.Attributes![r.Attribute]))
+        // MOBA mode: the Magic Gladiator "Impulso híbrido" passive can discount the mana
+        // cost of the next skill after a basic attack. 1.0 for everyone else.
+        var manaCostMultiplier = this.IsMobaClone
+            ? PlugIns.Moba.MobaHybridSurgePassive.ConsumeSpellManaMultiplier(this)
+            : 1f;
+
+        float RequiredValue(DataModel.Configuration.Items.AttributeRequirement requirement)
+        {
+            var value = (float)this.GetRequiredValue(requirement, skillEntry);
+            if (manaCostMultiplier != 1f && requirement.Attribute?.Id == Stats.CurrentMana.Id)
+            {
+                value *= manaCostMultiplier;
+            }
+
+            return value;
+        }
+
+        if (skill.ConsumeRequirements.Any(r => RequiredValue(r) > this.Attributes![r.Attribute]))
         {
             return false;
         }
 
         foreach (var requirement in skill.ConsumeRequirements)
         {
-            this.Attributes![requirement.Attribute] -= this.GetRequiredValue(requirement, skillEntry);
+            this.Attributes![requirement.Attribute] -= RequiredValue(requirement);
         }
 
         if (this.IsMobaClone
