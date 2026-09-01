@@ -59,8 +59,9 @@ public static class MobaLoadouts
         [Family.Wizard] = new short[] { 17, 4, 3, 11, 9, 7, 1, 2, 39 },
         // Falling Slash, Lunge, Cyclone, Slash, Twisting Slash, Uppercut, Rageful Blow, Death Stab, Strike of Destruction
         [Family.Knight] = new short[] { 19, 20, 22, 23, 41, 21, 42, 43, 232 },
-        // Triple Shot, Penetration, Ice Arrow, Multi-Shot, Heal, Greater Damage, Greater Defense, Starfall
-        [Family.Elf] = new short[] { 24, 52, 51, 235, 26, 28, 27, 46 },
+        // Triple Shot, Penetration, Ice Arrow, Heal, Greater Damage, Greater Defense
+        // (Multi-Shot 235 has no MagicEffectDef in config; Starfall 46 is castle-siege only)
+        [Family.Elf] = new short[] { 24, 52, 51, 26, 28, 27 },
         // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash
         [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56 },
         // Force, Fire Burst, Force Wave, Electric Spike, Falling Slash (Earthshake/Chaotic need the Dark Horse mount)

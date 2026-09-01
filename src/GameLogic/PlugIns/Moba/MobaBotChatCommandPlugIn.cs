@@ -109,7 +109,15 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
                 continue;
             }
 
-            var name = $"Bot{(team == MobaTeam.Blue ? "B" : "R")}{classNumbers[i]}_{(DateTime.UtcNow.Ticks % 100000) + i}";
+            // Character names are capped at 10 bytes in the scope packet - a longer name
+            // makes INewPlayersInScopePlugIn throw and the bot never renders for anyone.
+            var tag = team == MobaTeam.Blue ? "b" : "r";
+            var name = $"{tag}{classNumbers[i]}_{((DateTime.UtcNow.Ticks / 1000) % 10000) + i}";
+            if (name.Length > 10)
+            {
+                name = name[..10];
+            }
+
             var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name).ConfigureAwait(false);
             var account = caller.PersistenceContext.CreateNew<Account>();
             account.LoginName = $"#bot_{name}";
