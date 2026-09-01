@@ -29,7 +29,6 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     /// <summary>One representative class per family (Wizard, BK, HE, MG, LE, Summoner, RF).</summary>
     internal static readonly byte[] AllFamilies = { 0, 6, 11, 12, 17, 20, 24 };
 
-    private static Account? _sharedAccount;
 
     /// <inheritdoc />
     public override string Key => Command;
@@ -66,9 +65,6 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaBotChatCommandArgs arguments)
     {
         var team = arguments.ResolveTeam();
-        var config = player.GameContext.Configuration;
-        var account = _sharedAccount ??= player.PersistenceContext.CreateNew<Account>();
-        account.LoginName = "#mobabots";
 
         var classNumbers = string.Equals(arguments.Class?.Trim(), "all", StringComparison.OrdinalIgnoreCase)
             ? AllFamilies.ToList()
@@ -99,8 +95,6 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers)
     {
         var config = caller.GameContext.Configuration;
-        var account = _sharedAccount ??= caller.PersistenceContext.CreateNew<Account>();
-        account.LoginName = "#mobabots";
 
         // Always spawn at a fixed spot in the arena (not next to the caller, who may not
         // even be on the arena map), so the fight always happens where it can be found.
@@ -117,6 +111,8 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
 
             var name = $"Bot{(team == MobaTeam.Blue ? "B" : "R")}{classNumbers[i]}_{(DateTime.UtcNow.Ticks % 100000) + i}";
             var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name).ConfigureAwait(false);
+            var account = caller.PersistenceContext.CreateNew<Account>();
+            account.LoginName = $"#bot_{name}";
 
             var spawn = new Point(
                 (byte)Math.Clamp(origin.X + ((i % 4) * 2) - 3, 5, 250),

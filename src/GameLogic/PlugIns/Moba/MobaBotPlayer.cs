@@ -34,6 +34,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _ticking;
     private int _skillCursor;
     private DateTime _nextActionUtc;
+    private Point _homeSpawn;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
@@ -82,6 +83,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
             MobaCloneFactory.OnCloneAttached(this);
 
             MobaTeams.Set(this, this._team);
+            this.HuntingOrigin = spawn;
+            this._homeSpawn = spawn;
             ActiveBots.TryAdd(this, 0);
             this._brain = new Timer(_ => this.SafeTickAsync(), null, TickInterval, TickInterval);
             this.Logger.LogInformation("[MOBA-BOT] '{Name}' ({Team}) spawned at {Pos}.", clone.Name, this._team, spawn);
@@ -132,6 +135,22 @@ public sealed class MobaBotPlayer : OfflinePlayer
     protected override void StartIntelligence()
     {
         // The bot runs its own brain (StartMobaAsync); no mob-hunting MU-Helper.
+    }
+
+    /// <inheritdoc />
+    public override async ValueTask RespawnAtAsync(MUnique.OpenMU.DataModel.Configuration.ExitGate gate)
+    {
+        // The engine respawns offline players at the map's spawn gate (far corner of the
+        // arena). Snap the bot straight back to its brawl spot so the fight stays put.
+        await base.RespawnAtAsync(gate).ConfigureAwait(false);
+        try
+        {
+            await this.MoveAsync(this._homeSpawn).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Timer callback.")]
