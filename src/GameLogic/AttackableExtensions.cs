@@ -99,6 +99,23 @@ public static class AttackableExtensions
         }
 
         attacker.GetBaseDmg(skill, out int baseMinDamage, out int baseMaxDamage, out DamageType damageType);
+
+        // MOBA mode: a champion's damage comes from the MOBA skill table (LoL-style base +
+        // per-rank), NOT the S6 weapon/stat formula - so class stats don't warp the numbers.
+        // Per-class stat scaling is layered back on later, deliberately.
+        var isMobaChampionAttacker = attacker is Player { IsMobaClone: true };
+        if (isMobaChampionAttacker)
+        {
+            if (skill?.Skill is { } mobaSkill)
+            {
+                PlugIns.Moba.MobaSkillDamage.GetSkillBaseDamage((short)mobaSkill.Number, skill.Level, out baseMinDamage, out baseMaxDamage);
+            }
+            else
+            {
+                PlugIns.Moba.MobaSkillDamage.GetBasicAttackDamage(out baseMinDamage, out baseMaxDamage);
+            }
+        }
+
         int dmg;
         if (damageType == DamageType.Physical)
         {
@@ -211,7 +228,7 @@ public static class AttackableExtensions
 
         var attackerLevel = attacker is Player ? attacker.Attributes[Stats.TotalLevel] :
             attacker is AttackerSurrogate ? attackerPlayer!.Attributes![Stats.Level] : attacker.Attributes[Stats.Level];
-        var minLevelDmg = Math.Max(1, (int)attackerLevel / 10);
+        var minLevelDmg = isMobaChampionAttacker ? 1 : Math.Max(1, (int)attackerLevel / 10);
         if (dmg < minLevelDmg)
         {
             dmg = minLevelDmg;
@@ -227,7 +244,7 @@ public static class AttackableExtensions
         {
             var multiplier = attacker.Attributes[Stats.SkillMultiplier];
 
-            if (skill.EnsureSkillAttributes(attacker.Attributes) is { } skillAttributes)
+            if (!isMobaChampionAttacker && skill.EnsureSkillAttributes(attacker.Attributes) is { } skillAttributes)
             {
                 dmg += (int)skillAttributes[Stats.SkillFinalDamageBonus];
 
@@ -244,7 +261,8 @@ public static class AttackableExtensions
                 }
             }
 
-            dmg = (int)(dmg * multiplier * damageFactor);
+            // MOBA: the table value is the final base - skip the S6 per-skill multiplier.
+            dmg = isMobaChampionAttacker ? (int)(dmg * damageFactor) : (int)(dmg * multiplier * damageFactor);
         }
         else if (attacker.Attributes[Stats.IsDinorantEquipped] > 0)
         {

@@ -38,25 +38,19 @@ public static class MobaCloneFactory
     /// real build. Combat power is meant to come from skills + a later tuning pass, not
     /// from stats; see GAMEDESIGN.md.
     /// </summary>
-    private const int BaselineStatValue = 10;
-
     /// <summary>
-    /// Flat AGI for every clone. High so the clone doesn't get shredded by creeps before
-    /// the balance pass (AGI drives defense / attack rate / block). Uniform across classes.
+    /// The single flat value EVERY base stat (STR/AGI/VIT/ENE/CMD) is set to for every
+    /// class. Deliberately uniform: MOBA damage comes from the skill table
+    /// (<see cref="MobaSkillDamage"/>), not from stats, so a raised stat must not spike
+    /// any class. Per-class stat formulas are layered on afterwards, on purpose.
     /// </summary>
-    private const int BaselineAgilityValue = 2000;
+    private const int BaselineStatValue = 500;
 
-    /// <summary>
-    /// Flat ENE for every clone. Not left at 10 because ENE is the mana pool: casters
-    /// need to afford their spells. Uniform across classes.
-    /// </summary>
-    private const int BaselineEnergyValue = 1000;
+    /// <summary>Flat max health forced on every clone (see <see cref="OnCloneAttached"/>).</summary>
+    private const int MobaBaseHealth = 2500;
 
-    /// <summary>
-    /// Placeholder vitality for the clone so it survives long enough to test. Real
-    /// per-class stats / balance come later.
-    /// </summary>
-    private const int TestVitality = 2000;
+    /// <summary>Flat max mana forced on every clone, so every class can afford its spells.</summary>
+    private const int MobaBaseMana = 3000;
 
     /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
     private const int TestLevelUpPoints = 5000;
@@ -107,21 +101,7 @@ public static class MobaCloneFactory
         // defines which stats exist (STR/AGI/VIT/ENE, plus CMD for Dark Lord).
         foreach (var classStat in characterClass.StatAttributes.Where(a => a is { IncreasableByPlayer: true, Attribute: not null }))
         {
-            var value = BaselineStatValue;
-            if (classStat.Attribute!.Id == Stats.BaseVitality.Id)
-            {
-                value = TestVitality;
-            }
-            else if (classStat.Attribute.Id == Stats.BaseAgility.Id)
-            {
-                value = BaselineAgilityValue;
-            }
-            else if (classStat.Attribute.Id == Stats.BaseEnergy.Id)
-            {
-                value = BaselineEnergyValue;
-            }
-
-            clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute, value));
+            clone.Attributes.Add(context.CreateNew<StatAttribute>(classStat.Attribute!, BaselineStatValue));
         }
 
         EnsureAttribute(context, clone, Stats.Level, MatchStartLevel);
@@ -176,9 +156,20 @@ public static class MobaCloneFactory
         }
 
         attributes.AddElement(new SimpleElement(0f, AggregateType.Multiplicate), Stats.MaximumShield);
+
+        // Flat HP / mana for every class (stats are uniform now; HP is tuned here, not via VIT).
+        SetAbsolute(attributes, Stats.MaximumHealth, MobaBaseHealth);
+        SetAbsolute(attributes, Stats.MaximumMana, MobaBaseMana);
+
         player.SetReclaimableAttributesToMaximum();
         attributes[Stats.CurrentShield] = 0;
         attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
+        attributes[Stats.CurrentMana] = attributes[Stats.MaximumMana];
+
+        static void SetAbsolute(IAttributeSystem attributes, AttributeDefinition stat, float value)
+        {
+            attributes.AddElement(new SimpleElement(value - attributes[stat], AggregateType.AddRaw), stat);
+        }
     }
 
     /// <summary>
