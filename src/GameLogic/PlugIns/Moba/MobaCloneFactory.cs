@@ -60,7 +60,7 @@ public static class MobaCloneFactory
     private const int MobaBaseShield = 800;
 
     /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
-    private const int TestLevelUpPoints = 5000;
+    private const int TestLevelUpPoints = MobaStatEconomy.TestStartPoints;
 
     private static readonly (byte X, byte Y) ArenaSpawn = (124, 140);
 

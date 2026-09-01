@@ -104,15 +104,15 @@ public static class AttackableExtensions
         // per-rank), NOT the S6 weapon/stat formula - so class stats don't warp the numbers.
         // Per-class stat scaling is layered back on later, deliberately.
         var isMobaChampionAttacker = attacker is Player { IsMobaClone: true };
-        if (isMobaChampionAttacker)
+        if (attacker is Player { IsMobaClone: true } mobaChampion)
         {
             if (skill?.Skill is { } mobaSkill)
             {
-                PlugIns.Moba.MobaSkillDamage.GetSkillBaseDamage((short)mobaSkill.Number, skill.Level, out baseMinDamage, out baseMaxDamage);
+                PlugIns.Moba.MobaSkillDamage.GetSkillBaseDamage(mobaChampion, (short)mobaSkill.Number, skill.Level, out baseMinDamage, out baseMaxDamage);
             }
             else
             {
-                PlugIns.Moba.MobaSkillDamage.GetBasicAttackDamage(out baseMinDamage, out baseMaxDamage);
+                PlugIns.Moba.MobaSkillDamage.GetBasicAttackDamage(mobaChampion, out baseMinDamage, out baseMaxDamage);
             }
         }
 

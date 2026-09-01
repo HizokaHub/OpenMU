@@ -46,6 +46,11 @@ public static class MobaExperience
             champion.MobaExperience -= MobaLevels.ExpToNext(champion.MobaLevel);
             champion.MobaLevel++;
             champion.MobaSkillPoints++;
+            if (champion.SelectedCharacter is { } character)
+            {
+                character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(champion);
+            }
+
             leveledUp = true;
 
             champion.Logger.LogDebug("[MOBA] {Name} -> champion level {Level} (via {Reason})", champion.SelectedCharacter?.Name, champion.MobaLevel, reason);
