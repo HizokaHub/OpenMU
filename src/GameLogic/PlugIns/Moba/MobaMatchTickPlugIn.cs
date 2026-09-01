@@ -27,8 +27,8 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// <inheritdoc />
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
-        // Runs every tick (~1s): expire stacking passive buffs, tick passive DoTs.
-        await MobaPassives.TickAsync().ConfigureAwait(false);
+        // Runs every tick (~1s): expire stacking passive buffs, tick passive DoTs, refresh the DL aura.
+        await MobaPassives.TickAsync(gameContext).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)

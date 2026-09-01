@@ -116,13 +116,16 @@ public static class MobaPassives
     }
 
     /// <summary>
-    /// Per-match upkeep for the passives (expiring stacking buffs, ticking DoTs). Cheap;
-    /// meant to be called about once a second from <see cref="MobaMatchTickPlugIn"/>.
+    /// Per-match upkeep for the passives (expiring stacking buffs, ticking DoTs, the
+    /// Dark Lord command aura). Cheap; meant to be called about once a second from
+    /// <see cref="MobaMatchTickPlugIn"/>.
     /// </summary>
-    public static async ValueTask TickAsync()
+    /// <param name="gameContext">The game context (for the aura's proximity scan).</param>
+    public static async ValueTask TickAsync(IGameContext gameContext)
     {
         MobaFrenzyPassive.SweepExpired();
         MobaSecondWindPassive.SweepExpired();
         await MobaCombustionPassive.TickAsync().ConfigureAwait(false);
+        await MobaCommandBannerPassive.TickAsync(gameContext).ConfigureAwait(false);
     }
 }
