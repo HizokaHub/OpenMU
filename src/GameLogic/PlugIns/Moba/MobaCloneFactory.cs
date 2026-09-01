@@ -52,6 +52,13 @@ public static class MobaCloneFactory
     /// <summary>Flat max mana forced on every clone, so every class can afford its spells.</summary>
     private const int MobaBaseMana = 3000;
 
+    /// <summary>
+    /// Flat max shield (SD) for every clone. SD stays in the MOBA mode (SD potions, the AG
+    /// gauge, etc. still matter) but as a modest, uniform buffer, not the multi-thousand
+    /// stat-scaled pool that otherwise absorbs ~90% of every hit. Tuned in the balance pass.
+    /// </summary>
+    private const int MobaBaseShield = 800;
+
     /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
     private const int TestLevelUpPoints = 5000;
 
@@ -155,16 +162,16 @@ public static class MobaCloneFactory
             return;
         }
 
-        attributes.AddElement(new SimpleElement(0f, AggregateType.Multiplicate), Stats.MaximumShield);
-
-        // Flat HP / mana for every class (stats are uniform now; HP is tuned here, not via VIT).
+        // Flat HP / mana / shield for every class (stats are uniform now; these are tuned
+        // here, not derived from VIT / ENE).
         SetAbsolute(attributes, Stats.MaximumHealth, MobaBaseHealth);
         SetAbsolute(attributes, Stats.MaximumMana, MobaBaseMana);
+        SetAbsolute(attributes, Stats.MaximumShield, MobaBaseShield);
 
         player.SetReclaimableAttributesToMaximum();
-        attributes[Stats.CurrentShield] = 0;
         attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
         attributes[Stats.CurrentMana] = attributes[Stats.MaximumMana];
+        attributes[Stats.CurrentShield] = attributes[Stats.MaximumShield];
 
         static void SetAbsolute(IAttributeSystem attributes, AttributeDefinition stat, float value)
         {

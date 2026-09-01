@@ -237,11 +237,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 this._skillCursor = (this._skillCursor + i + 1) % skills.Count;
                 if (await this.TryConsumeForSkillAsync(entry).ConfigureAwait(false))
                 {
+                    // Face the target so the cast animation points the right way.
+                    this.Rotation = this.Position.GetDirectionTo(target.Position);
+
                     var hit = await target.AttackByAsync(this, entry, false).ConfigureAwait(false);
+                    var effectApplied = false;
                     if (hit is { } h)
                     {
-                        await target.TryApplyElementalEffectsAsync(this, entry, h).ConfigureAwait(false);
+                        effectApplied = await target.TryApplyElementalEffectsAsync(this, entry, h).ConfigureAwait(false);
                     }
+
+                    // Broadcast the cast animation so observers see the skill visual (the
+                    // bot bypasses the normal skill action which would do this).
+                    await this.ForEachWorldObserverAsync<Views.World.IShowSkillAnimationPlugIn>(
+                        p => p.ShowSkillAnimationAsync(this, target, entry.Skill, effectApplied), true).ConfigureAwait(false);
 
                     return;
                 }
