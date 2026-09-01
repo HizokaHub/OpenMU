@@ -687,6 +687,13 @@ public static class AttackableExtensions
 
     private static bool IsAttackSuccessfulTo(this IAttacker attacker, IAttackable defender)
     {
+        // MOBA mode: a champion's attacks / skills always land (no MU dodge roll). With the
+        // flat AGI 2000 clone stats the PvP hit chance would otherwise sit at the 3% floor.
+        if (attacker is Player { IsMobaClone: true })
+        {
+            return true;
+        }
+
         var hitChance = attacker.GetHitChanceTo(defender);
         return Rand.NextRandomBool(hitChance);
     }

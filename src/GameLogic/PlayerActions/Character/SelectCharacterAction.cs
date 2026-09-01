@@ -47,6 +47,7 @@ public class SelectCharacterAction
             player.Died -= MobaChampionDiedHandler;
             player.Died += MobaChampionDiedHandler;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
+            MobaCloneFactory.OnCloneAttached(player);
 
             // Default team until real matchmaking assigns one; overridable with /mobateam.
             if (MobaTeams.GetTeam(player) == MobaTeam.None)

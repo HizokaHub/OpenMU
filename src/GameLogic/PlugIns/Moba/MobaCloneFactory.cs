@@ -162,6 +162,26 @@ public static class MobaCloneFactory
     }
 
     /// <summary>
+    /// Runtime tweaks applied once the clone's <see cref="Player.Attributes"/> exist (after
+    /// <c>SetSelectedCharacterAsync</c> / entering the world): remove the MU shield (SD) so
+    /// champions fight on raw HP, and spawn at full HP / mana (a fresh clone character has
+    /// no stored current-health, so it would otherwise enter the world at 0 HP).
+    /// </summary>
+    /// <param name="player">The player carrying the clone.</param>
+    public static void OnCloneAttached(Player player)
+    {
+        if (player.Attributes is not { } attributes)
+        {
+            return;
+        }
+
+        attributes.AddElement(new SimpleElement(0f, AggregateType.Multiplicate), Stats.MaximumShield);
+        player.SetReclaimableAttributesToMaximum();
+        attributes[Stats.CurrentShield] = 0;
+        attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
+    }
+
+    /// <summary>
     /// Detaches the clone (and the entities created for it) from the persistence context.
     /// Safety net on top of <see cref="Player.SuppressPersistence"/>.
     /// </summary>

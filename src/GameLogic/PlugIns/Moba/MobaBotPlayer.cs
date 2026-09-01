@@ -79,6 +79,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             await this.GameContext.AddPlayerAsync(this).ConfigureAwait(false);
             await this.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
             await this.ClientReadyAfterMapChangeAsync().ConfigureAwait(false);
+            MobaCloneFactory.OnCloneAttached(this);
 
             MobaTeams.Set(this, this._team);
             ActiveBots.TryAdd(this, 0);
@@ -200,7 +201,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private async ValueTask CastNextOrAttackAsync(IAttackable target)
     {
         var skills = this.SelectedCharacter?.LearnedSkills
-            .Where(s => s.Skill is not null)
+            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
             .ToList() ?? new List<SkillEntry>();
 
         if (skills.Count > 0)

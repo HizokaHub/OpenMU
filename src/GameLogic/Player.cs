@@ -1487,6 +1487,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         // Custom MOBA game mode: skill-aware passive dispatch (e.g. Segundo aliento arm, Wizard burn).
         PlugIns.Moba.MobaPassives.OnHitResolved(attacker, this, skill, hitInfo);
 
+        // DoT / passive damage (burn, mark, echo, ...) does not pass through AttackByAsync, so trace it here.
+        if (hitInfo.Attributes.HasFlag(DamageAttributes.Poison))
+        {
+            PlugIns.Moba.MobaCombatDebug.LogHit(attacker, this, skill, hitInfo);
+        }
+
         if (this.Attributes[Stats.CurrentHealth] < 1)
         {
             this.LastDeath = new DeathInformation(attacker.Id, attacker.GetName(), hitInfo, skill?.Number ?? 0);
