@@ -8,59 +8,57 @@ using MUnique.OpenMU.DataModel.Entities;
 
 /// <summary>
 /// Per-match skill cooldowns for the MOBA mode. Season 6 skills carry no cooldown of
-/// their own, so a champion's abilities would otherwise be spammable. Each ability has a
-/// base cooldown that shrinks as the skill is levelled up (1..5). The numbers here are a
-/// first pass - the balance pass tunes the per-skill table and the reduction curve.
+/// their own, so a champion's abilities would otherwise be spammable.
+/// <para>
+/// Like League of Legends, every skill rank (1..5) has its own authored cooldown rather
+/// than a uniform percentage: pokes stay almost flat, burst / AoE / hard-CC and the
+/// sustain buffs drop more as they are ranked up. These are first-pass numbers meant to
+/// be edited during the balance pass.
+/// </para>
 /// </summary>
 public static class MobaCooldowns
 {
-    /// <summary>Cooldown used for an ability with no explicit entry in <see cref="BaseCooldownSeconds"/>.</summary>
-    private const double DefaultBaseSeconds = 6.0;
-
-    /// <summary>Fraction of the base cooldown removed per skill level above 1 (level 5 => -32%).</summary>
-    private const double ReductionPerLevel = 0.08;
-
-    /// <summary>A skill never drops below this fraction of its base cooldown.</summary>
-    private const double MinFraction = 0.5;
+    /// <summary>Cooldown per rank (seconds, index 0 = rank 1) for a skill with no explicit entry.</summary>
+    private static readonly double[] DefaultPerRank = { 6.5, 6.0, 5.5, 5.0, 4.5 };
 
     /// <summary>
-    /// Per-skill base cooldown (seconds), keyed by Persistence skill number. Only the
-    /// abilities that need to differ from <see cref="DefaultBaseSeconds"/> are listed;
-    /// everything else a champion can cast uses the default.
+    /// Per-skill cooldown by rank, keyed by Persistence skill number. Only the abilities a
+    /// champion can actually be given (see <see cref="MobaLoadouts"/>) are listed; anything
+    /// else falls back to <see cref="DefaultPerRank"/>.
     /// </summary>
-    private static readonly Dictionary<short, double> BaseCooldownSeconds = new()
+    private static readonly Dictionary<short, double[]> PerRankSeconds = new()
     {
-        // Wizard
-        [17] = 1.5,   // Energy Ball (spammable poke)
-        [4] = 5.0,    // Fire Ball
-        [3] = 6.0,    // Lightning
-        [11] = 4.0,   // Power Wave
-        [9] = 7.0,    // Evil Spirit
-        [7] = 8.0,    // Ice
+        // --- Pokes / primary spam abilities: near-flat, tiny drop ---
+        [17] = new[] { 2.0, 1.9, 1.8, 1.7, 1.5 },   // Energy Ball
+        [11] = new[] { 4.0, 3.75, 3.5, 3.25, 3.0 }, // Power Wave
+        [19] = new[] { 2.5, 2.3, 2.1, 1.9, 1.7 },   // Falling Slash
+        [23] = new[] { 3.0, 2.75, 2.5, 2.25, 2.0 }, // Slash
+        [24] = new[] { 2.0, 1.9, 1.8, 1.7, 1.6 },   // Triple Shot
+        [60] = new[] { 2.5, 2.4, 2.3, 2.2, 2.0 },   // Force
 
-        // Blade Knight
-        [19] = 2.0,   // Falling Slash
-        [20] = 2.5,   // Lunge
-        [22] = 7.0,   // Cyclone
-        [23] = 3.0,   // Slash
-        [41] = 6.0,   // Twisting Slash
-        [21] = 4.0,   // Uppercut
+        // --- Gap-closer ---
+        [20] = new[] { 5.0, 4.5, 4.0, 3.5, 3.0 },   // Lunge
 
-        // Elf
-        [24] = 2.0,   // Triple Shot
-        [26] = 9.0,   // Heal
-        [28] = 12.0,  // Greater Damage (buff)
-        [27] = 12.0,  // Greater Defense (buff)
-        [52] = 6.0,   // Penetration
-        [46] = 8.0,   // Starfall
+        // --- Mid-cost nukes ---
+        [4] = new[] { 6.0, 5.5, 5.0, 4.5, 4.0 },    // Fire Ball
+        [3] = new[] { 7.0, 6.5, 6.0, 5.5, 5.0 },    // Lightning
+        [21] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },   // Uppercut (knock-up)
+        [52] = new[] { 6.0, 5.5, 5.0, 4.5, 4.0 },   // Penetration
+        [74] = new[] { 8.0, 7.25, 6.5, 5.75, 5.0 }, // Fire Blast
 
-        // Dark Lord
-        [60] = 3.0,   // Force
-        [74] = 7.0,   // Fire Blast
-        [62] = 9.0,   // Earthshake
+        // --- AoE / hard CC / heavy hitters: bigger payoff for ranking ---
+        [22] = new[] { 7.0, 6.5, 6.0, 5.5, 5.0 },   // Cyclone
+        [41] = new[] { 6.0, 5.5, 5.0, 4.5, 4.0 },   // Twisting Slash (spin AoE)
+        [7] = new[] { 9.0, 8.25, 7.5, 6.75, 6.0 },  // Ice (slow AoE)
+        [9] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },    // Evil Spirit
+        [46] = new[] { 9.0, 8.0, 7.0, 6.0, 5.0 },   // Starfall (big burst)
+        [62] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },  // Earthshake
+        [214] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },  // Drain Life
 
-        // Summoner
-        [214] = 8.0,  // Drain Life
+        // --- Sustain / buffs: long, and shrink noticeably as ranked ---
+        [26] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },   // Heal
+        [28] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Damage
+        [27] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Defense
     };
 
     /// <summary>
@@ -87,15 +85,11 @@ public static class MobaCooldowns
             return TimeSpan.Zero;
         }
 
-        var baseSeconds = BaseCooldownSeconds.TryGetValue((short)skill.Number, out var configured)
-            ? configured
-            : DefaultBaseSeconds;
+        var perRank = PerRankSeconds.TryGetValue((short)skill.Number, out var table) ? table : DefaultPerRank;
 
-        // Skill level runs 1..5 once at least one point is spent; treat 0 as 1.
-        var level = Math.Clamp(learned.Level, 1, MobaSkills.SkillLevelCap);
-        var factor = Math.Max(MinFraction, 1.0 - (ReductionPerLevel * (level - 1)));
-
-        return TimeSpan.FromSeconds(baseSeconds * factor);
+        // Skill level runs 1..5 once at least one point is spent; treat 0 as rank 1.
+        var rankIndex = Math.Clamp(learned.Level, 1, MobaSkills.SkillLevelCap) - 1;
+        return TimeSpan.FromSeconds(perRank[rankIndex]);
     }
 
     /// <summary>
