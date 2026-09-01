@@ -27,6 +27,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// <inheritdoc />
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
+        // Runs every tick (~1s): drop expired stacking passive buffs (e.g. Frenesí).
+        MobaPassives.Tick();
+
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)
         {
