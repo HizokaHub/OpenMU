@@ -79,8 +79,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
             await this.GameContext.AddPlayerAsync(this).ConfigureAwait(false);
             await this.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
-            await this.ClientReadyAfterMapChangeAsync().ConfigureAwait(false);
+
+            // Full HP/mana BEFORE entering the world: ClientReadyAfterMapChangeAsync adds
+            // the bot to the map and marks it alive, and observers snapshot it then - a
+            // 0-HP bot at that moment renders as a corpse / not at all.
             MobaCloneFactory.OnCloneAttached(this);
+
+            await this.ClientReadyAfterMapChangeAsync().ConfigureAwait(false);
 
             MobaTeams.Set(this, this._team);
             this.HuntingOrigin = spawn;

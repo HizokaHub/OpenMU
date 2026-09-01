@@ -87,10 +87,10 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     /// <param name="classNumbers">The character-class numbers to spawn.</param>
     /// <returns>The number of bots spawned.</returns>
     /// <summary>Brawl spawn on the carved mid lane (x = 108..124 walkable): blue north, red south, ~36 tiles apart so they march toward each other and the fight is watchable.</summary>
-    internal static readonly Point BlueBrawlOrigin = new(116, 110);
+    internal static readonly Point BlueBrawlOrigin = new(116, 118);
 
     /// <summary>Red team's brawl origin (see <see cref="BlueBrawlOrigin"/>).</summary>
-    internal static readonly Point RedBrawlOrigin = new(116, 146);
+    internal static readonly Point RedBrawlOrigin = new(116, 140);
 
     internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers)
     {
