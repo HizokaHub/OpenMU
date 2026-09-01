@@ -1,0 +1,125 @@
+// <copyright file="MobaBotChatCommandPlugIn.cs" company="MUnique">
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
+
+using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
+using MUnique.OpenMU.DataModel.Configuration;
+using MUnique.OpenMU.DataModel.Entities;
+using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
+using MUnique.OpenMU.Pathfinding;
+using MUnique.OpenMU.PlugIns;
+
+/// <summary>
+/// Dev command <c>/mobabot &lt;blue|red&gt; &lt;class|all&gt; [count]</c>: spawns
+/// server-driven champion bots near the caller for skill / balance testing. They walk to
+/// the nearest enemy and cycle their loadout; watch the <c>[MOBA-DMG]</c> log.
+/// <c>/mobabotclear</c> removes them.
+/// </summary>
+[Guid("3D9A6E82-1B47-4C05-8F62-9A0E7C3B1D54")]
+[PlugIn]
+[Display(Name = "MOBA: spawn test bots", Description = "Dev command '/mobabot <blue|red> <class|all> [count]'.")]
+[ChatCommandHelp(Command, "Spawn MOBA champion test bots: /mobabot <blue|red> <class|all> [count]", typeof(MobaBotChatCommandArgs))]
+public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommandArgs>
+{
+    private const string Command = "/mobabot";
+
+    /// <summary>One representative class per family (Wizard, BK, HE, MG, LE, Summoner, RF).</summary>
+    internal static readonly byte[] AllFamilies = { 0, 6, 11, 12, 17, 20, 24 };
+
+    private static Account? _sharedAccount;
+
+    /// <inheritdoc />
+    public override string Key => Command;
+
+    /// <inheritdoc />
+    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
+
+    /// <summary>Resolves a class alias (or raw number) to a character-class number.</summary>
+    /// <param name="value">The alias or number.</param>
+    /// <returns>The class number, or <c>null</c>.</returns>
+    internal static byte? ResolveClassNumber(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "dw" or "wizard" or "darkwizard" => 0,
+        "sm" or "soulmaster" => 2,
+        "gm" or "grandmaster" => 3,
+        "dk" or "knight" or "darkknight" => 4,
+        "bk" or "bladeknight" => 6,
+        "bm" or "blademaster" => 7,
+        "fe" or "elf" or "fairyelf" => 8,
+        "me" or "muse" or "museelf" => 10,
+        "he" or "highelf" => 11,
+        "mg" or "magicgladiator" or "gladiator" => 12,
+        "dl" or "darklord" or "lord" => 16,
+        "le" or "lordemperor" => 17,
+        "sum" or "summoner" => 20,
+        "bs" or "bloodysummoner" => 22,
+        "dim" or "dimensionmaster" => 23,
+        "rf" or "ragefighter" or "rage" => 24,
+        "fm" or "fistmaster" => 25,
+        _ => byte.TryParse(value, out var n) ? n : (byte?)null,
+    };
+
+    /// <inheritdoc />
+    protected override async ValueTask DoHandleCommandAsync(Player player, MobaBotChatCommandArgs arguments)
+    {
+        var team = arguments.ResolveTeam();
+        var config = player.GameContext.Configuration;
+        var account = _sharedAccount ??= player.PersistenceContext.CreateNew<Account>();
+        account.LoginName = "#mobabots";
+
+        var classNumbers = string.Equals(arguments.Class?.Trim(), "all", StringComparison.OrdinalIgnoreCase)
+            ? AllFamilies.ToList()
+            : Enumerable.Repeat(ResolveClassNumber(arguments.Class) ?? byte.MaxValue, Math.Clamp(arguments.Count, 1, 8)).ToList();
+
+        if (classNumbers.Contains(byte.MaxValue))
+        {
+            await player.ShowBlueMessageAsync("[mobabot] Clase desconocida. Ej: rf, sum, dw, dk, fe, mg, dl, o 'all'.").ConfigureAwait(false);
+            return;
+        }
+
+        var spawned = await SpawnAsync(player, team, classNumbers).ConfigureAwait(false);
+        await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) del equipo {team} creados. /mobabotclear para quitarlos.").ConfigureAwait(false);
+    }
+
+    /// <summary>Spawns the given classes as bots on a team, near the caller.</summary>
+    /// <param name="caller">The GM running the command.</param>
+    /// <param name="team">The team.</param>
+    /// <param name="classNumbers">The character-class numbers to spawn.</param>
+    /// <returns>The number of bots spawned.</returns>
+    internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers)
+    {
+        var config = caller.GameContext.Configuration;
+        var account = _sharedAccount ??= caller.PersistenceContext.CreateNew<Account>();
+        account.LoginName = "#mobabots";
+
+        var spawned = 0;
+        var origin = caller.Position;
+        var lane = team == MobaTeam.Blue ? -6 : 6;
+        for (var i = 0; i < classNumbers.Count; i++)
+        {
+            var characterClass = config.CharacterClasses.FirstOrDefault(c => c.Number == classNumbers[i]);
+            if (characterClass is null)
+            {
+                continue;
+            }
+
+            var name = $"Bot{(team == MobaTeam.Blue ? "B" : "R")}{classNumbers[i]}_{(DateTime.UtcNow.Ticks % 100000) + i}";
+            var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name).ConfigureAwait(false);
+
+            var spawn = new Point(
+                (byte)Math.Clamp(origin.X + lane + ((i % 4) * 2) - 3, 5, 250),
+                (byte)Math.Clamp(origin.Y + ((i / 4) * 2) + 2, 5, 250));
+
+            var bot = new MobaBotPlayer(caller.GameContext, team);
+            if (await bot.StartMobaAsync(account, clone, spawn).ConfigureAwait(false))
+            {
+                spawned++;
+            }
+        }
+
+        return spawned;
+    }
+}

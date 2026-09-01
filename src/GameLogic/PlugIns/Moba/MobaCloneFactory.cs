@@ -69,17 +69,32 @@ public static class MobaCloneFactory
     /// <param name="player">The player who will play the clone (its persistence context is used to create the entities).</param>
     /// <param name="realCharacter">The real character to clone. Only read, never mutated.</param>
     /// <returns>The clone character, ready to be used as the selected character for a match.</returns>
-    public static async ValueTask<Character> BuildCloneAsync(Player player, Character realCharacter)
+    public static ValueTask<Character> BuildCloneAsync(Player player, Character realCharacter)
     {
         var real = realCharacter ?? throw new ArgumentNullException(nameof(realCharacter));
         var characterClass = real.CharacterClass ?? throw new InvalidOperationException("The character has no class assigned.");
+        return BuildCloneCoreAsync(player, characterClass, real.Name, real.CharacterSlot, real.CharacterStatus);
+    }
+
+    /// <summary>
+    /// Builds a clone character for a bare class (no real character) - used by the MOBA test bots.
+    /// </summary>
+    /// <param name="player">The player whose persistence context / game context is used.</param>
+    /// <param name="characterClass">The class of the clone.</param>
+    /// <param name="name">The clone's name.</param>
+    /// <returns>The clone character.</returns>
+    public static ValueTask<Character> BuildForClassAsync(Player player, CharacterClass characterClass, string name)
+        => BuildCloneCoreAsync(player, characterClass, name, 0, CharacterStatus.Normal);
+
+    private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status)
+    {
         var context = player.PersistenceContext;
 
         var clone = context.CreateNew<Character>();
-        clone.Name = real.Name;
+        clone.Name = name;
         clone.CharacterClass = characterClass;
-        clone.CharacterSlot = real.CharacterSlot;
-        clone.CharacterStatus = real.CharacterStatus; // keep GM logo etc.
+        clone.CharacterSlot = slot;
+        clone.CharacterStatus = status; // keep GM logo etc.
         clone.Pose = CharacterPose.Standing;
         clone.State = HeroState.Normal;
         // Fresh hotkey bar: the real character's config maps its own skills, which the
