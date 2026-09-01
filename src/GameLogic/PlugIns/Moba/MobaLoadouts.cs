@@ -105,6 +105,14 @@ public static class MobaLoadouts
         }
     }
 
+    /// <summary>
+    /// The MOBA loadout skill numbers for a class (the same list the match clone gets).
+    /// </summary>
+    /// <param name="characterClass">The character class.</param>
+    /// <returns>The skill numbers, or an empty list if the class has no loadout.</returns>
+    public static IReadOnlyList<short> SkillNumbersFor(CharacterClass characterClass)
+        => Skills.TryGetValue(FamilyOf(characterClass.Number), out var numbers) ? numbers : Array.Empty<short>();
+
     private static Family FamilyOf(byte classNumber) => classNumber switch
     {
         0 or 2 or 3 => Family.Wizard,
