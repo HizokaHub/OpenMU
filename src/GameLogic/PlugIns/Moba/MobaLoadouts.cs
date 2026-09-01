@@ -45,21 +45,30 @@ public static class MobaLoadouts
         [Family.Knight] = new[] { new WeaponSpec(0, 1, 1) },                                   // Short Sword
         [Family.Elf] = new[] { new WeaponSpec(4, 0, 1), new WeaponSpec(AmmoGroup, ArrowsNumber, 0) }, // Short Bow + Arrows
         [Family.MagicGladiator] = new[] { new WeaponSpec(0, 1, 1) },                           // Short Sword
-        [Family.DarkLord] = new[] { new WeaponSpec(0, 1, 1) },                                 // Short Sword (no low scepter)
+        [Family.DarkLord] = new[] { new WeaponSpec(2, 8, 1) },                                 // Battle Scepter (sets IsScepterEquipped for Force / Fire Burst)
         [Family.Summoner] = new[] { new WeaponSpec(5, 0, 1) },                                 // Skull Staff / stick
-        [Family.RageFighter] = new[] { new WeaponSpec(0, 1, 1) },                              // Short Sword (no low knuckle)
+        [Family.RageFighter] = new[] { new WeaponSpec(0, 32, 1) },                             // Sacred Glove (sets IsGloveWeaponEquipped for RF skills)
     };
 
-    // 4-6 active skills per family (skill numbers from Persistence SkillNumber).
+    // Up to 9 active skills per family (the design's "4 base + 5 picks"). Skill numbers
+    // from Persistence SkillNumber. First testing batch - a second batch covers whatever
+    // each class is still missing.
     private static readonly Dictionary<Family, short[]> Skills = new()
     {
-        [Family.Wizard] = new short[] { 17, 4, 3, 11, 9, 7 },   // Energy Ball, Fire Ball, Lightning, Power Wave, Evil Spirit, Ice
-        [Family.Knight] = new short[] { 19, 20, 22, 23, 41, 21 }, // Falling Slash, Lunge, Cyclone, Slash, Twisting Slash, Uppercut
-        [Family.Elf] = new short[] { 24, 26, 28, 27, 52, 46 },   // Triple Shot, Heal, Greater Damage, Greater Defense, Penetration, Starfall
-        [Family.MagicGladiator] = new short[] { 17, 4, 19, 41, 22, 3 }, // Energy Ball, Fire Ball, Falling Slash, Twisting Slash, Cyclone, Lightning
-        [Family.DarkLord] = new short[] { 60, 61, 66, 19 },      // Force, Fire Burst, Force Wave, Falling Slash (Earthshake/Chaotic need the Dark Horse mount)
-        [Family.Summoner] = new short[] { 17, 4, 3, 214, 7 },    // Energy Ball, Fire Ball, Lightning, Drain Life, Ice
-        [Family.RageFighter] = new short[] { 19, 22, 23, 41 },   // Falling Slash, Cyclone, Slash, Twisting Slash
+        // Energy Ball, Fire Ball, Lightning, Power Wave, Evil Spirit, Ice, Poison, Meteo, Ice Storm
+        [Family.Wizard] = new short[] { 17, 4, 3, 11, 9, 7, 1, 2, 39 },
+        // Falling Slash, Lunge, Cyclone, Slash, Twisting Slash, Uppercut, Rageful Blow, Death Stab, Strike of Destruction
+        [Family.Knight] = new short[] { 19, 20, 22, 23, 41, 21, 42, 43, 232 },
+        // Triple Shot, Penetration, Ice Arrow, Multi-Shot, Heal, Greater Damage, Greater Defense, Starfall
+        [Family.Elf] = new short[] { 24, 52, 51, 235, 26, 28, 27, 46 },
+        // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash
+        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56 },
+        // Force, Fire Burst, Force Wave, Electric Spike, Falling Slash (Earthshake/Chaotic need the Dark Horse mount)
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 19 },
+        // Energy Ball, Fire Ball, Lightning, Ice, Poison, Drain Life, Chain Lightning, Lightning Orb, Blind
+        [Family.Summoner] = new short[] { 17, 4, 3, 7, 1, 214, 215, 216, 220 },
+        // Killing Blow, Beast Uppercut, Dark Side, Dragon Roar, Dragon Kick, Phoenix Shot (some need the Fenrir mount)
+        [Family.RageFighter] = new short[] { 260, 261, 263, 264, 265, 270 },
     };
 
     /// <summary>

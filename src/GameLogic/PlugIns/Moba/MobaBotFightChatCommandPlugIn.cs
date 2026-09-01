@@ -34,6 +34,7 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
         var families = MobaBotChatCommandPlugIn.AllFamilies;
         var blue = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, families).ConfigureAwait(false);
         var red = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, families).ConfigureAwait(false);
-        await player.ShowBlueMessageAsync($"[mobabotfight] {blue} azules + {red} rojos peleando. /mobabotclear para terminar.").ConfigureAwait(false);
+        await player.ShowBlueMessageAsync(
+            $"[mobabotfight] {blue} azules + {red} rojos peleando en la arena ~(116,128). Mirá: /move {player.SelectedCharacter?.Name} 200 116 128 . /mobabotclear para terminar.").ConfigureAwait(false);
     }
 }

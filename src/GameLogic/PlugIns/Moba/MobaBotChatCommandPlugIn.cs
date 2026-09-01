@@ -81,7 +81,8 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         }
 
         var spawned = await SpawnAsync(player, team, classNumbers).ConfigureAwait(false);
-        await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) del equipo {team} creados. /mobabotclear para quitarlos.").ConfigureAwait(false);
+        var origin = team == MobaTeam.Blue ? BlueBrawlOrigin : RedBrawlOrigin;
+        await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) {team} en la arena ~({origin.X},{origin.Y}). Mirá con: /move {player.SelectedCharacter?.Name} 200 116 128").ConfigureAwait(false);
     }
 
     /// <summary>Spawns the given classes as bots on a team, near the caller.</summary>
@@ -89,15 +90,23 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     /// <param name="team">The team.</param>
     /// <param name="classNumbers">The character-class numbers to spawn.</param>
     /// <returns>The number of bots spawned.</returns>
+    /// <summary>Fixed brawl spot on the carved mid lane (x = 108..124 is walkable): blue north, red south.</summary>
+    internal static readonly Point BlueBrawlOrigin = new(116, 122);
+
+    /// <summary>Red team's brawl origin (see <see cref="BlueBrawlOrigin"/>).</summary>
+    internal static readonly Point RedBrawlOrigin = new(116, 134);
+
     internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers)
     {
         var config = caller.GameContext.Configuration;
         var account = _sharedAccount ??= caller.PersistenceContext.CreateNew<Account>();
         account.LoginName = "#mobabots";
 
+        // Always spawn at a fixed spot in the arena (not next to the caller, who may not
+        // even be on the arena map), so the fight always happens where it can be found.
+        var origin = team == MobaTeam.Blue ? BlueBrawlOrigin : RedBrawlOrigin;
+
         var spawned = 0;
-        var origin = caller.Position;
-        var lane = team == MobaTeam.Blue ? -6 : 6;
         for (var i = 0; i < classNumbers.Count; i++)
         {
             var characterClass = config.CharacterClasses.FirstOrDefault(c => c.Number == classNumbers[i]);
@@ -110,8 +119,8 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
             var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name).ConfigureAwait(false);
 
             var spawn = new Point(
-                (byte)Math.Clamp(origin.X + lane + ((i % 4) * 2) - 3, 5, 250),
-                (byte)Math.Clamp(origin.Y + ((i / 4) * 2) + 2, 5, 250));
+                (byte)Math.Clamp(origin.X + ((i % 4) * 2) - 3, 5, 250),
+                (byte)Math.Clamp(origin.Y + ((i / 4) * 2), 5, 250));
 
             var bot = new MobaBotPlayer(caller.GameContext, team);
             if (await bot.StartMobaAsync(account, clone, spawn).ConfigureAwait(false))
