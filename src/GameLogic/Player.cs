@@ -1462,6 +1462,9 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         this.GameContext.PlugInManager.GetPlugInPoint<IAttackableGotHitPlugIn>()?.AttackableGotHit(this, attacker, hitInfo);
 
+        // Custom MOBA game mode: skill-aware passive dispatch (e.g. Segundo aliento arm, Wizard burn).
+        PlugIns.Moba.MobaPassives.OnHitResolved(attacker, this, skill, hitInfo);
+
         if (this.Attributes[Stats.CurrentHealth] < 1)
         {
             this.LastDeath = new DeathInformation(attacker.Id, attacker.GetName(), hitInfo, skill?.Number ?? 0);

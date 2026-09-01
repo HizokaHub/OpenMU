@@ -256,6 +256,9 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
             player.GameContext.PlugInManager.GetPlugInPoint<IAttackableGotHitPlugIn>()?.AttackableGotHit(this, attacker, hitInfo);
         }
 
+        // Custom MOBA game mode: skill-aware passive dispatch (e.g. the Wizard burn).
+        MobaPassives.OnHitResolved(attacker, this, skill, hitInfo);
+
         if (killed)
         {
             this.LastDeath = new DeathInformation(attacker.Id, attacker.GetName(), hitInfo, skill?.Number ?? 0);
