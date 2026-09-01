@@ -100,7 +100,10 @@ public static class MobaLoadouts
 
             var entry = context.CreateNew<SkillEntry>();
             entry.Skill = skill;
-            entry.Level = 0;
+
+            // Start at rank 1 (not 0): a rank-0 skill renders greyed-out on the client
+            // bar and reads as "not learned". Champion points then raise it 1 -> 5.
+            entry.Level = 1;
             clone.LearnedSkills.Add(entry);
         }
     }

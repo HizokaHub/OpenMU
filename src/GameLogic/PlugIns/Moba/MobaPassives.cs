@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Threading;
 using MUnique.OpenMU.DataModel.Configuration;
 
 /// <summary>Champion class families for the MOBA mode (mirrors <see cref="MobaLoadouts"/>).</summary>
@@ -81,6 +82,12 @@ public static class MobaPassives
             switch (FamilyOf(champion))
             {
                 case MobaFamily.RageFighter:
+                    // A skill hit may consume an armed stun before this hit adds a stack.
+                    if (skill is not null)
+                    {
+                        MobaFrenzyPassive.OnSkillHit(champion, victim);
+                    }
+
                     MobaFrenzyPassive.OnHit(champion);
                     break;
                 case MobaFamily.Knight:
@@ -97,6 +104,9 @@ public static class MobaPassives
                     break;
                 case MobaFamily.MagicGladiator:
                     MobaHybridSurgePassive.OnBasicHit(champion, victim, hit);
+                    break;
+                case MobaFamily.Summoner when skill is not null:
+                    MobaSpiritEchoPassive.OnSpellHit(champion, victim, hit);
                     break;
             }
 
@@ -123,9 +133,25 @@ public static class MobaPassives
     /// <param name="gameContext">The game context (for the aura's proximity scan).</param>
     public static async ValueTask TickAsync(IGameContext gameContext)
     {
-        MobaFrenzyPassive.SweepExpired();
-        MobaSecondWindPassive.SweepExpired();
-        await MobaCombustionPassive.TickAsync().ConfigureAwait(false);
-        await MobaCommandBannerPassive.TickAsync(gameContext).ConfigureAwait(false);
+        // Periodic ticks can overlap on the thread pool if one runs long; the passive
+        // stores (ConditionalWeakTables, buff lists) are not built for concurrent use.
+        if (Interlocked.Exchange(ref _tickRunning, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            MobaFrenzyPassive.SweepExpired();
+            MobaSecondWindPassive.SweepExpired();
+            await MobaCombustionPassive.TickAsync().ConfigureAwait(false);
+            await MobaCommandBannerPassive.TickAsync(gameContext).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _tickRunning, 0);
+        }
     }
+
+    private static int _tickRunning;
 }

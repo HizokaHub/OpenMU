@@ -14,8 +14,8 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// lapses with no hit, all stacks fall off at once.
 /// </summary>
 /// <remarks>
-/// The "at max stacks the next skill briefly stuns" part of the design needs a cast
-/// hook and is added later. Magnitudes here are first-pass (balance pass tunes them).
+/// On reaching max stacks the next skill hit briefly stuns its target (armed once per
+/// climb to max, consumed by the next skill). Magnitudes here are first-pass.
 /// </remarks>
 public static class MobaFrenzyPassive
 {
@@ -24,6 +24,9 @@ public static class MobaFrenzyPassive
 
     /// <summary>Flat attack speed (AddRaw to <see cref="Stats.AttackSpeedAny"/>) per stack.</summary>
     private const float AttackSpeedPerStack = 8f;
+
+    /// <summary>Stun length applied by the max-stack skill hit.</summary>
+    private static readonly TimeSpan StunDuration = TimeSpan.FromMilliseconds(600);
 
     private static readonly TimeSpan StackWindow = TimeSpan.FromSeconds(3);
 
@@ -40,10 +43,35 @@ public static class MobaFrenzyPassive
 
         var now = DateTime.UtcNow;
         var state = States.GetOrCreateValue(champion);
+        var previousStacks = state.Stacks;
         var expired = (now - state.LastHitUtc) > StackWindow;
         state.Stacks = expired ? 1 : Math.Min(MaxStacks, state.Stacks + 1);
         state.LastHitUtc = now;
+
+        // Arm the stun once, on the climb into max stacks.
+        if (state.Stacks >= MaxStacks && previousStacks < MaxStacks)
+        {
+            state.StunArmed = true;
+        }
+
         Apply(champion, state);
+    }
+
+    /// <summary>
+    /// Called for a Rage Fighter champion's skill hit: if the frenzy is at max stacks and
+    /// the stun is armed, briefly stuns the victim (armed state is consumed).
+    /// </summary>
+    /// <param name="champion">The Rage Fighter champion.</param>
+    /// <param name="victim">The victim of the skill hit.</param>
+    public static void OnSkillHit(Player champion, IAttackable victim)
+    {
+        if (!States.TryGetValue(champion, out var state) || !state.StunArmed)
+        {
+            return;
+        }
+
+        state.StunArmed = false;
+        _ = MobaCc.StunAsync(champion, victim, StunDuration);
     }
 
     /// <summary>Drops the buff from any champion whose stack window has lapsed.</summary>
@@ -56,6 +84,7 @@ public static class MobaFrenzyPassive
             if (state.Stacks > 0 && (now - state.LastHitUtc) > StackWindow)
             {
                 state.Stacks = 0;
+                state.StunArmed = false;
                 Apply(pair.Key, state);
             }
         }
@@ -89,5 +118,7 @@ public static class MobaFrenzyPassive
         public DateTime LastHitUtc;
 
         public SimpleElement? Element;
+
+        public bool StunArmed;
     }
 }

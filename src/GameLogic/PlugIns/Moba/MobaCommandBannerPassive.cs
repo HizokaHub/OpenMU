@@ -65,12 +65,25 @@ public static class MobaCommandBannerPassive
             }
         }
 
-        // Drop the buff from anyone not in range of a Dark Lord this tick.
+        // Drop the buff from anyone not in range of a Dark Lord this tick. Collect first -
+        // Remove() mutates the ConditionalWeakTable, which must not happen mid-enumeration.
+        List<IAttackable>? stale = null;
         foreach (var pair in Buffs)
         {
             if (pair.Value.Tick != _tick)
             {
-                Remove(pair.Key, pair.Value);
+                (stale ??= new List<IAttackable>()).Add(pair.Key);
+            }
+        }
+
+        if (stale is not null)
+        {
+            foreach (var target in stale)
+            {
+                if (Buffs.TryGetValue(target, out var buff))
+                {
+                    Remove(target, buff);
+                }
             }
         }
     }
