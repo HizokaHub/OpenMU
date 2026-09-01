@@ -240,7 +240,12 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
     /// </summary>
     /// <param name="player">The player.</param>
     /// <returns><c>true</c> if the player is controlled by the server; otherwise, <c>false</c>.</returns>
-    private static bool IsServerControlled(Player player) => player is Offline.OfflinePlayer;
+    private static bool IsServerControlled(Player player)
+        => player is Offline.OfflinePlayer
+           // MOBA clones run on very high flat stats (attack speed, movement) plus passive
+           // buffs; the client legitimately acts far faster than a normal character, so the
+           // timing checks here only ever produce false positives (answered with a ban).
+           || player.IsMobaClone;
 
     private SpeedHackState GetState(Player player)
     {
