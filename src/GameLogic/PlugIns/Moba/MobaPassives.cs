@@ -69,6 +69,13 @@ public static class MobaPassives
     /// <param name="hit">The hit info.</param>
     public static void OnHitResolved(IAttacker attacker, IAttackable victim, Skill? skill, HitInfo hit)
     {
+        // Only react to deliberate attacks / spells - not DoT ticks (burn, poison, bleed),
+        // which also route through HitAsync and would otherwise chain the passives.
+        if (hit.Attributes.HasFlag(DamageAttributes.Poison) || hit.Attributes.HasFlag(DamageAttributes.Reflected))
+        {
+            return;
+        }
+
         if (attacker is Player { IsMobaClone: true } champion && !ReferenceEquals(attacker, victim))
         {
             switch (FamilyOf(champion))
@@ -82,7 +89,13 @@ public static class MobaPassives
                 case MobaFamily.Wizard when skill is not null:
                     MobaCombustionPassive.OnSpellHit(champion, victim, hit);
                     break;
+                case MobaFamily.Elf when skill is null:
+                    MobaHuntersMarkPassive.OnBasicHit(champion, victim);
+                    break;
             }
+
+            // Team-wide: an Elf's Hunter's Mark makes the whole team hit harder.
+            MobaHuntersMarkPassive.OnAnyChampionHit(champion, victim, hit);
         }
 
         if (victim is Player { IsMobaClone: true } defender && !ReferenceEquals(attacker, victim))
