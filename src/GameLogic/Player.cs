@@ -206,6 +206,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public int MobaSkillPoints { get; set; }
 
     /// <summary>
+    /// Gets the per-match skill cooldowns for a MOBA clone: skill number mapped to the
+    /// UTC instant the skill becomes usable again. S6 skills have no innate cooldown, so
+    /// the MOBA mode maintains its own. Runtime only; cleared when a match is entered.
+    /// </summary>
+    public Dictionary<short, DateTime> MobaSkillCooldowns { get; } = new();
+
+    /// <summary>
     /// Gets or sets the player's real character while the session is temporarily
     /// playing an ephemeral MOBA match clone. Restored when the match ends. Runtime
     /// only - never persisted.
@@ -1078,6 +1085,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return false;
         }
 
+        // MOBA mode: S6 skills have no innate cooldown, so the match tracks its own.
+        if (this.IsMobaClone
+            && PlugIns.Moba.MobaCooldowns.IsOnCooldown(this, skill.Number, DateTime.UtcNow))
+        {
+            return false;
+        }
+
         if (skill.ConsumeRequirements.Any(r => this.GetRequiredValue(r, skillEntry) > this.Attributes![r.Attribute]))
         {
             return false;
@@ -1086,6 +1100,14 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         foreach (var requirement in skill.ConsumeRequirements)
         {
             this.Attributes![requirement.Attribute] -= this.GetRequiredValue(requirement, skillEntry);
+        }
+
+        if (this.IsMobaClone
+            && PlugIns.Moba.MobaCooldowns.GetCooldown(this, skillEntry) is { Ticks: > 0 } cooldown)
+        {
+            this.MobaSkillCooldowns[skill.Number] = DateTime.UtcNow.Add(cooldown);
+            await this.InvokeViewPlugInAsync<Views.Moba.IMobaSkillCooldownPlugIn>(
+                p => p.ShowSkillCooldownAsync(skill.Number, (int)cooldown.TotalMilliseconds)).ConfigureAwait(false);
         }
 
         return true;
