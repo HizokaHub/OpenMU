@@ -264,9 +264,19 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             isCombo = await comboState.RegisterSkillAsync(skill).ConfigureAwait(false);
         }
 
+        // MOBA mode: many area-damage skills (Triple Shot, Penetration, Twisting Slash,
+        // Electric Spike, Multi-Shot, ...) are AreaSkill* type with no MagicEffectDef, so
+        // they would only log a warning here and deal nothing. A champion casts every
+        // skill through this handler (packet 0x19), so treat those as damage too.
+        var mobaAreaDamage = player.IsMobaClone
+            && skill.MagicEffectDef is null
+            && skill.SkillType is SkillType.AreaSkillAutomaticHits
+                or SkillType.AreaSkillExplicitHits
+                or SkillType.AreaSkillExplicitTarget;
+
         foreach (var target in targets)
         {
-            if (skill.SkillType == SkillType.DirectHit || skill.SkillType == SkillType.CastleSiegeSkill)
+            if (skill.SkillType == SkillType.DirectHit || skill.SkillType == SkillType.CastleSiegeSkill || mobaAreaDamage)
             {
                 if (player.Attributes![Stats.AmmunitionConsumptionRate] > player.Attributes[Stats.AmmunitionAmount])
                 {
