@@ -30,5 +30,10 @@ public class MobaPassivesHitPlugIn : IAttackableGotHitPlugIn
         {
             MobaPassives.OnChampionDealtHit(champion, attackable, hitInfo);
         }
+
+        if (attackable is Player { IsMobaClone: true } victim)
+        {
+            MobaPassives.OnChampionGotHit(victim, attacker, hitInfo);
+        }
     }
 }

@@ -71,6 +71,26 @@ public static class MobaPassives
             case MobaFamily.RageFighter:
                 MobaFrenzyPassive.OnHit(attacker);
                 break;
+            case MobaFamily.Knight:
+                MobaSecondWindPassive.OnDealtHit(attacker, hit);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Called for every hit whose victim is a MOBA champion clone. Routes to the family
+    /// passive that reacts to taking damage.
+    /// </summary>
+    /// <param name="victim">The champion that got hit.</param>
+    /// <param name="attacker">The attacker.</param>
+    /// <param name="hit">The hit info.</param>
+    public static void OnChampionGotHit(Player victim, IAttacker attacker, HitInfo hit)
+    {
+        switch (FamilyOf(victim))
+        {
+            case MobaFamily.Knight:
+                MobaSecondWindPassive.OnGotHit(victim);
+                break;
         }
     }
 
@@ -81,5 +101,6 @@ public static class MobaPassives
     public static void Tick()
     {
         MobaFrenzyPassive.SweepExpired();
+        MobaSecondWindPassive.SweepExpired();
     }
 }
