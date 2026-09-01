@@ -26,6 +26,14 @@ public static class MobaWaveSpawner
     // minute: with a slow front line, reinforcements pile up and the narrow lane jams.
     public const float CreepHealth = 1000f;
 
+    /// <summary>
+    /// Hard cap on living creeps per team on the map. Once a lane stalemates the creeps
+    /// pile up (each one runs its own AI timer + range scans), so past this the periodic
+    /// spawner just skips that team's wave until the jam clears. Prevents the "server
+    /// hangs for a bit when there are lots of minions" spiral.
+    /// </summary>
+    public const int MaxLiveCreepsPerTeam = 30;
+
     private const float CreepMinDamage = 60f;
     private const float CreepMaxDamage = 85f;
     private const float CreepDefense = 20f;
@@ -76,6 +84,15 @@ public static class MobaWaveSpawner
     /// <returns>The number of creeps spawned.</returns>
     public static async ValueTask<int> SpawnWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team)
     {
+        // Don't pour more creeps onto a jammed lane.
+        var liveOwnCreeps = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<Monster>()
+            .Count(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team);
+        if (liveOwnCreeps >= MaxLiveCreepsPerTeam)
+        {
+            return 0;
+        }
+
         var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
         var lane = team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
         var spawn = lane[0];

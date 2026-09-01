@@ -62,7 +62,17 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <summary>The creep is considered "back on its lane" once this close to it.</summary>
     private const double BackOnLaneTiles = 3;
 
-    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// How often the creep runs the expensive target search (range queries + combat-log
+    /// scans). The cheap "is my current target still valid" check still runs every tick,
+    /// so throttling this does not make a creep sticky on a dead / fled target - it only
+    /// delays picking up a brand new one by up to this long. Big win with many creeps.
+    /// </summary>
+    private static readonly TimeSpan ScanInterval = TimeSpan.FromMilliseconds(400);
+
+    private DateTime _nextScanUtc;
 
     private readonly IReadOnlyList<Point> _waypoints;
 
@@ -126,7 +136,11 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         this._mapId = this.Monster.CurrentMap.MapId;
         MobaTeams.Set(this.Monster, this._team);
         this.SyncClaims(this.Monster.Position, Array.Empty<Point>());
-        this._aiTimer ??= new Timer(_ => this.SafeTick(), null, TickInterval, TickInterval);
+
+        // Spread the first tick across a ~200 ms window keyed by monster id so a whole
+        // wave's timers do not all fire in the same instant and starve the thread pool.
+        var phase = TimeSpan.FromMilliseconds((this.Monster.Id % 8) * 25);
+        this._aiTimer ??= new Timer(_ => this.SafeTick(), null, TickInterval + phase, TickInterval);
     }
 
     /// <summary>Map id for the occupancy grid (captured at start).</summary>
@@ -224,6 +238,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         var monster = this.Monster;
         if (!monster.IsAlive)
         {
+            // Stop churning the thread pool on a corpse and free its tiles right away
+            // (the map removes the monster - and calls Dispose - only some time later).
+            // Halt the timer without disposing here (disposal happens in Dispose()).
+            this._aiTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            MobaOccupancyGrid.ReleaseAll(this._mapId, this);
+            this._claimedTiles.Clear();
             return;
         }
 
@@ -286,30 +306,38 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             this._combatTargetFromChampAggro = false;
         }
 
-        var lockedOnStructure = this._combatTarget is Monster m && IsStructure(m);
-
-        // #1 champion-aggro: an enemy champion that just damaged an allied champion. While
-        // it keeps hitting, the creep stays on it; the moment it stops (no hit within
-        // ChampAggroWindow) the creep drops it here and re-acquires a wave target below.
-        if (!lockedOnStructure)
+        // The expensive part - range queries + combat-log scans - runs at most every
+        // ScanInterval, not every tick. The cheap current-target validation above still
+        // runs every tick, so this only delays picking up a NEW target slightly.
+        if (DateTime.UtcNow >= this._nextScanUtc)
         {
-            var aggroChamp = this.FindChampionAggro(monster, pos, acquisitionRange);
-            if (aggroChamp is not null)
+            this._nextScanUtc = DateTime.UtcNow + ScanInterval;
+
+            var lockedOnStructure = this._combatTarget is Monster m && IsStructure(m);
+
+            // #1 champion-aggro: an enemy champion that just damaged an allied champion.
+            // While it keeps hitting, the creep stays on it; the moment it stops (no hit
+            // within ChampAggroWindow) the creep drops it here and re-acquires below.
+            if (!lockedOnStructure)
             {
-                this._combatTarget = aggroChamp;
-                this._combatTargetFromChampAggro = true;
+                var aggroChamp = this.FindChampionAggro(monster, pos, acquisitionRange);
+                if (aggroChamp is not null)
+                {
+                    this._combatTarget = aggroChamp;
+                    this._combatTargetFromChampAggro = true;
+                }
+                else if (this._combatTargetFromChampAggro)
+                {
+                    this._combatTarget = null;
+                    this._combatTargetFromChampAggro = false;
+                }
             }
-            else if (this._combatTargetFromChampAggro)
+
+            if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
             {
-                this._combatTarget = null;
+                this._combatTarget = acquired;
                 this._combatTargetFromChampAggro = false;
             }
-        }
-
-        if (this._combatTarget is null && this.AcquireTarget(monster, pos, acquisitionRange) is { } acquired)
-        {
-            this._combatTarget = acquired;
-            this._combatTargetFromChampAggro = false;
         }
 
         if (this._combatTarget is not null && !this._hasEngageAnchor)
