@@ -57,7 +57,7 @@ public static class MobaLoadouts
         [Family.Knight] = new short[] { 19, 20, 22, 23, 41, 21 }, // Falling Slash, Lunge, Cyclone, Slash, Twisting Slash, Uppercut
         [Family.Elf] = new short[] { 24, 26, 28, 27, 52, 46 },   // Triple Shot, Heal, Greater Damage, Greater Defense, Penetration, Starfall
         [Family.MagicGladiator] = new short[] { 17, 4, 19, 41, 22, 3 }, // Energy Ball, Fire Ball, Falling Slash, Twisting Slash, Cyclone, Lightning
-        [Family.DarkLord] = new short[] { 60, 74, 62, 19 },      // Force, Fire Blast, Earthshake, Falling Slash
+        [Family.DarkLord] = new short[] { 60, 61, 66, 19 },      // Force, Fire Burst, Force Wave, Falling Slash (Earthshake/Chaotic need the Dark Horse mount)
         [Family.Summoner] = new short[] { 17, 4, 3, 214, 7 },    // Energy Ball, Fire Ball, Lightning, Drain Life, Ice
         [Family.RageFighter] = new short[] { 19, 22, 23, 41 },   // Falling Slash, Cyclone, Slash, Twisting Slash
     };

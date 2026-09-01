@@ -19,6 +19,8 @@ using MUnique.OpenMU.PlugIns;
 [Guid("6A1F8C34-9D27-4B50-8E63-2C7A0B4F1D95")]
 public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
 {
+    private static bool _arenaSafezoneCleared;
+
     private DateTime _lastDripUtc = DateTime.MinValue;
 
     /// <inheritdoc />
@@ -27,6 +29,11 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// <inheritdoc />
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
+        // The arena terrain is a copy of Crywolf, which carries a big safezone; on
+        // safezone tiles PvP is blocked (champions can't damage each other). A MOBA
+        // arena has no safe tiles - strip the flag once the map is live.
+        await EnsureArenaHasNoSafezoneAsync(gameContext).ConfigureAwait(false);
+
         // Runs every tick (~1s): expire stacking passive buffs, tick passive DoTs, refresh the DL aura.
         await MobaPassives.TickAsync(gameContext).ConfigureAwait(false);
 
@@ -43,5 +50,30 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         {
             await MobaExperience.GrantAsync(champion, MobaLevels.PassiveExpPerTick, "passive").ConfigureAwait(false);
         }
+    }
+
+    private static async ValueTask EnsureArenaHasNoSafezoneAsync(IGameContext gameContext)
+    {
+        if (_arenaSafezoneCleared)
+        {
+            return;
+        }
+
+        var maps = await gameContext.GetMapsAsync().ConfigureAwait(false);
+        var arena = maps.FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
+        if (arena?.Terrain?.SafezoneMap is not { } safezone)
+        {
+            return;
+        }
+
+        for (var x = 0; x < safezone.GetLength(0); x++)
+        {
+            for (var y = 0; y < safezone.GetLength(1); y++)
+            {
+                safezone[x, y] = false;
+            }
+        }
+
+        _arenaSafezoneCleared = true;
     }
 }

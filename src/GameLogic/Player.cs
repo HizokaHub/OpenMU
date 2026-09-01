@@ -716,12 +716,14 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         if (this.IsAttackBlockedBySafezone(attacker))
         {
+            PlugIns.Moba.MobaCombatDebug.LogNoDamage(attacker, this, skill?.Skill, "safezone");
             return null;
         }
 
         if (!this.GameContext.PvpEnabled && this.CurrentMap?.Definition.BattleZone == null &&
             this.CurrentMiniGame?.AllowPlayerKilling is false)
         {
+            PlugIns.Moba.MobaCombatDebug.LogNoDamage(attacker, this, skill?.Skill, "pvp-disabled");
             return null;
         }
 
@@ -734,6 +736,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         if (hitInfo is { HealthDamage: 0, ShieldDamage: 0 })
         {
+            PlugIns.Moba.MobaCombatDebug.LogNoDamage(attacker, this, skill?.Skill, "zero-damage/miss");
             await this.InvokeViewPlugInAsync<IShowHitPlugIn>(p => p.ShowHitAsync(this, hitInfo)).ConfigureAwait(false);
             if (attacker is IWorldObserver observer)
             {
@@ -742,6 +745,8 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
             return hitInfo;
         }
+
+        PlugIns.Moba.MobaCombatDebug.LogHit(attacker, this, skill?.Skill, hitInfo);
 
         if (this.Attributes[Stats.IsAsleep] > 0)
         {
