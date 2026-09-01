@@ -27,12 +27,12 @@ public static class MobaWaveSpawner
     public const float CreepHealth = 1000f;
 
     /// <summary>
-    /// Hard cap on living creeps per team on the map. Once a lane stalemates the creeps
-    /// pile up (each one runs its own AI timer + range scans), so past this the periodic
-    /// spawner just skips that team's wave until the jam clears. Prevents the "server
-    /// hangs for a bit when there are lots of minions" spiral.
+    /// Hard cap on living creeps per team on the map. Only a safety valve against the
+    /// runaway pile-up that froze the server (each creep runs its own AI timer + range
+    /// scans); a healthy lane with waves flowing sits well under it. Past this the
+    /// periodic spawner skips that team's wave until the jam clears.
     /// </summary>
-    public const int MaxLiveCreepsPerTeam = 30;
+    public const int MaxLiveCreepsPerTeam = 54;
 
     private const float CreepMinDamage = 60f;
     private const float CreepMaxDamage = 85f;
