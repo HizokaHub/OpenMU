@@ -30,6 +30,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private static readonly ConcurrentDictionary<MobaBotPlayer, byte> ActiveBots = new();
 
     private readonly MobaTeam _team;
+    private readonly bool _isDummy;
     private Timer? _brain;
     private int _ticking;
     private int _skillCursor;
@@ -39,10 +40,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
     /// <param name="team">The team the bot fights for.</param>
-    public MobaBotPlayer(IGameContext gameContext, MobaTeam team)
+    /// <param name="isDummy">
+    /// When <c>true</c> the bot never moves and never attacks - it just stands at its spawn
+    /// and keeps itself topped up, so a tester can pound on it and watch the damage log.
+    /// </param>
+    public MobaBotPlayer(IGameContext gameContext, MobaTeam team, bool isDummy = false)
         : base(gameContext)
     {
         this._team = team;
+        this._isDummy = isDummy;
     }
 
     /// <inheritdoc />
@@ -184,6 +190,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
     {
         if (!this.IsAlive || this.SelectedCharacter is null || this.CurrentMap is not { } map)
         {
+            return;
+        }
+
+        if (this._isDummy)
+        {
+            // Training dummy: never move, never attack. Keep HP/mana/shield full so it
+            // survives an endless barrage and the tester can read sustained DPS.
+            if (this.Attributes is { } a)
+            {
+                a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
+                a[Stats.CurrentMana] = a[Stats.MaximumMana];
+                a[Stats.CurrentShield] = a[Stats.MaximumShield];
+            }
+
             return;
         }
 

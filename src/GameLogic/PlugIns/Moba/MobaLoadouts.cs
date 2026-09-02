@@ -50,26 +50,39 @@ public static class MobaLoadouts
         [Family.RageFighter] = new[] { new WeaponSpec(0, 32, 1) },                             // Sacred Glove (sets IsGloveWeaponEquipped for RF skills)
     };
 
-    // Up to 9 active skills per family (the design's "4 base + 5 picks"). Skill numbers
-    // from Persistence SkillNumber. First testing batch - a second batch covers whatever
-    // each class is still missing.
+    // Testing loadout: EVERY castable damage / area / CC skill the family has, so all of a
+    // class's skills can be reviewed in one match. Skill numbers = Persistence SkillNumber.
+    // Only 9 auto-fill the client skill bar (the first 9 here) - the rest are learned and
+    // can be dragged onto the bar. Numbers missing from the game config are skipped by
+    // Apply(). Balance / the real "pick a few" flow comes later.
     private static readonly Dictionary<Family, short[]> Skills = new()
     {
-        // Energy Ball, Fire Ball, Lightning, Power Wave, Evil Spirit, Ice, Poison, Meteo, Ice Storm
-        [Family.Wizard] = new short[] { 17, 4, 3, 11, 9, 7, 1, 2, 39 },
-        // Falling Slash, Lunge, Cyclone, Slash, Twisting Slash, Uppercut, Rageful Blow, Death Stab, Strike of Destruction
-        [Family.Knight] = new short[] { 19, 20, 22, 23, 41, 21, 42, 43, 232 },
-        // Triple Shot, Penetration, Ice Arrow, Multi-Shot, Heal, Greater Damage, Greater Defense
-        // (Starfall 46 is castle-siege only, left out)
-        [Family.Elf] = new short[] { 24, 52, 51, 235, 26, 28, 27 },
-        // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash
-        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56 },
-        // Force, Fire Burst, Force Wave, Electric Spike, Falling Slash (Earthshake/Chaotic need the Dark Horse mount)
-        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 19 },
-        // Energy Ball, Fire Ball, Lightning, Ice, Poison, Drain Life, Chain Lightning, Lightning Orb, Blind
-        [Family.Summoner] = new short[] { 17, 4, 3, 7, 1, 214, 215, 216, 220 },
-        // Killing Blow, Beast Uppercut, Dark Side, Dragon Roar, Dragon Kick, Phoenix Shot (some need the Fenrir mount)
-        [Family.RageFighter] = new short[] { 260, 261, 263, 264, 265, 270 },
+        // Dark Wizard / Soul Master / Grand Master - full spell kit.
+        // Energy Ball, Fire Ball, Lightning, Power Wave, Poison, Ice, Evil Spirit, Meteorite, Ice Storm,
+        // Flame, Twister, Hellfire, Aqua Beam, Cometfall, Inferno, Decay, Nova, Lance, Plasma Storm
+        [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76 },
+        // Blade Knight - full melee kit.
+        // Falling Slash, Lunge, Uppercut, Cyclone, Slash, Twisting Slash, Rageful Blow, Death Stab, Strike of Destruction,
+        // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm
+        [Family.Knight] = new short[] { 19, 20, 21, 22, 23, 41, 42, 43, 232, 44, 47, 49, 67, 76 },
+        // High Elf - every ranged attack + the three party buffs (Starfall 46 is castle-siege only).
+        // Triple Shot, Ice Arrow, Penetration, Multi-Shot, Heal, Greater Damage, Greater Defense, Stun, Plasma Storm
+        [Family.Elf] = new short[] { 24, 51, 52, 235, 26, 28, 27, 67, 76 },
+        // Magic Gladiator - hybrid: wizard spells + knight slashes.
+        // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash,
+        // Poison, Meteorite, Flame, Evil Spirit, Power Wave, Inferno, Spiral Slash, Flame Strike, Gigantic Storm, Plasma Storm
+        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56, 1, 2, 5, 9, 11, 14, 57, 236, 237, 76 },
+        // Lord Emperor - scepter skills + basic slashes (Earthshake 62 / Chaotic Diseier 238 need the Dark Horse mount).
+        // Force, Fire Burst, Force Wave, Electric Spike, Fire Scream, Falling Slash, Lunge, Uppercut, Cyclone, Slash,
+        // Fire Blast, Plasma Storm
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76 },
+        // Summoner - full curse / nature kit (Lightning Orb 216 & Blind 220 are not in the config).
+        // Fire Ball, Ice, Meteorite, Power Wave, Lance, Drain Life, Chain Lightning, Explosion, Requiem, Pollution,
+        // Lightning Shock, Plasma Storm
+        [Family.Summoner] = new short[] { 4, 7, 2, 11, 45, 214, 215, 223, 224, 225, 230, 76 },
+        // Rage Fighter - full kit (Chain Drive 262 / Charge 269 / some hits still want the Fenrir mount).
+        // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash
+        [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19 },
     };
 
     /// <summary>
