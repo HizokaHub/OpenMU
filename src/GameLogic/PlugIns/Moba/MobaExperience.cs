@@ -137,6 +137,9 @@ public static class MobaExperience
                 return;
             }
 
+            killer.MobaKills++;
+            victim.MobaDeaths++;
+
             var killExp = MobaLevels.ChampionKillExp + (victim.MobaLevel * MobaLevels.ChampionKillPerVictimLevel);
             await GrantAsync(killer, killExp, "champion").ConfigureAwait(false);
 
@@ -148,6 +151,7 @@ public static class MobaExperience
 
             foreach (var assister in assisters)
             {
+                assister.MobaAssists++;
                 await GrantAsync(assister, MobaLevels.AssistExp, "assist").ConfigureAwait(false);
             }
         }

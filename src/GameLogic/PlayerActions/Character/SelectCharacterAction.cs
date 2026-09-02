@@ -45,6 +45,9 @@ public class SelectCharacterAction
             player.MobaSkillPoints = 0;
             player.MobaSkillCooldowns.Clear();
             player.MobaSkillGraceEnds.Clear();
+            player.MobaKills = 0;
+            player.MobaDeaths = 0;
+            player.MobaAssists = 0;
             player.Died -= MobaChampionDiedHandler;
             player.Died += MobaChampionDiedHandler;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);

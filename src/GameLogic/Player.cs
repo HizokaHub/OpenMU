@@ -212,6 +212,15 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// </summary>
     public Dictionary<short, DateTime> MobaSkillCooldowns { get; } = new();
 
+    /// <summary>Gets or sets this MOBA champion's kills this match (runtime only).</summary>
+    public int MobaKills { get; set; }
+
+    /// <summary>Gets or sets this MOBA champion's deaths this match (runtime only).</summary>
+    public int MobaDeaths { get; set; }
+
+    /// <summary>Gets or sets this MOBA champion's assists this match (runtime only).</summary>
+    public int MobaAssists { get; set; }
+
     /// <summary>
     /// Gets the per-match cast-grace window ends for a MOBA clone: skill number mapped to
     /// the UTC instant the grace window (during which the skill stays castable after the
