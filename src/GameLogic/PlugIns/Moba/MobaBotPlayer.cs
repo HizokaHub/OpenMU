@@ -261,15 +261,18 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         var pos = this.Position;
 
-        // Acquire the nearest enemy in range: champions first (bigger threat), then lane
-        // creeps that are in the way. So the bot clears the lane instead of walking past it.
+        // Target priority (for balance testing): enemy BOT champions first, then lane
+        // creeps in the way, and only then the human champion - so a human tester can
+        // watch a fight without being instantly focus-fired.
         var inRange = map.GetAttackablesInRange(pos, AcquireRangeTiles)
             .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
             .ToList();
 
-        var target = inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault()
+        var target = inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
+                .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
             ?? inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
-                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
+                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault()
+            ?? inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
 
         if (target is null)
         {

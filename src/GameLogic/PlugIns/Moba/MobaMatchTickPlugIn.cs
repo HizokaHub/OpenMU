@@ -77,10 +77,12 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
         if (champions.Count == 0)
         {
-            _matchStartUtc = DateTime.MinValue;
             return;
         }
 
+        // Set once, on the first champion of the server session's first match. Not reset on
+        // a transient empty tick (that made elapsed always read 0); restart the server
+        // between balance runs for a clean clock.
         if (_matchStartUtc == DateTime.MinValue)
         {
             _matchStartUtc = now;
