@@ -6,6 +6,8 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.PlugIns;
 
@@ -21,7 +23,12 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
 {
     private static bool _arenaSafezoneCleared;
 
+    /// <summary>Seconds between the [MOBA-SCORE] match-state log lines (for offline balance analysis).</summary>
+    private const double ScoreLogSeconds = 20;
+
     private DateTime _lastDripUtc = DateTime.MinValue;
+    private DateTime _lastScoreLogUtc = DateTime.MinValue;
+    private DateTime _matchStartUtc = DateTime.MinValue;
 
     /// <inheritdoc />
     public void ForceStart() => this._lastDripUtc = DateTime.MinValue;
@@ -49,6 +56,66 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         foreach (var champion in players.Where(p => p.IsMobaClone && p.MobaLevel < MobaLevels.MaxLevel).ToList())
         {
             await MobaExperience.GrantAsync(champion, MobaLevels.PassiveExpPerTick, "passive").ConfigureAwait(false);
+        }
+
+        this.LogMatchState(players, now);
+    }
+
+    /// <summary>
+    /// Every <see cref="ScoreLogSeconds"/>, writes one <c>[MOBA-SCORE]</c> line per champion
+    /// (elapsed time, team, class, level, K/D/A, HP, invested primary stat) so a full match
+    /// can be reconstructed from the log for balance analysis.
+    /// </summary>
+    private void LogMatchState(IEnumerable<Player> players, DateTime now)
+    {
+        var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
+        if (champions.Count == 0)
+        {
+            this._matchStartUtc = DateTime.MinValue;
+            return;
+        }
+
+        if (this._matchStartUtc == DateTime.MinValue)
+        {
+            this._matchStartUtc = now;
+        }
+
+        if ((now - this._lastScoreLogUtc).TotalSeconds < ScoreLogSeconds)
+        {
+            return;
+        }
+
+        this._lastScoreLogUtc = now;
+        var elapsed = (int)(now - this._matchStartUtc).TotalSeconds;
+
+        foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
+        {
+            var a = c.Attributes;
+            var family = MobaPassives.FamilyOf(c);
+            var primary = family switch
+            {
+                MobaFamily.Knight or MobaFamily.RageFighter => Stats.TotalStrength,
+                MobaFamily.Elf => Stats.TotalAgility,
+                MobaFamily.DarkLord => Stats.TotalLeadership,
+                _ => Stats.TotalEnergy,
+            };
+            var invested = a is null ? 0 : (int)Math.Max(0, a[primary] - MobaCloneFactory.BaselineStatValue);
+
+            c.Logger.LogInformation(
+                "[MOBA-SCORE] t={Elapsed}s {Team} {Class} {Name} Lv{Level} KDA={K}/{D}/{A} HP={Hp:F0}/{MaxHp:F0} {Primary}+{Invested} dmgX{Scale:F1}",
+                elapsed,
+                MobaTeams.GetTeam(c),
+                c.SelectedCharacter?.CharacterClass?.Name,
+                c.SelectedCharacter?.Name,
+                c.MobaLevel,
+                c.MobaKills,
+                c.MobaDeaths,
+                c.MobaAssists,
+                a?[Stats.CurrentHealth] ?? 0,
+                a?[Stats.MaximumHealth] ?? 0,
+                primary.Designation,
+                invested,
+                MobaProgression.DamageScale(c.MobaLevel));
         }
     }
 
