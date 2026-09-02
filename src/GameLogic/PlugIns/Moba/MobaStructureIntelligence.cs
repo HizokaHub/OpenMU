@@ -181,6 +181,20 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
             var delay = monster.Definition.AttackDelay;
             this._nextAttackUtc = DateTime.UtcNow + (delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1));
             await monster.AttackAsync(target).ConfigureAwait(false);
+
+            // Against a champion, a turret hits for a big fraction of the target's MAX HP
+            // (LoL-style escalating tower damage) so ~5 shots kill regardless of the
+            // champion's level / build. Creeps just take the flat weapon damage above.
+            if (target is Player { IsMobaClone: true } champion
+                && champion.IsAlive
+                && champion.Attributes is { } a)
+            {
+                var bonus = (uint)Math.Max(1, a[Stats.MaximumHealth] * TurretChampionMaxHealthFraction);
+                await champion.ApplyPoisonDamageAsync(monster, bonus).ConfigureAwait(false);
+            }
         }
     }
+
+    /// <summary>Fraction of a champion's MAX HP a single turret shot deals (on top of the flat weapon hit).</summary>
+    private const float TurretChampionMaxHealthFraction = 0.19f;
 }

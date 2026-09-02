@@ -50,6 +50,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Runs every tick (~1s): expire stacking passive buffs, tick passive DoTs, refresh the DL aura.
         await MobaPassives.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Cap hard CC (S6 freeze / cold can lock a champion for ~10s).
+        await MobaCc.CapCrowdControlAsync(gameContext).ConfigureAwait(false);
+
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)
         {

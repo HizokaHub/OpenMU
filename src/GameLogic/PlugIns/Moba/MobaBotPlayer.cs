@@ -38,6 +38,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>How close (tiles) counts as "reached" a lane waypoint.</summary>
     private const float WaypointReachedTiles = 3f;
 
+    /// <summary>Within this many tiles of an enemy turret the bot won't dive without allied creeps.</summary>
+    private const int TurretDangerTiles = 9;
+
     /// <summary>
     /// Max tiles a bot relocates per tick. Player.MoveAsync is an INSTANT teleport, so
     /// without a cap a bot marching to a waypoint 50 tiles away would blink straight into
@@ -55,6 +58,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _comboResetUtc;
     private int _developSkillCursor;
     private int _comboStep;
+    private float _lastHpSeen;
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
@@ -270,19 +274,50 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         var pos = this.Position;
+        var attr = this.Attributes;
+        var curHp = attr?[Stats.CurrentHealth] ?? 0f;
+        var maxHp = attr?[Stats.MaximumHealth] ?? 1f;
+        var tookHit = curHp < this._lastHpSeen - (maxHp * 0.02f);
+        this._lastHpSeen = curHp;
 
-        // Target priority (for balance testing): clear the LANE CREEPS first, then enemy
-        // bot champions, and only then the human champion (so a human tester can watch a
-        // fight without being focus-fired).
         var inRange = map.GetAttackablesInRange(pos, AcquireRangeTiles)
             .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
             .ToList();
 
-        var target = inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
-                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
-            ?? inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
-                .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault()
-            ?? inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
+        // Under an enemy turret with no allied creeps to soak it -> retreat out of range
+        // (you don't dive a tower without minions).
+        var enemyTurret = inRange.OfType<NPC.Monster>()
+            .FirstOrDefault(m => MobaStructures.IsStructure(m) && m.GetDistanceTo(pos) <= TurretDangerTiles);
+        if (enemyTurret is not null)
+        {
+            var alliedCreepsHere = map.GetAttackablesInRange(pos, TurretDangerTiles + 2)
+                .OfType<NPC.Monster>()
+                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+            if (!alliedCreepsHere || tookHit)
+            {
+                await this.WalkTowardAsync(this._homeSpawn).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        IAttackable? target;
+        if (tookHit)
+        {
+            // Answer hostility immediately: fight the nearest enemy champion, don't keep
+            // farming creeps while getting hit.
+            target = inRange.OfType<Player>().Where(p => p is not MobaBotPlayer { IsDummy: true })
+                .OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault();
+        }
+        else
+        {
+            // Otherwise: clear the LANE CREEPS first, then enemy bot champions, then the
+            // human champion (so a human tester can watch without being focus-fired).
+            target = inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
+                    .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
+                ?? inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
+                    .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault()
+                ?? inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
+        }
 
         if (target is null)
         {
