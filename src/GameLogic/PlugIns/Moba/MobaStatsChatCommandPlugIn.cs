@@ -56,8 +56,7 @@ public class MobaStatsChatCommandPlugIn : IChatCommandPlugIn
         }
 
         lines.Add($"  HP {attr[Stats.CurrentHealth]:N0}/{attr[Stats.MaximumHealth]:N0}  Mana {attr[Stats.CurrentMana]:N0}/{attr[Stats.MaximumMana]:N0}  SD {attr[Stats.CurrentShield]:N0}/{attr[Stats.MaximumShield]:N0}");
-        lines.Add($"  dmg fis {attr[Stats.MinimumPhysBaseDmg]:F0}-{attr[Stats.MaximumPhysBaseDmg]:F0}  mag {attr[Stats.MinimumWizBaseDmg]:F0}-{attr[Stats.MaximumWizBaseDmg]:F0}");
-        lines.Add($"  def {attr[Stats.DefenseBase]:F0}  velAtk {attr[Stats.AttackSpeedAny]:F0}");
+        lines.Add($"  def {attr[Stats.DefenseBase]:F0}  escala de daño x nivel {MobaProgression.DamageScale(player.MobaLevel):F1}");
 
         // Sample MOBA skill damage: primary stat term + a mid skill and a heavy skill.
         var primary = family switch

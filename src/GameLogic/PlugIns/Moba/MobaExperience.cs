@@ -26,7 +26,7 @@ public static class MobaExperience
     /// <param name="reason">Short tag for logging (creep / champion / turret / passive).</param>
     public static async ValueTask GrantAsync(Player champion, long amount, string reason)
     {
-        if (!champion.IsMobaClone)
+        if (!champion.IsMobaClone || champion is MobaBotPlayer { IsDummy: true })
         {
             return;
         }
@@ -74,6 +74,9 @@ public static class MobaExperience
 
         if (leveledUp)
         {
+            // Re-pin HP / mana / SD / defense to the new champion level and top them up.
+            MobaProgression.ApplyLevelScaling(champion);
+
             // TODO(step 3): open the milestone pick window here instead of just messaging.
         }
 

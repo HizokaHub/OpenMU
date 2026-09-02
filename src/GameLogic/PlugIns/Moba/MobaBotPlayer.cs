@@ -36,6 +36,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _ticking;
     private int _skillCursor;
     private DateTime _nextActionUtc;
+    private DateTime _nextDevelopUtc;
+    private int _developSkillCursor;
     private Point _homeSpawn;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
@@ -54,6 +56,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     /// <inheritdoc />
     public override bool RespawnAndContinue => true;
+
+    /// <summary>Gets a value indicating whether this bot is a stationary training dummy.</summary>
+    public bool IsDummy => this._isDummy;
 
     /// <summary>Gets a snapshot of the currently active bots.</summary>
     public static IReadOnlyCollection<MobaBotPlayer> All => ActiveBots.Keys.ToList();
@@ -222,6 +227,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        this.DevelopIfDue();
+
         var pos = this.Position;
         var target = map.GetAttackablesInRange(pos, AcquireRangeTiles)
             .OfType<Player>()
@@ -250,6 +257,65 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         this._nextActionUtc = DateTime.UtcNow + ActionCooldown;
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Spends the bot's accrued champion skill points and stat points as it levels, so a
+    /// developed bot is a real "full build" opponent to fight against. Skill points rank
+    /// the loadout abilities round-robin toward the cap; stat points dump into the class's
+    /// primary stat (up to <see cref="MobaStatEconomy.MaxPerStat"/>).
+    /// </summary>
+    private void DevelopIfDue()
+    {
+        var now = DateTime.UtcNow;
+        if (now < this._nextDevelopUtc)
+        {
+            return;
+        }
+
+        this._nextDevelopUtc = now + TimeSpan.FromSeconds(4);
+
+        if (this.SelectedCharacter is not { } character || this.Attributes is not { } attributes)
+        {
+            return;
+        }
+
+        // Rank up loadout skills round-robin.
+        var learned = character.LearnedSkills
+            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget && s.Level < MobaSkills.SkillLevelCap)
+            .ToList();
+        var guard = 0;
+        while (this.MobaSkillPoints > 0 && learned.Count > 0 && guard++ < 64)
+        {
+            var entry = learned[this._developSkillCursor % learned.Count];
+            this._developSkillCursor++;
+            if (MobaSkills.TryLevelUp(this, entry.Skill!.Number) != MobaSkills.SkillUpResult.Ok)
+            {
+                learned.Remove(entry);
+            }
+        }
+
+        // Dump stat points into the primary stat.
+        var available = (int)Math.Max(0, character.LevelUpPoints);
+        if (available > 0)
+        {
+            var primary = MobaPassives.FamilyOf(this) switch
+            {
+                MobaFamily.Knight or MobaFamily.RageFighter => Stats.BaseStrength,
+                MobaFamily.Elf => Stats.BaseAgility,
+                MobaFamily.DarkLord => Stats.BaseLeadership,
+                _ => Stats.BaseEnergy,
+            };
+
+            var invested = (int)Math.Round(attributes[primary] - MobaCloneFactory.BaselineStatValue);
+            var room = Math.Max(0, MobaStatEconomy.MaxPerStat - invested);
+            var applied = Math.Min(available, room);
+            if (applied > 0)
+            {
+                attributes[primary] += applied;
+                character.LevelUpPoints -= applied;
+            }
+        }
     }
 
     private async ValueTask CastNextOrAttackAsync(IAttackable target)

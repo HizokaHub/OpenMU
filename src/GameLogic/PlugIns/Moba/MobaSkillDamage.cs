@@ -45,7 +45,7 @@ public static class MobaSkillDamage
     /// </summary>
     private const double FlatMultiplier = 1.5;
 
-    private const double StatBonusMultiplier = 3.0;
+    private const double StatBonusMultiplier = 2.5;
 
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;
@@ -144,7 +144,8 @@ public static class MobaSkillDamage
         var r = Math.Clamp(rank, 1, 5);
         var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier;
         var bonus = maxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
-        Spread2(flat * (1.0 + bonus), out min, out max);
+        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
 
     /// <summary>Gets the min/max MOBA damage for a champion's basic attack.</summary>
@@ -155,7 +156,8 @@ public static class MobaSkillDamage
     {
         var flat = BasicAttackDamage * FlatMultiplier;
         var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
-        Spread2(flat * (1.0 + bonus), out min, out max);
+        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
 
     /// <summary>

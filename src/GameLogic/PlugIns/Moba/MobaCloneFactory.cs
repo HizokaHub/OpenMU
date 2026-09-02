@@ -67,8 +67,11 @@ public static class MobaCloneFactory
     /// </summary>
     private const int MobaBaseDefense = 25;
 
-    /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
-    private const int TestLevelUpPoints = MobaStatEconomy.TestStartPoints;
+    /// <summary>
+    /// Stat points a fresh clone starts with. 0 so the level 1 -&gt; 30 progression is real
+    /// (points are earned per level); use <c>/mobalevel</c> to jump levels for testing.
+    /// </summary>
+    private const int TestLevelUpPoints = 0;
 
     private static readonly (byte X, byte Y) ArenaSpawn = (124, 140);
 
@@ -170,27 +173,11 @@ public static class MobaCloneFactory
             return;
         }
 
-        // Flat HP / mana / shield for every class (stats are uniform now; these are tuned
-        // here, not derived from VIT / ENE).
-        SetAbsolute(attributes, Stats.MaximumHealth, MobaBaseHealth);
-        SetAbsolute(attributes, Stats.MaximumMana, MobaBaseMana);
-        SetAbsolute(attributes, Stats.MaximumShield, MobaBaseShield);
-
-        // Pin defense low and flat: MOBA damage is authored in MobaSkillDamage, not fought
-        // against the S6 flat-defense subtraction.
-        SetAbsolute(attributes, Stats.DefenseBase, MobaBaseDefense);
-        SetAbsolute(attributes, Stats.DefensePvp, MobaBaseDefense);
-        SetAbsolute(attributes, Stats.DefensePvm, MobaBaseDefense);
-
+        // HP / mana / shield / flat defense come from the champion-level power curve
+        // (MobaProgression), not from VIT / ENE and not from the S6 flat-defense formula.
+        // Re-applied on every level-up (see MobaExperience.GrantAsync).
         player.SetReclaimableAttributesToMaximum();
-        attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
-        attributes[Stats.CurrentMana] = attributes[Stats.MaximumMana];
-        attributes[Stats.CurrentShield] = attributes[Stats.MaximumShield];
-
-        static void SetAbsolute(IAttributeSystem attributes, AttributeDefinition stat, float value)
-        {
-            attributes.AddElement(new SimpleElement(value - attributes[stat], AggregateType.AddRaw), stat);
-        }
+        MobaProgression.ApplyLevelScaling(player);
     }
 
     /// <summary>
