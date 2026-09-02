@@ -57,32 +57,35 @@ public static class MobaLoadouts
     // Apply(). Balance / the real "pick a few" flow comes later.
     private static readonly Dictionary<Family, short[]> Skills = new()
     {
-        // Dark Wizard / Soul Master / Grand Master - full spell kit.
+        // Dark Wizard / Soul Master / Grand Master - full spell kit + buffs.
         // Energy Ball, Fire Ball, Lightning, Power Wave, Poison, Ice, Evil Spirit, Meteorite, Ice Storm,
-        // Flame, Twister, Hellfire, Aqua Beam, Cometfall, Inferno, Decay, Nova, Lance, Plasma Storm
-        [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76 },
-        // Blade Knight - full melee kit.
+        // Flame, Twister, Hellfire, Aqua Beam, Cometfall, Inferno, Decay, Nova, Lance, Plasma Storm,
+        // Soul Barrier, Expansion of Wizardry
+        [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76, 16, 233 },
+        // Blade Knight - full melee kit + buffs.
         // Falling Slash, Lunge, Uppercut, Cyclone, Slash, Twisting Slash, Rageful Blow, Death Stab, Strike of Destruction,
-        // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm
-        [Family.Knight] = new short[] { 19, 20, 21, 22, 23, 41, 42, 43, 232, 44, 47, 49, 67, 76 },
-        // High Elf - every ranged attack + the three party buffs (Starfall 46 is castle-siege only).
-        // Triple Shot, Ice Arrow, Penetration, Multi-Shot, Heal, Greater Damage, Greater Defense, Stun, Plasma Storm
-        [Family.Elf] = new short[] { 24, 51, 52, 235, 26, 28, 27, 67, 76 },
-        // Magic Gladiator - hybrid: wizard spells + knight slashes.
+        // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm, Defense, Swell Life
+        [Family.Knight] = new short[] { 19, 20, 21, 22, 23, 41, 42, 43, 232, 44, 47, 49, 67, 76, 18, 48 },
+        // High Elf - every ranged attack + party buffs + the seven monster summons.
+        // Triple Shot, Ice Arrow, Penetration, Multi-Shot, Heal, Greater Damage, Greater Defense, Stun, Plasma Storm,
+        // Infinity Arrow, Recovery, Summon Goblin/Stone Golem/Assassin/Elite Yeti/Dark Knight/Bali/Soldier
+        [Family.Elf] = new short[] { 24, 51, 52, 235, 26, 28, 27, 67, 76, 77, 234, 30, 31, 32, 33, 34, 35, 36 },
+        // Magic Gladiator - hybrid: wizard spells + knight slashes + Defense.
         // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash,
-        // Poison, Meteorite, Flame, Evil Spirit, Power Wave, Inferno, Spiral Slash, Flame Strike, Gigantic Storm, Plasma Storm
-        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56, 1, 2, 5, 9, 11, 14, 57, 236, 237, 76 },
-        // Lord Emperor - scepter skills + basic slashes (Earthshake 62 / Chaotic Diseier 238 need the Dark Horse mount).
+        // Poison, Meteorite, Flame, Evil Spirit, Power Wave, Inferno, Spiral Slash, Flame Strike, Gigantic Storm, Plasma Storm, Defense
+        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56, 1, 2, 5, 9, 11, 14, 57, 236, 237, 76, 18 },
+        // Lord Emperor - scepter skills + basic slashes + buffs + Summon (Earthshake 62 / Chaotic 238 need the Dark Horse mount).
         // Force, Fire Burst, Force Wave, Electric Spike, Fire Scream, Falling Slash, Lunge, Uppercut, Cyclone, Slash,
-        // Fire Blast, Plasma Storm
-        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76 },
-        // Summoner - full curse / nature kit (Lightning Orb 216 & Blind 220 are not in the config).
+        // Fire Blast, Plasma Storm, Defense, Increase Critical Damage, Summon
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76, 18, 64, 63 },
+        // Summoner - full curse / nature kit + debuffs (Lightning Orb 216 & Blind 220 are not in the config).
         // Fire Ball, Ice, Meteorite, Power Wave, Lance, Drain Life, Chain Lightning, Explosion, Requiem, Pollution,
-        // Lightning Shock, Plasma Storm
-        [Family.Summoner] = new short[] { 4, 7, 2, 11, 45, 214, 215, 223, 224, 225, 230, 76 },
-        // Rage Fighter - full kit (Chain Drive 262 / Charge 269 / some hits still want the Fenrir mount).
-        // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash
-        [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19 },
+        // Lightning Shock, Plasma Storm, Damage Reflection, Berserker, Sleep, Weakness, Innovation, Recovery
+        [Family.Summoner] = new short[] { 4, 7, 2, 11, 45, 214, 215, 223, 224, 225, 230, 76, 217, 218, 219, 221, 222, 234 },
+        // Rage Fighter - full kit + self-buffs (Chain Drive 262 / Charge 269 / some hits still want the Fenrir mount).
+        // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash,
+        // Ignore Defense, Increase Health, Increase Block
+        [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
     };
 
     /// <summary>
