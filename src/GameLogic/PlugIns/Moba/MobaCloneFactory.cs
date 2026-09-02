@@ -59,6 +59,14 @@ public static class MobaCloneFactory
     /// </summary>
     private const int MobaBaseShield = 800;
 
+    /// <summary>
+    /// Flat defense forced on every clone. S6 defense is a flat subtraction that, at the
+    /// clone's baseline stats, wiped most of a skill's MOBA damage and made numbers
+    /// unreadable. In MOBA, damage comes from <see cref="MobaSkillDamage"/> and defense is
+    /// just a small constant here; VIT / item defense as real % mitigation is a later pass.
+    /// </summary>
+    private const int MobaBaseDefense = 25;
+
     /// <summary>Free stat points handed to the clone so the tester can distribute them (never auto-assigned).</summary>
     private const int TestLevelUpPoints = MobaStatEconomy.TestStartPoints;
 
@@ -167,6 +175,12 @@ public static class MobaCloneFactory
         SetAbsolute(attributes, Stats.MaximumHealth, MobaBaseHealth);
         SetAbsolute(attributes, Stats.MaximumMana, MobaBaseMana);
         SetAbsolute(attributes, Stats.MaximumShield, MobaBaseShield);
+
+        // Pin defense low and flat: MOBA damage is authored in MobaSkillDamage, not fought
+        // against the S6 flat-defense subtraction.
+        SetAbsolute(attributes, Stats.DefenseBase, MobaBaseDefense);
+        SetAbsolute(attributes, Stats.DefensePvp, MobaBaseDefense);
+        SetAbsolute(attributes, Stats.DefensePvm, MobaBaseDefense);
 
         player.SetReclaimableAttributesToMaximum();
         attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];

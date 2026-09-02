@@ -36,6 +36,17 @@ public static class MobaSkillDamage
     /// <summary>Default "extra fraction of flat damage at a fully-maxed primary stat".</summary>
     private const double DefaultMaxStatBonus = 0.50;
 
+    /// <summary>
+    /// Global tuning knobs. The table below holds RELATIVE weights; these scale the whole
+    /// model at once. <see cref="FlatMultiplier"/> scales the stat-independent base (raise
+    /// to make skills hit harder vs the 2500 HP pool); <see cref="StatBonusMultiplier"/>
+    /// scales how much a maxed primary stat rewards a build (raise to make stat investment
+    /// feel decisive).
+    /// </summary>
+    private const double FlatMultiplier = 1.5;
+
+    private const double StatBonusMultiplier = 3.0;
+
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;
 
@@ -131,8 +142,9 @@ public static class MobaSkillDamage
             : (DefaultBase, DefaultPerRank, DefaultMaxStatBonus);
 
         var r = Math.Clamp(rank, 1, 5);
-        double flat = baseDamage + (perRank * (r - 1));
-        Spread2(flat * (1.0 + (maxStatBonus * InvestedFraction(champion))), out min, out max);
+        var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier;
+        var bonus = maxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+        Spread2(flat * (1.0 + bonus), out min, out max);
     }
 
     /// <summary>Gets the min/max MOBA damage for a champion's basic attack.</summary>
@@ -141,7 +153,9 @@ public static class MobaSkillDamage
     /// <param name="max">Output maximum.</param>
     public static void GetBasicAttackDamage(Player champion, out int min, out int max)
     {
-        Spread2(BasicAttackDamage * (1.0 + (BasicAttackMaxStatBonus * InvestedFraction(champion))), out min, out max);
+        var flat = BasicAttackDamage * FlatMultiplier;
+        var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+        Spread2(flat * (1.0 + bonus), out min, out max);
     }
 
     /// <summary>
