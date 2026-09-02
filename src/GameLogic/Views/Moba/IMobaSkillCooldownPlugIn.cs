@@ -16,5 +16,9 @@ public interface IMobaSkillCooldownPlugIn : IViewPlugIn
     /// </summary>
     /// <param name="skillNumber">The Persistence skill number.</param>
     /// <param name="durationMs">The full cooldown duration in milliseconds.</param>
-    ValueTask ShowSkillCooldownAsync(short skillNumber, int durationMs);
+    /// <param name="graceMs">
+    /// The grace window in milliseconds: the skill stays castable for this long after the
+    /// cast, and the cooldown only starts once it elapses.
+    /// </param>
+    ValueTask ShowSkillCooldownAsync(short skillNumber, int durationMs, int graceMs);
 }

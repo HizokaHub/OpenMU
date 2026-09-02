@@ -213,6 +213,14 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public Dictionary<short, DateTime> MobaSkillCooldowns { get; } = new();
 
     /// <summary>
+    /// Gets the per-match cast-grace window ends for a MOBA clone: skill number mapped to
+    /// the UTC instant the grace window (during which the skill stays castable after the
+    /// first cast, before its cooldown starts) closes. Lets a champion keep firing a skill
+    /// for a few seconds - enough to land a combo - before it goes on cooldown.
+    /// </summary>
+    public Dictionary<short, DateTime> MobaSkillGraceEnds { get; } = new();
+
+    /// <summary>
     /// Gets or sets the player's real character while the session is temporarily
     /// playing an ephemeral MOBA match clone. Restored when the match ends. Runtime
     /// only - never persisted.
@@ -1127,9 +1135,18 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         if (this.IsMobaClone
             && PlugIns.Moba.MobaCooldowns.GetCooldown(this, skillEntry) is { Ticks: > 0 } cooldown)
         {
-            this.MobaSkillCooldowns[skill.Number] = DateTime.UtcNow.Add(cooldown);
-            await this.InvokeViewPlugInAsync<Views.Moba.IMobaSkillCooldownPlugIn>(
-                p => p.ShowSkillCooldownAsync(skill.Number, (int)cooldown.TotalMilliseconds)).ConfigureAwait(false);
+            var now = DateTime.UtcNow;
+
+            // Only the first cast of a fresh cycle arms the cooldown; recasts during the
+            // grace window ride the same timers so the champion can keep firing.
+            if (PlugIns.Moba.MobaCooldowns.IsFreshCast(this, skill.Number, now))
+            {
+                var grace = PlugIns.Moba.MobaCooldowns.GraceWindow;
+                this.MobaSkillGraceEnds[skill.Number] = now.Add(grace);
+                this.MobaSkillCooldowns[skill.Number] = now.Add(grace).Add(cooldown);
+                await this.InvokeViewPlugInAsync<Views.Moba.IMobaSkillCooldownPlugIn>(
+                    p => p.ShowSkillCooldownAsync(skill.Number, (int)cooldown.TotalMilliseconds, (int)grace.TotalMilliseconds)).ConfigureAwait(false);
+            }
         }
 
         return true;

@@ -18,6 +18,14 @@ using MUnique.OpenMU.DataModel.Entities;
 /// </summary>
 public static class MobaCooldowns
 {
+    /// <summary>
+    /// After the first cast a skill stays castable for this long before its cooldown
+    /// actually starts, so a champion can keep firing it - e.g. a Blade Knight chaining its
+    /// combo - for a short window instead of the cooldown biting on the very first press.
+    /// Recasting inside the window does not extend it.
+    /// </summary>
+    public static readonly TimeSpan GraceWindow = TimeSpan.FromSeconds(3);
+
     /// <summary>Cooldown per rank (seconds, index 0 = rank 1) for a skill with no explicit entry.</summary>
     private static readonly double[] DefaultPerRank = { 6.5, 6.0, 5.5, 5.0, 4.5 };
 
@@ -101,6 +109,30 @@ public static class MobaCooldowns
     /// <returns><c>true</c> if the skill cannot be cast yet.</returns>
     public static bool IsOnCooldown(Player champion, short skillNumber, DateTime now)
     {
-        return champion.MobaSkillCooldowns.TryGetValue(skillNumber, out var readyAt) && readyAt > now;
+        if (!champion.MobaSkillCooldowns.TryGetValue(skillNumber, out var readyAt) || readyAt <= now)
+        {
+            return false;
+        }
+
+        // Still inside the post-cast grace window: castable, cooldown has not started yet.
+        if (champion.MobaSkillGraceEnds.TryGetValue(skillNumber, out var graceEnd) && graceEnd > now)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether this cast starts a fresh grace + cooldown cycle (as opposed to a recast
+    /// while the grace window opened by an earlier cast is still running).
+    /// </summary>
+    /// <param name="champion">The player.</param>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <param name="now">The current UTC time.</param>
+    /// <returns><c>true</c> if the grace window should be (re)opened and the cooldown (re)armed.</returns>
+    public static bool IsFreshCast(Player champion, short skillNumber, DateTime now)
+    {
+        return !champion.MobaSkillGraceEnds.TryGetValue(skillNumber, out var graceEnd) || graceEnd <= now;
     }
 }

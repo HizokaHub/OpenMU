@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using System.Collections.Concurrent;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
@@ -75,6 +76,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this.MobaExperience = 0;
             this.MobaSkillPoints = 0;
             this.MobaSkillCooldowns.Clear();
+            this.MobaSkillGraceEnds.Clear();
 
             clone.PositionX = spawn.X;
             clone.PositionY = spawn.Y;
@@ -90,6 +92,14 @@ public sealed class MobaBotPlayer : OfflinePlayer
             // the bot to the map and marks it alive, and observers snapshot it then - a
             // 0-HP bot at that moment renders as a corpse / not at all.
             MobaCloneFactory.OnCloneAttached(this);
+
+            if (this._isDummy && this.Attributes is { } dummyAttr)
+            {
+                // No shield on a training dummy: every hit lands fully on HP (classic PvP
+                // split), so the tester reads the raw skill damage in the [MOBA-DMG] log.
+                dummyAttr.AddElement(new SimpleElement(-dummyAttr[Stats.MaximumShield], AggregateType.AddRaw), Stats.MaximumShield);
+                dummyAttr[Stats.CurrentShield] = 0;
+            }
 
             await this.ClientReadyAfterMapChangeAsync().ConfigureAwait(false);
 
