@@ -144,7 +144,7 @@ public static class MobaSkillDamage
         var r = Math.Clamp(rank, 1, 5);
         var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier;
         var bonus = maxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
-        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
 
@@ -163,7 +163,7 @@ public static class MobaSkillDamage
 
         var flat = comboFlatBase * FlatMultiplier * 1.25;
         var bonus = comboMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
-        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        var levelScale = MobaProgression.DamageScaleFor(champion);
         return (int)(flat * (1.0 + bonus) * levelScale);
     }
 
@@ -175,7 +175,7 @@ public static class MobaSkillDamage
     {
         var flat = BasicAttackDamage * FlatMultiplier;
         var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
-        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
 

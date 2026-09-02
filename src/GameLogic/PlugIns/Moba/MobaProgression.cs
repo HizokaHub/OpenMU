@@ -28,8 +28,8 @@ public static class MobaProgression
     private const float HealthLevel1 = 1_200f;
     private const float HealthLevelMax = 45_000f;
 
-    private const float ManaLevel1 = 900f;
-    private const float ManaLevelMax = 14_000f;
+    private const float ManaLevel1 = 450f;
+    private const float ManaLevelMax = 3_400f;
 
     private const float ShieldLevel1 = 300f;
     private const float ShieldLevelMax = 9_000f;
@@ -66,6 +66,27 @@ public static class MobaProgression
     public static double DamageScale(int level) => Lerp((float)DamageScaleLevel1, (float)DamageScaleLevelMax, level);
 
     /// <summary>
+    /// Role tilt on the shared curve: tanks trade damage for HP, carries the reverse,
+    /// bruisers stay neutral. (HpMul, DamageMul) per family.
+    /// </summary>
+    /// <param name="family">The champion family.</param>
+    /// <returns>The (health multiplier, damage-scale multiplier).</returns>
+    public static (float HpMul, double DamageMul) RoleTilt(MobaFamily family) => family switch
+    {
+        MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 0.82),          // bruiser-tank front line
+        MobaFamily.DarkLord => (1.15f, 0.92),                                  // tanky utility
+        MobaFamily.Elf => (0.80f, 1.20),                                       // ranged carry
+        MobaFamily.Wizard or MobaFamily.Summoner => (0.82f, 1.22),            // burst / DoT casters
+        _ => (1.00f, 1.00),                                                    // Magic Gladiator - neutral
+    };
+
+    /// <summary>Damage scale for a champion at its level, tilted for its class role.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The role-adjusted damage scale.</returns>
+    public static double DamageScaleFor(Player champion)
+        => DamageScale(champion.MobaLevel) * RoleTilt(MobaPassives.FamilyOf(champion)).DamageMul;
+
+    /// <summary>
     /// Re-pins a champion clone's resources and flat defense to its current champion level
     /// and tops health / mana / shield up to the new maximum. Call on spawn and on every
     /// level-up.
@@ -79,8 +100,9 @@ public static class MobaProgression
         }
 
         var level = Math.Clamp(champion.MobaLevel <= 0 ? 1 : champion.MobaLevel, 1, MobaLevels.MaxLevel);
+        var (hpMul, _) = RoleTilt(MobaPassives.FamilyOf(champion));
 
-        SetAbsolute(attributes, Stats.MaximumHealth, HealthAt(level));
+        SetAbsolute(attributes, Stats.MaximumHealth, HealthAt(level) * hpMul);
         SetAbsolute(attributes, Stats.MaximumMana, ManaAt(level));
         SetAbsolute(attributes, Stats.MaximumShield, ShieldAt(level));
 

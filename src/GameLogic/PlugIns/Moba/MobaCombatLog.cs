@@ -79,6 +79,63 @@ public static class MobaCombatLog
     }
 
     /// <summary>
+    /// The distinct objects that damaged <paramref name="victim"/> within <paramref name="window"/>, most recent first.
+    /// </summary>
+    /// <param name="victim">The victim to look up.</param>
+    /// <param name="window">How far back to look.</param>
+    /// <returns>The recent attackers of the victim.</returns>
+    public static IReadOnlyList<object> RecentAttackersOf(object victim, TimeSpan window)
+    {
+        var cutoff = DateTime.UtcNow - window;
+        var result = new List<object>();
+        lock (Sync)
+        {
+            for (var node = Recent.Last; node is not null; node = node.Previous)
+            {
+                var e = node.Value;
+                if (e.At < cutoff)
+                {
+                    break;
+                }
+
+                if (ReferenceEquals(e.Victim, victim) && !result.Contains(e.Attacker))
+                {
+                    result.Add(e.Attacker);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Whether <paramref name="participant"/> dealt OR took damage within <paramref name="window"/>.</summary>
+    /// <param name="participant">The champion / unit.</param>
+    /// <param name="window">How far back to look.</param>
+    /// <returns><see langword="true"/> if it is in combat.</returns>
+    public static bool InCombat(object participant, TimeSpan window)
+    {
+        var cutoff = DateTime.UtcNow - window;
+        lock (Sync)
+        {
+            for (var node = Recent.Last; node is not null; node = node.Previous)
+            {
+                var e = node.Value;
+                if (e.At < cutoff)
+                {
+                    break;
+                }
+
+                if (ReferenceEquals(e.Attacker, participant) || ReferenceEquals(e.Victim, participant))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Determines whether <paramref name="attacker"/> damaged any of <paramref name="victims"/> within <paramref name="window"/>.
     /// </summary>
     /// <param name="attacker">The attacker.</param>

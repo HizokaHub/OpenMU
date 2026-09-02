@@ -53,6 +53,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Cap hard CC (S6 freeze / cold can lock a champion for ~10s).
         await MobaCc.CapCrowdControlAsync(gameContext).ConfigureAwait(false);
 
+        // No HP / SD regen while in combat.
+        await MobaCombatRegen.TickAsync(gameContext).ConfigureAwait(false);
+
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)
         {

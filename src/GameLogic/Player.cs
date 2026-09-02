@@ -1114,10 +1114,11 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return false;
         }
 
-        // MOBA mode: the Magic Gladiator "Impulso híbrido" passive can discount the mana
-        // cost of the next skill after a basic attack. 1.0 for everyone else.
+        // MOBA mode: S6 mana costs are tiny; scale them up so mana is a real constraint
+        // (x3). The Magic Gladiator "Impulso híbrido" passive still discounts on top.
+        const float MobaManaCostMultiplier = 3f;
         var manaCostMultiplier = this.IsMobaClone
-            ? PlugIns.Moba.MobaHybridSurgePassive.ConsumeSpellManaMultiplier(this)
+            ? MobaManaCostMultiplier * PlugIns.Moba.MobaHybridSurgePassive.ConsumeSpellManaMultiplier(this)
             : 1f;
 
         float RequiredValue(DataModel.Configuration.Items.AttributeRequirement requirement)

@@ -321,6 +321,13 @@ public static class AttackableExtensions
                 // Further halve damage in Chaos Castle for classic PvP
                 dmg /= 2;
             }
+
+            // MOBA: percent mitigation from the defender's invested VIT, minus the casting
+            // skill's armour penetration.
+            if (isMobaChampionAttacker && defender is Player { IsMobaClone: true } mobaDefender)
+            {
+                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0));
+            }
         }
 
         return defender.GetHitInfo((uint)dmg, attributes, attacker, (uint)manaToll);

@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Runtime.CompilerServices;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.GameLogic.Attributes;
 
@@ -24,16 +25,36 @@ public static class MobaCc
     /// <summary>Attributes that count as a hard "can't act" crowd control.</summary>
     private static readonly AttributeDefinition[] HardCcAttributes = { Stats.IsStunned, Stats.IsFrozen, Stats.IsAsleep };
 
+    /// <summary>Per-hit CC-duration factor by consecutive-CC stack: 100%, 60%, 36%, 22%, then 15%.</summary>
+    private static readonly double[] DiminishingFactor = { 1.0, 0.60, 0.36, 0.22, 0.15 };
+
+    /// <summary>Stacks reset after this long without any new hard CC.</summary>
+    private static readonly TimeSpan DiminishReset = TimeSpan.FromSeconds(7);
+
+    private static readonly ConditionalWeakTable<Player, DrState> DrByChampion = new();
+
+    /// <summary>Hard-CC effects already shortened once, so the tick doesn't re-stack them.</summary>
+    private static readonly ConditionalWeakTable<MagicEffect, object> Processed = new();
+
+    private sealed class DrState
+    {
+        public int Stacks;
+
+        public DateTime LastCcUtc;
+    }
+
     /// <summary>
     /// Sweeps every MOBA champion's active magic effects and shortens any hard-CC effect
-    /// (freeze / stun / sleep) whose remaining duration exceeds <see cref="MaxHardCc"/>.
-    /// Call from the match tick.
+    /// (freeze / stun / sleep). The first CC lasts up to <see cref="MaxHardCc"/>; each
+    /// further CC within <see cref="DiminishReset"/> lasts a diminishing fraction of that
+    /// (basic tenacity). Call from the match tick.
     /// </summary>
     /// <param name="gameContext">The game context.</param>
     public static async ValueTask CapCrowdControlAsync(IGameContext gameContext)
     {
         try
         {
+            var now = DateTime.UtcNow;
             var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
             foreach (var champion in players.Where(p => p.IsMobaClone))
             {
@@ -44,17 +65,34 @@ public static class MobaCc
 
                 foreach (var effect in list.ActiveEffects.Values.ToArray())
                 {
-                    if (effect.Duration <= MaxHardCc)
+                    if (Processed.TryGetValue(effect, out _))
                     {
                         continue;
                     }
 
-                    var isHardCc = effect.PowerUpElements.Any(e => Array.IndexOf(HardCcAttributes, e.Target) >= 0);
-                    if (isHardCc)
+                    if (!effect.PowerUpElements.Any(e => Array.IndexOf(HardCcAttributes, e.Target) >= 0))
                     {
-                        effect.Duration = MaxHardCc;
+                        continue;
+                    }
+
+                    Processed.Add(effect, string.Empty);
+
+                    var dr = DrByChampion.GetOrCreateValue(champion);
+                    if (now - dr.LastCcUtc > DiminishReset)
+                    {
+                        dr.Stacks = 0;
+                    }
+
+                    var factor = DiminishingFactor[Math.Min(dr.Stacks, DiminishingFactor.Length - 1)];
+                    var capped = TimeSpan.FromMilliseconds(MaxHardCc.TotalMilliseconds * factor);
+                    if (effect.Duration > capped)
+                    {
+                        effect.Duration = capped;
                         effect.ResetTimer();
                     }
+
+                    dr.Stacks++;
+                    dr.LastCcUtc = now;
                 }
             }
         }
