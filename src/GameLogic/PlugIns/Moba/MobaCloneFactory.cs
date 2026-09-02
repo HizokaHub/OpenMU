@@ -44,7 +44,7 @@ public static class MobaCloneFactory
     /// (<see cref="MobaSkillDamage"/>), not from stats, so a raised stat must not spike
     /// any class. Per-class stat formulas are layered on afterwards, on purpose.
     /// </summary>
-    private const int BaselineStatValue = 500;
+    internal const int BaselineStatValue = 500;
 
     /// <summary>Flat max health forced on every clone (see <see cref="OnCloneAttached"/>).</summary>
     private const int MobaBaseHealth = 2500;
