@@ -77,8 +77,8 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         }
 
         var spawned = await SpawnAsync(player, team, classNumbers).ConfigureAwait(false);
-        var origin = team == MobaTeam.Blue ? BlueBrawlOrigin : RedBrawlOrigin;
-        await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) {team} en la arena ~({origin.X},{origin.Y}). Mirá con: /move {player.SelectedCharacter?.Name} 200 116 128").ConfigureAwait(false);
+        var origin = MobaWaveSpawner.LaneWaypointsFor(team)[0];
+        await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) {team} en el spawn de creeps ~({origin.X},{origin.Y}); marchan por el carril. Mirá con: /move {player.SelectedCharacter?.Name} 200 116 128").ConfigureAwait(false);
     }
 
     /// <summary>Spawns the given classes as bots on a team, near the caller.</summary>
@@ -86,19 +86,14 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     /// <param name="team">The team.</param>
     /// <param name="classNumbers">The character-class numbers to spawn.</param>
     /// <returns>The number of bots spawned.</returns>
-    /// <summary>Brawl spawn on the carved mid lane (x = 108..124 walkable): blue north, red south, ~36 tiles apart so they march toward each other and the fight is watchable.</summary>
-    internal static readonly Point BlueBrawlOrigin = new(116, 118);
-
-    /// <summary>Red team's brawl origin (see <see cref="BlueBrawlOrigin"/>).</summary>
-    internal static readonly Point RedBrawlOrigin = new(116, 140);
-
     internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers)
     {
         var config = caller.GameContext.Configuration;
 
-        // Always spawn at a fixed spot in the arena (not next to the caller, who may not
-        // even be on the arena map), so the fight always happens where it can be found.
-        var origin = team == MobaTeam.Blue ? BlueBrawlOrigin : RedBrawlOrigin;
+        // Spawn at the team's own creep-spawn end of the lane; the bot brain then marches
+        // the lane waypoints toward the enemy creep spawn, so the fight develops down the
+        // lane like a real match.
+        var origin = MobaWaveSpawner.LaneWaypointsFor(team)[0];
 
         var spawned = 0;
         for (var i = 0; i < classNumbers.Count; i++)

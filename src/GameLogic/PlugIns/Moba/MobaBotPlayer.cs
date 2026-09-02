@@ -30,6 +30,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private static readonly ConcurrentDictionary<MobaBotPlayer, byte> ActiveBots = new();
 
+    /// <summary>How close (tiles) counts as "reached" a lane waypoint.</summary>
+    private const float WaypointReachedTiles = 3f;
+
     private readonly MobaTeam _team;
     private readonly bool _isDummy;
     private Timer? _brain;
@@ -39,6 +42,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _nextDevelopUtc;
     private int _developSkillCursor;
     private Point _homeSpawn;
+    private IReadOnlyList<Point> _lane = Array.Empty<Point>();
+    private int _laneIndex;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
@@ -111,6 +116,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
             MobaTeams.Set(this, this._team);
             this.HuntingOrigin = spawn;
             this._homeSpawn = spawn;
+            this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team);
+            this._laneIndex = 0;
             ActiveBots.TryAdd(this, 0);
             this._brain = new Timer(_ => this.SafeTickAsync(), null, TickInterval, TickInterval);
             this.Logger.LogInformation("[MOBA-BOT] '{Name}' ({Team}) spawned at {Pos}.", clone.Name, this._team, spawn);
@@ -171,6 +178,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         await base.RespawnAtAsync(gate).ConfigureAwait(false);
         try
         {
+            this._laneIndex = 0; // restart the lane march from our creep spawn
             await this.MoveAsync(this._homeSpawn).ConfigureAwait(false);
         }
         catch
@@ -238,6 +246,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (target is null)
         {
+            // No enemy champion nearby: push the lane from our creep spawn toward the
+            // enemy creep spawn, like a creep.
+            await this.MarchLaneAsync(pos).ConfigureAwait(false);
             return;
         }
 
@@ -257,6 +268,28 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         this._nextActionUtc = DateTime.UtcNow + ActionCooldown;
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
+    }
+
+    /// <summary>Advances one step along the lane waypoints toward the enemy creep spawn.</summary>
+    /// <param name="pos">Current position.</param>
+    private async ValueTask MarchLaneAsync(Point pos)
+    {
+        if (this._lane.Count == 0)
+        {
+            return;
+        }
+
+        while (this._laneIndex < this._lane.Count - 1
+               && this._lane[this._laneIndex].EuclideanDistanceTo(pos) <= WaypointReachedTiles)
+        {
+            this._laneIndex++;
+        }
+
+        var next = this._lane[this._laneIndex];
+        if (next.EuclideanDistanceTo(pos) > 1.0)
+        {
+            await this.MoveAsync(StepToward(pos, next, 0)).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

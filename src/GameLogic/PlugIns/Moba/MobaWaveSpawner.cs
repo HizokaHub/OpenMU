@@ -76,6 +76,15 @@ public static class MobaWaveSpawner
     };
 
     /// <summary>
+    /// The ordered lane waypoints a unit of <paramref name="team"/> follows, from its own
+    /// creep spawn to the enemy creep spawn. Blue marches south, Red the same points north.
+    /// </summary>
+    /// <param name="team">The team.</param>
+    /// <returns>The waypoints, start first.</returns>
+    public static IReadOnlyList<Point> LaneWaypointsFor(MobaTeam team)
+        => team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
+
+    /// <summary>
     /// Spawns one lane wave for <paramref name="team"/> on <paramref name="map"/>.
     /// </summary>
     /// <param name="map">The map to spawn on (the MOBA arena).</param>
