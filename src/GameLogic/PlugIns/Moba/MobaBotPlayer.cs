@@ -330,8 +330,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
     }
 
     /// <summary>
-    /// Pathfinds to <paramref name="target"/> and starts an animated walk (not the instant
-    /// MoveAsync teleport). No-op while already walking, so the walk plays out smoothly.
+    /// Starts an animated walk toward <paramref name="target"/> - a short chunk of 1-tile
+    /// steps built straight toward it (same simple approach the lane creeps use, which is
+    /// known to work on the arena map), NOT the instant MoveAsync teleport. No-op while
+    /// already walking so the step plays out.
     /// </summary>
     private async ValueTask WalkTowardAsync(Point target)
     {
@@ -340,34 +342,51 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        var pathFinder = await this.GameContext.PathFinderPool.GetAsync().ConfigureAwait(false);
-        try
+        if (map.Terrain?.AIgrid is not { } grid)
         {
-            pathFinder.ResetPathFinder();
-            var path = pathFinder.FindPath(this.Position, target, map.Terrain.AIgrid, false);
-            if (path is null || path.Count == 0)
+            // No AI grid: fall back to an instant hop so the bot at least isn't frozen.
+            await this.MoveAsync(target).ConfigureAwait(false);
+            return;
+        }
+
+        const int maxSteps = 8;
+        var steps = new List<WalkingStep>(maxSteps);
+        var cursor = this.Position;
+        for (var i = 0; i < maxSteps && cursor != target; i++)
+        {
+            var dx = Math.Sign(target.X - cursor.X);
+            var dy = Math.Sign(target.Y - cursor.Y);
+            Point? Try(int sx, int sy)
             {
-                return;
+                if (sx == 0 && sy == 0)
+                {
+                    return null;
+                }
+
+                var p = new Point((byte)(cursor.X + sx), (byte)(cursor.Y + sy));
+                return grid[p.X, p.Y] != 0 ? p : (Point?)null;
             }
 
-            var stepCount = Math.Min(path.Count, 12);
-            var steps = new WalkingStep[stepCount];
-            for (var i = 0; i < stepCount; i++)
+            var next = Try(dx, dy)
+                ?? (dx != 0 && dy != 0 ? Try(dx, 0) ?? Try(0, dy) : null)
+                ?? (dx == 0 ? Try(1, dy) ?? Try(-1, dy) : null)
+                ?? (dy == 0 ? Try(dx, 1) ?? Try(dx, -1) : null);
+
+            if (next is not { } step)
             {
-                var from = i == 0 ? this.Position : steps[i - 1].To;
-                steps[i] = new WalkingStep(from, path[i].Point, from.GetDirectionTo(path[i].Point));
+                break;
             }
 
-            await this.WalkToAsync(steps[^1].To, steps).ConfigureAwait(false);
+            steps.Add(new WalkingStep(cursor, step, cursor.GetDirectionTo(step)));
+            cursor = step;
         }
-        catch
+
+        if (steps.Count == 0)
         {
-            // best effort
+            return;
         }
-        finally
-        {
-            this.GameContext.PathFinderPool.Return(pathFinder);
-        }
+
+        await this.WalkToAsync(cursor, steps.ToArray()).ConfigureAwait(false);
     }
 
     /// <summary>

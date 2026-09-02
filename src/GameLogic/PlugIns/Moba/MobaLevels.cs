@@ -51,11 +51,27 @@ public static class MobaLevels
     /// <summary>Passive EXP drip per tick to every champion in a match (time-based, not tied to kills). The floor that keeps a losing team levelling.</summary>
     public const int PassiveExpPerTick = 22;
 
-    /// <summary>A champion this many levels below the match leader gets <see cref="CatchUpExpMultiplier"/> EXP.</summary>
+    /// <summary>A champion this many levels below the match leader gets the catch-up EXP bonus.</summary>
     public const int CatchUpLevelGap = 3;
 
-    /// <summary>EXP multiplier for a champion that is <see cref="CatchUpLevelGap"/>+ levels behind the match leader.</summary>
-    public const double CatchUpExpMultiplier = 2.5;
+    /// <summary>Catch-up EXP multiplier at the start of the match for a champion <see cref="CatchUpLevelGap"/>+ levels behind.</summary>
+    public const double CatchUpExpMultiplierEarly = 2.5;
+
+    /// <summary>
+    /// The catch-up bonus decays linearly from <see cref="CatchUpExpMultiplierEarly"/> to
+    /// 1.0x over this many minutes, so a comeback is only a leg-up early - by late game a
+    /// team that plays well keeps its lead.
+    /// </summary>
+    public const double CatchUpDecayMinutes = 18;
+
+    /// <summary>The catch-up EXP multiplier for a behind champion at the given match time.</summary>
+    /// <param name="matchElapsed">Time since the match started.</param>
+    /// <returns>A value between 1.0 and <see cref="CatchUpExpMultiplierEarly"/>.</returns>
+    public static double CatchUpExpMultiplier(TimeSpan matchElapsed)
+    {
+        var t = Math.Clamp(matchElapsed.TotalMinutes / CatchUpDecayMinutes, 0.0, 1.0);
+        return CatchUpExpMultiplierEarly + ((1.0 - CatchUpExpMultiplierEarly) * t);
+    }
 
     /// <summary>Seconds between passive EXP ticks.</summary>
     public const double PassiveTickSeconds = 5;
