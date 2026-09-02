@@ -27,8 +27,11 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     private const double ScoreLogSeconds = 20;
 
     private DateTime _lastDripUtc = DateTime.MinValue;
-    private DateTime _lastScoreLogUtc = DateTime.MinValue;
-    private DateTime _matchStartUtc = DateTime.MinValue;
+
+    // Static: the plug-in instance is not guaranteed to persist across periodic ticks
+    // (see the static _arenaSafezoneCleared above), so match-timeline state lives here.
+    private static DateTime _lastScoreLogUtc = DateTime.MinValue;
+    private static DateTime _matchStartUtc = DateTime.MinValue;
 
     /// <inheritdoc />
     public void ForceStart() => this._lastDripUtc = DateTime.MinValue;
@@ -71,22 +74,22 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
         if (champions.Count == 0)
         {
-            this._matchStartUtc = DateTime.MinValue;
+            _matchStartUtc = DateTime.MinValue;
             return;
         }
 
-        if (this._matchStartUtc == DateTime.MinValue)
+        if (_matchStartUtc == DateTime.MinValue)
         {
-            this._matchStartUtc = now;
+            _matchStartUtc = now;
         }
 
-        if ((now - this._lastScoreLogUtc).TotalSeconds < ScoreLogSeconds)
+        if ((now - _lastScoreLogUtc).TotalSeconds < ScoreLogSeconds)
         {
             return;
         }
 
-        this._lastScoreLogUtc = now;
-        var elapsed = (int)(now - this._matchStartUtc).TotalSeconds;
+        _lastScoreLogUtc = now;
+        var elapsed = (int)(now - _matchStartUtc).TotalSeconds;
 
         foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
         {

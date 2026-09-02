@@ -12,6 +12,11 @@ using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Offline;
+using MUnique.OpenMU.Interfaces;
+
+// Player has a `long MobaExperience` property that shadows the MobaExperience class name
+// inside this subclass, so alias the class.
+using MobaXp = MUnique.OpenMU.GameLogic.PlugIns.Moba.MobaExperience;
 using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
@@ -32,6 +37,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     /// <summary>How close (tiles) counts as "reached" a lane waypoint.</summary>
     private const float WaypointReachedTiles = 3f;
+
+    /// <summary>
+    /// Max tiles a bot relocates per tick. Player.MoveAsync is an INSTANT teleport, so
+    /// without a cap a bot marching to a waypoint 50 tiles away would blink straight into
+    /// the enemy spawn. ~3 tiles / 700 ms tick reads as fast walking.
+    /// </summary>
+    private const int MaxStepTiles = 3;
 
     private readonly MobaTeam _team;
     private readonly bool _isDummy;
@@ -118,6 +130,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._homeSpawn = spawn;
             this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team);
             this._laneIndex = 0;
+
+            // Bots skip SelectCharacterAction, so wire the champion-death handler here
+            // (kill / assist EXP + K/D/A counters). RespawnAtAsync already snaps the bot
+            // back to its lane start.
+            this.Died += this.OnBotChampionDied;
+
             ActiveBots.TryAdd(this, 0);
             this._brain = new Timer(_ => this.SafeTickAsync(), null, TickInterval, TickInterval);
             this.Logger.LogInformation("[MOBA-BOT] '{Name}' ({Team}) spawned at {Pos}.", clone.Name, this._team, spawn);
@@ -270,6 +288,11 @@ public sealed class MobaBotPlayer : OfflinePlayer
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
     }
 
+    private void OnBotChampionDied(object? sender, DeathInformation death)
+    {
+        _ = MobaXp.HandleChampionDeathAsync(this, death);
+    }
+
     /// <summary>Advances one step along the lane waypoints toward the enemy creep spawn.</summary>
     /// <param name="pos">Current position.</param>
     private async ValueTask MarchLaneAsync(Point pos)
@@ -420,7 +443,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return from;
         }
 
-        var scale = (len - stopShortBy) / len;
+        // Clamp the hop to MaxStepTiles - MoveAsync teleports, so an uncapped step blinks
+        // the bot the whole way to `to`.
+        var travel = Math.Min(len - stopShortBy, MaxStepTiles);
+        var scale = travel / len;
         var nx = (int)Math.Round(from.X + (dx * scale));
         var ny = (int)Math.Round(from.Y + (dy * scale));
         return new Point((byte)Math.Clamp(nx, 0, 255), (byte)Math.Clamp(ny, 0, 255));

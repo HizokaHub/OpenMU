@@ -76,6 +76,33 @@ public class SelectCharacterAction
         if (sender is Player victim)
         {
             _ = MobaExperience.HandleChampionDeathAsync(victim, death);
+            _ = RespawnAtMidAsync(victim);
+        }
+    }
+
+    /// <summary>
+    /// After the engine's 3s respawn (which drops the champion at the map's default spawn
+    /// gate), snap a human MOBA champion to mid (128, 128) so it re-enters the fight in the
+    /// centre of the arena. Bots handle their own respawn (back to their lane start).
+    /// </summary>
+    private static async Task RespawnAtMidAsync(Player victim)
+    {
+        try
+        {
+            if (victim is Offline.OfflinePlayer)
+            {
+                return;
+            }
+
+            await Task.Delay(3300).ConfigureAwait(false);
+            if (victim.IsAlive && victim.CurrentMap?.MapId == PlugIns.Moba.MobaCloneFactory.ArenaMapNumber)
+            {
+                await victim.MoveAsync(new MUnique.OpenMU.Pathfinding.Point(128, 128)).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // best effort
         }
     }
 }
