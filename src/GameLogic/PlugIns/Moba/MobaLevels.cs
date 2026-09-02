@@ -37,10 +37,10 @@ public static class MobaLevels
     public const int ShareRadius = 12;
 
     /// <summary>Base EXP for killing an enemy champion, plus <see cref="ChampionKillPerVictimLevel"/> per victim level.</summary>
-    public const int ChampionKillExp = 150;
+    public const int ChampionKillExp = 130;
 
-    /// <summary>Extra champion-kill EXP per level of the victim.</summary>
-    public const int ChampionKillPerVictimLevel = 14;
+    /// <summary>Extra champion-kill EXP per level of the victim. Small, so killing a fed enemy does not itself snowball.</summary>
+    public const int ChampionKillPerVictimLevel = 5;
 
     /// <summary>EXP for each allied champion near an enemy champion kill (assist).</summary>
     public const int AssistExp = 70;
@@ -48,8 +48,14 @@ public static class MobaLevels
     /// <summary>EXP granted to every champion of the team that destroyed a turret.</summary>
     public const int TurretKillExp = 220;
 
-    /// <summary>Passive EXP drip per tick to every champion in a match (time-based, not tied to kills).</summary>
-    public const int PassiveExpPerTick = 10;
+    /// <summary>Passive EXP drip per tick to every champion in a match (time-based, not tied to kills). The floor that keeps a losing team levelling.</summary>
+    public const int PassiveExpPerTick = 22;
+
+    /// <summary>A champion this many levels below the match leader gets <see cref="CatchUpExpMultiplier"/> EXP.</summary>
+    public const int CatchUpLevelGap = 3;
+
+    /// <summary>EXP multiplier for a champion that is <see cref="CatchUpLevelGap"/>+ levels behind the match leader.</summary>
+    public const double CatchUpExpMultiplier = 2.5;
 
     /// <summary>Seconds between passive EXP ticks.</summary>
     public const double PassiveTickSeconds = 5;
@@ -68,7 +74,9 @@ public static class MobaLevels
             return long.MaxValue;
         }
 
-        return 90 + (currentLevel * 25);
+        // Steeper than linear so a fed champion needs disproportionately more per level -
+        // it keeps climbing but the gap to a farming opponent stops widening as fast.
+        return 90 + (currentLevel * 30) + (currentLevel * currentLevel);
     }
 
     /// <summary>Whether the given champion level is a skill-pick milestone.</summary>

@@ -37,6 +37,23 @@ public static class MobaExperience
             return;
         }
 
+        // Catch-up: a champion well behind the match leader gains EXP faster, so one team
+        // cannot run away with the game.
+        if (champion.CurrentMap is { } map)
+        {
+            var leaderLevel = map.GetAttackablesInRange(new Point(128, 128), 400)
+                .OfType<Player>()
+                .Where(p => p.IsMobaClone)
+                .Select(p => p.MobaLevel)
+                .DefaultIfEmpty(champion.MobaLevel)
+                .Max();
+
+            if (leaderLevel - champion.MobaLevel >= MobaLevels.CatchUpLevelGap)
+            {
+                amount = (long)(amount * MobaLevels.CatchUpExpMultiplier);
+            }
+        }
+
         champion.MobaExperience += amount;
 
         var leveledUp = false;

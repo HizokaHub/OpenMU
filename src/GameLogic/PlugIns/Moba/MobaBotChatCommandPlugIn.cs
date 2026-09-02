@@ -117,12 +117,15 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
             var account = caller.PersistenceContext.CreateNew<Account>();
             account.LoginName = $"#bot_{name}";
 
+            // Spread the squad across the lane width (x = origin +/- 6) so they don't all
+            // stack on one column; the bot keeps this offset while marching.
+            var laneOffset = ((i % classNumbers.Count) - (classNumbers.Count / 2)) * 2;
             var spawn = new Point(
-                (byte)Math.Clamp(origin.X + ((i % 4) * 2) - 3, 5, 250),
-                (byte)Math.Clamp(origin.Y + ((i / 4) * 2), 5, 250));
+                (byte)Math.Clamp(origin.X + laneOffset, 5, 250),
+                (byte)Math.Clamp((int)origin.Y, 5, 250));
 
             var bot = new MobaBotPlayer(caller.GameContext, team);
-            if (await bot.StartMobaAsync(account, clone, spawn).ConfigureAwait(false))
+            if (await bot.StartMobaAsync(account, clone, spawn, laneOffset).ConfigureAwait(false))
             {
                 spawned++;
             }

@@ -58,6 +58,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
+    private int _laneOffset;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
@@ -89,7 +90,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <param name="clone">The clone character (built by <see cref="MobaCloneFactory.BuildForClassAsync"/>).</param>
     /// <param name="spawn">Where to place the bot.</param>
     /// <returns><c>true</c> on success.</returns>
-    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn)
+    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn, int laneOffset = 0)
     {
         try
         {
@@ -132,6 +133,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._homeSpawn = spawn;
             this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team);
             this._laneIndex = 0;
+            this._laneOffset = Math.Clamp(laneOffset, -7, 7);
 
             // Bots skip SelectCharacterAction, so wire the champion-death handler here
             // (kill / assist EXP + K/D/A counters). RespawnAtAsync already snaps the bot
@@ -258,16 +260,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
         this.DevelopIfDue();
 
         var pos = this.Position;
-        var target = map.GetAttackablesInRange(pos, AcquireRangeTiles)
-            .OfType<Player>()
-            .Where(p => p.IsAlive && !ReferenceEquals(p, this) && MobaTeams.AreEnemies(this, p))
-            .OrderBy(p => p.GetDistanceTo(pos))
-            .FirstOrDefault();
+
+        // Acquire the nearest enemy in range: champions first (bigger threat), then lane
+        // creeps that are in the way. So the bot clears the lane instead of walking past it.
+        var inRange = map.GetAttackablesInRange(pos, AcquireRangeTiles)
+            .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
+            .ToList();
+
+        var target = inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault()
+            ?? inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
+                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
 
         if (target is null)
         {
-            // No enemy champion nearby: push the lane from our creep spawn toward the
-            // enemy creep spawn, like a creep.
+            // Nothing to fight: push the lane from our creep spawn toward the enemy one.
             await this.MarchLaneAsync(pos).ConfigureAwait(false);
             return;
         }
@@ -277,7 +283,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (distance > attackRange)
         {
-            await this.MoveAsync(StepToward(pos, target.Position, PreferredRangeTiles)).ConfigureAwait(false);
+            await this.WalkTowardAsync(target.Position).ConfigureAwait(false);
             return;
         }
 
@@ -295,25 +301,72 @@ public sealed class MobaBotPlayer : OfflinePlayer
         _ = MobaXp.HandleChampionDeathAsync(this, death);
     }
 
-    /// <summary>Advances one step along the lane waypoints toward the enemy creep spawn.</summary>
+    /// <summary>Walks along the lane waypoints toward the enemy creep spawn, spread out by lane offset.</summary>
     /// <param name="pos">Current position.</param>
     private async ValueTask MarchLaneAsync(Point pos)
     {
-        if (this._lane.Count == 0)
+        if (this._lane.Count == 0 || this.IsWalking)
         {
             return;
         }
 
         while (this._laneIndex < this._lane.Count - 1
-               && this._lane[this._laneIndex].EuclideanDistanceTo(pos) <= WaypointReachedTiles)
+               && this._lane[this._laneIndex].EuclideanDistanceTo(pos) <= WaypointReachedTiles + 4)
         {
             this._laneIndex++;
         }
 
-        var next = this._lane[this._laneIndex];
-        if (next.EuclideanDistanceTo(pos) > 1.0)
+        var wp = this._lane[this._laneIndex];
+
+        // Spread the bots across the lane width instead of all stacking on the x=116 column.
+        var next = new Point(
+            (byte)Math.Clamp(wp.X + this._laneOffset, 5, 250),
+            wp.Y);
+
+        if (next.EuclideanDistanceTo(pos) > 1.5)
         {
-            await this.MoveAsync(StepToward(pos, next, 0)).ConfigureAwait(false);
+            await this.WalkTowardAsync(next).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Pathfinds to <paramref name="target"/> and starts an animated walk (not the instant
+    /// MoveAsync teleport). No-op while already walking, so the walk plays out smoothly.
+    /// </summary>
+    private async ValueTask WalkTowardAsync(Point target)
+    {
+        if (this.IsWalking || this.CurrentMap is not { } map || this.Position.EuclideanDistanceTo(target) < 1.0)
+        {
+            return;
+        }
+
+        var pathFinder = await this.GameContext.PathFinderPool.GetAsync().ConfigureAwait(false);
+        try
+        {
+            pathFinder.ResetPathFinder();
+            var path = pathFinder.FindPath(this.Position, target, map.Terrain.AIgrid, false);
+            if (path is null || path.Count == 0)
+            {
+                return;
+            }
+
+            var stepCount = Math.Min(path.Count, 12);
+            var steps = new WalkingStep[stepCount];
+            for (var i = 0; i < stepCount; i++)
+            {
+                var from = i == 0 ? this.Position : steps[i - 1].To;
+                steps[i] = new WalkingStep(from, path[i].Point, from.GetDirectionTo(path[i].Point));
+            }
+
+            await this.WalkToAsync(steps[^1].To, steps).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
+        finally
+        {
+            this.GameContext.PathFinderPool.Return(pathFinder);
         }
     }
 
