@@ -374,7 +374,16 @@ public sealed class MobaBotPlayer : OfflinePlayer
                     // Face the target so the cast animation points the right way.
                     this.Rotation = this.Position.GetDirectionTo(target.Position);
 
-                    var hit = await target.AttackByAsync(this, entry, false).ConfigureAwait(false);
+                    // Register the skill with the combo state machine (the bot bypasses the
+                    // skill handlers that normally do this), so a Blade Knight / MG bot
+                    // that cycles distinct skills actually lands combos.
+                    var isCombo = false;
+                    if (this.ComboState is { } combo && entry.Skill is { } comboSkill)
+                    {
+                        isCombo = await combo.RegisterSkillAsync(comboSkill).ConfigureAwait(false);
+                    }
+
+                    var hit = await target.AttackByAsync(this, entry, isCombo).ConfigureAwait(false);
                     var effectApplied = false;
                     if (hit is { } h)
                     {

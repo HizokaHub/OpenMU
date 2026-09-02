@@ -148,6 +148,25 @@ public static class MobaSkillDamage
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
 
+    /// <summary>
+    /// The bonus added to a hit that completes a skill combo (Blade Knight / Magic
+    /// Gladiator). It is authored above every single skill's flat base and carries the
+    /// same level + stat scaling, so the combo hit (triggering skill + this) is always the
+    /// champion's hardest-hitting move.
+    /// </summary>
+    /// <param name="champion">The comboing champion.</param>
+    /// <returns>The flat combo bonus damage.</returns>
+    public static int GetComboBonus(Player champion)
+    {
+        const double comboFlatBase = 175;      // above every Table entry's Base
+        const double comboMaxStatBonus = 0.95; // rewards a maxed build like a heavy hitter
+
+        var flat = comboFlatBase * FlatMultiplier * 1.25;
+        var bonus = comboMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+        var levelScale = MobaProgression.DamageScale(champion.MobaLevel);
+        return (int)(flat * (1.0 + bonus) * levelScale);
+    }
+
     /// <summary>Gets the min/max MOBA damage for a champion's basic attack.</summary>
     /// <param name="champion">The attacking champion.</param>
     /// <param name="min">Output minimum.</param>

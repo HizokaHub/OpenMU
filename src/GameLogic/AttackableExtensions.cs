@@ -303,7 +303,9 @@ public static class AttackableExtensions
             //        Sleep magic effect is canceled for successful hit (dmg > 0)
             if (isCombo)
             {
-                dmg += (int)attacker.Attributes[Stats.ComboBonus];
+                dmg += isMobaChampionAttacker && attacker is Player mobaComboChamp
+                    ? PlugIns.Moba.MobaSkillDamage.GetComboBonus(mobaComboChamp)
+                    : (int)attacker.Attributes[Stats.ComboBonus];
                 attributes |= DamageAttributes.Combo;
             }
 

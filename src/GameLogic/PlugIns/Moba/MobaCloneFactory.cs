@@ -124,6 +124,22 @@ public static class MobaCloneFactory
 
         EnsureAttribute(context, clone, Stats.Level, MatchStartLevel);
 
+        // Skill combo (normally unlocked by a quest): give it to every clone of a class
+        // that has a combo definition (Blade Knight, Magic Gladiator, their generations)
+        // so the champion can land combos in a match.
+        var config = player.GameContext.Configuration;
+        var comboClass = characterClass;
+        while (comboClass is not null)
+        {
+            if (comboClass.ComboDefinition is not null)
+            {
+                EnsureAttribute(context, clone, Stats.IsSkillComboAvailable, 1f);
+                break;
+            }
+
+            comboClass = config.CharacterClasses.FirstOrDefault(c => c.NextGenerationClass == comboClass);
+        }
+
         // Master progression starts from scratch every match.
         clone.MasterExperience = 0;
         clone.MasterLevelUpPoints = 0;
