@@ -52,7 +52,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _skillCursor;
     private DateTime _nextActionUtc;
     private DateTime _nextDevelopUtc;
+    private DateTime _comboResetUtc;
     private int _developSkillCursor;
+    private int _comboStep;
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
@@ -374,11 +376,40 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
     }
 
+    // Blade Knight combo: step 1 (a basic slash) -> step 2 (a heavy) -> step 3 (Twisting
+    // Slash / Rageful Blow / Death Stab, which lands the combo hit), all within 3s.
+    private static readonly short[] ComboStep1 = { 23, 22, 20, 19, 21 };
+    private static readonly short[] ComboStep2 = { 232, 43, 42, 41 };
+    private static readonly short[] ComboStep3 = { 41, 42, 43 };
+
     private async ValueTask CastNextOrAttackAsync(IAttackable target)
     {
         var skills = this.SelectedCharacter?.LearnedSkills
             .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
             .ToList() ?? new List<SkillEntry>();
+
+        // A combo class deliberately walks step1 -> step2 -> step3 so it visibly combos,
+        // falling back to the round-robin below if the wanted step is all on cooldown.
+        if (skills.Count > 0 && this.ComboState is not null && this._comboStep < 3)
+        {
+            var pool = this._comboStep switch { 0 => ComboStep1, 1 => ComboStep2, _ => ComboStep3 };
+            var comboEntry = skills.FirstOrDefault(s =>
+                Array.IndexOf(pool, (short)s.Skill!.Number) >= 0
+                && !MobaCooldowns.IsOnCooldown(this, s.Skill!.Number, DateTime.UtcNow));
+
+            if (comboEntry is not null && await this.TryConsumeForSkillAsync(comboEntry).ConfigureAwait(false))
+            {
+                this._comboStep++;
+                this._comboResetUtc = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+                await this.FireSkillAsync(comboEntry, target).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        if (this._comboStep >= 3 || DateTime.UtcNow > this._comboResetUtc)
+        {
+            this._comboStep = 0;
+        }
 
         if (skills.Count > 0)
         {
@@ -394,30 +425,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 this._skillCursor = (this._skillCursor + i + 1) % skills.Count;
                 if (await this.TryConsumeForSkillAsync(entry).ConfigureAwait(false))
                 {
-                    // Face the target so the cast animation points the right way.
-                    this.Rotation = this.Position.GetDirectionTo(target.Position);
-
-                    // Register the skill with the combo state machine (the bot bypasses the
-                    // skill handlers that normally do this), so a Blade Knight / MG bot
-                    // that cycles distinct skills actually lands combos.
-                    var isCombo = false;
-                    if (this.ComboState is { } combo && entry.Skill is { } comboSkill)
-                    {
-                        isCombo = await combo.RegisterSkillAsync(comboSkill).ConfigureAwait(false);
-                    }
-
-                    var hit = await target.AttackByAsync(this, entry, isCombo).ConfigureAwait(false);
-                    var effectApplied = false;
-                    if (hit is { } h)
-                    {
-                        effectApplied = await target.TryApplyElementalEffectsAsync(this, entry, h).ConfigureAwait(false);
-                    }
-
-                    // Broadcast the cast animation so observers see the skill visual (the
-                    // bot bypasses the normal skill action which would do this).
-                    await this.ForEachWorldObserverAsync<Views.World.IShowSkillAnimationPlugIn>(
-                        p => p.ShowSkillAnimationAsync(this, target, entry.Skill, effectApplied), true).ConfigureAwait(false);
-
+                    await this.FireSkillAsync(entry, target).ConfigureAwait(false);
                     return;
                 }
             }
@@ -425,6 +433,37 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         // Nothing castable this tick: basic attack.
         await target.AttackByAsync(this, null, false).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Applies a skill the bot already paid for: faces the target, registers it with the
+    /// combo state machine (the bot bypasses the handlers that normally do this), deals the
+    /// damage and broadcasts the cast animation.
+    /// </summary>
+    private async ValueTask FireSkillAsync(SkillEntry entry, IAttackable target)
+    {
+        if (entry.Skill is not { } skill)
+        {
+            return;
+        }
+
+        this.Rotation = this.Position.GetDirectionTo(target.Position);
+
+        var isCombo = false;
+        if (this.ComboState is { } combo)
+        {
+            isCombo = await combo.RegisterSkillAsync(skill).ConfigureAwait(false);
+        }
+
+        var hit = await target.AttackByAsync(this, entry, isCombo).ConfigureAwait(false);
+        var effectApplied = false;
+        if (hit is { } h)
+        {
+            effectApplied = await target.TryApplyElementalEffectsAsync(this, entry, h).ConfigureAwait(false);
+        }
+
+        await this.ForEachWorldObserverAsync<Views.World.IShowSkillAnimationPlugIn>(
+            p => p.ShowSkillAnimationAsync(this, target, skill, effectApplied), true).ConfigureAwait(false);
     }
 
     private int GetMeleeAttackRange()
