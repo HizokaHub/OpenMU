@@ -115,8 +115,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
             };
             var invested = a is null ? 0 : (int)Math.Max(0, a[primary] - MobaCloneFactory.BaselineStatValue);
 
+            var aliveTag = c.IsAlive ? string.Empty : " (dead)";
             c.Logger.LogInformation(
-                "[MOBA-SCORE] t={Elapsed}s {Team} {Class} {Name} Lv{Level} KDA={K}/{D}/{A} HP={Hp:F0}/{MaxHp:F0} {Primary}+{Invested} dmgX{Scale:F1}",
+                "[MOBA-SCORE] t={Elapsed}s {Team} {Class} {Name} Lv{Level} KDA={K}/{D}/{A} HP={Hp:F0}/{MaxHp:F0}{Dead} {Primary}+{Invested} dmgX{Scale:F1}",
                 elapsed,
                 MobaTeams.GetTeam(c),
                 c.SelectedCharacter?.CharacterClass?.Name,
@@ -125,11 +126,12 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
                 c.MobaKills,
                 c.MobaDeaths,
                 c.MobaAssists,
-                a?[Stats.CurrentHealth] ?? 0,
+                Math.Max(0f, a?[Stats.CurrentHealth] ?? 0),
                 a?[Stats.MaximumHealth] ?? 0,
+                aliveTag,
                 primary.Designation,
                 invested,
-                MobaProgression.DamageScale(c.MobaLevel));
+                MobaProgression.DamageScaleFor(c));
         }
     }
 
