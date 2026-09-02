@@ -233,7 +233,19 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private async ValueTask TickAsync()
     {
-        if (!this.IsAlive || this.SelectedCharacter is null || this.CurrentMap is not { } map)
+        if (this.SelectedCharacter is null || this.CurrentMap is not { } map)
+        {
+            return;
+        }
+
+        // Spend earned points even while dead / respawning, so a bot on the losing team
+        // that barely lives still keeps its level's worth of stats and skill ranks.
+        if (!this._isDummy)
+        {
+            this.DevelopIfDue();
+        }
+
+        if (!this.IsAlive)
         {
             return;
         }
@@ -257,21 +269,19 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        this.DevelopIfDue();
-
         var pos = this.Position;
 
-        // Target priority (for balance testing): enemy BOT champions first, then lane
-        // creeps in the way, and only then the human champion - so a human tester can
-        // watch a fight without being instantly focus-fired.
+        // Target priority (for balance testing): clear the LANE CREEPS first, then enemy
+        // bot champions, and only then the human champion (so a human tester can watch a
+        // fight without being focus-fired).
         var inRange = map.GetAttackablesInRange(pos, AcquireRangeTiles)
             .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
             .ToList();
 
-        var target = inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
-                .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
-            ?? inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
-                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault()
+        var target = inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
+                .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
+            ?? inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
+                .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault()
             ?? inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
 
         if (target is null)
@@ -406,7 +416,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        this._nextDevelopUtc = now + TimeSpan.FromSeconds(4);
+        this._nextDevelopUtc = now + TimeSpan.FromSeconds(1.5);
 
         if (this.SelectedCharacter is not { } character || this.Attributes is not { } attributes)
         {
