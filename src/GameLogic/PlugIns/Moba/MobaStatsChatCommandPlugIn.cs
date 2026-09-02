@@ -67,12 +67,16 @@ public class MobaStatsChatCommandPlugIn : IChatCommandPlugIn
             MobaFamily.DarkLord => Stats.TotalLeadership,
             _ => Stats.TotalEnergy,
         };
-        lines.Add($"  stat primario ({primary.Designation}) = {attr[primary]:F0}");
+        var invested = Math.Max(0, attr[primary] - MobaCloneFactory.BaselineStatValue);
+        lines.Add($"  stat primario ({primary.Designation}) = {attr[primary]:F0}  (invertido {invested:F0}/{MobaStatEconomy.MaxPerStat:N0}, escala {Math.Clamp(invested / MobaStatEconomy.MaxPerStat, 0f, 1f) * 100f:F0}%)");
 
         foreach (var (number, label) in SampleSkills(family))
         {
-            MobaSkillDamage.GetSkillBaseDamage(player, number, 3, out var min, out var max);
-            lines.Add($"    {label} (r3): {min}-{max}");
+            // Use the skill's real learned rank so the numbers match what the server rolls
+            // in combat, not a fixed reference rank.
+            var rank = character.LearnedSkills.FirstOrDefault(s => s.Skill?.Number == number)?.Level ?? 0;
+            MobaSkillDamage.GetSkillBaseDamage(player, number, rank, out var min, out var max);
+            lines.Add($"    {label} (r{Math.Max(1, rank)}): {min}-{max}");
         }
 
         MobaSkillDamage.GetBasicAttackDamage(player, out var bmin, out var bmax);
