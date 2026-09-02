@@ -22,8 +22,19 @@ public static class MobaCc
     /// </summary>
     private static readonly TimeSpan MaxHardCc = TimeSpan.FromMilliseconds(1400);
 
+    /// <summary>Freeze is only a brief root/interrupt in MOBA (not a lockout) - capped shorter than a stun.</summary>
+    private static readonly TimeSpan MaxFreeze = TimeSpan.FromMilliseconds(650);
+
     /// <summary>Attributes that count as a hard "can't act" crowd control.</summary>
     private static readonly AttributeDefinition[] HardCcAttributes = { Stats.IsStunned, Stats.IsFrozen, Stats.IsAsleep };
+
+    /// <summary>Innate tenacity: a family's hard-CC durations are multiplied by this (tanks shrug off CC).</summary>
+    private static double TenacityMul(MobaFamily family) => family switch
+    {
+        MobaFamily.Knight or MobaFamily.RageFighter => 0.70,
+        MobaFamily.DarkLord => 0.85,
+        _ => 1.0,
+    };
 
     /// <summary>Per-hit CC-duration factor by consecutive-CC stack: 100%, 60%, 36%, 22%, then 15%.</summary>
     private static readonly double[] DiminishingFactor = { 1.0, 0.60, 0.36, 0.22, 0.15 };
@@ -70,7 +81,13 @@ public static class MobaCc
                         continue;
                     }
 
-                    if (!effect.PowerUpElements.Any(e => Array.IndexOf(HardCcAttributes, e.Target) >= 0))
+                    var isFreeze = effect.PowerUpElements.Any(e => e.Target == Stats.IsFrozen);
+                    var isHardCc = isFreeze || effect.PowerUpElements.Any(e => Array.IndexOf(HardCcAttributes, e.Target) >= 0);
+
+                    // Only long CC counts: short self-stuns (cast wind-up) and already-brief
+                    // CC pass through without capping or feeding diminishing returns.
+                    var longCc = isHardCc && effect.Duration > (isFreeze ? MaxFreeze : MaxHardCc);
+                    if (!longCc)
                     {
                         continue;
                     }
@@ -83,8 +100,10 @@ public static class MobaCc
                         dr.Stacks = 0;
                     }
 
-                    var factor = DiminishingFactor[Math.Min(dr.Stacks, DiminishingFactor.Length - 1)];
-                    var capped = TimeSpan.FromMilliseconds(MaxHardCc.TotalMilliseconds * factor);
+                    var baseCap = isFreeze ? MaxFreeze : MaxHardCc;
+                    var factor = DiminishingFactor[Math.Min(dr.Stacks, DiminishingFactor.Length - 1)]
+                                 * TenacityMul(MobaPassives.FamilyOf(champion));
+                    var capped = TimeSpan.FromMilliseconds(baseCap.TotalMilliseconds * factor);
                     if (effect.Duration > capped)
                     {
                         effect.Duration = capped;

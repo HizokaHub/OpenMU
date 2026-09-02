@@ -79,6 +79,10 @@ public static class MobaPassives
 
         if (attacker is Player { IsMobaClone: true } champion && !ReferenceEquals(attacker, victim))
         {
+            // Universal LoL-style mechanics: life steal / spell vamp, and true / %HP
+            // special damage on a few anti-tank skills.
+            MobaVampAndSpecial.Apply(champion, victim, skill, hit);
+
             switch (FamilyOf(champion))
             {
                 case MobaFamily.RageFighter:

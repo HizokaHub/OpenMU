@@ -1159,6 +1159,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             }
         }
 
+        if (this.IsMobaClone)
+        {
+            // Heavy skills have a brief recovery lock (wind-up telegraph); shield skills
+            // grant a decaying temp shield.
+            await PlugIns.Moba.MobaCastEffects.OnCastAsync(this, skill).ConfigureAwait(false);
+        }
+
         return true;
     }
 

@@ -323,10 +323,17 @@ public static class AttackableExtensions
             }
 
             // MOBA: percent mitigation from the defender's invested VIT, minus the casting
-            // skill's armour penetration.
-            if (isMobaChampionAttacker && defender is Player { IsMobaClone: true } mobaDefender)
+            // skill's armour penetration; then a crit roll from the attacker's invested AGI.
+            if (isMobaChampionAttacker && attacker is Player mobaAtk && defender is Player { IsMobaClone: true } mobaDefender)
             {
                 dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0));
+
+                if ((attributes & DamageAttributes.Critical) == 0
+                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.CritChanceOf(mobaAtk)))
+                {
+                    dmg = (int)(dmg * PlugIns.Moba.MobaCombatStats.CritMultiplier);
+                    attributes |= DamageAttributes.Critical;
+                }
             }
         }
 

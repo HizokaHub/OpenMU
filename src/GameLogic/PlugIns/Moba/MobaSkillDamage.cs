@@ -143,10 +143,18 @@ public static class MobaSkillDamage
 
         var r = Math.Clamp(rank, 1, 5);
         var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier;
-        var bonus = maxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+
+        // Per-rank stat ratio (LoL AP/AD ratio): the skill scales harder with the primary
+        // stat as it is maxed - the table value is the rank-1 ratio, growing to
+        // RankRatioAtMax x that at rank 5.
+        var rankRatio = maxStatBonus * (1.0 + ((RankRatioAtMax - 1.0) * ((r - 1) / 4.0)));
+        var bonus = rankRatio * StatBonusMultiplier * InvestedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
+
+    /// <summary>A rank-5 skill scales with the primary stat this many times as hard as rank 1.</summary>
+    private const double RankRatioAtMax = 1.6;
 
     /// <summary>
     /// The bonus added to a hit that completes a skill combo (Blade Knight / Magic
@@ -173,11 +181,16 @@ public static class MobaSkillDamage
     /// <param name="max">Output maximum.</param>
     public static void GetBasicAttackDamage(Player champion, out int min, out int max)
     {
-        var flat = BasicAttackDamage * FlatMultiplier;
+        // Basic attacks grow with champion level (a real damage phase between skills), on
+        // top of the global level scale and the primary-stat bonus.
+        var flat = (BasicAttackDamage + (BasicAttackPerLevel * (Math.Clamp(champion.MobaLevel, 1, 30) - 1))) * FlatMultiplier;
         var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
+
+    /// <summary>Extra flat basic-attack base per champion level.</summary>
+    private const double BasicAttackPerLevel = 4.0;
 
     /// <summary>
     /// How far the champion's PRIMARY stat is from baseline to fully maxed, as 0..1.

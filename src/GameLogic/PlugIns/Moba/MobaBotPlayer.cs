@@ -355,7 +355,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        this._nextActionUtc = DateTime.UtcNow + ActionCooldown;
+        // Attack cadence speeds up with invested AGI (attack speed), down to ~45% of the base gap.
+        var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
+        var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
+        this._nextActionUtc = DateTime.UtcNow + (ActionCooldown * speedFactor);
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
     }
 
@@ -602,10 +605,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     }
 
     private int GetMeleeAttackRange()
-    {
-        // Champions use a small range; ranged loadouts (bow / staff) still work from 2.
-        return 3;
-    }
+        => MobaCombatStats.AttackRangeOf(MobaPassives.FamilyOf(this));
 
     private static Point StepToward(Point from, Point to, int stopShortBy)
     {
