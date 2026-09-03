@@ -44,6 +44,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>After an enemy champion hits it, the bot stays "in combat" (hunts champions, ignores creeps) for this long.</summary>
     private static readonly TimeSpan CombatMemory = TimeSpan.FromSeconds(5);
 
+    // --- macro thresholds ---
+    private const float RecallHpPct = 0.15f;
+    private const float FightBailPct = 0.18f;
+    private const float RetreatRecoverPct = 0.55f;
+    private const int RecallSafeTiles = 18;
+    private const int RecallCancelTiles = 13;
+    private const double DefendBehindLevels = 8;
+    private static readonly TimeSpan RecallChannel = TimeSpan.FromMilliseconds(3500);
+
     /// <summary>
     /// Max tiles a bot relocates per tick. Player.MoveAsync is an INSTANT teleport, so
     /// without a cap a bot marching to a waypoint 50 tiles away would blink straight into
@@ -60,9 +69,11 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _nextDevelopUtc;
     private DateTime _comboResetUtc;
     private DateTime _combatUntilUtc;
+    private DateTime _recallStartUtc;
     private int _developSkillCursor;
     private int _comboStep;
-    private IAttackable? _aggressor;
+    private Player? _aggressor;
+    private BotState _state = BotState.Lane;
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
@@ -279,14 +290,89 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         var pos = this.Position;
         var now = DateTime.UtcNow;
+        var ctx = this.BuildContext(map, pos, now);
 
-        var inRange = map.GetAttackablesInRange(pos, AcquireRangeTiles)
+        // --- macro state machine ---------------------------------------------------------
+        this._state = this.DecideState(ctx);
+
+        switch (this._state)
+        {
+            case BotState.Recalling:
+                await this.TickRecallAsync(ctx).ConfigureAwait(false);
+                return;
+            case BotState.Retreat:
+                await this.TickRetreatAsync(ctx).ConfigureAwait(false);
+                return;
+            case BotState.DefendBase:
+                await this.TickDefendAsync(ctx).ConfigureAwait(false);
+                return;
+            case BotState.Fight:
+                await this.TickFightAsync(ctx).ConfigureAwait(false);
+                return;
+            case BotState.GroupPush:
+                await this.TickPushAsync(ctx).ConfigureAwait(false);
+                return;
+            default:
+                await this.TickLaneAsync(ctx).ConfigureAwait(false);
+                return;
+        }
+    }
+
+    // ==================================================================================
+    //  Macro brain
+    // ==================================================================================
+    private enum BotState
+    {
+        Lane,
+        Fight,
+        GroupPush,
+        DefendBase,
+        Retreat,
+        Recalling,
+    }
+
+    private readonly record struct BotContext(
+        GameMap Map,
+        Point Pos,
+        DateTime Now,
+        float HpPct,
+        List<Player> EnemyChampsInRange,
+        List<Player> AllyChampsNear,
+        List<Player> EnemyChampsNear,
+        double AllyPower,
+        double EnemyPower,
+        double AllyAvgLevel,
+        double EnemyAvgLevel,
+        int AllyDeadCount,
+        bool InCombat,
+        Player? Aggressor,
+        NPC.Monster? NearestEnemyStructure,
+        bool AlliedCreepsAtPos);
+
+    private BotContext BuildContext(GameMap map, Point pos, DateTime now)
+    {
+        var attackRange = Math.Max(2, this.GetMeleeAttackRange());
+
+        var enemiesInAcquire = map.GetAttackablesInRange(pos, AcquireRangeTiles)
             .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
             .ToList();
 
-        // Persistent aggro: if an enemy CHAMPION damaged us in the last few seconds we are
-        // "in combat" for CombatMemory - during that window we hunt champions and ignore
-        // creeps entirely (the old per-tick HP check flickered back to farming).
+        var enemyChampsInRange = enemiesInAcquire.OfType<Player>()
+            .Where(p => p is not MobaBotPlayer { IsDummy: true })
+            .ToList();
+
+        // Everyone in the match, split by side and by "near me" (a local fight radius).
+        var everyone = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Player>()
+            .Where(p => p.IsMobaClone && p is not MobaBotPlayer { IsDummy: true })
+            .ToList();
+        var myTeam = MobaTeams.GetTeam(this);
+        var allies = everyone.Where(p => !ReferenceEquals(p, this) && MobaTeams.GetTeam(p) == myTeam).ToList();
+        var enemies = everyone.Where(p => MobaTeams.AreEnemies(this, p)).ToList();
+
+        const double LocalFightTiles = 18;
+        var allyNear = allies.Where(p => p.IsAlive && p.GetDistanceTo(pos) <= LocalFightTiles).Append(this).ToList();
+        var enemyNear = enemies.Where(p => p.IsAlive && p.GetDistanceTo(pos) <= LocalFightTiles).ToList();
+
         var recentAttackers = MobaCombatLog.RecentAttackersOf(this, CombatMemory);
         var aggressor = recentAttackers.OfType<Player>()
             .FirstOrDefault(p => p.IsAlive && MobaTeams.AreEnemies(this, p) && p is not MobaBotPlayer { IsDummy: true });
@@ -296,57 +382,309 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._aggressor = aggressor;
         }
 
-        var inCombat = now < this._combatUntilUtc;
+        var nearestEnemyStructure = enemiesInAcquire.OfType<NPC.Monster>()
+            .Where(MobaStructures.IsStructure)
+            .MinBy(m => m.GetDistanceTo(pos));
 
-        // Under an enemy turret with no allied creeps to soak it -> retreat out of range
-        // (you don't dive a tower without minions).
-        var enemyTurret = inRange.OfType<NPC.Monster>()
-            .FirstOrDefault(m => MobaStructures.IsStructure(m) && m.GetDistanceTo(pos) <= TurretDangerTiles);
-        if (enemyTurret is not null)
+        var alliedCreepsAtPos = map.GetAttackablesInRange(pos, TurretDangerTiles + 2)
+            .OfType<NPC.Monster>()
+            .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+
+        var a = this.Attributes;
+        var hpPct = a is null ? 1f : Math.Clamp(a[Stats.CurrentHealth] / Math.Max(1f, a[Stats.MaximumHealth]), 0f, 1f);
+
+        return new BotContext(
+            map,
+            pos,
+            now,
+            hpPct,
+            enemyChampsInRange,
+            allyNear,
+            enemyNear,
+            Power(allyNear),
+            Power(enemyNear),
+            allies.Append(this).Average(p => p.MobaLevel),
+            enemies.Count > 0 ? enemies.Average(p => p.MobaLevel) : this.MobaLevel,
+            allies.Count(p => !p.IsAlive),
+            now < this._combatUntilUtc,
+            this._aggressor,
+            nearestEnemyStructure,
+            alliedCreepsAtPos);
+
+        static double Power(IEnumerable<Player> champs) => champs.Sum(p =>
         {
-            var alliedCreepsHere = map.GetAttackablesInRange(pos, TurretDangerTiles + 2)
-                .OfType<NPC.Monster>()
-                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
-            if (!alliedCreepsHere)
+            var aa = p.Attributes;
+            var hp = aa is null ? 1f : Math.Clamp(aa[Stats.CurrentHealth] / Math.Max(1f, aa[Stats.MaximumHealth]), 0f, 1f);
+            return Math.Max(1, p.MobaLevel) * (0.4 + (0.6 * hp));
+        });
+    }
+
+    private BotState DecideState(BotContext c)
+    {
+        // Already channelling a recall: keep it unless an enemy champion gets close
+        // (cancel -> retreat) or it is done.
+        if (this._state == BotState.Recalling)
+        {
+            if (c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallCancelTiles))
+            {
+                return BotState.Retreat;
+            }
+
+            return BotState.Recalling;
+        }
+
+        var forcedFight = c.InCombat || c.EnemyChampsInRange.Any(e => e.GetDistanceTo(c.Pos) <= 3);
+
+        // Critically low and NOT locked in melee -> get out. If already safe, recall.
+        if (c.HpPct <= RecallHpPct && !forcedFight)
+        {
+            return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
+        }
+
+        // Team is being run over: play defence at our own turret, never walk out to feed.
+        if (c.EnemyAvgLevel - c.AllyAvgLevel >= DefendBehindLevels)
+        {
+            return forcedFight && c.HpPct > FightBailPct ? BotState.Fight : BotState.DefendBase;
+        }
+
+        // Two-plus allies dead -> don't force anything; hold / lane defensively.
+        if (c.AllyDeadCount >= 2 && !forcedFight)
+        {
+            return BotState.Lane;
+        }
+
+        if (forcedFight)
+        {
+            // Disengage a clearly lost fight if we're getting low and not point-blank.
+            if (c.HpPct <= FightBailPct && c.EnemyPower > c.AllyPower * 1.6
+                && !c.EnemyChampsInRange.Any(e => e.GetDistanceTo(c.Pos) <= 2))
+            {
+                return BotState.Retreat;
+            }
+
+            return BotState.Fight;
+        }
+
+        // Enemy champion around but not yet fighting: only commit if the local fight is
+        // not clearly unfavourable.
+        if (c.EnemyChampsNear.Count > 0)
+        {
+            return c.EnemyPower > c.AllyPower * 1.35 && c.HpPct < 0.65 ? BotState.Lane : BotState.Fight;
+        }
+
+        // Nobody to fight: push a structure with the wave if we're not behind, else lane.
+        if (c.NearestEnemyStructure is not null
+            && c.AlliedCreepsAtPos
+            && c.AllyAvgLevel >= c.EnemyAvgLevel - 2
+            && !c.EnemyChampsNear.Any())
+        {
+            return BotState.GroupPush;
+        }
+
+        return BotState.Lane;
+    }
+
+    /// <summary>A spot is safe to start / continue a recall: our own half of the lane and no enemy champion nearby.</summary>
+    private bool IsSafeSpot(BotContext c)
+    {
+        var ownHalf = MobaTeams.GetTeam(this) == MobaTeam.Blue ? c.Pos.Y < 122 : c.Pos.Y > 134;
+        var noEnemyClose = !c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallSafeTiles);
+        return ownHalf && noEnemyClose;
+    }
+
+    private async ValueTask TickRecallAsync(BotContext c)
+    {
+        if (this._recallStartUtc == default)
+        {
+            this._recallStartUtc = c.Now;
+        }
+
+        // Stand still and channel. Done -> blink home, full heal, back to lane.
+        if (c.Now - this._recallStartUtc >= RecallChannel)
+        {
+            this._recallStartUtc = default;
+            this._laneIndex = 0;
+            if (this.Attributes is { } a)
+            {
+                a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
+                a[Stats.CurrentMana] = a[Stats.MaximumMana];
+                a[Stats.CurrentShield] = a[Stats.MaximumShield];
+            }
+
+            await this.MoveAsync(this._homeSpawn).ConfigureAwait(false);
+            this._state = BotState.Lane;
+        }
+    }
+
+    private async ValueTask TickRetreatAsync(BotContext c)
+    {
+        this._recallStartUtc = default;
+
+        // Recovered enough and safe -> resume laning.
+        if (c.HpPct >= RetreatRecoverPct && this.IsSafeSpot(c))
+        {
+            this._state = BotState.Lane;
+            await this.TickLaneAsync(c).ConfigureAwait(false);
+            return;
+        }
+
+        // Reached a safe spot while still hurt -> recall.
+        if (c.HpPct < RecallHpPct * 2 && this.IsSafeSpot(c))
+        {
+            this._state = BotState.Recalling;
+            this._recallStartUtc = c.Now;
+            return;
+        }
+
+        await this.WalkTowardAsync(this._homeSpawn).ConfigureAwait(false);
+    }
+
+    private async ValueTask TickDefendAsync(BotContext c)
+    {
+        var myTurret = this.OwnFrontTurret(c.Map) ?? (IAttackable?)null;
+        var anchor = myTurret?.Position ?? this._homeSpawn;
+
+        // Fight only what walks into our turret's shadow; never chase out.
+        var target = c.EnemyChampsInRange
+            .Where(e => e.GetDistanceTo(anchor) <= TurretDangerTiles + 4)
+            .OrderBy(e => e.Attributes?[Stats.CurrentHealth] ?? float.MaxValue)
+            .FirstOrDefault() as IAttackable
+            ?? c.Map.GetAttackablesInRange(c.Pos, this.GetMeleeAttackRange() + 1)
+                .OfType<NPC.Monster>().FirstOrDefault(m => !MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m));
+
+        if (target is not null)
+        {
+            await this.EngageAsync(c, target).ConfigureAwait(false);
+            return;
+        }
+
+        if (c.Pos.EuclideanDistanceTo(anchor) > 6)
+        {
+            await this.WalkTowardAsync(anchor).ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask TickFightAsync(BotContext c)
+    {
+        // Shared focus: everyone piles the lowest-effective-HP enemy champion in range,
+        // falling back to the aggressor, then nearest.
+        var focus = c.EnemyChampsInRange
+            .OrderBy(e => (e.Attributes?[Stats.CurrentHealth] ?? float.MaxValue))
+            .FirstOrDefault() as IAttackable
+            ?? (this._aggressor is { IsAlive: true } agg && agg.GetDistanceTo(c.Pos) <= AcquireRangeTiles ? agg : null)
+            ?? c.EnemyChampsNear.OrderBy(e => e.GetDistanceTo(c.Pos)).FirstOrDefault();
+
+        // Peel: if an allied carry near me is low and someone is on them, switch to that attacker.
+        var alliedCarryUnderThreat = c.AllyChampsNear
+            .Where(ally => !ReferenceEquals(ally, this)
+                           && MobaPassives.FamilyOf(ally) is MobaFamily.Elf or MobaFamily.Wizard or MobaFamily.Summoner
+                           && (ally.Attributes?[Stats.CurrentHealth] ?? 1f) / Math.Max(1f, ally.Attributes?[Stats.MaximumHealth] ?? 1f) < 0.4f)
+            .SelectMany(ally => MobaCombatLog.RecentAttackersOf(ally, TimeSpan.FromSeconds(2)).OfType<Player>())
+            .FirstOrDefault(atk => atk.IsAlive && MobaTeams.AreEnemies(this, atk) && atk.GetDistanceTo(c.Pos) <= AcquireRangeTiles);
+        if (alliedCarryUnderThreat is not null)
+        {
+            focus = alliedCarryUnderThreat;
+        }
+
+        if (focus is null)
+        {
+            this._state = BotState.Lane;
+            await this.TickLaneAsync(c).ConfigureAwait(false);
+            return;
+        }
+
+        await this.EngageAsync(c, focus).ConfigureAwait(false);
+    }
+
+    private async ValueTask TickPushAsync(BotContext c)
+    {
+        var structure = c.NearestEnemyStructure;
+        if (structure is null || !c.AlliedCreepsAtPos)
+        {
+            this._state = BotState.Lane;
+            await this.TickLaneAsync(c).ConfigureAwait(false);
+            return;
+        }
+
+        // Any enemy champ shows up -> stop pushing, fight.
+        if (c.EnemyChampsNear.Count > 0)
+        {
+            this._state = BotState.Fight;
+            await this.TickFightAsync(c).ConfigureAwait(false);
+            return;
+        }
+
+        await this.EngageAsync(c, structure).ConfigureAwait(false);
+    }
+
+    private async ValueTask TickLaneAsync(BotContext c)
+    {
+        // Behind on levels -> hold at mid, don't push into the enemy half.
+        var behind = c.AllyAvgLevel < c.EnemyAvgLevel - 3;
+
+        var target = c.Map.GetAttackablesInRange(c.Pos, AcquireRangeTiles)
+            .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
+            .OfType<NPC.Monster>()
+            .Where(m => !MobaStructures.IsStructure(m))
+            .OrderBy(m => m.GetDistanceTo(c.Pos))
+            .FirstOrDefault() as IAttackable;
+
+        if (target is null && !behind)
+        {
+            target = c.EnemyChampsInRange.OfType<MobaBotPlayer>().OrderBy(b => b.GetDistanceTo(c.Pos)).FirstOrDefault();
+        }
+
+        if (target is not null)
+        {
+            // Under an enemy turret without a wave -> back off.
+            if (c.NearestEnemyStructure is { } t
+                && t.GetDistanceTo(c.Pos) <= TurretDangerTiles
+                && !c.AlliedCreepsAtPos)
             {
                 await this.WalkTowardAsync(this._homeSpawn).ConfigureAwait(false);
                 return;
             }
-        }
 
-        IAttackable? target;
-        if (inCombat)
-        {
-            // Stay on the aggressor if it's still reachable, else the nearest enemy
-            // champion. Never break off to a creep while in combat.
-            target = (this._aggressor is { IsAlive: true } agg && agg.GetDistanceTo(pos) <= AcquireRangeTiles ? agg : null)
-                ?? inRange.OfType<Player>().Where(p => p is not MobaBotPlayer { IsDummy: true })
-                    .OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault();
-        }
-        else
-        {
-            // Not in combat: clear the LANE CREEPS first, then enemy bot champions, then
-            // the human champion (so a human tester can watch without being focus-fired).
-            target = inRange.OfType<NPC.Monster>().Where(m => !MobaStructures.IsStructure(m))
-                    .OrderBy(m => m.GetDistanceTo(pos)).FirstOrDefault() as IAttackable
-                ?? inRange.OfType<MobaBotPlayer>().Where(b => !b.IsDummy)
-                    .OrderBy(b => b.GetDistanceTo(pos)).FirstOrDefault()
-                ?? inRange.OfType<Player>().OrderBy(p => p.GetDistanceTo(pos)).FirstOrDefault() as IAttackable;
-        }
-
-        if (target is null)
-        {
-            // Nothing to fight: push the lane from our creep spawn toward the enemy one.
-            await this.MarchLaneAsync(pos).ConfigureAwait(false);
+            await this.EngageAsync(c, target).ConfigureAwait(false);
             return;
         }
 
-        var distance = target.GetDistanceTo(pos);
-        var attackRange = Math.Max(2, this.GetMeleeAttackRange());
+        if (behind)
+        {
+            // Hold near mid / our side of it.
+            var holdY = MobaTeams.GetTeam(this) == MobaTeam.Blue ? (byte)120 : (byte)136;
+            var hold = new Point((byte)Math.Clamp(116 + this._laneOffset, 5, 250), holdY);
+            if (c.Pos.EuclideanDistanceTo(hold) > 4)
+            {
+                await this.WalkTowardAsync(hold).ConfigureAwait(false);
+            }
 
-        if (distance > attackRange)
+            return;
+        }
+
+        await this.MarchLaneAsync(c.Pos).ConfigureAwait(false);
+    }
+
+    /// <summary>Approach to attack range (kiting for ranged classes) then cast / basic attack.</summary>
+    private async ValueTask EngageAsync(BotContext c, IAttackable target)
+    {
+        var pos = c.Pos;
+        var dist = target.GetDistanceTo(pos);
+        var range = Math.Max(2, this.GetMeleeAttackRange());
+        var ranged = range >= 5;
+
+        if (dist > range)
         {
             await this.WalkTowardAsync(target.Position).ConfigureAwait(false);
+            return;
+        }
+
+        // Ranged kiting: if the target is basically on top of us and we can act again
+        // soon, take a step back toward our side instead of standing still.
+        if (ranged && dist < range - 2 && DateTime.UtcNow < this._nextActionUtc && target is Player)
+        {
+            var away = StepAway(pos, target.Position, 3);
+            await this.WalkTowardAsync(away).ConfigureAwait(false);
             return;
         }
 
@@ -355,11 +693,39 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        // Attack cadence speeds up with invested AGI (attack speed), down to ~45% of the base gap.
         var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
         var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
         this._nextActionUtc = DateTime.UtcNow + (ActionCooldown * speedFactor);
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
+    }
+
+    private NPC.Monster? OwnFrontTurret(GameMap map)
+    {
+        var myTeam = MobaTeams.GetTeam(this);
+        var turrets = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.GetTeam(m) == myTeam)
+            .ToList();
+
+        // "Front" = closest turret to mid (highest Y for Blue in the north, lowest for Red).
+        return myTeam == MobaTeam.Blue
+            ? turrets.OrderByDescending(t => t.Position.Y).FirstOrDefault()
+            : turrets.OrderBy(t => t.Position.Y).FirstOrDefault();
+    }
+
+    private static Point StepAway(Point from, Point threat, int tiles)
+    {
+        var dx = from.X - threat.X;
+        var dy = from.Y - threat.Y;
+        var len = Math.Sqrt((dx * dx) + (dy * dy));
+        if (len < 0.1)
+        {
+            return from;
+        }
+
+        var nx = (int)Math.Round(from.X + (dx / len * tiles));
+        var ny = (int)Math.Round(from.Y + (dy / len * tiles));
+        return new Point((byte)Math.Clamp(nx, 5, 250), (byte)Math.Clamp(ny, 5, 250));
     }
 
     private void OnBotChampionDied(object? sender, DeathInformation death)
