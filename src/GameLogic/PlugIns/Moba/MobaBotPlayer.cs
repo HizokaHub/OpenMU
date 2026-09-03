@@ -29,7 +29,10 @@ using MUnique.OpenMU.Pathfinding;
 public sealed class MobaBotPlayer : OfflinePlayer
 {
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(700);
-    private static readonly TimeSpan ActionCooldown = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan ActionCooldown = TimeSpan.FromMilliseconds(650);
+
+    /// <summary>Basic-attack cadence - faster than the skill cadence so bots weave autos between abilities.</summary>
+    private static readonly TimeSpan BasicCooldown = TimeSpan.FromMilliseconds(400);
     private const int AcquireRangeTiles = 25;
     private const int PreferredRangeTiles = 2;
 
@@ -98,6 +101,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _ticking;
     private int _skillCursor;
     private DateTime _nextActionUtc;
+    private DateTime _nextBasicUtc;
+    private DateTime _manaConserveUntilUtc;
     private DateTime _nextDevelopUtc;
     private DateTime _comboResetUtc;
     private DateTime _combatUntilUtc;
@@ -645,9 +650,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         // Nobody to fight: push the front objective as long as we have creeps with us (at
-        // the turret OR right next to us on the way in) and we're not badly behind.
-        if (c.FrontEnemyStructure is not null
-            && (c.WaveAtFront || c.AlliedCreepsAtPos)
+        // an allied wave has actually reached the enemy structure (NOT just "creeps next to
+        // me at my own spawn" - that sent bots marching across the map at match start), and
+        // we are close enough to it to be part of that push, and not badly behind.
+        if (c.FrontEnemyStructure is { } push
+            && c.WaveAtFront
+            && push.GetDistanceTo(c.Pos) <= 28
             && c.AllyAvgLevel >= c.EnemyAvgLevel - 3
             && !c.EnemyChampsNear.Any())
         {
@@ -787,7 +795,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private async ValueTask TickPushAsync(BotContext c)
     {
         var structure = c.FrontEnemyStructure;
-        if (structure is null || !(c.WaveAtFront || c.AlliedCreepsAtPos))
+        if (structure is null || !c.WaveAtFront || structure.GetDistanceTo(c.Pos) > 30)
         {
             this._state = BotState.Lane;
             await this.TickLaneAsync(c).ConfigureAwait(false);
@@ -822,12 +830,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
             target = c.EnemyChampsInRange.OfType<MobaBotPlayer>().OrderBy(b => b.GetDistanceTo(c.Pos)).FirstOrDefault();
         }
 
-        // No creeps / bots to hit but our wave is here and the front structure is close:
-        // chip the turret instead of standing around (this is what "waits under turret" was).
+        // No creeps / bots to hit, our WAVE has reached the enemy structure and we are right
+        // there with it: chip the turret. (Requires WaveAtFront, not just creeps beside us -
+        // otherwise bots march off to the enemy turret straight from their own spawn.)
         if (target is null && !behind
             && c.FrontEnemyStructure is { } frontStruct
-            && c.AlliedCreepsAtPos
-            && frontStruct.GetDistanceTo(c.Pos) <= AcquireRangeTiles)
+            && c.WaveAtFront
+            && frontStruct.GetDistanceTo(c.Pos) <= TurretDangerTiles + 6)
         {
             await this.EngageAsync(c, frontStruct).ConfigureAwait(false);
             return;
@@ -944,27 +953,45 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        // Ranged kiting: if the target is basically on top of us and we can act again
-        // soon, take a step back toward our side instead of standing still.
-        if (ranged && dist < range - 2 && DateTime.UtcNow < this._nextActionUtc && target is Player)
+        var nowT = DateTime.UtcNow;
+        var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
+        var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
+
+        var targetHpPct = target is Player tp && tp.Attributes is { } ta
+            ? Math.Clamp(ta[Stats.CurrentHealth] / Math.Max(1f, ta[Stats.MaximumHealth]), 0f, 1f)
+            : 1f;
+
+        // Skill action ready -> use the full skill/combo pick (falls back to a basic itself).
+        if (nowT >= this._nextActionUtc)
         {
-            var away = StepAway(pos, target.Position, 3);
-            this.EngageNote("kiting back", target);
+            this._nextActionUtc = nowT + (ActionCooldown * speedFactor);
+            this._nextBasicUtc = nowT + (BasicCooldown * speedFactor);
+            this.EngageNote($"attacking (dist {dist:F0}, range {range})", target);
+            await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
+            return;
+        }
+
+        // Skills on cooldown but the auto-attack is ready: throw a basic. Real players
+        // weave autos between abilities - they don't stand frozen for a second.
+        if (nowT >= this._nextBasicUtc)
+        {
+            this._nextBasicUtc = nowT + (BasicCooldown * speedFactor);
+            this.EngageNote("weaving basic between skills", target);
+            await target.AttackByAsync(this, null, false).ConfigureAwait(false);
+            return;
+        }
+
+        // Everything on cooldown. A ranged carry uses the downtime to kite a healthy
+        // target back toward safety; otherwise just hold (very briefly).
+        if (ranged && target is Player && targetHpPct > 0.35 && dist <= range - 1)
+        {
+            var away = StepAway(pos, target.Position, 2);
+            this.EngageNote("kiting back between attacks", target);
             await this.WalkTowardAsync(away).ConfigureAwait(false);
             return;
         }
 
-        if (DateTime.UtcNow < this._nextActionUtc)
-        {
-            this.EngageNote("waiting on action cooldown", target);
-            return;
-        }
-
-        var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
-        var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
-        this._nextActionUtc = DateTime.UtcNow + (ActionCooldown * speedFactor);
-        this.EngageNote($"attacking (dist {dist:F0}, range {range})", target);
-        await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
+        this.EngageNote("brief hold (all actions on cooldown)", target);
     }
 
     private NPC.Monster? OwnFrontTurret(GameMap map)
@@ -1266,59 +1293,125 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
     }
 
-    // Blade Knight combo: step 1 (a basic slash) -> step 2 (a heavy) -> step 3 (Twisting
-    // Slash / Rageful Blow / Death Stab, which lands the combo hit), all within 3s.
-    private static readonly short[] ComboStep1 = { 23, 22, 20, 19, 21 };
-    private static readonly short[] ComboStep2 = { 232, 43, 42, 41 };
-    private static readonly short[] ComboStep3 = { 41, 42, 43 };
+    // Blade Knight combo, three DISTINCT stages (no shared skills, so each stage can always
+    // fire even if the previous stage's skill is now on cooldown): opener -> mid -> finisher.
+    private static readonly short[] ComboStep1 = { 19, 23, 20 };   // Falling Slash / Slash / Lunge - quick opener
+    private static readonly short[] ComboStep2 = { 22, 21, 41 };   // Cyclone / Uppercut / Twisting Slash - mid
+    private static readonly short[] ComboStep3 = { 232, 43, 42, 44 }; // Strike of Destruction / Death Stab / Rageful Blow / Crescent - finisher
+
+    /// <summary>Skill numbers a family should reach for FIRST when off cooldown (its "core rotation"), highest impact first.</summary>
+    private static readonly Dictionary<MobaFamily, short[]> CorePriority = new()
+    {
+        [MobaFamily.Knight] = new short[] { 232, 43, 42, 41, 22, 21 },
+        [MobaFamily.RageFighter] = new short[] { 263, 262, 261, 55, 56, 60 },
+        [MobaFamily.Elf] = new short[] { 51, 235, 52, 24, 67, 76 },
+        [MobaFamily.Wizard] = new short[] { 39, 2, 3, 5, 9, 8 },
+        [MobaFamily.Summoner] = new short[] { 238, 237, 214, 215, 230, 45 },
+        [MobaFamily.DarkLord] = new short[] { 65, 64, 60, 62, 66, 3 },
+    };
+
+    /// <summary>How long a bot only auto-attacks after running dry, before it will spend mana on skills again.</summary>
+    private static readonly TimeSpan ManaConserve = TimeSpan.FromSeconds(4);
 
     private async ValueTask CastNextOrAttackAsync(IAttackable target)
     {
-        var skills = this.SelectedCharacter?.LearnedSkills
-            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
-            .ToList() ?? new List<SkillEntry>();
+        var now = DateTime.UtcNow;
+        var a = this.Attributes;
+        var manaPct = a is null ? 1f : Math.Clamp(a[Stats.CurrentMana] / Math.Max(1f, a[Stats.MaximumMana]), 0f, 1f);
 
-        // A combo class deliberately walks step1 -> step2 -> step3 so it visibly combos,
-        // falling back to the round-robin below if the wanted step is all on cooldown.
-        if (skills.Count > 0 && this.ComboState is not null && this._comboStep < 3)
+        // --- mana management: dump skills -> run dry -> auto-attack only for a few seconds ---
+        if (now < this._manaConserveUntilUtc)
         {
-            var pool = this._comboStep switch { 0 => ComboStep1, 1 => ComboStep2, _ => ComboStep3 };
-            var comboEntry = skills.FirstOrDefault(s =>
-                Array.IndexOf(pool, (short)s.Skill!.Number) >= 0
-                && !MobaCooldowns.IsOnCooldown(this, s.Skill!.Number, DateTime.UtcNow));
-
-            if (comboEntry is not null && await this.TryConsumeForSkillAsync(comboEntry).ConfigureAwait(false))
+            if (manaPct >= 0.45f)
             {
-                this._comboStep++;
-                this._comboResetUtc = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-                await this.FireSkillAsync(comboEntry, target).ConfigureAwait(false);
+                // recovered early - resume casting
+                this._manaConserveUntilUtc = default;
+            }
+            else
+            {
+                await target.AttackByAsync(this, null, false).ConfigureAwait(false);
                 return;
             }
         }
 
-        if (this._comboStep >= 3 || DateTime.UtcNow > this._comboResetUtc)
+        var skills = this.SelectedCharacter?.LearnedSkills
+            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
+            .ToList() ?? new List<SkillEntry>();
+
+        // A combo class walks stage 1 -> 2 -> 3. If a stage's skills are all on cooldown the
+        // stage is SKIPPED (counter still advances) so the combo always reaches its finisher.
+        if (skills.Count > 0 && this.ComboState is not null && this._comboStep < 3 && manaPct > 0.15f)
+        {
+            for (var guard = 0; guard < 3 && this._comboStep < 3; guard++)
+            {
+                var pool = this._comboStep switch { 0 => ComboStep1, 1 => ComboStep2, _ => ComboStep3 };
+                var comboEntry = skills.FirstOrDefault(s =>
+                    Array.IndexOf(pool, (short)s.Skill!.Number) >= 0
+                    && !MobaCooldowns.IsOnCooldown(this, s.Skill!.Number, now));
+
+                if (comboEntry is not null && await this.TryConsumeForSkillAsync(comboEntry).ConfigureAwait(false))
+                {
+                    this._comboStep++;
+                    this._comboResetUtc = now + TimeSpan.FromSeconds(3);
+                    await this.FireSkillAsync(comboEntry, target).ConfigureAwait(false);
+                    return;
+                }
+
+                this._comboStep++; // stage unavailable - skip to the next one
+            }
+        }
+
+        if (this._comboStep >= 3 || now > this._comboResetUtc)
         {
             this._comboStep = 0;
         }
 
-        if (skills.Count > 0)
+        // Skill pick: core-rotation skills first (highest impact), then everything else
+        // round-robin so the whole kit gets used, not just one button.
+        if (skills.Count > 0 && manaPct > 0.10f)
         {
-            for (var i = 0; i < skills.Count; i++)
+            var core = CorePriority.TryGetValue(MobaPassives.FamilyOf(this), out var pri) ? pri : Array.Empty<short>();
+            var ordered = skills
+                .OrderBy(s =>
+                {
+                    var idx = Array.IndexOf(core, (short)s.Skill!.Number);
+                    return idx >= 0 ? idx : 100 + ((this._skillCursor + s.Skill!.Number) % 50);
+                })
+                .ToList();
+
+            foreach (var entry in ordered)
             {
-                var entry = skills[(this._skillCursor + i) % skills.Count];
-                var number = entry.Skill!.Number;
-                if (MobaCooldowns.IsOnCooldown(this, number, DateTime.UtcNow))
+                if (MobaCooldowns.IsOnCooldown(this, entry.Skill!.Number, now))
                 {
                     continue;
                 }
 
-                this._skillCursor = (this._skillCursor + i + 1) % skills.Count;
                 if (await this.TryConsumeForSkillAsync(entry).ConfigureAwait(false))
                 {
+                    this._skillCursor++;
                     await this.FireSkillAsync(entry, target).ConfigureAwait(false);
                     return;
                 }
+
+                // Consume failed = not enough mana for this skill. If we're already low,
+                // drop into conserve mode (auto-attack only) so it reads as a human running
+                // out of mana mid-fight and backing off to basics.
+                if (manaPct < 0.30f)
+                {
+                    this._manaConserveUntilUtc = now + ManaConserve;
+                    this.Logger.LogInformation(
+                        "[MOBA-AI] {Name} OUT OF MANA ({Pct:P0}) - auto-attacks only for {Sec}s",
+                        this.Name,
+                        manaPct,
+                        (int)ManaConserve.TotalSeconds);
+                    break;
+                }
             }
+        }
+        else if (a is not null && manaPct <= 0.10f && this._manaConserveUntilUtc == default)
+        {
+            this._manaConserveUntilUtc = now + ManaConserve;
+            this.Logger.LogInformation("[MOBA-AI] {Name} OUT OF MANA ({Pct:P0}) - auto-attacks only for {Sec}s", this.Name, manaPct, (int)ManaConserve.TotalSeconds);
         }
 
         // Nothing castable this tick: basic attack.

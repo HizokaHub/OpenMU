@@ -73,10 +73,10 @@ public static class MobaProgression
     /// <returns>The (health multiplier, damage-scale multiplier).</returns>
     public static (float HpMul, double DamageMul) RoleTilt(MobaFamily family) => family switch
     {
-        MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 0.85),          // bruiser-tank front line
-        MobaFamily.DarkLord => (1.15f, 0.92),                                  // tanky utility
-        MobaFamily.Elf => (0.88f, 1.15),                                       // ranged carry
-        MobaFamily.Wizard or MobaFamily.Summoner => (0.88f, 1.16),            // burst / DoT casters
+        MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 1.02),          // bruiser-tank front line (melee: no free poke, gets kited - hits as hard as a caster)
+        MobaFamily.DarkLord => (1.15f, 0.95),                                  // tanky utility
+        MobaFamily.Elf => (0.90f, 1.08),                                       // ranged carry - safety IS the payoff, damage only a touch above neutral
+        MobaFamily.Wizard or MobaFamily.Summoner => (0.90f, 1.10),            // burst / DoT casters
         _ => (1.00f, 1.00),                                                    // Magic Gladiator - neutral
     };
 
