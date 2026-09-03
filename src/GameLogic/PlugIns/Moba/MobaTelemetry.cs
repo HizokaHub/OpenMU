@@ -79,6 +79,39 @@ public static class MobaTelemetry
         public readonly List<(DateTime When, long Amount)> Recent = new();
 
         public bool FightLineLogged;
+
+        public bool Flushed;
+    }
+
+    /// <summary>Writes the [MOBA-TRADE] close-out for one victim's engagement (idempotent).</summary>
+    private static void FlushEngagement(Player victim, Engagement eng, string ending)
+    {
+        if (eng.Flushed || eng.DamageByAttacker.Count == 0)
+        {
+            return;
+        }
+
+        eng.Flushed = true;
+        var now = DateTime.UtcNow;
+        var taken = eng.DamageByAttacker.Values.Sum();
+        var dur = Math.Max(0.1, (now - eng.StartUtc).TotalSeconds);
+        var va = victim.Attributes;
+        var hpNow = va is null ? 0f : Math.Max(0f, va[Stats.CurrentHealth]);
+        var maxHp = va?[Stats.MaximumHealth] ?? 1f;
+        var breakdown = string.Join(", ", eng.DamageByAttacker.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}:{kv.Value}"));
+
+        victim.Logger.LogInformation(
+            "[MOBA-TRADE] {Victim} {Ending} after {Dur:F1}s | took {Taken} ({Dps:F0} dps) | HP {HpStart:F0}->{HpNow:F0}/{MaxHp:F0} ({PctLeft:P0} left) | from [{Breakdown}]",
+            victim.Name,
+            ending,
+            dur,
+            taken,
+            taken / dur,
+            eng.HpAtStart,
+            hpNow,
+            maxHp,
+            hpNow / Math.Max(1f, maxHp),
+            breakdown);
     }
 
     /// <summary>Records one landed hit on a champion. Call from the combat trace.</summary>
@@ -125,12 +158,14 @@ public static class MobaTelemetry
             var eng = Engagements.GetValue(victim, _ => new Engagement { StartUtc = now, LastHitUtc = now, HpAtStart = va?[Stats.CurrentHealth] ?? maxHp });
             if (now - eng.LastHitUtc > EngagementIdle)
             {
-                // stale - start a fresh engagement
+                // stale - close it out ([MOBA-TRADE]) then start a fresh engagement
+                FlushEngagement(victim, eng, "disengage");
                 eng.StartUtc = now;
                 eng.HpAtStart = va?[Stats.CurrentHealth] ?? maxHp;
                 eng.DamageByAttacker.Clear();
                 eng.Recent.Clear();
                 eng.FightLineLogged = false;
+                eng.Flushed = false;
             }
 
             eng.LastHitUtc = now;
@@ -224,6 +259,7 @@ public static class MobaTelemetry
                     .Select(kv => $"{kv.Key}:{kv.Value} ({kv.Value / (double)Math.Max(1, totalTaken):P0})"));
                 var overkill = Math.Max(0, eng.Recent.Where(r => now - r.When < TimeSpan.FromSeconds(1)).Sum(r => r.Amount) - (long)Math.Max(0f, eng.HpAtStart));
                 breakdown += $" | overkill~{overkill}";
+                FlushEngagement(victim, eng, "died");
                 Engagements.Remove(victim);
             }
             else
@@ -344,6 +380,12 @@ public static class MobaTelemetry
                 if (a is null)
                 {
                     continue;
+                }
+
+                // Close out any engagement that has gone quiet (writes [MOBA-TRADE]).
+                if (Engagements.TryGetValue(c, out var quietEng) && DateTime.UtcNow - quietEng.LastHitUtc > EngagementIdle)
+                {
+                    FlushEngagement(c, quietEng, "disengage");
                 }
 
                 var family = MobaPassives.FamilyOf(c);

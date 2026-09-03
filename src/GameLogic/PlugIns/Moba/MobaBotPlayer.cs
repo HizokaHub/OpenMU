@@ -114,8 +114,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
     // --- [MOBA-AI] observability heartbeat ---
     private DateTime _nextAiHeartbeatUtc;
     private DateTime _lastCombatSeenUtc;
+    private DateTime _stateEnteredUtc;
     private Point _lastHeartbeatPos;
     private string? _lastClampReason;
+    private string? _lastEngageNote;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
@@ -343,22 +345,29 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (this._state != prevState)
         {
+            var heldFor = this._stateEnteredUtc == default ? 0.0 : (now - this._stateEnteredUtc).TotalSeconds;
+            this._stateEnteredUtc = now;
             this.Logger.LogInformation(
-                "[MOBA-AI] {Name} {From}->{To} @ {X},{Y} hp={Hp:P0} | enemyNear={En} allyNear={Al} inCombat={Ic} allyLv={AllyLv:F1} enemyLv={EnemyLv:F1} deadAllies={Dead} frontStruct={Struct} waveFront={Wave}",
+                "[MOBA-AI] {Name} {From}({Held:F1}s)->{To} @ {X},{Y} hp={Hp:P0} | enemyNear={En}(nearest {NearDist:F0}t) allyNear={Al} inCombat={Ic} allyPow={AllyPow:F0} enemyPow={EnemyPow:F0} allyLv={AllyLv:F1} enemyLv={EnemyLv:F1} deadAllies={Dead} frontStruct={Struct} waveFront={Wave} alliedCreeps={Creeps}",
                 this.Name,
                 prevState,
+                heldFor,
                 this._state,
                 pos.X,
                 pos.Y,
                 ctx.HpPct,
                 ctx.EnemyChampsNear.Count,
+                ctx.EnemyChampsInRange.Count == 0 ? 999 : ctx.EnemyChampsInRange.Min(e => e.GetDistanceTo(pos)),
                 ctx.AllyChampsNear.Count,
                 ctx.InCombat,
+                ctx.AllyPower,
+                ctx.EnemyPower,
                 ctx.AllyAvgLevel,
                 ctx.EnemyAvgLevel,
                 ctx.AllyDeadCount,
                 ctx.FrontEnemyStructure is { } fs ? $"{fs.Position.X},{fs.Position.Y}" : "none",
-                ctx.WaveAtFront);
+                ctx.WaveAtFront,
+                ctx.AlliedCreepsAtPos);
         }
 
         // Throttled heartbeat: where the bot is and what it intends, even when the state
@@ -814,6 +823,24 @@ public sealed class MobaBotPlayer : OfflinePlayer
         await this.MarchLaneAsync(c.Pos).ConfigureAwait(false);
     }
 
+    /// <summary>Logs (deduped) what EngageAsync is doing / why it is not attacking - helps macro tuning.</summary>
+    private void EngageNote(string note, IAttackable target)
+    {
+        if (this._lastEngageNote == note)
+        {
+            return;
+        }
+
+        this._lastEngageNote = note;
+        this.Logger.LogInformation(
+            "[MOBA-AI] {Name} engage: {Note} (target {Target} @ {Tx},{Ty})",
+            this.Name,
+            note,
+            (target as Player)?.Name ?? (target as NPC.Monster)?.Definition?.Designation ?? "?",
+            target.Position.X,
+            target.Position.Y);
+    }
+
     /// <summary>Approach to attack range (kiting for ranged classes) then cast / basic attack.</summary>
     private async ValueTask EngageAsync(BotContext c, IAttackable target)
     {
@@ -848,6 +875,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
                 if (dist > range)
                 {
+                    this.EngageNote("tower-dive hold at edge", target);
                     return;
                 }
             }
@@ -865,10 +893,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
                     .FirstOrDefault(x => x.IsAlive && !MobaStructures.IsStructure(x) && MobaTeams.AreEnemies(this, x)) is { } creep)
             {
                 this._nextActionUtc = DateTime.UtcNow + ActionCooldown;
+                this.EngageNote("last-hit creep while closing", creep);
                 await this.CastNextOrAttackAsync(creep).ConfigureAwait(false);
                 return;
             }
 
+            this.EngageNote($"walking in (dist {dist:F0} > range {range})", target);
             await this.WalkTowardAsync(target.Position).ConfigureAwait(false);
             return;
         }
@@ -878,18 +908,21 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (ranged && dist < range - 2 && DateTime.UtcNow < this._nextActionUtc && target is Player)
         {
             var away = StepAway(pos, target.Position, 3);
+            this.EngageNote("kiting back", target);
             await this.WalkTowardAsync(away).ConfigureAwait(false);
             return;
         }
 
         if (DateTime.UtcNow < this._nextActionUtc)
         {
+            this.EngageNote("waiting on action cooldown", target);
             return;
         }
 
         var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
         var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
         this._nextActionUtc = DateTime.UtcNow + (ActionCooldown * speedFactor);
+        this.EngageNote($"attacking (dist {dist:F0}, range {range})", target);
         await this.CastNextOrAttackAsync(target).ConfigureAwait(false);
     }
 
@@ -1270,6 +1303,19 @@ public sealed class MobaBotPlayer : OfflinePlayer
         {
             isCombo = await combo.RegisterSkillAsync(skill).ConfigureAwait(false);
         }
+
+        var mana = this.Attributes?[Stats.CurrentMana] ?? 0f;
+        this.Logger.LogInformation(
+            "[MOBA-AI] {Name} cast {Skill}#{Num}{Combo} -> {Target} @ {Tx},{Ty} (comboStep {Step}, mana {Mana:F0})",
+            this.Name,
+            skill.Name,
+            skill.Number,
+            isCombo ? " [combo]" : string.Empty,
+            (target as Player)?.Name ?? (target as NPC.Monster)?.Definition?.Designation ?? "?",
+            target.Position.X,
+            target.Position.Y,
+            this._comboStep,
+            mana);
 
         var hit = await target.AttackByAsync(this, entry, isCombo).ConfigureAwait(false);
         var effectApplied = false;
