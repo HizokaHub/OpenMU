@@ -118,9 +118,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
             };
             var invested = a is null ? 0 : (int)Math.Max(0, a[primary] - MobaCloneFactory.BaselineStatValue);
 
-            var aliveTag = c.IsAlive ? string.Empty : " (dead)";
+            var aliveTag = c.IsAlive ? "-" : "DEAD";
             c.Logger.LogInformation(
-                "[MOBA-SCORE] t={Elapsed}s {Team} {Class} {Name} Lv{Level} KDA={K}/{D}/{A} HP={Hp:F0}/{MaxHp:F0}{Dead} {Primary}+{Invested} dmgX{Scale:F1}",
+                "[MOBA-SCORE] t={Elapsed}s {Team} {Class} {Name} Lv{Level} KDA={K}/{D}/{A} HP={Hp:F0}/{MaxHp:F0} [{Dead}] {Primary}+{Invested} dmgX{Scale:F1}",
                 elapsed,
                 MobaTeams.GetTeam(c),
                 c.SelectedCharacter?.CharacterClass?.Name,

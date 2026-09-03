@@ -42,8 +42,6 @@ public static class MobaCastEffects
     {
         public SimpleElement? MaxElement;
 
-        public SimpleElement? CurElement;
-
         public DateTime ExpiresUtc;
     }
 
@@ -68,10 +66,9 @@ public static class MobaCastEffects
             // Refresh: drop the previous grant first.
             RemoveShield(a, state);
 
+            // MaximumShield is composable; CurrentShield is a raw value - set it directly.
             state.MaxElement = new SimpleElement(amount, AggregateType.AddRaw);
-            state.CurElement = new SimpleElement(amount, AggregateType.AddRaw);
             a.AddElement(state.MaxElement, Stats.MaximumShield);
-            a.AddElement(state.CurElement, Stats.CurrentShield);
             a[Stats.CurrentShield] = Math.Min(a[Stats.MaximumShield], a[Stats.CurrentShield] + amount);
             state.ExpiresUtc = DateTime.UtcNow.AddSeconds(shield.Seconds);
         }
@@ -109,15 +106,10 @@ public static class MobaCastEffects
         if (state.MaxElement is not null)
         {
             a.RemoveElement(state.MaxElement, Stats.MaximumShield);
-        }
-
-        if (state.CurElement is not null)
-        {
-            a.RemoveElement(state.CurElement, Stats.CurrentShield);
+            a[Stats.CurrentShield] = Math.Min(a[Stats.CurrentShield], a[Stats.MaximumShield]);
         }
 
         state.MaxElement = null;
-        state.CurElement = null;
     }
 
     private static async Task DelayedSelfStunAsync(Player champion, TimeSpan duration)
