@@ -346,8 +346,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
         int AllyDeadCount,
         bool InCombat,
         Player? Aggressor,
-        NPC.Monster? NearestEnemyStructure,
-        bool AlliedCreepsAtPos);
+        NPC.Monster? FrontEnemyStructure,
+        bool AlliedCreepsAtPos,
+        bool WaveAtFront);
 
     private BotContext BuildContext(GameMap map, Point pos, DateTime now)
     {
@@ -382,13 +383,23 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._aggressor = aggressor;
         }
 
-        var nearestEnemyStructure = enemiesInAcquire.OfType<NPC.Monster>()
-            .Where(MobaStructures.IsStructure)
-            .MinBy(m => m.GetDistanceTo(pos));
+        // The FRONT enemy objective: the live enemy structure nearest to mid (turret before
+        // nexus), not just whatever the bot is standing next to.
+        var frontEnemyStructure = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
+            .OrderBy(m => Math.Abs(m.Position.Y - 128))
+            .FirstOrDefault();
 
         var alliedCreepsAtPos = map.GetAttackablesInRange(pos, TurretDangerTiles + 2)
             .OfType<NPC.Monster>()
             .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+
+        // A friendly wave is at the front objective (needed to actually push a turret).
+        var waveAtFront = frontEnemyStructure is { } fs
+            && map.GetAttackablesInRange(fs.Position, TurretDangerTiles + 3)
+                .OfType<NPC.Monster>()
+                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
 
         var a = this.Attributes;
         var hpPct = a is null ? 1f : Math.Clamp(a[Stats.CurrentHealth] / Math.Max(1f, a[Stats.MaximumHealth]), 0f, 1f);
@@ -408,8 +419,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             allies.Count(p => !p.IsAlive),
             now < this._combatUntilUtc,
             this._aggressor,
-            nearestEnemyStructure,
-            alliedCreepsAtPos);
+            frontEnemyStructure,
+            alliedCreepsAtPos,
+            waveAtFront);
 
         static double Power(IEnumerable<Player> champs) => champs.Sum(p =>
         {
@@ -472,9 +484,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return c.EnemyPower > c.AllyPower * 1.35 && c.HpPct < 0.65 ? BotState.Lane : BotState.Fight;
         }
 
-        // Nobody to fight: push a structure with the wave if we're not behind, else lane.
-        if (c.NearestEnemyStructure is not null
-            && c.AlliedCreepsAtPos
+        // Nobody to fight: push the front objective WITH a wave if we're not behind, else lane.
+        if (c.FrontEnemyStructure is not null
+            && c.WaveAtFront
             && c.AllyAvgLevel >= c.EnemyAvgLevel - 2
             && !c.EnemyChampsNear.Any())
         {
@@ -598,8 +610,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private async ValueTask TickPushAsync(BotContext c)
     {
-        var structure = c.NearestEnemyStructure;
-        if (structure is null || !c.AlliedCreepsAtPos)
+        var structure = c.FrontEnemyStructure;
+        if (structure is null || !c.WaveAtFront)
         {
             this._state = BotState.Lane;
             await this.TickLaneAsync(c).ConfigureAwait(false);
@@ -637,7 +649,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (target is not null)
         {
             // Under an enemy turret without a wave -> back off.
-            if (c.NearestEnemyStructure is { } t
+            if (c.FrontEnemyStructure is { } t
                 && t.GetDistanceTo(c.Pos) <= TurretDangerTiles
                 && !c.AlliedCreepsAtPos)
             {
@@ -737,7 +749,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <param name="pos">Current position.</param>
     private async ValueTask MarchLaneAsync(Point pos)
     {
-        if (this._lane.Count == 0 || this.IsWalking)
+        if (this._lane.Count == 0 || this.IsWalking || this.CurrentMap is not { } map)
         {
             return;
         }
@@ -749,6 +761,28 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         var wp = this._lane[this._laneIndex];
+
+        // Do not walk past a LIVE enemy turret without a friendly wave - hold just short of
+        // it (this is what keeps a winning team from marching straight into the enemy base).
+        var frontTurret = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
+            .OrderBy(m => Math.Abs(m.Position.Y - 128))
+            .FirstOrDefault();
+        if (frontTurret is not null)
+        {
+            var goingSouth = MobaTeams.GetTeam(this) == MobaTeam.Blue;
+            var turretY = frontTurret.Position.Y;
+            var beyond = goingSouth ? wp.Y > turretY - (TurretDangerTiles - 1) : wp.Y < turretY + (TurretDangerTiles - 1);
+            var wave = map.GetAttackablesInRange(new Point(116, turretY), TurretDangerTiles + 3)
+                .OfType<NPC.Monster>()
+                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+            if (beyond && !wave)
+            {
+                var holdY = (byte)(goingSouth ? turretY - (TurretDangerTiles + 1) : turretY + (TurretDangerTiles + 1));
+                wp = new Point(wp.X, holdY);
+            }
+        }
 
         // Spread the bots across the lane width instead of all stacking on the x=116 column.
         var next = new Point(

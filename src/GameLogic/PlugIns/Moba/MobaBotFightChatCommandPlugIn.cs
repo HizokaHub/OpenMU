@@ -38,10 +38,27 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
             ? Math.Clamp(parsed, 1, all.Length)
             : all.Length;
 
+        // A bot fight needs objectives to play around: spawn the turrets + nexuses if the
+        // arena doesn't already have them, otherwise the bots just brawl their way to the
+        // enemy spawn.
+        var structures = 0;
+        if (player.CurrentMap is { } map)
+        {
+            if (!MobaStructureSpawner.HasTurrets(map.MapId))
+            {
+                structures += await MobaStructureSpawner.SpawnTurretsAsync(map, player.GameContext).ConfigureAwait(false);
+            }
+
+            if (!MobaStructureSpawner.HasNexuses(map.MapId))
+            {
+                structures += await MobaStructureSpawner.SpawnNexusesAsync(map, player.GameContext).ConfigureAwait(false);
+            }
+        }
+
         var families = all.Take(n).ToList();
         var blue = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, families).ConfigureAwait(false);
         var red = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, families).ConfigureAwait(false);
         await player.ShowBlueMessageAsync(
-            $"[mobabotfight] {n}v{n}: {blue} azules (spawn ~116,60) + {red} rojos (spawn ~116,205) por el carril mid. /move {player.SelectedCharacter?.Name} 200 116 128 . /mobabotclear para terminar.").ConfigureAwait(false);
+            $"[mobabotfight] {n}v{n}: {blue} azules + {red} rojos + {structures} estructuras. Objetivo: destruir el nexo enemigo. /move {player.SelectedCharacter?.Name} 200 116 128 . /mobabotclear para terminar.").ConfigureAwait(false);
     }
 }
