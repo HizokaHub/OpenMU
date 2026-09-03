@@ -41,6 +41,18 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>Within this many tiles of an enemy turret the bot won't dive without allied creeps.</summary>
     private const int TurretDangerTiles = 9;
 
+    /// <summary>How far (Y tiles) short of a live enemy front turret a bot must stop when it has no allied wave tanking that turret.</summary>
+    private const int LaneLimitMargin = 8;
+
+    /// <summary>Hard no-go radius around the enemy nexus / spawn - bots never path in here (no diving the fountain for respawn kills).</summary>
+    private const int FountainExclusionTiles = 20;
+
+    /// <summary>Fixed structure anchors on the arena (must match <see cref="MobaStructureSpawner"/>).</summary>
+    private static readonly Point BlueTurretAnchor = new(116, 92);
+    private static readonly Point RedTurretAnchor = new(116, 173);
+    private static readonly Point BlueFountainAnchor = new(116, 50);
+    private static readonly Point RedFountainAnchor = new(116, 214);
+
     /// <summary>After an enemy champion hits it, the bot stays "in combat" (hunts champions, ignores creeps) for this long.</summary>
     private static readonly TimeSpan CombatMemory = TimeSpan.FromSeconds(5);
 
@@ -839,6 +851,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        // Every bot movement is funnelled through here, so this is where the "respect
+        // turrets and waves" rule lives: no bot ever paths past a live enemy front turret
+        // without an allied wave tanking it, and no bot ever paths into the enemy fountain.
+        target = this.ClampToLaneLimit(target, map);
+        if (this.Position.EuclideanDistanceTo(target) < 1.0)
+        {
+            return;
+        }
+
         if (map.Terrain?.AIgrid is not { } grid)
         {
             // No AI grid: fall back to an instant hop so the bot at least isn't frozen.
@@ -884,6 +905,85 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         await this.WalkToAsync(cursor, steps.ToArray()).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Pulls a desired destination back so the bot never over-extends: it may not path to a
+    /// point on the enemy side of a LIVE enemy front turret unless an allied creep wave is
+    /// in that turret's range to tank it, and it may never path into the enemy fountain
+    /// (nexus / spawn) - that is what stopped the bots running straight to the enemy base to
+    /// farm respawns. Moves toward the bot's OWN side are never clamped (retreat / recall /
+    /// defend all stay valid).
+    /// </summary>
+    private Point ClampToLaneLimit(Point target, GameMap map)
+    {
+        var team = MobaTeams.GetTeam(this);
+        if (team == MobaTeam.None)
+        {
+            return target;
+        }
+
+        var goingSouth = team == MobaTeam.Blue; // Blue advances toward higher Y, Red toward lower Y.
+        var enemyFountain = goingSouth ? RedFountainAnchor : BlueFountainAnchor;
+        var enemyTurretAnchor = goingSouth ? RedTurretAnchor : BlueTurretAnchor;
+
+        var structures = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
+            .ToList();
+
+        // Front enemy turret = live enemy structure closest to mid that is NOT the nexus.
+        var frontTurret = structures
+            .Where(m => Math.Abs(m.Position.Y - 128) < 60)
+            .OrderBy(m => Math.Abs(m.Position.Y - 128))
+            .FirstOrDefault();
+
+        // A limit line (Y) the bot may not cross toward the enemy side.
+        int? limitY = null;
+
+        if (frontTurret is { } turret)
+        {
+            var waveTanking = map.GetAttackablesInRange(turret.Position, TurretDangerTiles + 3)
+                .OfType<NPC.Monster>()
+                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+            if (!waveTanking)
+            {
+                limitY = goingSouth ? turret.Position.Y - LaneLimitMargin : turret.Position.Y + LaneLimitMargin;
+            }
+        }
+        else
+        {
+            // No live front turret: the turret is down. Hold at where it stood (still need a
+            // wave to go deeper); the nexus siege itself isn't a bot job yet.
+            var noWavePastRuin = !map.GetAttackablesInRange(enemyTurretAnchor, TurretDangerTiles + 3)
+                .OfType<NPC.Monster>()
+                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+            if (noWavePastRuin)
+            {
+                limitY = goingSouth ? enemyTurretAnchor.Y - LaneLimitMargin : enemyTurretAnchor.Y + LaneLimitMargin;
+            }
+        }
+
+        // Fountain is always off-limits, wave or not.
+        var fountainLimitY = goingSouth
+            ? enemyFountain.Y - FountainExclusionTiles
+            : enemyFountain.Y + FountainExclusionTiles;
+        limitY = limitY is { } l
+            ? (goingSouth ? Math.Min(l, fountainLimitY) : Math.Max(l, fountainLimitY))
+            : fountainLimitY;
+
+        if (limitY is { } limit)
+        {
+            var clampedY = goingSouth
+                ? Math.Min(target.Y, limit)
+                : Math.Max(target.Y, limit);
+            if (clampedY != target.Y)
+            {
+                target = new Point(target.X, (byte)Math.Clamp(clampedY, 5, 250));
+            }
+        }
+
+        return target;
     }
 
     /// <summary>
