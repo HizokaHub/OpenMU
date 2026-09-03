@@ -685,6 +685,37 @@ public sealed class MobaBotPlayer : OfflinePlayer
         var range = Math.Max(2, this.GetMeleeAttackRange());
         var ranged = range >= 5;
 
+        // Don't tower-dive: if we're chasing a CHAMPION that is next to a live enemy
+        // turret, and we don't have a wave + level lead to make it safe, hold at the
+        // turret's edge (or step out if we're already in its shadow) instead of walking in.
+        if (target is Player && c.FrontEnemyStructure is { IsAlive: true } turret)
+        {
+            var toTurret = turret.GetDistanceTo(pos);
+            var targetUnderTurret = turret.GetDistanceTo(target.Position) <= TurretDangerTiles;
+            var safeDive = c.WaveAtFront && c.AllyAvgLevel >= c.EnemyAvgLevel + 2 && c.AllyPower > c.EnemyPower * 1.3;
+            if (targetUnderTurret && !safeDive)
+            {
+                if (toTurret <= TurretDangerTiles + 1)
+                {
+                    await this.WalkTowardAsync(StepAway(pos, turret.Position, 4)).ConfigureAwait(false);
+                }
+                else if (dist > range)
+                {
+                    // Hold: creep to the turret edge but no closer.
+                    var edge = StepAway(target.Position, turret.Position, TurretDangerTiles + 2);
+                    if (edge.EuclideanDistanceTo(pos) > 2)
+                    {
+                        await this.WalkTowardAsync(edge).ConfigureAwait(false);
+                    }
+                }
+
+                if (dist > range)
+                {
+                    return;
+                }
+            }
+        }
+
         if (dist > range)
         {
             await this.WalkTowardAsync(target.Position).ConfigureAwait(false);
