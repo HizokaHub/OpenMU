@@ -59,6 +59,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Expire temp shields from Greater Defense / Heal / Soul Barrier.
         await MobaCastEffects.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
+        await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
+
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)
         {

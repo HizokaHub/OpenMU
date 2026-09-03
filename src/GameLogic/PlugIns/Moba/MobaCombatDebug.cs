@@ -23,7 +23,8 @@ public static class MobaCombatDebug
     /// <param name="victim">The victim (a champion).</param>
     /// <param name="skill">The skill used, or <c>null</c> for a basic attack.</param>
     /// <param name="hit">The resulting hit info.</param>
-    public static void LogHit(IAttacker attacker, Player victim, Skill? skill, HitInfo hit)
+    /// <param name="isCombo">Whether the hit was part of a combo.</param>
+    public static void LogHit(IAttacker attacker, Player victim, Skill? skill, HitInfo hit, bool isCombo = false)
     {
         if (!Enabled || !IsMobaInvolved(attacker, victim))
         {
@@ -38,6 +39,9 @@ public static class MobaCombatDebug
             hit.HealthDamage,
             hit.ShieldDamage,
             hit.Attributes);
+
+        // Rich PvP trace ([MOBA-DMG+], [MOBA-FIGHT], [MOBA-BURST], running totals).
+        MobaTelemetry.NoteHit(attacker, victim, skill, hit, isCombo);
     }
 
     /// <summary>Logs an attack on a champion that produced no damage, with the reason.</summary>

@@ -147,6 +147,9 @@ public static class MobaExperience
                 return;
             }
 
+            // [MOBA-KILL] trace - fires for every champion death (turret / creep / champion kills alike).
+            MobaTelemetry.NoteDeath(victim, string.IsNullOrEmpty(death.KillerName) ? null : death.KillerName);
+
             if (map.GetObject(death.KillerId) is not Player killer
                 || !killer.IsMobaClone
                 || !MobaTeams.AreEnemies(killer, victim))

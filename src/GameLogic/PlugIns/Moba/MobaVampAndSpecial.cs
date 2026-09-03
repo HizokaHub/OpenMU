@@ -37,7 +37,9 @@ public static class MobaVampAndSpecial
             var cur = a[Stats.CurrentHealth];
             if (cur < max)
             {
-                a[Stats.CurrentHealth] = Math.Min(max, cur + heal);
+                var applied = Math.Min(max, cur + heal) - cur;
+                a[Stats.CurrentHealth] = cur + applied;
+                MobaTelemetry.NoteHeal(attacker, applied, skill is null ? "lifesteal(basic)" : $"vamp({skill.Name})");
             }
         }
 

@@ -101,14 +101,17 @@ public static class MobaCc
                     }
 
                     var baseCap = isFreeze ? MaxFreeze : MaxHardCc;
-                    var factor = DiminishingFactor[Math.Min(dr.Stacks, DiminishingFactor.Length - 1)]
-                                 * TenacityMul(MobaPassives.FamilyOf(champion));
+                    var tenacity = TenacityMul(MobaPassives.FamilyOf(champion));
+                    var factor = DiminishingFactor[Math.Min(dr.Stacks, DiminishingFactor.Length - 1)] * tenacity;
                     var capped = TimeSpan.FromMilliseconds(baseCap.TotalMilliseconds * factor);
+                    var requested = effect.Duration;
                     if (effect.Duration > capped)
                     {
                         effect.Duration = capped;
                         effect.ResetTimer();
                     }
+
+                    MobaTelemetry.NoteCc(null, champion, isFreeze ? "freeze" : "stun/hardCC", requested, effect.Duration, dr.Stacks, tenacity);
 
                     dr.Stacks++;
                     dr.LastCcUtc = now;

@@ -61,6 +61,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>After an enemy champion hits it, the bot stays "in combat" (hunts champions, ignores creeps) for this long.</summary>
     private static readonly TimeSpan CombatMemory = TimeSpan.FromSeconds(5);
 
+    /// <summary>How often each bot writes a [MOBA-AI] position/intent heartbeat line.</summary>
+    private static readonly TimeSpan AiHeartbeat = TimeSpan.FromSeconds(4);
+
     // --- macro thresholds ---
     private const float RecallHpPct = 0.15f;
     private const float FightBailPct = 0.18f;
@@ -95,6 +98,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
     private int _laneOffset;
+
+    // --- [MOBA-AI] observability heartbeat ---
+    private DateTime _nextAiHeartbeatUtc;
+    private DateTime _lastCombatSeenUtc;
+    private Point _lastHeartbeatPos;
+    private string? _lastClampReason;
 
     /// <summary>Initializes a new instance of the <see cref="MobaBotPlayer"/> class.</summary>
     /// <param name="gameContext">The game context.</param>
@@ -310,7 +319,66 @@ public sealed class MobaBotPlayer : OfflinePlayer
         var ctx = this.BuildContext(map, pos, now);
 
         // --- macro state machine ---------------------------------------------------------
+        var prevState = this._state;
         this._state = this.DecideState(ctx);
+
+        if (this._state != prevState)
+        {
+            this.Logger.LogInformation(
+                "[MOBA-AI] {Name} {From}->{To} @ {X},{Y} hp={Hp:P0} | enemyNear={En} allyNear={Al} inCombat={Ic} allyLv={AllyLv:F1} enemyLv={EnemyLv:F1} deadAllies={Dead} frontStruct={Struct} waveFront={Wave}",
+                this.Name,
+                prevState,
+                this._state,
+                pos.X,
+                pos.Y,
+                ctx.HpPct,
+                ctx.EnemyChampsNear.Count,
+                ctx.AllyChampsNear.Count,
+                ctx.InCombat,
+                ctx.AllyAvgLevel,
+                ctx.EnemyAvgLevel,
+                ctx.AllyDeadCount,
+                ctx.FrontEnemyStructure is { } fs ? $"{fs.Position.X},{fs.Position.Y}" : "none",
+                ctx.WaveAtFront);
+        }
+
+        // Throttled heartbeat: where the bot is and what it intends, even when the state
+        // is not changing (this is how "stands under the turret waiting" shows up).
+        if (now >= this._nextAiHeartbeatUtc)
+        {
+            this._nextAiHeartbeatUtc = now + AiHeartbeat;
+            var movedTiles = pos.EuclideanDistanceTo(this._lastHeartbeatPos);
+            var idleFor = MobaCombatLog.InCombat(this, TimeSpan.FromSeconds(1)) ? 0.0 : (now - this._lastCombatSeenUtc).TotalSeconds;
+            if (MobaCombatLog.InCombat(this, TimeSpan.FromSeconds(2)))
+            {
+                this._lastCombatSeenUtc = now;
+            }
+
+            this.Logger.LogInformation(
+                "[MOBA-AI] {Name} @ {X},{Y} state={State} hp={Hp:P0} moved={Moved:F1}t/{Beat}s idle~{Idle:F0}s enemyNear={En}",
+                this.Name,
+                pos.X,
+                pos.Y,
+                this._state,
+                ctx.HpPct,
+                movedTiles,
+                (int)AiHeartbeat.TotalSeconds,
+                idleFor,
+                ctx.EnemyChampsNear.Count);
+
+            if (movedTiles < 1.0 && idleFor > 5.0 && this._state is BotState.Lane or BotState.GroupPush or BotState.Fight)
+            {
+                this.Logger.LogWarning(
+                    "[MOBA-AI] {Name} IDLE {Idle:F0}s @ {X},{Y} state={State} - not moving, not fighting",
+                    this.Name,
+                    idleFor,
+                    pos.X,
+                    pos.Y,
+                    this._state);
+            }
+
+            this._lastHeartbeatPos = pos;
+        }
 
         switch (this._state)
         {
@@ -501,10 +569,11 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return c.EnemyPower > c.AllyPower * 1.35 && c.HpPct < 0.65 ? BotState.Lane : BotState.Fight;
         }
 
-        // Nobody to fight: push the front objective WITH a wave if we're not behind, else lane.
+        // Nobody to fight: push the front objective as long as we have creeps with us (at
+        // the turret OR right next to us on the way in) and we're not badly behind.
         if (c.FrontEnemyStructure is not null
-            && c.WaveAtFront
-            && c.AllyAvgLevel >= c.EnemyAvgLevel - 2
+            && (c.WaveAtFront || c.AlliedCreepsAtPos)
+            && c.AllyAvgLevel >= c.EnemyAvgLevel - 3
             && !c.EnemyChampsNear.Any())
         {
             return BotState.GroupPush;
@@ -628,7 +697,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private async ValueTask TickPushAsync(BotContext c)
     {
         var structure = c.FrontEnemyStructure;
-        if (structure is null || !c.WaveAtFront)
+        if (structure is null || !(c.WaveAtFront || c.AlliedCreepsAtPos))
         {
             this._state = BotState.Lane;
             await this.TickLaneAsync(c).ConfigureAwait(false);
@@ -661,6 +730,17 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (target is null && !behind)
         {
             target = c.EnemyChampsInRange.OfType<MobaBotPlayer>().OrderBy(b => b.GetDistanceTo(c.Pos)).FirstOrDefault();
+        }
+
+        // No creeps / bots to hit but our wave is here and the front structure is close:
+        // chip the turret instead of standing around (this is what "waits under turret" was).
+        if (target is null && !behind
+            && c.FrontEnemyStructure is { } frontStruct
+            && c.AlliedCreepsAtPos
+            && frontStruct.GetDistanceTo(c.Pos) <= AcquireRangeTiles)
+        {
+            await this.EngageAsync(c, frontStruct).ConfigureAwait(false);
+            return;
         }
 
         if (target is not null)
@@ -977,6 +1057,22 @@ public sealed class MobaBotPlayer : OfflinePlayer
         var clampedY = goingSouth ? Math.Min(target.Y, limitY) : Math.Max(target.Y, limitY);
         if (clampedY != target.Y)
         {
+            var reason = frontTurret is not null ? "front-turret" : "fountain/ruin";
+            var key = $"{reason}:{limitY}";
+            if (this._lastClampReason != key)
+            {
+                this._lastClampReason = key;
+                this.Logger.LogInformation(
+                    "[MOBA-AI] {Name} movement clamped {Tx},{Ty} -> {Cx},{Cy} (limitY={Limit}, {Reason})",
+                    this.Name,
+                    target.X,
+                    target.Y,
+                    target.X,
+                    clampedY,
+                    limitY,
+                    reason);
+            }
+
             target = new Point(target.X, (byte)Math.Clamp(clampedY, 5, 250));
         }
 

@@ -763,7 +763,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return hitInfo;
         }
 
-        PlugIns.Moba.MobaCombatDebug.LogHit(attacker, this, skill?.Skill, hitInfo);
+        PlugIns.Moba.MobaCombatDebug.LogHit(attacker, this, skill?.Skill, hitInfo, isCombo);
 
         if (this.Attributes[Stats.IsAsleep] > 0)
         {

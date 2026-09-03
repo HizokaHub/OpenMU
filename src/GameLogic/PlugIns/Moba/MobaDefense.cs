@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Runtime.CompilerServices;
 using MUnique.OpenMU.GameLogic.Attributes;
 
 /// <summary>
@@ -18,6 +19,25 @@ public static class MobaDefense
 
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;
+
+    /// <summary>Last mitigation applied per defender (for the [MOBA-DMG] trace): raw pre-mitigation, final, and the effective mitigation fraction.</summary>
+    public static readonly ConditionalWeakTable<Player, MitigationTrace> LastMitigation = new();
+
+    /// <summary>One recorded mitigation step, read back by the combat trace on the same hit.</summary>
+    public sealed class MitigationTrace
+    {
+        /// <summary>Gets or sets the pre-mitigation damage.</summary>
+        public int Raw { get; set; }
+
+        /// <summary>Gets or sets the post-mitigation damage.</summary>
+        public int Final { get; set; }
+
+        /// <summary>Gets or sets the effective mitigation fraction after penetration (0..1).</summary>
+        public double Fraction { get; set; }
+
+        /// <summary>Gets or sets the UTC time this step was recorded.</summary>
+        public DateTime WhenUtc { get; set; }
+    }
 
     /// <summary>Per-skill armour penetration (fraction of the target's mitigation ignored), by Persistence skill number.</summary>
     private static readonly Dictionary<short, double> PenetrationBySkill = new()
@@ -68,6 +88,14 @@ public static class MobaDefense
             mitigation *= 1.0 - pen;
         }
 
-        return Math.Max(1, (int)(rawDamage * (1.0 - mitigation)));
+        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation)));
+
+        var trace = LastMitigation.GetOrCreateValue(defender);
+        trace.Raw = rawDamage;
+        trace.Final = final;
+        trace.Fraction = mitigation;
+        trace.WhenUtc = DateTime.UtcNow;
+
+        return final;
     }
 }
