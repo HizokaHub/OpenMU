@@ -64,6 +64,18 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>How often each bot writes a [MOBA-AI] position/intent heartbeat line.</summary>
     private static readonly TimeSpan AiHeartbeat = TimeSpan.FromSeconds(4);
 
+    /// <summary>An enemy champion within this many tiles is a fight worth entering.</summary>
+    private const int EngageTiles = 12;
+
+    /// <summary>Within this many tiles a fight is "point blank" - turning your back just feeds.</summary>
+    private const int PointBlankTiles = 6;
+
+    /// <summary>Need at least this much clearance from the nearest enemy to safely disengage.</summary>
+    private const int BreakawayTiles = 4;
+
+    /// <summary>Farthest a bot will chase a champion in Fight state before dropping back to farming.</summary>
+    private const int PursueTiles = 18;
+
     // --- macro thresholds ---
     private const float RecallHpPct = 0.15f;
     private const float FightBailPct = 0.18f;
@@ -246,6 +258,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
         try
         {
             this._laneIndex = 0; // restart the lane march from our creep spawn
+            // Fresh start: drop any stale combat memory / target so the bot laves cleanly
+            // instead of flip-flopping Fight<->Lane chasing a ghost from its last life.
+            this._combatUntilUtc = default;
+            this._aggressor = null;
+            this._state = BotState.Lane;
+            this._recallStartUtc = default;
+            this._comboStep = 0;
             await this.MoveAsync(this._homeSpawn).ConfigureAwait(false);
         }
         catch
@@ -530,10 +549,23 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return BotState.Recalling;
         }
 
-        var forcedFight = c.InCombat || c.EnemyChampsInRange.Any(e => e.GetDistanceTo(c.Pos) <= 3);
+        // The nearest enemy champion that actually matters right now.
+        var nearestEnemyDist = c.EnemyChampsInRange.Count == 0
+            ? double.MaxValue
+            : c.EnemyChampsInRange.Min(e => e.GetDistanceTo(c.Pos));
 
-        // Critically low and NOT locked in melee -> get out. If already safe, recall.
-        if (c.HpPct <= RecallHpPct && !forcedFight)
+        // "committed" = we are trading blows AND an enemy is close enough that turning our
+        // back just feeds. You finish the trade / peel - you do not run while being hit.
+        var committed = c.InCombat && nearestEnemyDist <= PointBlankTiles;
+
+        // A fight worth entering: an enemy champ is genuinely in engage range, OR we are
+        // already trading and one is still within reach. Stale combat memory with nobody
+        // around does NOT count (that was the Fight<->Lane flip-flop).
+        var forcedFight = nearestEnemyDist <= EngageTiles
+            || (c.InCombat && nearestEnemyDist <= AcquireRangeTiles);
+
+        // Critically low and able to break away -> get out. If already safe, recall.
+        if (c.HpPct <= RecallHpPct && !committed)
         {
             return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
         }
@@ -544,17 +576,19 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return forcedFight && c.HpPct > FightBailPct ? BotState.Fight : BotState.DefendBase;
         }
 
-        // Two-plus allies dead -> don't force anything; hold / lane defensively.
-        if (c.AllyDeadCount >= 2 && !forcedFight)
+        // Two-plus allies dead -> don't START anything new; but if we're already committed,
+        // fight it out (running is worse).
+        if (c.AllyDeadCount >= 2 && !committed)
         {
             return BotState.Lane;
         }
 
-        if (forcedFight)
+        if (committed)
         {
-            // Disengage a clearly lost fight if we're getting low and not point-blank.
-            if (c.HpPct <= FightBailPct && c.EnemyPower > c.AllyPower * 1.6
-                && !c.EnemyChampsInRange.Any(e => e.GetDistanceTo(c.Pos) <= 2))
+            // Only bail a committed fight if we're nearly dead AND can actually disengage
+            // (no enemy in melee). Losing a team-mate / a bad power ratio is NOT a reason
+            // to turn around mid-trade.
+            if (c.HpPct <= FightBailPct && nearestEnemyDist > BreakawayTiles)
             {
                 return BotState.Retreat;
             }
@@ -562,11 +596,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return BotState.Fight;
         }
 
-        // Enemy champion around but not yet fighting: only commit if the local fight is
-        // not clearly unfavourable.
-        if (c.EnemyChampsNear.Count > 0)
+        if (forcedFight)
         {
-            return c.EnemyPower > c.AllyPower * 1.35 && c.HpPct < 0.65 ? BotState.Lane : BotState.Fight;
+            // Not yet locked in: we can still decline a clearly lost fight and keep farming.
+            if (c.EnemyPower > c.AllyPower * 1.4 && c.HpPct < 0.6)
+            {
+                return BotState.Lane;
+            }
+
+            return BotState.Fight;
         }
 
         // Nobody to fight: push the front objective as long as we have creeps with us (at
@@ -684,7 +722,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             focus = alliedCarryUnderThreat;
         }
 
-        if (focus is null)
+        // Nothing worth chasing (no champion, or the only one is way out of reach) -> go
+        // back to farming instead of walking blindly across the lane ignoring creeps.
+        if (focus is null || focus.GetDistanceTo(c.Pos) > PursueTiles)
         {
             this._state = BotState.Lane;
             await this.TickLaneAsync(c).ConfigureAwait(false);
@@ -815,6 +855,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (dist > range)
         {
+            // Opportunistic last-hit: while closing on the real target, if an enemy creep
+            // is already in our face, hit it instead of eating free creep damage. This is
+            // what stops the "creeps beat on the bot and it never hits back" behaviour.
+            if (DateTime.UtcNow >= this._nextActionUtc
+                && this.CurrentMap is { } m
+                && m.GetAttackablesInRange(pos, range)
+                    .OfType<NPC.Monster>()
+                    .FirstOrDefault(x => x.IsAlive && !MobaStructures.IsStructure(x) && MobaTeams.AreEnemies(this, x)) is { } creep)
+            {
+                this._nextActionUtc = DateTime.UtcNow + ActionCooldown;
+                await this.CastNextOrAttackAsync(creep).ConfigureAwait(false);
+                return;
+            }
+
             await this.WalkTowardAsync(target.Position).ConfigureAwait(false);
             return;
         }
