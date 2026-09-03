@@ -4,7 +4,9 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Runtime.CompilerServices;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
@@ -183,18 +185,51 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
             await monster.AttackAsync(target).ConfigureAwait(false);
 
             // Against a champion, a turret hits for a big fraction of the target's MAX HP
-            // (LoL-style escalating tower damage) so ~5 shots kill regardless of the
-            // champion's level / build. Creeps just take the flat weapon damage above.
+            // (LoL-style escalating tower damage), and each CONSECUTIVE shot on the same
+            // champion ramps up - a dive that lasts 3+ shots is lethal. Creeps just take
+            // the flat weapon damage above.
             if (target is Player { IsMobaClone: true } champion
                 && champion.IsAlive
                 && champion.Attributes is { } a)
             {
-                var bonus = (uint)Math.Max(1, a[Stats.MaximumHealth] * TurretChampionMaxHealthFraction);
+                var now = DateTime.UtcNow;
+                var ramp = RampByChampion.GetOrCreateValue(champion);
+                if (now - ramp.LastShotUtc > RampReset)
+                {
+                    ramp.Shots = 0;
+                }
+
+                ramp.Shots++;
+                ramp.LastShotUtc = now;
+                var rampMul = ramp.Shots <= 1 ? 1.0f : ramp.Shots == 2 ? 1.4f : Math.Min(2.4f, 1.4f + (0.5f * (ramp.Shots - 2)));
+
+                var bonus = (uint)Math.Max(1, a[Stats.MaximumHealth] * TurretChampionMaxHealthFraction * rampMul);
                 await champion.ApplyPoisonDamageAsync(monster, bonus).ConfigureAwait(false);
+                champion.Logger.LogInformation(
+                    "[MOBA-STRUCT] {Team} turret shot #{Shots} x{Mul:F1} -> {Champ} for {Bonus} true ({Hp:F0}/{MaxHp:F0} left)",
+                    this._team,
+                    ramp.Shots,
+                    rampMul,
+                    champion.Name,
+                    bonus,
+                    Math.Max(0f, a[Stats.CurrentHealth]),
+                    a[Stats.MaximumHealth]);
             }
         }
     }
 
-    /// <summary>Fraction of a champion's MAX HP a single turret shot deals (on top of the flat weapon hit).</summary>
-    private const float TurretChampionMaxHealthFraction = 0.19f;
+    /// <summary>Fraction of a champion's MAX HP a single (first) turret shot deals (on top of the flat weapon hit).</summary>
+    private const float TurretChampionMaxHealthFraction = 0.16f;
+
+    /// <summary>Consecutive turret shots on the same champion ramp; the count resets after this gap out of range.</summary>
+    private static readonly TimeSpan RampReset = TimeSpan.FromSeconds(4);
+
+    private static readonly ConditionalWeakTable<Player, TurretRamp> RampByChampion = new();
+
+    private sealed class TurretRamp
+    {
+        public int Shots;
+
+        public DateTime LastShotUtc;
+    }
 }

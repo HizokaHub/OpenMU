@@ -20,6 +20,16 @@ public static class MobaDefense
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;
 
+    /// <summary>Everyone has this much base mitigation even with zero VIT invested (base armour) - stops pure glass-cannon one-shots.</summary>
+    private const double BaseMitigation = 0.12;
+
+    /// <summary>
+    /// No single non-true hit may remove more than this fraction of the victim's max HP
+    /// (HP + shield damage combined). This is the hard anti-one-shot rule: it guarantees a
+    /// champion always survives at least a few hits, so fights last seconds, not frames.
+    /// </summary>
+    private const double MaxHitFractionOfMaxHp = 0.30;
+
     /// <summary>Last mitigation applied per defender (for the [MOBA-DMG] trace): raw pre-mitigation, final, and the effective mitigation fraction.</summary>
     public static readonly ConditionalWeakTable<Player, MitigationTrace> LastMitigation = new();
 
@@ -64,7 +74,8 @@ public static class MobaDefense
         }
 
         var investedVit = Math.Max(0, a[Stats.TotalVitality] - MobaCloneFactory.BaselineStatValue);
-        return MaxMitigation * (investedVit / (investedVit + VitHalfPoint));
+        var fromVit = (MaxMitigation - BaseMitigation) * (investedVit / (investedVit + VitHalfPoint));
+        return BaseMitigation + fromVit;
     }
 
     /// <summary>
@@ -90,12 +101,24 @@ public static class MobaDefense
 
         var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation)));
 
+        // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
+        // max HP. Big burst still wins fights - it just can't delete a champion in one frame.
+        var capped = final;
+        if (defender.Attributes is { } da)
+        {
+            var hitCap = (int)(da[Stats.MaximumHealth] * MaxHitFractionOfMaxHp);
+            if (hitCap > 0 && capped > hitCap)
+            {
+                capped = hitCap;
+            }
+        }
+
         var trace = LastMitigation.GetOrCreateValue(defender);
         trace.Raw = rawDamage;
-        trace.Final = final;
+        trace.Final = capped;
         trace.Fraction = mitigation;
         trace.WhenUtc = DateTime.UtcNow;
 
-        return final;
+        return capped;
     }
 }

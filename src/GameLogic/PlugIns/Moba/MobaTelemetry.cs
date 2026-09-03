@@ -45,6 +45,9 @@ public static class MobaTelemetry
 
     private static DateTime _lastPeriodicUtc = DateTime.MinValue;
 
+    /// <summary>Highest snowball-gap threshold already announced this server session.</summary>
+    private static double _snowballCrossed;
+
     /// <summary>Running per-champion combat totals for the current server session.</summary>
     private sealed class ChampStats
     {
@@ -62,6 +65,24 @@ public static class MobaTelemetry
 
         public int BurstEvents;
 
+        public int SkillsCastNoTarget;
+
+        // Damage dealt split by source, for the [MOBA-CHAMP] sheet.
+        public long DmgBasic;
+
+        public long DmgSkill;
+
+        public long DmgCrit;
+
+        public long DmgTrue;
+
+        public long DmgDot;
+
+        // CC time SUFFERED (seconds the champion could not act), and the current engagement's slice.
+        public double CcSecondsTotal;
+
+        public double CcSecondsThisFight;
+
         public readonly Dictionary<string, long> PerSkillDealt = new();
     }
 
@@ -77,6 +98,9 @@ public static class MobaTelemetry
         public readonly Dictionary<string, long> DamageByAttacker = new();
 
         public readonly List<(DateTime When, long Amount)> Recent = new();
+
+        /// <summary>Skills each attacker landed this fight, in order (for the rotation trace).</summary>
+        public readonly Dictionary<string, List<string>> SkillSeqByAttacker = new();
 
         public bool FightLineLogged;
 
@@ -98,10 +122,20 @@ public static class MobaTelemetry
         var va = victim.Attributes;
         var hpNow = va is null ? 0f : Math.Max(0f, va[Stats.CurrentHealth]);
         var maxHp = va?[Stats.MaximumHealth] ?? 1f;
-        var breakdown = string.Join(", ", eng.DamageByAttacker.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}:{kv.Value}"));
+        var ordered = eng.DamageByAttacker.OrderByDescending(kv => kv.Value).ToList();
+        var breakdown = string.Join(", ", ordered.Select(kv => $"{kv.Key}:{kv.Value}"));
+
+        // Focus-fire: share of the fight's damage from the single biggest source (100% = perfectly focused).
+        var focusPct = taken > 0 ? ordered[0].Value / (double)taken : 0.0;
+
+        // CC time the victim ate this fight (seconds it could not act).
+        var cc = StatsTable.GetOrCreateValue(victim).CcSecondsThisFight;
+
+        // The top attacker's actual skill order this fight.
+        var topSeq = eng.SkillSeqByAttacker.TryGetValue(ordered[0].Key, out var s) ? string.Join(">", s) : "-";
 
         victim.Logger.LogInformation(
-            "[MOBA-TRADE] {Victim} {Ending} after {Dur:F1}s | took {Taken} ({Dps:F0} dps) | HP {HpStart:F0}->{HpNow:F0}/{MaxHp:F0} ({PctLeft:P0} left) | from [{Breakdown}]",
+            "[MOBA-TRADE] {Victim} {Ending} after {Dur:F1}s | took {Taken} ({Dps:F0} dps) | HP {HpStart:F0}->{HpNow:F0}/{MaxHp:F0} ({PctLeft:P0} left) | focusFire {Focus:P0} | ccEaten {Cc:F1}s | from [{Breakdown}] | topRota {Top}={Seq}",
             victim.Name,
             ending,
             dur,
@@ -111,7 +145,13 @@ public static class MobaTelemetry
             hpNow,
             maxHp,
             hpNow / Math.Max(1f, maxHp),
-            breakdown);
+            focusPct,
+            cc,
+            breakdown,
+            ordered[0].Key,
+            topSeq);
+
+        StatsTable.GetOrCreateValue(victim).CcSecondsThisFight = 0;
     }
 
     /// <summary>Records one landed hit on a champion. Call from the combat trace.</summary>
@@ -135,14 +175,30 @@ public static class MobaTelemetry
             var skillTag = skill is null ? "basic" : $"{skill.Name}#{skill.Number}";
 
             // --- running totals ---
+            var isCrit = (hit.Attributes & DamageAttributes.Critical) != 0;
+            var isDot = (hit.Attributes & DamageAttributes.Poison) != 0;
             if (attacker is Player { IsMobaClone: true } atkChamp)
             {
                 var s = StatsTable.GetOrCreateValue(atkChamp);
                 s.DamageDealt += total;
                 s.Hits++;
-                if ((hit.Attributes & DamageAttributes.Critical) != 0)
+                if (isCrit)
                 {
                     s.Crits++;
+                    s.DmgCrit += total;
+                }
+
+                if (isDot)
+                {
+                    s.DmgDot += total;
+                }
+                else if (skill is null)
+                {
+                    s.DmgBasic += total;
+                }
+                else
+                {
+                    s.DmgSkill += total;
                 }
 
                 s.PerSkillDealt.TryGetValue(skillTag, out var prev);
@@ -171,6 +227,17 @@ public static class MobaTelemetry
             eng.LastHitUtc = now;
             eng.DamageByAttacker.TryGetValue(attackerName, out var byAtk);
             eng.DamageByAttacker[attackerName] = byAtk + total;
+            if (!eng.SkillSeqByAttacker.TryGetValue(attackerName, out var seq))
+            {
+                seq = new List<string>();
+                eng.SkillSeqByAttacker[attackerName] = seq;
+            }
+
+            if (seq.Count < 24 && (seq.Count == 0 || seq[^1] != skillTag))
+            {
+                seq.Add(isCrit ? skillTag + "*" : skillTag);
+            }
+
             eng.Recent.Add((now, total));
             eng.Recent.RemoveAll(r => now - r.When > BurstWindow);
             var burstSum = eng.Recent.Sum(r => r.Amount);
@@ -303,8 +370,12 @@ public static class MobaTelemetry
     {
         try
         {
+            var s = StatsTable.GetOrCreateValue(target);
+            s.CcSecondsTotal += applied.TotalSeconds;
+            s.CcSecondsThisFight += applied.TotalSeconds;
+
             target.Logger.LogInformation(
-                "[MOBA-CC] {Source} -> {Target} | {Kind} req={Req}ms applied={App}ms (DR x{Dr}, tenacity {Ten:F2}) @ {X},{Y}",
+                "[MOBA-CC] {Source} -> {Target} | {Kind} req={Req}ms applied={App}ms (DR x{Dr}, tenacity {Ten:F2}) fightCC={FightCc:F1}s @ {X},{Y}",
                 SafeName(source as IAttacker) ?? (source?.ToString() ?? "?"),
                 target.Name,
                 kind,
@@ -312,6 +383,7 @@ public static class MobaTelemetry
                 (int)applied.TotalMilliseconds,
                 drStack,
                 tenacity,
+                s.CcSecondsThisFight,
                 target.Position.X,
                 target.Position.Y);
         }
@@ -405,7 +477,7 @@ public static class MobaTelemetry
                 var topSkills = string.Join(", ", s.PerSkillDealt.OrderByDescending(kv => kv.Value).Take(3).Select(kv => $"{kv.Key}:{kv.Value}"));
 
                 c.Logger.LogInformation(
-                    "[MOBA-CHAMP] t={T}s {Team} {Class} {Name} Lv{Lvl} | HP {Hp:F0}/{MaxHp:F0} +{Sd:F0}sd EHP~{Ehp:F0} | mana {Mana:F0}/{MaxMana:F0} | mit {Mit:P0} crit {Crit:P0}(obs {CritObs:P0}) rng {Rng} ms {Ms:F0} | dealt {Dealt} taken {Taken} healed {Healed} DPS {Dps:F0} burst{Burst} | top[{Top}]",
+                    "[MOBA-CHAMP] t={T}s {Team} {Class} {Name} Lv{Lvl} | HP {Hp:F0}/{MaxHp:F0} +{Sd:F0}sd EHP~{Ehp:F0} | mana {Mana:F0}/{MaxMana:F0} | mit {Mit:P0} crit {Crit:P0}(obs {CritObs:P0}) rng {Rng} ms {Ms:F0} | dealt {Dealt} (basic {B} skill {Sk} crit {Cr} dot {Dt}) taken {Taken} healed {Healed} ccEaten {Cc:F0}s DPS {Dps:F0} burst{Burst} noTgtCasts{NoTgt} | top[{Top}]",
                     elapsed,
                     MobaTeams.GetTeam(c),
                     c.SelectedCharacter?.CharacterClass?.Name,
@@ -423,10 +495,16 @@ public static class MobaTelemetry
                     range,
                     ms,
                     s.DamageDealt,
+                    s.DmgBasic,
+                    s.DmgSkill,
+                    s.DmgCrit,
+                    s.DmgDot,
                     s.DamageTaken,
                     s.Healed,
+                    s.CcSecondsTotal,
                     dps,
                     s.BurstEvents,
+                    s.SkillsCastNoTarget,
                     topSkills);
             }
 
@@ -470,12 +548,27 @@ public static class MobaTelemetry
             if (blue.Count > 0 && red.Count > 0)
             {
                 var gap = blue.Average(c => c.MobaLevel) - red.Average(c => c.MobaLevel);
+                var absGap = Math.Abs(gap);
                 champions[0].Logger.LogInformation(
                     "[MOBA-ECON] t={T}s LEVEL-GAP Blue-Red = {Gap:+0.0;-0.0;0.0} (Blue avg {B:F1}, Red avg {R:F1})",
                     elapsed,
                     gap,
                     blue.Average(c => c.MobaLevel),
                     red.Average(c => c.MobaLevel));
+
+                foreach (var threshold in new[] { 2.0, 3.5, 5.0 })
+                {
+                    if (absGap >= threshold && _snowballCrossed < threshold)
+                    {
+                        _snowballCrossed = threshold;
+                        champions[0].Logger.LogWarning(
+                            "[MOBA-ECON] t={T}s SNOWBALL: level gap first crossed {Th:F1} ({Ahead} ahead by {Gap:F1})",
+                            elapsed,
+                            threshold,
+                            gap > 0 ? "Blue" : "Red",
+                            absGap);
+                    }
+                }
             }
 
             if (map is not null)

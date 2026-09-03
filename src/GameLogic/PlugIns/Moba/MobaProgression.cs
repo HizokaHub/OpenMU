@@ -25,20 +25,20 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// </summary>
 public static class MobaProgression
 {
-    private const float HealthLevel1 = 1_200f;
-    private const float HealthLevelMax = 45_000f;
+    private const float HealthLevel1 = 1_900f;
+    private const float HealthLevelMax = 50_000f;
 
     private const float ManaLevel1 = 450f;
     private const float ManaLevelMax = 3_400f;
 
-    private const float ShieldLevel1 = 300f;
-    private const float ShieldLevelMax = 9_000f;
+    private const float ShieldLevel1 = 400f;
+    private const float ShieldLevelMax = 10_000f;
 
     private const float DefenseLevel1 = 15f;
     private const float DefenseLevelMax = 400f;
 
     private const double DamageScaleLevel1 = 1.0;
-    private const double DamageScaleLevelMax = 22.0;
+    private const double DamageScaleLevelMax = 15.0;
 
     /// <summary>Max health for a champion at the given level.</summary>
     /// <param name="level">Champion level (1..30).</param>
@@ -73,10 +73,10 @@ public static class MobaProgression
     /// <returns>The (health multiplier, damage-scale multiplier).</returns>
     public static (float HpMul, double DamageMul) RoleTilt(MobaFamily family) => family switch
     {
-        MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 0.82),          // bruiser-tank front line
+        MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 0.85),          // bruiser-tank front line
         MobaFamily.DarkLord => (1.15f, 0.92),                                  // tanky utility
-        MobaFamily.Elf => (0.80f, 1.20),                                       // ranged carry
-        MobaFamily.Wizard or MobaFamily.Summoner => (0.82f, 1.22),            // burst / DoT casters
+        MobaFamily.Elf => (0.88f, 1.15),                                       // ranged carry
+        MobaFamily.Wizard or MobaFamily.Summoner => (0.88f, 1.16),            // burst / DoT casters
         _ => (1.00f, 1.00),                                                    // Magic Gladiator - neutral
     };
 

@@ -115,6 +115,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _nextAiHeartbeatUtc;
     private DateTime _lastCombatSeenUtc;
     private DateTime _stateEnteredUtc;
+    private float _recallHpPctAtStart;
     private Point _lastHeartbeatPos;
     private string? _lastClampReason;
     private string? _lastEngageNote;
@@ -382,17 +383,37 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 this._lastCombatSeenUtc = now;
             }
 
+            // One-word intent derived from state (readable macro trace).
+            var intent = this._state switch
+            {
+                BotState.Lane => "farm/hold-lane",
+                BotState.Fight => "fight-champion",
+                BotState.GroupPush => "push-objective",
+                BotState.DefendBase => "defend-base",
+                BotState.Retreat => "retreat",
+                BotState.Recalling => "recall",
+                _ => "?",
+            };
+
+            // Overextension: sitting in the enemy half with no ally nearby and no vision cover.
+            var myTeam = MobaTeams.GetTeam(this);
+            var inEnemyHalf = myTeam == MobaTeam.Blue ? pos.Y > 134 : pos.Y < 122;
+            var overextended = inEnemyHalf && ctx.AllyChampsNear.Count <= 1 && this._state is not BotState.Retreat and not BotState.Recalling;
+
             this.Logger.LogInformation(
-                "[MOBA-AI] {Name} @ {X},{Y} state={State} hp={Hp:P0} moved={Moved:F1}t/{Beat}s idle~{Idle:F0}s enemyNear={En}",
+                "[MOBA-AI] {Name} @ {X},{Y} state={State} intent={Intent} hp={Hp:P0} moved={Moved:F1}t/{Beat}s idle~{Idle:F0}s enemyNear={En} allyNear={Al}{Over}",
                 this.Name,
                 pos.X,
                 pos.Y,
                 this._state,
+                intent,
                 ctx.HpPct,
                 movedTiles,
                 (int)AiHeartbeat.TotalSeconds,
                 idleFor,
-                ctx.EnemyChampsNear.Count);
+                ctx.EnemyChampsNear.Count,
+                ctx.AllyChampsNear.Count,
+                overextended ? " OVEREXTENDED" : string.Empty);
 
             if (movedTiles < 1.0 && idleFor > 5.0 && this._state is BotState.Lane or BotState.GroupPush or BotState.Fight)
             {
@@ -552,6 +573,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
         {
             if (c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallCancelTiles))
             {
+                this.Logger.LogInformation(
+                    "[MOBA-AI] {Name} recall INTERRUPTED @ {X},{Y} - enemy within {Tiles}t, retreating",
+                    this.Name,
+                    c.Pos.X,
+                    c.Pos.Y,
+                    RecallCancelTiles);
+                this._recallStartUtc = default;
                 return BotState.Retreat;
             }
 
@@ -642,11 +670,24 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (this._recallStartUtc == default)
         {
             this._recallStartUtc = c.Now;
+            this._recallHpPctAtStart = c.HpPct;
+            this.Logger.LogInformation(
+                "[MOBA-AI] {Name} recall START @ {X},{Y} hp={Hp:P0} (safeSpot={Safe})",
+                this.Name,
+                c.Pos.X,
+                c.Pos.Y,
+                c.HpPct,
+                this.IsSafeSpot(c));
         }
 
         // Stand still and channel. Done -> blink home, full heal, back to lane.
         if (c.Now - this._recallStartUtc >= RecallChannel)
         {
+            this.Logger.LogInformation(
+                "[MOBA-AI] {Name} recall DONE (channelled {Sec:F1}s, hp {Start:P0}->full)",
+                this.Name,
+                (c.Now - this._recallStartUtc).TotalSeconds,
+                this._recallHpPctAtStart);
             this._recallStartUtc = default;
             this._laneIndex = 0;
             if (this.Attributes is { } a)
