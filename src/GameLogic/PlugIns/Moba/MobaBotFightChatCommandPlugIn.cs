@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.PlugIns;
 
@@ -38,22 +39,25 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
             ? Math.Clamp(parsed, 1, all.Length)
             : all.Length;
 
-        // A bot fight needs objectives to play around: spawn the turrets + nexuses if the
-        // arena doesn't already have them, otherwise the bots just brawl their way to the
-        // enemy spawn.
+        // A bot fight needs objectives to play around: spawn the turrets + nexuses on the
+        // ARENA map (not wherever the caller happens to stand) if it doesn't have them,
+        // otherwise the bots just brawl their way to the enemy spawn.
         var structures = 0;
-        if (player.CurrentMap is { } map)
+        var arena = await player.GameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
+        if (arena is not null)
         {
-            if (!MobaStructureSpawner.HasTurrets(map.MapId))
+            if (!MobaStructureSpawner.HasTurrets(arena.MapId))
             {
-                structures += await MobaStructureSpawner.SpawnTurretsAsync(map, player.GameContext).ConfigureAwait(false);
+                structures += await MobaStructureSpawner.SpawnTurretsAsync(arena, player.GameContext).ConfigureAwait(false);
             }
 
-            if (!MobaStructureSpawner.HasNexuses(map.MapId))
+            if (!MobaStructureSpawner.HasNexuses(arena.MapId))
             {
-                structures += await MobaStructureSpawner.SpawnNexusesAsync(map, player.GameContext).ConfigureAwait(false);
+                structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
             }
         }
+
+        player.Logger.LogInformation("[MOBA-BOT] /mobabotfight {N}v{N}: spawned {S} structures on arena.", n, structures);
 
         var families = all.Take(n).ToList();
         var blue = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, families).ConfigureAwait(false);
