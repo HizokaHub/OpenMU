@@ -161,6 +161,14 @@ public static class MobaExperience
             victim.MobaDeaths++;
 
             var killExp = MobaLevels.ChampionKillExp + (victim.MobaLevel * MobaLevels.ChampionKillPerVictimLevel);
+
+            // Stomping a much lower-level enemy is near-free EXP - stops a fed team from
+            // perma-killing its way further ahead.
+            if (victim.MobaLevel <= killer.MobaLevel - MobaLevels.FutileKillLevelGap)
+            {
+                killExp = (int)(killExp * MobaLevels.FutileKillExpMultiplier);
+            }
+
             await GrantAsync(killer, killExp, "champion").ConfigureAwait(false);
 
             var killerTeam = MobaTeams.GetTeam(killer);

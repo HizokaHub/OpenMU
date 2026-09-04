@@ -100,7 +100,7 @@ public static class MobaSkillDamage
         [224] = (95, 24, 0.55),  // Requiem
         [225] = (85, 20, 0.45),  // Pollution (also DoT)
         [230] = (95, 24, 0.55),  // Lightning Shock
-        [235] = (110, 26, 0.55), // Multi-Shot
+        [235] = (92, 22, 0.50),  // Multi-Shot
         [262] = (100, 25, 0.55), // Chain Drive
         [264] = (100, 24, 0.55), // Dragon Roar
         [265] = (100, 24, 0.55), // Dragon Slasher
@@ -110,7 +110,7 @@ public static class MobaSkillDamage
         [2] = (95, 24, 0.60),    // Meteorite
         [13] = (100, 25, 0.60),  // Cometfall
         [39] = (100, 24, 0.60),  // Ice Storm
-        [52] = (95, 24, 0.55),   // Penetration
+        [52] = (85, 21, 0.50),   // Penetration
         [65] = (110, 28, 0.65),  // Electric Spike
         [236] = (105, 26, 0.60), // Flame Strike
         [237] = (110, 28, 0.65), // Gigantic Storm
@@ -123,7 +123,7 @@ public static class MobaSkillDamage
         [42] = (115, 28, 0.75),  // Rageful Blow
         [43] = (125, 30, 0.80),  // Death Stab
         [46] = (140, 34, 0.85),  // Starfall
-        [51] = (135, 32, 0.80),  // Ice Arrow
+        [51] = (108, 26, 0.70),  // Ice Arrow
         [232] = (135, 32, 0.85), // Strike of Destruction
         [260] = (120, 30, 0.75), // Killing Blow
         [263] = (135, 33, 0.85), // Dark Side

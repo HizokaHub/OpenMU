@@ -28,7 +28,10 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public sealed class MobaBotPlayer : OfflinePlayer
 {
-    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(700);
+    // The bot "brain" re-evaluates this often. It must be clearly SHORTER than ActionCooldown
+    // so the bot actually observes the window between a skill and its next action and can
+    // weave a basic / reposition / react instead of standing frozen for a whole beat.
+    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(280);
     private static readonly TimeSpan ActionCooldown = TimeSpan.FromMilliseconds(650);
 
     /// <summary>Basic-attack cadence - faster than the skill cadence so bots weave autos between abilities.</summary>

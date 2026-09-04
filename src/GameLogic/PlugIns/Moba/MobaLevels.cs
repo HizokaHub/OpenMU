@@ -24,38 +24,44 @@ public static class MobaLevels
     /// passive drip is the steady source, farm is a top-up. Gold (later) is what really
     /// rewards the last hit.
     /// </summary>
-    public const int CreepLastHitExp = 10;
+    public const int CreepLastHitExp = 7;
 
     /// <summary>
     /// EXP to every OTHER champion of the killing team within <see cref="ShareRadius"/>
     /// of a dying creep (LoL-style proximity XP - you don't need the last hit). ~30% of
     /// the last-hit value ("70% menos").
     /// </summary>
-    public const int CreepProximityExp = 3;
+    public const int CreepProximityExp = 4;
 
     /// <summary>Tiles around a creep death within which champions of the killing team get proximity EXP.</summary>
     public const int ShareRadius = 12;
 
     /// <summary>Base EXP for killing an enemy champion, plus <see cref="ChampionKillPerVictimLevel"/> per victim level.</summary>
-    public const int ChampionKillExp = 130;
+    public const int ChampionKillExp = 80;
 
     /// <summary>Extra champion-kill EXP per level of the victim. Small, so killing a fed enemy does not itself snowball.</summary>
-    public const int ChampionKillPerVictimLevel = 5;
+    public const int ChampionKillPerVictimLevel = 3;
 
     /// <summary>EXP for each allied champion near an enemy champion kill (assist).</summary>
-    public const int AssistExp = 70;
+    public const int AssistExp = 45;
+
+    /// <summary>Killing an enemy this many levels below you is "free" - the kill EXP is cut hard (no perma-stomp fuel).</summary>
+    public const int FutileKillLevelGap = 2;
+
+    /// <summary>Kill-EXP multiplier when the victim is <see cref="FutileKillLevelGap"/>+ levels below the killer.</summary>
+    public const double FutileKillExpMultiplier = 0.35;
 
     /// <summary>EXP granted to every champion of the team that destroyed a turret.</summary>
     public const int TurretKillExp = 220;
 
     /// <summary>Passive EXP drip per tick to every champion in a match (time-based, not tied to kills). The floor that keeps a losing team levelling.</summary>
-    public const int PassiveExpPerTick = 22;
+    public const int PassiveExpPerTick = 34;
 
     /// <summary>A champion this many levels below the match leader gets the catch-up EXP bonus.</summary>
-    public const int CatchUpLevelGap = 3;
+    public const int CatchUpLevelGap = 2;
 
     /// <summary>Catch-up EXP multiplier at the start of the match for a champion <see cref="CatchUpLevelGap"/>+ levels behind.</summary>
-    public const double CatchUpExpMultiplierEarly = 2.5;
+    public const double CatchUpExpMultiplierEarly = 4.0;
 
     /// <summary>
     /// The catch-up bonus decays linearly from <see cref="CatchUpExpMultiplierEarly"/> to
@@ -92,7 +98,7 @@ public static class MobaLevels
 
         // Steeper than linear so a fed champion needs disproportionately more per level -
         // it keeps climbing but the gap to a farming opponent stops widening as fast.
-        return 90 + (currentLevel * 30) + (currentLevel * currentLevel);
+        return 90 + (currentLevel * 28) + (long)(currentLevel * currentLevel * 1.6);
     }
 
     /// <summary>Whether the given champion level is a skill-pick milestone.</summary>
