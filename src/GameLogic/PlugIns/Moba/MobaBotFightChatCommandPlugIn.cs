@@ -57,7 +57,7 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
             }
         }
 
-        player.Logger.LogInformation("[MOBA-BOT] /mobabotfight {N}v{N}: spawned {S} structures on arena.", n, structures);
+        player.Logger.LogInformation("[MOBA-BOT] /mobabotfight {N}v{N2}: spawned {S} structures on arena.", n, n, structures);
 
         var families = all.Take(n).ToList();
         var blue = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, families).ConfigureAwait(false);

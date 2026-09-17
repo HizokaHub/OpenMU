@@ -17,11 +17,16 @@ using MUnique.OpenMU.PlugIns;
 /// server-driven champion bots near the caller for skill / balance testing. They walk to
 /// the nearest enemy and cycle their loadout; watch the <c>[MOBA-DMG]</c> log.
 /// <c>/mobabotclear</c> removes them.
+/// <para>
+/// Shorthand for a quick 1v1: <c>/mobabot &lt;class1&gt; &lt;class2&gt;</c> (neither arg a
+/// team keyword) spawns <c>class1</c> on blue against <c>class2</c> on red in one call, e.g.
+/// <c>/mobabot bk sm</c>.
+/// </para>
 /// </summary>
 [Guid("3D9A6E82-1B47-4C05-8F62-9A0E7C3B1D54")]
 [PlugIn]
-[Display(Name = "MOBA: spawn test bots", Description = "Dev command '/mobabot <blue|red> <class|all> [count]'.")]
-[ChatCommandHelp(Command, "Spawn MOBA champion test bots: /mobabot <blue|red> <class|all> [count]", typeof(MobaBotChatCommandArgs))]
+[Display(Name = "MOBA: spawn test bots", Description = "Dev command '/mobabot <blue|red> <class|all> [count]' or '/mobabot <class1> <class2>' for a quick 1v1.")]
+[ChatCommandHelp(Command, "Spawn MOBA champion test bots: /mobabot <blue|red> <class|all> [count], or /mobabot <class1> <class2> for a quick 1v1", typeof(MobaBotChatCommandArgs))]
 public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommandArgs>
 {
     private const string Command = "/mobabot";
@@ -61,9 +66,29 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         _ => byte.TryParse(value, out var n) ? n : (byte?)null,
     };
 
+    /// <summary>Team keywords accepted by <see cref="MobaBotChatCommandArgs.ResolveTeam"/> - anything else in that slot is a class alias for the 1v1 shorthand.</summary>
+    private static bool IsTeamKeyword(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "blue" or "b" or "azul" or "red" or "r" or "rojo" => true,
+        _ => false,
+    };
+
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaBotChatCommandArgs arguments)
     {
+        // Shorthand for a quick 1v1: /mobabot <class1> <class2> - neither slot is "blue"/"red",
+        // so treat them as class1 (blue) vs class2 (red) instead of team+class.
+        if (!IsTeamKeyword(arguments.Team)
+            && ResolveClassNumber(arguments.Team) is { } blueClass
+            && ResolveClassNumber(arguments.Class) is { } redClass)
+        {
+            var blueSpawned = await SpawnAsync(player, MobaTeam.Blue, new[] { blueClass }).ConfigureAwait(false);
+            var redSpawned = await SpawnAsync(player, MobaTeam.Red, new[] { redClass }).ConfigureAwait(false);
+            await player.ShowBlueMessageAsync(
+                $"[mobabot] duelo 1v1: {blueSpawned} azul vs {redSpawned} rojo. /mobabotclear para terminar.").ConfigureAwait(false);
+            return;
+        }
+
         var team = arguments.ResolveTeam();
 
         var classNumbers = string.Equals(arguments.Class?.Trim(), "all", StringComparison.OrdinalIgnoreCase)
