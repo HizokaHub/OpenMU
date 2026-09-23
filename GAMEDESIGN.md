@@ -231,6 +231,95 @@ Fuentes de oro:
 - Todos los ítems comprados en partida son **instance-bound** (se pierden al
   salir, no se transfieren al inventario real del servidor).
 
+### Sistema de tienda de ítems (NPC vendedor)
+
+**Estructura general:**
+
+- Un **único NPC vendedor** (no uno por raza ni por categoría) atiende a todos
+  los jugadores en la base.
+- Al hablarle, se despliega un **menú de categorías** mostradas por **nombre**
+  (ej. "Armas", "Sets", "Alas", "Accesorios", "Buffs/Consumibles"), nunca
+  numeradas.
+- Al elegir una categoría, se abre la **ventana estándar de vendedor** (la del
+  protocolo/cliente ya existente), mostrando **solo** los ítems de esa categoría.
+- Los ítems de cada categoría se **filtran automáticamente por raza/clase** del
+  personaje que abrió el menú — cada jugador solo ve lo que su clase puede usar,
+  sin vendedores separados por raza.
+- El jugador puede cerrar la ventana y volver a hablarle al NPC para elegir otra
+  categoría.
+- Cada categoría puede contener ítems de **varios tiers** (T1/T2/T3, ver *Tienda
+  de ítems*).
+- Es parte de la **Fase 1** y vive en la **instancia del match**: todo lo
+  comprado es **instance-bound**.
+- **Restricción:** debe funcionar **sin modificar el cliente**, usando solo los
+  diálogos / ventana de vendedor que ya existen en el protocolo S6.
+
+#### Viabilidad técnica (investigada 2026-09-22, sin implementar)
+
+- **No existe un menú de texto nativo servidor→cliente.** En el protocolo S6 el
+  servidor solo manda *qué ventana abrir* (`NpcWindow`); los textos de los
+  diálogos con opciones (quest dialog `0xF6`, `NpcDialog`, Legacy Quest) salen
+  de archivos del cliente (`QuestWords_*.bmd`, etc.) o están hardcodeados por
+  número de NPC. Mostrar "Armas / Sets / …" como texto clicable requeriría tocar
+  el cliente (código o `Data/`), lo que está fuera de la restricción. Tampoco hay
+  en OpenMU un NPC multi-función que resuelva esto.
+- **Sí existe el gancho de servidor:** un NPC **sin** `MerchantStore` cae en
+  `IPlayerTalkToNpcPlugIn` (`TalkNpcAction`), donde un plugin puede abrir la
+  ventana de vendedor y mandar la lista de ítems que quiera, por jugador.
+- **La ventana de vendedor se puede re-llenar abierta:** MuMain, al recibir
+  `0x31` con la tienda visible, vacía la grilla y la repinta
+  (`ReceiveTradeInventoryExtended`). Permite cambiar de categoría sin cerrar.
+- **El precio que ve el jugador lo calcula el cliente** (`ItemValue()` en
+  MuMain), no viaja en el paquete. El servidor cobra con `ItemPriceCalculator`,
+  que replica esa fórmula nativa (nivel +N, opciones, luck, excelente, ancestral).
+  Una fórmula de precio propia se cobraría bien pero **se mostraría mal**.
+- **El cliente bloquea equipar por stats/clase** (`IsRequireEquipItem`): el
+  filtro por clase debe incluir también que el baseline de stats del clon
+  alcance los requisitos del ítem, o el jugador compraría algo que no puede
+  ponerse.
+- **Compra por slot:** `BuyNpcItemAction` busca el ítem por slot en el
+  `MerchantStore` del NPC. Con listas por jugador/categoría hay que guardar la
+  "vista actual" de la tienda por jugador y resolver la compra contra ella
+  (cambio de servidor, no de cliente). Capacidad: 8×15 celdas por vista.
+- **Instance-bound ya queda cubierto:** lo comprado entra al inventario del
+  clon; `MobaCloneFactory.DetachClone` desengancha el inventario y, en cascada,
+  sus ítems, así que nada se persiste. Los ítems tirados al suelo ya los limpia
+  `DroppedItem`.
+
+#### Alternativas para el menú de categorías (pendiente de decidir)
+
+1. **Menú dentro de la ventana de vendedor** *(recomendada)*: al hablarle, se
+   abre la tienda con **un ítem-ícono por categoría** (ej. espada = Armas,
+   armadura = Sets, alas = Alas, anillo = Accesorios, poción = Buffs) y un
+   mensaje dorado que nombra cada ícono. "Comprar" un ícono no cobra nada:
+   el servidor re-llena la ventana con esa categoría (filtrada por clase) e
+   incluye un ícono fijo de **"Volver"**. Limitación: el tooltip del ícono
+   muestra el nombre/precio nativo del ítem, no la palabra "Armas".
+2. **Ciclo por clic:** cada vez que se le habla, abre la siguiente categoría y
+   anuncia su nombre con mensaje dorado. Muy simple, pero incómodo con 5+
+   categorías.
+3. **Comando de chat:** `/tienda armas` elige la categoría y luego se habla al
+   NPC (o el comando abre la tienda si está cerca). Texto real, pero no es un
+   menú de diálogo. Sirve como atajo complementario de la opción 1.
+4. **Descartadas:** un NPC por categoría (contradice el "único NPC" y los nombres
+   de NPC también vienen del cliente) y reutilizar el diálogo de quests
+   (requiere editar `Data/` del cliente).
+
+#### Decisiones pendientes antes de implementar
+
+- Cuál de las alternativas de menú se usa.
+- Precio: **fórmula nativa de MU** (lo que muestra el cliente) calibrando el
+  oro que se gana, vs. fórmula propia por stats (cobro correcto, precio mostrado
+  incorrecto).
+- Moneda: usar el **Zen del clon** (ya arranca en 0 y se descarta) como oro de
+  partida.
+- Si se permite **vender** al NPC (reembolso parcial, estilo LoL) y **tirar /
+  tradear** ítems comprados dentro del match.
+- Qué **modelo de NPC** (número de NPC del cliente) se usa como vendedor en la
+  base de cada equipo.
+- Catálogo inicial por categoría y tier (qué ítems concretos, con qué
+  nivel/opciones).
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
