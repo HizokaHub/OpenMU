@@ -23,6 +23,12 @@ public static class PlayerItemExtensions
     {
         item.ThrowNotInitializedProperty(item.Definition is null, nameof(item.Definition));
 
+        // MOBA: the shop has no level/stat requirements - only the class decides.
+        if (player.IsMobaClone)
+        {
+            return item.Definition.QualifiedCharacters.Contains(player.SelectedCharacter!.CharacterClass!);
+        }
+
         foreach (var requirement in item.Definition.Requirements.Select(item.GetRequirement))
         {
             if (player.Attributes![requirement.Attr] < requirement.Value)

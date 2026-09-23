@@ -59,6 +59,8 @@ public class SelectCharacterAction
                 MobaTeams.Set(player, MobaTeam.Blue);
             }
 
+            await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
+
             player.Logger.LogInformation("Account {0} entered the MOBA match as a clone of '{1}'.", account.LoginName, characterName);
             return;
         }

@@ -55,6 +55,8 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
             {
                 structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
             }
+
+            await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
         }
 
         player.Logger.LogInformation("[MOBA-BOT] /mobabotfight {N}v{N2}: spawned {S} structures on arena.", n, n, structures);

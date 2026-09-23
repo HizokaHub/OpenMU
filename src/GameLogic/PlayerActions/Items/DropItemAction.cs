@@ -31,6 +31,14 @@ public class DropItemAction
             return;
         }
 
+        if (player.IsMobaClone)
+        {
+            // MOBA: bought items are instance-bound and only go back to the shop (sell).
+            await player.ShowBlueMessageAsync("[MOBA] Los ítems de la partida no se pueden tirar; véndelos en la tienda.").ConfigureAwait(false);
+            await player.InvokeViewPlugInAsync<IItemDropResultPlugIn>(p => p.ItemDropResultAsync(slot, false)).ConfigureAwait(false);
+            return;
+        }
+
         if (player.IsTemplatePlayer)
         {
             player.Logger.LogWarning("Can't drop items of a template account.");

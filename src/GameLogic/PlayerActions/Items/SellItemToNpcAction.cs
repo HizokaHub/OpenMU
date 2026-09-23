@@ -58,7 +58,9 @@ public class SellItemToNpcAction
 
     private async ValueTask<bool> SellItemAsync(Player player, Item item)
     {
-        var sellingPrice = (int)this._itemPriceCalculator.CalculateSellingPrice(item, item.Durability());
+        var sellingPrice = PlugIns.Moba.MobaShop.TryGetSellPrice(player, item, out var mobaPrice)
+            ? mobaPrice
+            : (int)this._itemPriceCalculator.CalculateSellingPrice(item, item.Durability());
         player.Logger.LogDebug("Calculated selling price {0} for item {1}", sellingPrice, item);
         if (!player.TryAddMoney(sellingPrice))
         {

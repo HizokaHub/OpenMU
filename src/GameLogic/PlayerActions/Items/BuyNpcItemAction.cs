@@ -35,14 +35,26 @@ public class BuyNpcItemAction
             return;
         }
 
-        var npcDefinition = player.OpenedNpc.Definition;
-        if (npcDefinition?.MerchantStore is null || npcDefinition.MerchantStore.Items.Count == 0)
+        Item? storeItem;
+        long? priceOverride = null;
+        if (PlugIns.Moba.MobaShop.TryGetOffer(player, slot, out var mobaItem, out var mobaPrice))
         {
-            await player.InvokeViewPlugInAsync<IBuyNpcItemFailedPlugIn>(p => p.BuyNpcItemFailedAsync()).ConfigureAwait(false);
-            return;
+            // MOBA shop: per-player category view, priced by the MOBA formula.
+            storeItem = mobaItem;
+            priceOverride = mobaPrice;
+        }
+        else
+        {
+            var npcDefinition = player.OpenedNpc.Definition;
+            if (npcDefinition?.MerchantStore is null || npcDefinition.MerchantStore.Items.Count == 0)
+            {
+                await player.InvokeViewPlugInAsync<IBuyNpcItemFailedPlugIn>(p => p.BuyNpcItemFailedAsync()).ConfigureAwait(false);
+                return;
+            }
+
+            storeItem = npcDefinition.MerchantStore.Items.FirstOrDefault(i => i.ItemSlot == slot);
         }
 
-        var storeItem = npcDefinition.MerchantStore.Items.FirstOrDefault(i => i.ItemSlot == slot);
         if (storeItem is null)
         {
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.ItemUnknown)).ConfigureAwait(false);
@@ -53,7 +65,7 @@ public class BuyNpcItemAction
         // Inventory Update:
         if (storeItem.IsStackable() && player.Inventory!.Items.FirstOrDefault(item => storeItem.CanCompletelyStackOn(item)) is { } targetItem)
         {
-            if (!this.CheckMoney(player, storeItem))
+            if (!this.CheckMoney(player, storeItem, priceOverride))
             {
                 return;
             }
@@ -72,7 +84,7 @@ public class BuyNpcItemAction
                 return;
             }
 
-            if (!this.CheckMoney(player, storeItem))
+            if (!this.CheckMoney(player, storeItem, priceOverride))
             {
                 await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.NotEnoughMoney)).ConfigureAwait(false);
                 await player.InvokeViewPlugInAsync<IBuyNpcItemFailedPlugIn>(p => p.BuyNpcItemFailedAsync()).ConfigureAwait(false);
@@ -90,9 +102,9 @@ public class BuyNpcItemAction
         await player.InvokeViewPlugInAsync<IUpdateMoneyPlugIn>(p => p.UpdateMoneyAsync()).ConfigureAwait(false);
     }
 
-    private bool CheckMoney(Player player, Item item)
+    private bool CheckMoney(Player player, Item item, long? priceOverride)
     {
-        var price = this._priceCalculator.CalculateFinalBuyingPrice(item);
+        var price = priceOverride ?? this._priceCalculator.CalculateFinalBuyingPrice(item);
         if (!player.TryRemoveMoney((int)price))
         {
             return false;

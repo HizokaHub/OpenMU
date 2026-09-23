@@ -251,74 +251,63 @@ Fuentes de oro:
   de ítems*).
 - Es parte de la **Fase 1** y vive en la **instancia del match**: todo lo
   comprado es **instance-bound**.
-- **Restricción:** debe funcionar **sin modificar el cliente**, usando solo los
-  diálogos / ventana de vendedor que ya existen en el protocolo S6.
+- **Se edita el cliente (MuMain):** el protocolo S6 no trae un menú de texto
+  servidor→cliente ni precios enviados por el servidor, y las alternativas sin
+  tocar el cliente (ítems-ícono, varios NPCs, tiendas personales) se descartaron
+  por verse peor. Decisión del 2026-09-23 (ver decisión #8).
 
-#### Viabilidad técnica (investigada 2026-09-22, sin implementar)
+#### Diseño implementado (2026-09-23)
 
-- **No existe un menú de texto nativo servidor→cliente.** En el protocolo S6 el
-  servidor solo manda *qué ventana abrir* (`NpcWindow`); los textos de los
-  diálogos con opciones (quest dialog `0xF6`, `NpcDialog`, Legacy Quest) salen
-  de archivos del cliente (`QuestWords_*.bmd`, etc.) o están hardcodeados por
-  número de NPC. Mostrar "Armas / Sets / …" como texto clicable requeriría tocar
-  el cliente (código o `Data/`), lo que está fuera de la restricción. Tampoco hay
-  en OpenMU un NPC multi-función que resuelva esto.
-- **Sí existe el gancho de servidor:** un NPC **sin** `MerchantStore` cae en
-  `IPlayerTalkToNpcPlugIn` (`TalkNpcAction`), donde un plugin puede abrir la
-  ventana de vendedor y mandar la lista de ítems que quiera, por jugador.
-- **La ventana de vendedor se puede re-llenar abierta:** MuMain, al recibir
-  `0x31` con la tienda visible, vacía la grilla y la repinta
-  (`ReceiveTradeInventoryExtended`). Permite cambiar de categoría sin cerrar.
-- **El precio que ve el jugador lo calcula el cliente** (`ItemValue()` en
-  MuMain), no viaja en el paquete. El servidor cobra con `ItemPriceCalculator`,
-  que replica esa fórmula nativa (nivel +N, opciones, luck, excelente, ancestral).
-  Una fórmula de precio propia se cobraría bien pero **se mostraría mal**.
-- **El cliente bloquea equipar por stats/clase** (`IsRequireEquipItem`): el
-  filtro por clase debe incluir también que el baseline de stats del clon
-  alcance los requisitos del ítem, o el jugador compraría algo que no puede
-  ponerse.
-- **Compra por slot:** `BuyNpcItemAction` busca el ítem por slot en el
-  `MerchantStore` del NPC. Con listas por jugador/categoría hay que guardar la
-  "vista actual" de la tienda por jugador y resolver la compra contra ella
-  (cambio de servidor, no de cliente). Capacidad: 8×15 celdas por vista.
-- **Instance-bound ya queda cubierto:** lo comprado entra al inventario del
-  clon; `MobaCloneFactory.DetachClone` desengancha el inventario y, en cascada,
-  sus ítems, así que nada se persiste. Los ítems tirados al suelo ya los limpia
-  `DroppedItem`.
+- **Vendedor:** **Hanzo el herrero** (NPC 251), uno en la base de cada equipo
+  (azul ~(112,57), rojo ~(112,208), provisional). Aparece al entrar el primer
+  clon a la arena o con `/mobabotfight`. El Hanzo de Lorencia no cambia.
+- **Menú de categorías:** la **ventana nativa de diálogo de NPC** de S6 (la de
+  las quests) con un modo nuevo en que título, texto y opciones vienen del
+  servidor. Opciones por nombre, sin numerar: *Armas · Sets · Alas ·
+  Accesorios · Buffs / Consumibles*. Reutilizable para otros NPCs (p. ej. el de
+  cola de Lorencia).
+- **Ventana de tienda:** la ventana de vendedor nativa, con solo la categoría
+  elegida, filtrada por **familia de clase** del catálogo + clase habilitada
+  del ítem, ordenada T1 → T2 → T3 (grilla 8×15).
+- **Precios del servidor:** el cliente recibe la tabla de precios al abrir la
+  tienda y el tooltip muestra ese precio (compra) o el 70 % (venta) en vez del
+  precio nativo. El precio se identifica por tipo + nivel + nivel de opción +
+  luck + nº de opciones excelentes, así que sigue al ítem en el inventario.
+- **Moneda:** el **Zen del clon** (arranca en 0 y se descarta con el clon).
+- **Reventa:** se puede **vender** al vendedor por el **70 %** del precio.
+  **No** se puede tirar al suelo ni tradear entre campeones.
+- **Sin requisitos de stats/nivel** para equipar dentro del match (servidor y
+  cliente): solo decide la clase.
+- **Tiers** (se aplican a cada ítem del catálogo, limitados al nivel máximo
+  del ítem, p. ej. +4 en anillos):
+  - **T1:** +0, sin opciones.
+  - **T2:** +7, luck, opción +8, 2 opciones excelentes, skill.
+  - **T3:** +11, luck, opción +16, 4 opciones excelentes, skill.
+- **Fórmula de precio** (nunca a mano):
+  `puntos = (drop level + 10) × (1 + nivel × 0,1) + opción × 8 + luck 15 +
+  excelentes × 25`; equipo = puntos × 10 Zen (redondeado a 10), consumibles =
+  puntos × 2 Zen por unidad. El *drop level* es el grado del ítem en MU (sus
+  stats base escalan con él). Precios resultantes: T1 ≈ 300–1.900 Zen,
+  T2 ≈ 1.000–3.500, T3 ≈ 2.000–4.800 por pieza (set T3 completo ≈ 22.000);
+  pociones 120–770 por stack de 3.
+- **Catálogo inicial (provisional, se afina jugando):** por familia, un arma,
+  un set completo y unas alas por tier; accesorios (anillos/pendientes) y
+  consumibles (pociones, Ale, Potion of Bless/Soul) comunes a todos.
+- **Protocolo propio** (canal MOBA `0xD5`):
+  - `C2 D5 06` servidor→cliente: menú (id, título, texto, opciones UTF-8).
+  - `C1 D5 07` cliente→servidor: opción elegida (id de menú, índice).
+  - `C2 D5 08` servidor→cliente: tabla de precios + % de reventa.
 
-#### Alternativas para el menú de categorías (pendiente de decidir)
+#### Pendiente / siguiente paso
 
-1. **Menú dentro de la ventana de vendedor** *(recomendada)*: al hablarle, se
-   abre la tienda con **un ítem-ícono por categoría** (ej. espada = Armas,
-   armadura = Sets, alas = Alas, anillo = Accesorios, poción = Buffs) y un
-   mensaje dorado que nombra cada ícono. "Comprar" un ícono no cobra nada:
-   el servidor re-llena la ventana con esa categoría (filtrada por clase) e
-   incluye un ícono fijo de **"Volver"**. Limitación: el tooltip del ícono
-   muestra el nombre/precio nativo del ítem, no la palabra "Armas".
-2. **Ciclo por clic:** cada vez que se le habla, abre la siguiente categoría y
-   anuncia su nombre con mensaje dorado. Muy simple, pero incómodo con 5+
-   categorías.
-3. **Comando de chat:** `/tienda armas` elige la categoría y luego se habla al
-   NPC (o el comando abre la tienda si está cerca). Texto real, pero no es un
-   menú de diálogo. Sirve como atajo complementario de la opción 1.
-4. **Descartadas:** un NPC por categoría (contradice el "único NPC" y los nombres
-   de NPC también vienen del cliente) y reutilizar el diálogo de quests
-   (requiere editar `Data/` del cliente).
-
-#### Decisiones pendientes antes de implementar
-
-- Cuál de las alternativas de menú se usa.
-- Precio: **fórmula nativa de MU** (lo que muestra el cliente) calibrando el
-  oro que se gana, vs. fórmula propia por stats (cobro correcto, precio mostrado
-  incorrecto).
-- Moneda: usar el **Zen del clon** (ya arranca en 0 y se descarta) como oro de
-  partida.
-- Si se permite **vender** al NPC (reembolso parcial, estilo LoL) y **tirar /
-  tradear** ítems comprados dentro del match.
-- Qué **modelo de NPC** (número de NPC del cliente) se usa como vendedor en la
-  base de cada equipo.
-- Catálogo inicial por categoría y tier (qué ítems concretos, con qué
-  nivel/opciones).
+- **Los ítems todavía no cambian el combate MOBA:** el daño y la defensa del
+  modo salen de los stats invertidos (`MobaSkillDamage`, `MobaDefense`,
+  `MobaCombatStats`), no del equipo. Hay que conectar los stats de los ítems a
+  esas fórmulas para que comprar tenga efecto.
+- Buffs reales de ataque/defensa comprables (hoy solo Ale y Potion of
+  Bless/Soul) y calibrar el oro que se gana contra estos precios.
+- Posición exacta de los vendedores y spawn por instancia cuando exista el
+  ciclo real de partida.
 
 ### Al salir de la partida (cleanup automático)
 
@@ -480,6 +469,7 @@ programar.
 | 5 | Entrada y matchmaking de la Fase 1 | **NPC de cola en Lorencia** con 3 opciones: (1) solo, (2) party de 2–4, (3) equipo de 5. Pools: 1+2 se combinan hasta armar equipos de 5 (party siempre junto); 3 es pool aparte, solo 5-preformados vs 5-preformados. **Ready-check** al completar los 10, ventana **10 s**; rechazo/timeout → la partida no arranca, el jugador se reemplaza y recibe **1 advertencia**. **3 advertencias → bloqueo 1 h** (cola y party); reincidencia tras cumplir → bloqueo escala (1 h → 2 h → …); aceptar tras cumplir un bloqueo resetea advertencias a 0. Advertencias/bloqueos persistidos en BD. | 2026-08-29 |
 | 6 | Aislamiento del personaje real durante la partida | **Clon efímero por partida** (Opción B). Impl: `Character` **desprendido** (`new`, nunca en el change-tracker de EF) + **flag transitorio por jugador** que hace `SaveProgressAsync` un no-op durante el match (misma idea que `Account.IsTemplate`, en RAM). El clon + estado de partida los posee un **objeto de match server-side** (uno por partida, estilo `MiniGameContext`), no la conexión — sobrevive DC del jugador; al reconectar se re-vincula la sesión al clon en RAM. El personaje real jamás se muta ni se persiste el clon. | 2026-08-29 |
 | 7 | Condición de victoria de la Fase 1 | Se gana **destruyendo el nexo rival** (estructura con HP, lógica de puertas de Castle Siege). **Sin timer**, duración indefinida. Ritmo de progresión objetivo: **~Master Level 30 en el minuto 30–40** para un jugador con buen desempeño; curva de Master EXP (kill / last-hit / objetivo / EXP por nivel) queda como **config afinable**. Provisional en dev hasta tener la estructura: corte por comando de GM o tope de kills. | 2026-08-29 |
+| 8 | Tienda de ítems de la Fase 1 | **Un Hanzo por base** → **menú de categorías por nombre** en el diálogo nativo de NPC (texto enviado por el servidor) → **ventana de vendedor nativa** filtrada por clase, T1–T3 mezclados. **Se edita MuMain** (menú server-driven + precios del servidor en el tooltip). Moneda = **Zen del clon**; **venta al 70 %**, sin tirar ni tradear; **sin requisitos de stats** en el match. Precio por **fórmula** (grado + nivel + opciones). Catálogo provisional. | 2026-09-23 |
 
 ### Notas de diseño relacionadas
 

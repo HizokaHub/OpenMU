@@ -25,6 +25,12 @@ public class TradeRequestAction
             return false;
         }
 
+        if (player is Player { IsMobaClone: true } || partner is Player { IsMobaClone: true })
+        {
+            // MOBA: match items are instance-bound, no trading between champions.
+            return false;
+        }
+
         if (player.ViewPlugIns.GetPlugIn<IShowTradeRequestPlugIn>() is null || partner.ViewPlugIns.GetPlugIn<IShowTradeRequestAnswerPlugIn>() is null)
         {
             return false;

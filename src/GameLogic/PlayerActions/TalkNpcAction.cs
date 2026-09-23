@@ -45,6 +45,11 @@ public class TalkNpcAction
         }
 
         player.OpenedNpc = npc;
+        if (await PlugIns.Moba.MobaShop.TryOpenMenuAsync(player, npc).ConfigureAwait(false))
+        {
+            return;
+        }
+
         if (npcStats.MerchantStore != null && npcStats.MerchantStore.Items.Count > 0)
         {
             await Task.Delay(500).ConfigureAwait(false);
