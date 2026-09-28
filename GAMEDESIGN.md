@@ -300,10 +300,18 @@ Fuentes de oro:
 
 #### Pendiente / siguiente paso
 
-- **Los ítems todavía no cambian el combate MOBA:** el daño y la defensa del
-  modo salen de los stats invertidos (`MobaSkillDamage`, `MobaDefense`,
-  `MobaCombatStats`), no del equipo. Hay que conectar los stats de los ítems a
-  esas fórmulas para que comprar tenga efecto.
+- **Los ítems todavía no cambian el combate MOBA (confirmado en código,
+  2026-09-28):** el pipeline de daño/defensa (`AttackableExtensions.cs` líneas
+  ~86-337) para un atacante `IsMobaClone` ignora por completo el equipo — el
+  daño sale 100 % de `MobaSkillDamage.GetSkillBaseDamage/GetComboBonus` (tabla
+  por skill + stat primario invertido), la mitigación 100 % de
+  `MobaDefense.MitigationOf` (VIT invertida), y crit/vamp/daño especial de
+  `MobaCombatStats` / `MobaVampAndSpecial` (AGI invertida / constante por
+  clase). Ningún stat de arma, set, ala, anillo u opción excelente entra hoy a
+  esas fórmulas. Conectar los stats de los ítems ahí (y decidir qué % del daño
+  y la mitigación totales deberían representar frente al build de stats) es el
+  trabajo de la **pasada de balance del MOBA**, en curso — ver plan
+  compartido con el usuario el 2026-09-28.
 - Buffs reales de ataque/defensa comprables (hoy solo Ale y Potion of
   Bless/Soul) y calibrar el oro que se gana contra estos precios.
 - Posición exacta de los vendedores y spawn por instancia cuando exista el
