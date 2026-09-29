@@ -415,24 +415,21 @@ Se combina multiplicando con el bono de ítem de Zen (`MoneyAmountRate`) y el
 catch-up. Las estimaciones anteriores (~11.000 Zen/40 min plano) no aplican
 más: **hay que re-medir con `/mobabotfight`** y afinar los factores.
 
-#### Segunda ventana de tienda — investigado, es técnicamente posible
+#### Segunda ventana de tienda — **descartada como ventana; resuelta con páginas de menú** (2026-09-29)
 
-Pregunta del usuario: ¿se puede abrir otra ventana en la tienda? **No es
-imposible** — el protocolo S6 ya trae un segundo tipo de ventana de
-vendedor nativa: `NpcWindow.Merchant1` (`MonsterDefinition.cs:29-32`),
-mapeada y enviada de verdad del lado servidor
-(`OpenNpcWindowPlugIn.cs:51`, no es un valor muerto del enum). Hoy la
-tienda MOBA solo usa `NpcWindow.Merchant` (`MobaShop.cs`).
+Se revisó el cliente MuMain (`WSclient.cpp`, `ReceiveTalk`, packet `0x30`): los
+valores 0 (`Merchant`) y 1 (`Merchant1`) caen **ambos** en el `default:` y abren
+la **misma** ventana `INTERFACE_NPCSHOP` — no existe una segunda ventana de
+vendedor distinta en el cliente. Usar `Merchant1` no daría espacio extra (y
+hacer una ventana nueva sería trabajo de UI en C++ para nada).
 
-Lo que falta confirmar antes de usarla:
-- **Si el cliente MuMain (repo aparte, `mu-main`) ya sabe renderizar
-  `Merchant1`** — no se revisó en esta sesión, es C++, otro repositorio.
-- **Para qué se usaría** — no es solo "más espacio": abriría la puerta a,
-  por ejemplo, separar la grilla de variantes múltiples (una vez que
-  existan 2-3 armas por tier) sin competir por los mismos 8×15 slots de
-  una sola categoría, o a una segunda ventana de otra naturaleza (venta
-  rápida, comparación). Es una decisión de diseño más que técnica en este
-  punto — a definir con el usuario antes de implementar.
+Como lo que se buscaba era **duplicar el espacio de variantes**, se resolvió sin
+tocar el cliente: el menú de categorías del NPC (server-driven, hasta 20
+opciones, hoy 7) ahora tiene **páginas extra**, cada una con su propia grilla
+8×15: `Sets (recursos)` (mezcla de vida/maná/Zen de los sets T1 y T2) y
+`Alas (utilidad)` (wing option de reflejo/maná de las alas T2 y T3). Se agregan
+como `MobaShopCategory.SetsSustain` / `WingsUtility` (el orden del enum es el
+orden del menú). Si hicieran falta más variantes, se agrega otra página igual.
 
 #### Variantes múltiples de ítems por clase/tier — implementado (2026-09-29)
 
@@ -463,11 +460,13 @@ variante; alas: `WingOptionPreference`).
   **arma alternativa real** para Wizard (Chromatic Staff), Knight (Knight Blade),
   Elf (Sylph Wind Bow), MG (Dark Reign Blade), DL (Soleil Scepter). Summoner y
   RF no tienen alternativa nativa.
-- **Sets:** T1 y T2 → 2 mezclas (estándar tanque / **Aggressive** reflejo+
-  defensa+vida+maná); T3 → 1. Con 3 tiers × 2 mezclas harían falta 132 celdas y
-  la grilla tiene 120 (8×15): por eso T3 va sin variante.
-- **Alas:** T2/T3 → 2 (Aggressive = ignorar defensa, Sustain = vida). Capas de
-  DL/RF también (tienen wing option). T1 de 1ª gen → 1.
+- **Sets:** página "Sets": T1 y T2 → 2 mezclas (estándar tanque / **Aggressive**
+  reflejo+defensa+vida+maná); T3 → 1 (T3 lleva las 6 opciones, no hay mezcla que
+  variar). Página **"Sets (recursos)"**: 3ª mezcla **Sustain** (vida/maná/Zen) de
+  T1 y T2. Todo junto no entra en una grilla (22 celdas por set, 120 de grilla).
+- **Alas:** página "Alas": T2/T3 → 2 (Aggressive = ignorar defensa, Sustain =
+  vida). Página **"Alas (utilidad)"**: 3ª mezcla (maná máx. / reflejo total) de
+  T2/T3. Capas de DL/RF también (tienen wing option). T1 de 1ª gen → 1.
 - `BuildCategoryItems` **deduplica** variantes que resuelven al mismo ítem.
 - Un ítem con wing option cuenta como 1 opción excelente para el **precio** (+25)
   y para la **clave de precio del cliente** (el serializador lo mete en el byte
@@ -486,9 +485,8 @@ variante; alas: `WingOptionPreference`).
    al cerrar esta sesión, sin push todavía si la conversación cambia).
 2. ~~Helper + variantes de arma/set/alas~~ — **hecho 2026-09-29** (ver arriba).
 3. ~~Curva de oro por fase~~ — **hecho 2026-09-29** (×1,0/×1,5/×2,0).
-4. Decidir el propósito de una segunda ventana (`Merchant1`) y si conviene
-   para la variedad de ítems del punto 2; si se sigue, confirmar soporte
-   en el cliente MuMain antes de tocar el servidor.
+4. ~~Segunda ventana (`Merchant1`)~~ — **resuelto 2026-09-29**: el cliente la
+   abre igual que `Merchant`; se usan páginas de menú (ver arriba).
 5. Validar todo con `/mobabotfight` (requiere servidor + BD locales
    levantados — según la memoria del proyecto, todavía no lo están en
    este entorno).

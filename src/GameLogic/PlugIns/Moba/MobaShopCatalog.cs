@@ -19,7 +19,9 @@ public static class MobaShopCatalog
     {
         "Armas",
         "Sets",
+        "Sets (recursos)",
         "Alas",
+        "Alas (utilidad)",
         "Accesorios",
         "Buffs / Consumibles",
     };
@@ -57,12 +59,19 @@ public static class MobaShopCatalog
         {
             entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Aggressive));
             entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Sustain));
+
+            // Third mix on the extra page. First-generation wings (T1) have no wing option.
+            if (tier != MobaShopTier.T1)
+            {
+                entries.Add(new MobaShopEntry(MobaShopCategory.WingsUtility, new[] { family }, group, number, tier, Variant: MobaShopVariant.Utility));
+            }
         }
 
         // A set = the pieces helm (7) .. boots (11) with the same number; missing pieces
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.
-        // Sets: 2 mixes (standard tanky / aggressive reflect) at T1 and T2, one at T3. Two
-        // variants of all three tiers would need 132 cells, the merchant grid has 120.
+        // Sets: 2 mixes (standard tanky / aggressive reflect) at T1 and T2, one at T3, on the
+        // "Sets" page; the resource mix of T1/T2 goes on its own "Sets (recursos)" page (a
+        // set is 22 cells and the merchant grid holds 120, so 3 mixes x 2 tiers + T3 don't fit).
         void Set(MobaFamily family, short setNumber, MobaShopTier tier)
         {
             var variants = tier == MobaShopTier.T3
@@ -73,6 +82,14 @@ public static class MobaShopCatalog
                 for (var group = HelmGroup; group <= BootsGroup; group++)
                 {
                     entries.Add(new MobaShopEntry(MobaShopCategory.Sets, new[] { family }, group, setNumber, tier, Variant: variant));
+                }
+            }
+
+            if (tier != MobaShopTier.T3)
+            {
+                for (var group = HelmGroup; group <= BootsGroup; group++)
+                {
+                    entries.Add(new MobaShopEntry(MobaShopCategory.SetsSustain, new[] { family }, group, setNumber, tier, Variant: MobaShopVariant.Sustain));
                 }
             }
         }

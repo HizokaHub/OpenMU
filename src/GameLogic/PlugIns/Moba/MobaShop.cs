@@ -413,7 +413,8 @@ public static class MobaShop
     {
         [MobaShopVariant.Standard] = new[] { Stats.MaximumHealth, Stats.DefenseIgnoreChance },
         [MobaShopVariant.Aggressive] = new[] { Stats.DefenseIgnoreChance, Stats.FullyReflectDamageAfterHitChance },
-        [MobaShopVariant.Sustain] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance, Stats.MaximumMana },
+        [MobaShopVariant.Sustain] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance },
+        [MobaShopVariant.Utility] = new[] { Stats.MaximumMana, Stats.FullyReflectDamageAfterHitChance, Stats.FullyRecoverManaAfterHitChance },
     };
 
     /// <summary>The (level, option level, luck, excellent count) tuple a full-price tier guarantees.</summary>
@@ -476,7 +477,7 @@ public static class MobaShop
         }
 
         var excellentOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent)
-            .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority[variant].TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
+            .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority[ExcellentPickPriority.ContainsKey(variant) ? variant : MobaShopVariant.Standard].TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
             .ThenBy(o => o.Number)
             .Take(excellent);
         foreach (var excellentOption in excellentOptions)

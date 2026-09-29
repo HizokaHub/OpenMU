@@ -45,7 +45,7 @@ public class MobaShopTests
     public void CatalogItemsExist()
     {
         var missing = MobaShopCatalog.Entries
-            .Where(e => e.Category != MobaShopCategory.Sets)
+            .Where(e => e.Category is not (MobaShopCategory.Sets or MobaShopCategory.SetsSustain))
             .Where(e => !this._gameConfiguration.Items.Any(d => d.Group == e.Group && d.Number == e.Number))
             .Select(e => $"{e.Category} {e.Group},{e.Number}")
             .ToList();
@@ -133,7 +133,13 @@ public class MobaShopTests
         var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
         foreach (var category in new[] { MobaShopCategory.Weapons, MobaShopCategory.Wings })
         {
-            var items = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out _);
+            var items = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out _).ToList();
+            if (category == MobaShopCategory.Wings)
+            {
+                // The utility mix lives on its own page; compare it against the main one.
+                items.AddRange(MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, MobaShopCategory.WingsUtility, out _));
+            }
+
             var byType = items
                 .Where(i => i.Definition!.Group != 4 || i.Definition.Number != 15)
                 .GroupBy(i => (i.Definition!.Group, i.Definition.Number, i.Level))

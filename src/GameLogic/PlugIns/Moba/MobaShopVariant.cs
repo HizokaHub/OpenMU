@@ -25,4 +25,7 @@ public enum MobaShopVariant
     /// on wings.
     /// </summary>
     Sustain,
+
+    /// <summary>Utility: reflection / mana wing option (wings only).</summary>
+    Utility,
 }
