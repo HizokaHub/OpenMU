@@ -21,7 +21,6 @@ public static class MobaShopCatalog
         "Sets",
         "Sets (recursos)",
         "Alas",
-        "Alas (utilidad)",
         "Accesorios",
         "Buffs / Consumibles",
     };
@@ -53,19 +52,10 @@ public static class MobaShopCatalog
             }
         }
 
-        // Wings carry no excellent options, their identity is the single wing option: an
-        // offensive (defense ignore) and a sustain (health) mix at every tier.
+        // Wings are sold "full option" (max level, luck, +4 option and their one wing option),
+        // one entry per wing and tier - no variants.
         void Wing(MobaFamily family, byte group, short number, MobaShopTier tier)
-        {
-            entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Aggressive));
-            entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Sustain));
-
-            // Third mix on the extra page. First-generation wings (T1) have no wing option.
-            if (tier != MobaShopTier.T1)
-            {
-                entries.Add(new MobaShopEntry(MobaShopCategory.WingsUtility, new[] { family }, group, number, tier, Variant: MobaShopVariant.Utility));
-            }
-        }
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier));
 
         // A set = the pieces helm (7) .. boots (11) with the same number; missing pieces
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.

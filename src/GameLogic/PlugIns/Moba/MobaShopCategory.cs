@@ -24,9 +24,6 @@ public enum MobaShopCategory
     /// <summary>Wings and capes.</summary>
     Wings,
 
-    /// <summary>A second page of wings: the utility wing option (reflect / mana) of the T2 and T3 wings.</summary>
-    WingsUtility,
-
     /// <summary>Rings and pendants.</summary>
     Accessories,
 

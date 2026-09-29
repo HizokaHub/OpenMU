@@ -123,22 +123,16 @@ public class MobaShopTests
     }
 
     /// <summary>
-    /// Variants of the same piece must really differ in the options they carry (T1/T2 weapons
-    /// and wings), while keeping the same option count so they cost the same.
+    /// Variants of the same piece must really differ in the options they carry (T1/T2 weapons), while keeping the same option count so they cost the same.
     /// </summary>
     /// <param name="classNumber">The class number.</param>
     [TestCaseSource(nameof(FamilyClassNumbers))]
     public void VariantsCarryDifferentOptionsAtSamePrice(byte classNumber)
     {
         var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
-        foreach (var category in new[] { MobaShopCategory.Weapons, MobaShopCategory.Wings })
+        foreach (var category in new[] { MobaShopCategory.Weapons })
         {
             var items = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out _).ToList();
-            if (category == MobaShopCategory.Wings)
-            {
-                // The utility mix lives on its own page; compare it against the main one.
-                items.AddRange(MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, MobaShopCategory.WingsUtility, out _));
-            }
 
             var byType = items
                 .Where(i => i.Definition!.Group != 4 || i.Definition.Number != 15)
@@ -157,6 +151,27 @@ public class MobaShopTests
                     Assert.That(group.Select(MobaShop.PriceOf).Distinct().Count(), Is.EqualTo(1), $"{characterClass.Name}: {category} {group.Key} variants differ in price");
                 });
             }
+        }
+    }
+
+    /// <summary>Wings are sold full option and without variants: one entry per wing and tier.</summary>
+    /// <param name="classNumber">The class number.</param>
+    [TestCaseSource(nameof(FamilyClassNumbers))]
+    public void WingsAreFullOptionWithoutVariants(byte classNumber)
+    {
+        var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+        var wings = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, MobaShopCategory.Wings, out _);
+        Assert.That(wings.GroupBy(w => (w.Definition!.Group, w.Definition.Number)).All(g => g.Count() == 1), Is.True, $"{characterClass.Name}: repeated wing");
+        foreach (var wing in wings)
+        {
+            var name = $"{characterClass.Name} {wing.Definition!.Name}";
+            Assert.Multiple(() =>
+            {
+                Assert.That(wing.Level, Is.EqualTo(wing.Definition.MaximumItemLevel), name + " level");
+                Assert.That(wing.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck), Is.True, name + " luck");
+                Assert.That(wing.ItemOptions.First(o => o.ItemOption?.OptionType == ItemOptionTypes.Option).Level, Is.EqualTo(4), name + " option");
+                Assert.That(wing.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Wing), Is.LessThanOrEqualTo(1), name + " wing option");
+            });
         }
     }
 }

@@ -61,7 +61,7 @@ public static class MobaCreepDrops
         var family = MobaPassives.FamilyOf(lastHitter);
         var candidates = MobaShopCatalog.Entries
             .Where(e => e.Tier == tier
-                        && e.Category is MobaShopCategory.Weapons or MobaShopCategory.Sets or MobaShopCategory.SetsSustain or MobaShopCategory.Wings or MobaShopCategory.WingsUtility or MobaShopCategory.Accessories
+                        && e.Category is MobaShopCategory.Weapons or MobaShopCategory.Sets or MobaShopCategory.SetsSustain or MobaShopCategory.Wings or MobaShopCategory.Accessories
                         && (e.Families is null || e.Families.Contains(family)))
             .ToList();
         if (candidates.Count == 0)

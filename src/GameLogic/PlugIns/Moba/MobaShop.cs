@@ -414,7 +414,6 @@ public static class MobaShop
         [MobaShopVariant.Standard] = new[] { Stats.MaximumHealth, Stats.DefenseIgnoreChance },
         [MobaShopVariant.Aggressive] = new[] { Stats.DefenseIgnoreChance, Stats.FullyReflectDamageAfterHitChance },
         [MobaShopVariant.Sustain] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance },
-        [MobaShopVariant.Utility] = new[] { Stats.MaximumMana, Stats.FullyReflectDamageAfterHitChance, Stats.FullyRecoverManaAfterHitChance },
     };
 
     /// <summary>The (level, option level, luck, excellent count) tuple a full-price tier guarantees.</summary>
@@ -437,6 +436,12 @@ public static class MobaShop
         // for creep drops (see MobaCreepDrops), which is exactly why buying costs gold.
         var (level, optionLevel, luck, excellent) = TierStatsOf(entry.Tier);
         var hasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
+        if (entry.Category == MobaShopCategory.Wings)
+        {
+            // Wings are always sold full option: max level, luck, +4 option, one wing option.
+            (level, optionLevel, luck, excellent) = (definition.MaximumItemLevel, 4, true, 0);
+        }
+
         return CreateItemCore(definition, entry.Level ?? level, entry.Quantity, optionLevel, luck, excellent, hasSkill, entry.Variant);
     }
 
