@@ -596,13 +596,12 @@ Reemplazan / corrigen lo propuesto en "Avance de la sesión 2026-09-29":
   la nueva y volver a buscar).
 - **Ítems dropeados por creeps se venden por 5 de oro** (precio de reventa fijo,
   no el 70 % de la fórmula).
-- **Bug de cliente:** `Main.exe` (MuMain, compilado 2026-09-23) **crashea al iniciar**
-  (APPCRASH 0xc0000374 = corrupción de heap en ntdll, 2026-09-29 17:43) justo tras
-  "First Load Files OK" / `File not found Data\Interface
-ewui_item_back01.tga`, antes
-  de conectar (el servidor no registró ninguna conexión). Sospechas: build viejo
-  respecto del último commit del cliente (`c492d5a3`) o textura faltante. Primero
-  recompilar el cliente y reprobar; si persiste, depurar con el .mdmp de WER.
+- **Bug de cliente (resuelto 2026-09-29):** `Main.exe` crasheaba al iniciar (tras
+  "Loading ok", antes del Login Scene). Causa: objetos compilados viejos tras cambiar
+  el layout de `CNewUINPCDialogue` (commit `c492d5a3`, miembros `std::wstring`/`vector`
+  nuevos) — el build incremental dejó TUs inconsistentes. Solución: `cmake --build
+  --preset windows-x64-release --clean-first` (~10 min). Si vuelve a pasar tras
+  tocar un header de NewUI, hacer build limpio.
 
 ### Al salir de la partida (cleanup automático)
 
