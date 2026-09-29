@@ -573,6 +573,37 @@ menú. Decisiones nuevas del usuario y lo que queda:
    server-driven de la tienda no aparece, recompilar con `cmake --build --preset windows-x64-release`).
    Pendiente: que el usuario entre con un personaje GM, corra `/mobabotfight` y pase el log.
 
+#### Decisiones del usuario tras la sesión 2026-09-29 (a implementar en la próxima conversación)
+
+Reemplazan / corrigen lo propuesto en "Avance de la sesión 2026-09-29":
+
+- **Menú de tienda:** juntar **Consumibles + Accesorios + Alas en una sola página**,
+  ordenados en la grilla: **arriba consumibles, en medio accesorios, abajo alas**
+  (cada categoría empieza en fila propia). Las demás páginas (Armas, Sets, Sets
+  (recursos)) se re-evalúan por celdas: fusionar solo si caben sin desorden.
+- **El ritmo de niveles estaba mal:** subir a nivel 11 en ~4 min y a 21 en ~12 no es
+  aceptable (un nivel debe tomar **~1 min o más**). Hay que **recalibrar la curva
+  de EXP** (`MobaLevels.ExpToNext`, EXP pasiva/farmeo/kills) para que el **nivel
+  máximo (30) se alcance hacia el min 35** de un jugador promedio (~1,1-1,2
+  min/nivel). Las **fases** deben quedar: **T1 hasta ~min 8, T2 hasta ~min 24, T3
+  desde ahí hasta el 40-50+ (lo que dure la partida)**; recalcular los umbrales de
+  nivel de `MobaMatchPhase` (hoy 11/21) para que caigan en esos minutos con la
+  curva nueva.
+- **Objetivo de economía:** con **todas las fuentes de ingreso + revender el ítem
+  anterior (70 %) para comprar el siguiente**, un jugador con compras **perfectas**
+  debe lograr **T3 completo al min 40**. Con eso re-derivar K y los factores de fase
+  (el simulador `MobaGoldEconomyReport` ya existe; ajustar su curva de EXP/fases a
+  la nueva y volver a buscar).
+- **Ítems dropeados por creeps se venden por 5 de oro** (precio de reventa fijo,
+  no el 70 % de la fórmula).
+- **Bug de cliente:** `Main.exe` (MuMain, compilado 2026-09-23) **crashea al iniciar**
+  (APPCRASH 0xc0000374 = corrupción de heap en ntdll, 2026-09-29 17:43) justo tras
+  "First Load Files OK" / `File not found Data\Interface
+ewui_item_back01.tga`, antes
+  de conectar (el servidor no registró ninguna conexión). Sospechas: build viejo
+  respecto del último commit del cliente (`c492d5a3`) o textura faltante. Primero
+  recompilar el cliente y reprobar; si persiste, depurar con el .mdmp de WER.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
