@@ -7,7 +7,9 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.GameLogic.Views.NPC;
@@ -325,14 +327,44 @@ public static class MobaShop
         return true;
     }
 
+    /// <summary>
+    /// Pick priority for excellent options, by the attribute they boost (lower = picked
+    /// first when a tier doesn't take the whole pool). Weapon options and armor options
+    /// never appear on the same item, so both rank tables share one dictionary safely.
+    /// Order: raw offense / HP-and-mitigation first, resource-sustain and the Zen bonus
+    /// last - so a T1/T2 item reads as "damage/tanky" before it reads as "sustain/utility".
+    /// </summary>
+    private static readonly Dictionary<AttributeDefinition, int> ExcellentPickPriority = new()
+    {
+        [Stats.PhysicalBaseDmgIncrease] = 1,
+        [Stats.WizardryBaseDmgIncrease] = 1,
+        [Stats.MaximumHealth] = 1,
+        [Stats.PhysicalBaseDmg] = 2,
+        [Stats.WizardryBaseDmg] = 2,
+        [Stats.ArmorDamageDecrease] = 2,
+        [Stats.ExcellentDamageChance] = 3,
+        [Stats.DefenseRatePvm] = 3,
+        [Stats.AttackSpeedAny] = 4,
+        [Stats.DamageReflection] = 4,
+        [Stats.HealthAfterMonsterKillMultiplier] = 5,
+        [Stats.MaximumMana] = 5,
+        [Stats.ManaAfterMonsterKillMultiplier] = 6,
+        [Stats.MoneyAmountRate] = 6,
+    };
+
     private static TemporaryItem CreateItem(ItemDefinition definition, MobaShopEntry entry)
     {
         var item = new TemporaryItem { Definition = definition };
+
+        // Per tier: item level, "Option" (+dmg/+def flat) level 1-4, whether it carries
+        // Luck, and how many of the item's 6 possible excellent options it gets - T3 is
+        // "full" (all 6), so by then every build converges; T1/T2 pick the top few by
+        // ExcellentPickPriority, giving each tier real (if partial) identity.
         var (level, optionLevel, luck, excellent) = entry.Tier switch
         {
-            MobaShopTier.T2 => (7, 2, true, 2),
-            MobaShopTier.T3 => (11, 4, true, 4),
-            _ => (0, 0, false, 0),
+            MobaShopTier.T2 => (14, 3, true, 4),
+            MobaShopTier.T3 => (15, 4, true, 6),
+            _ => (13, 2, true, 3),
         };
 
         item.Level = (byte)Math.Min(entry.Level ?? level, definition.MaximumItemLevel);
@@ -351,7 +383,11 @@ public static class MobaShop
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = luckOption });
         }
 
-        foreach (var excellentOption in possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent).OrderBy(o => o.Number).Take(excellent))
+        var excellentOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent)
+            .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority.TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
+            .ThenBy(o => o.Number)
+            .Take(excellent);
+        foreach (var excellentOption in excellentOptions)
         {
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = excellentOption });
         }

@@ -291,18 +291,29 @@ alguna pieza T3) — a validar y afinar con `/mobabotfight`.
   **No** se puede tirar al suelo ni tradear entre campeones.
 - **Sin requisitos de stats/nivel** para equipar dentro del match (servidor y
   cliente): solo decide la clase.
-- **Tiers** (se aplican a cada ítem del catálogo, limitados al nivel máximo
-  del ítem, p. ej. +4 en anillos):
-  - **T1:** +0, sin opciones.
-  - **T2:** +7, luck, opción +8, 2 opciones excelentes, skill.
-  - **T3:** +11, luck, opción +16, 4 opciones excelentes, skill.
-- **Fórmula de precio** (nunca a mano):
+- **Tiers** (actualizado 2026-09-30, se aplican a cada ítem del catálogo,
+  limitados al nivel máximo del ítem, p. ej. +4 en anillos): cada tier ahora
+  también elige **cuáles** de las 6 opciones excelentes posibles entrega, por
+  prioridad fija (`MobaShop.ExcellentPickPriority`, no al azar): primero daño
+  puro / %HP, después mitigación / golpe excelente, después velocidad de
+  ataque / reflejo, y al final vida-maná-al-matar y el bono de Zen — así un
+  ítem T1/T2 ya tiene identidad de build, no una mezcla arbitraria.
+  - **T1:** +13, luck, opción +8, **3** opciones excelentes (las de más
+    prioridad).
+  - **T2:** +14, luck, opción +12, **4** opciones excelentes, skill.
+  - **T3:** +15, luck, opción +16, **6 (todas)**, skill — el tier tope
+    "iguala" a cualquier build, ya no hay tradeoff de cuáles elegir.
+- **Fórmula de precio** (sin cambios, nunca a mano):
   `puntos = (drop level + 10) × (1 + nivel × 0,1) + opción × 8 + luck 15 +
   excelentes × 25`; equipo = puntos × 10 Zen (redondeado a 10), consumibles =
   puntos × 2 Zen por unidad. El *drop level* es el grado del ítem en MU (sus
-  stats base escalan con él). Precios resultantes: T1 ≈ 300–1.900 Zen,
-  T2 ≈ 1.000–3.500, T3 ≈ 2.000–4.800 por pieza (set T3 completo ≈ 22.000);
-  pociones 120–770 por stack de 3.
+  stats base escalan con él). Con los tiers nuevos (más nivel + opciones),
+  los precios resultantes suben y se acercan entre tiers: T1 ≈ 1.750–5.400
+  Zen, T2 ≈ 2.100–6.000, T3 ≈ 2.700–6.700 por pieza (loadout T1 completo,
+  ~9 piezas, ≈ 16.000-25.000; T3 completo ≈ 25.000-42.000 — con la economía
+  de oro actual (~11.000 Zen/40 min promedio, ~18.000-22.000 bien farmeado)
+  un T3 completo queda como objetivo aspiracional, no de cada partida — a
+  revalidar jugando. Pociones sin cambios, 120–770 por stack de 3.
 - **Catálogo inicial (provisional, se afina jugando):** por familia, un arma,
   un set completo y unas alas por tier; accesorios (anillos/pendientes) y
   consumibles (pociones, Ale, Potion of Bless/Soul) comunes a todos.
