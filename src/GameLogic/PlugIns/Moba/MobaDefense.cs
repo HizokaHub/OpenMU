@@ -20,9 +20,9 @@ public static class MobaDefense
     /// <summary>
     /// Weight of the VIT-only mitigation (<see cref="MitigationOf"/>) in the final blend
     /// against item-driven mitigation (<see cref="MobaItemPower.DefenseFractionOf"/>) - see
-    /// <see cref="FinalMitigationOf"/>. Items are 25%, stats stay dominant at 75%.
+    /// <see cref="FinalMitigationOf"/>. Items are 40%, stats stay dominant at 60%.
     /// </summary>
-    private const double StatWeight = 0.75;
+    private const double StatWeight = 0.60;
 
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;

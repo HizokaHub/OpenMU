@@ -21,7 +21,7 @@ public static class MobaCombatStats
     public const double CritMultiplier = 1.75;
 
     /// <summary>Weight of the AGI term ("A") in <see cref="FinalCritChanceOf"/> against the item Luck term ("B").</summary>
-    private const double CritStatWeight = 0.75;
+    private const double CritStatWeight = 0.60;
 
     /// <summary>Hard cap on the final (stat + item) crit chance, so stacked Luck can't run away.</summary>
     private const double MaxCritChance = 0.60;

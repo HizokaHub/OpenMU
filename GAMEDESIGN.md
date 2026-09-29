@@ -4,6 +4,14 @@
 > centralizar el trabajo en este repositorio. A partir de ahora el diseño y el
 > desarrollo avanzan únicamente aquí.
 
+> **Regla de proceso (desde 2026-09-30):** si el usuario pide un prompt para
+> arrancar una tarea en una conversación nueva, este documento tiene que estar
+> al día con todo lo decidido/hecho hasta ese momento **antes** de dar el
+> prompt — si hay cambios de la conversación actual sin registrar acá,
+> actualizar este .md primero, recién después entregar el prompt. Y el prompt
+> en sí siempre le tiene que decir a la conversación nueva que lea este
+> GAMEDESIGN.md como guía / fuente de verdad del proyecto.
+
 ---
 
 ## Visión general
@@ -348,15 +356,128 @@ alguna pieza T3) — a validar y afinar con `/mobabotfight`.
   por skill + stat primario invertido), la mitigación 100 % de
   `MobaDefense.MitigationOf` (VIT invertida), y crit/vamp/daño especial de
   `MobaCombatStats` / `MobaVampAndSpecial` (AGI invertida / constante por
-  clase). Ningún stat de arma, set, ala, anillo u opción excelente entra hoy a
-  esas fórmulas. Conectar los stats de los ítems ahí (y decidir qué % del daño
-  y la mitigación totales deberían representar frente al build de stats) es el
-  trabajo de la **pasada de balance del MOBA**, en curso — ver plan
-  compartido con el usuario el 2026-09-28.
+  clase). **Actualización 2026-09-30: ya conectado** — ver la sección
+  *Balance del MOBA* más abajo para el detalle completo (arquitectura A/B,
+  economía de oro, tiers de tienda, drop de creeps) y lo que sigue pendiente.
 - Buffs reales de ataque/defensa comprables (hoy solo Ale y Potion of
   Bless/Soul) y calibrar el oro que se gana contra estos precios.
 - Posición exacta de los vendedores y spawn por instancia cuando exista el
   ciclo real de partida.
+
+### Balance del MOBA — sesión 2026-09-30 (implementado + pendiente)
+
+Pasada de balance completa, en la rama `moba/phase1`. Commits (en orden):
+`359d765f0` doc pendiente ítems, `c8b209775` margen de daño/mitigación +
+curva EXP 3 tramos, `05896df66` arquitectura A/B daño/crit/mitigación,
+`6200aa733` topes de velocidad/HP/maná, `9f936d154` economía de oro,
+`211f49ed9` tiers de tienda con prioridad temática, `669b83a40` drop de
+creeps por fase, más el cambio de pesos A/B a 60/40 (sin commitear al
+cerrar esta nota — hacerlo antes de seguir). Toda la suite de tests pasa
+(796/797 — la única falla, `DescriptionMatchesWhatThePlugInRequires`, es
+**preexistente**, no relacionada a este trabajo, confirmado con
+`git diff` contra el commit anterior a esta sesión; queda anotada aparte).
+
+#### Arquitectura A/B (stats vs ítems) — implementado
+
+Daño (`MobaSkillDamage.BlendedFraction`), mitigación
+(`MobaDefense.FinalMitigationOf`) y crítico
+(`MobaCombatStats.FinalCritChanceOf`) mezclan un término A (el build de
+stats, la fórmula que ya existía) con un término B (equivalente por
+ítems), `Final = A × StatWeight + B × (1 − StatWeight)`.
+**`StatWeight` = 0,60 / 0,40 para ítems** (constante en los 3 archivos,
+bajado de 0,75/0,25 el 2026-09-30 a pedido del usuario — dar más peso real
+a los ítems). Techos duros ya en código: excelente 50 %, crítico final
+60 %, mitigación final 70 % (heredado de `MaxMitigation`), velocidad de
+ataque ≤70, HP/Maná ≤ curva de nivel × 1,20 — todo en `MobaItemCaps.cs`
+salvo crítico/excelente que están inline. Reflejo de daño (`Stats.DamageReflection`)
+ya funcionaba nativo en `Player.HitAsync` — no hizo falta cablearlo, solo
+confirmar que los ítems T2+/T3 lo pueden llevar como opción excelente.
+
+#### Economía de oro — implementado, **sin curva por fase todavía**
+
+`MobaGold.cs` (no existía antes de esta sesión). Hoy **todas las tasas son
+planas / por evento**, no hay ninguna curva que las escale con el tiempo o
+la fase de partida:
+
+| Fuente | Valor actual (plano) |
+|---|---|
+| Last-hit de creep | 20 |
+| Proximidad de creep | 10 |
+| Matar campeón | 150 + 8 × nivel de la víctima |
+| Asistencia | 60 |
+| Shutdown (racha 3+) | +35 por racha adicional |
+| Subir de nivel de campeón | 40 |
+| Goteo pasivo | 10 cada 5 s (120/min), ×1,5 si vas 2+ niveles detrás del líder |
+
+Lo único que varía con el progreso de la partida es el bono de nivel de la
+víctima al matar y el multiplicador de catch-up — nada escala con **la
+fase de la partida** (T1/T2/T3, ya trackeada en `MobaMatchPhase` para el
+drop de creeps). Con esto, el poder de compra crece solo por acumulación,
+no por diseño de curva.
+
+**Propuesta (no implementada)** para una curva real, reusando las mismas
+fases que ya existen: multiplicar *todas* las fuentes de oro (menos el
+oro de matar campeón, que ya escala con nivel) por un factor según
+`MobaMatchPhase.Current` — **T1 ×1,0, T2 ×1,3, T3 ×1,6**. Con la
+estimación de antes (~11.000 Zen/40 min plano) esto la subiría a
+~14.000-15.000 promedio / ~23.000-29.000 bien farmeado — deja un kit T2
+completo cómodo y algo de T3 alcanzable para el equipo que juega bien,
+sin inflar tanto el arranque de partida. **A implementar y afinar con
+`/mobabotfight` en la próxima sesión.**
+
+#### Segunda ventana de tienda — investigado, es técnicamente posible
+
+Pregunta del usuario: ¿se puede abrir otra ventana en la tienda? **No es
+imposible** — el protocolo S6 ya trae un segundo tipo de ventana de
+vendedor nativa: `NpcWindow.Merchant1` (`MonsterDefinition.cs:29-32`),
+mapeada y enviada de verdad del lado servidor
+(`OpenNpcWindowPlugIn.cs:51`, no es un valor muerto del enum). Hoy la
+tienda MOBA solo usa `NpcWindow.Merchant` (`MobaShop.cs`).
+
+Lo que falta confirmar antes de usarla:
+- **Si el cliente MuMain (repo aparte, `mu-main`) ya sabe renderizar
+  `Merchant1`** — no se revisó en esta sesión, es C++, otro repositorio.
+- **Para qué se usaría** — no es solo "más espacio": abriría la puerta a,
+  por ejemplo, separar la grilla de variantes múltiples (una vez que
+  existan 2-3 armas por tier) sin competir por los mismos 8×15 slots de
+  una sola categoría, o a una segunda ventana de otra naturaleza (venta
+  rápida, comparación). Es una decisión de diseño más que técnica en este
+  punto — a definir con el usuario antes de implementar.
+
+#### Variantes múltiples de ítems por clase/tier — sin empezar, método definido
+
+El usuario pidió 2-3 variantes de arma/set/alas por clase y tier con
+opciones distintas (ej. una más crítica, otra más sustain). Se investigó
+`Weapons.cs` (`Persistence/Initialization/VersionSeasonSix/Items/`) y se
+confirmó el método correcto: `CreateWeapon(...)` expone `dropLevel` como
+9º parámetro (alimenta la fórmula de precio) y los últimos 7 parámetros
+son flags de clase habilitada (wizard/knight/elf/mg/dl/summoner/rf) — la
+misma fuente que ya usa `MobaShop.IsUsableBy` vía
+`definition.QualifiedCharacters`. **Contar esas columnas a mano en el
+código fuente es lento y frágil** (un error deja un ítem fantasma que
+desaparece en silencio del catálogo, sin romper nada pero sin que se
+note). **Se decidió no hacerlo a mano** — la próxima sesión debe escribir
+un test/query chico que cargue la `GameConfiguration` real (mismo
+mecanismo que ya usan los tests de `MobaShopTests`) y filtre candidatos
+por grado (`DropLevel` cercano al ítem actual de cada tier) y por
+`QualifiedCharacters` real, en vez de leer las líneas de `Weapons.cs` a
+ojo. Repetir el mismo enfoque para `Armors.cs` (sets) y `Wings.cs`.
+
+#### Pendiente para la próxima conversación (orden sugerido)
+
+1. Commitear el cambio de pesos A/B a 60/40 (ya hecho en el working tree
+   al cerrar esta sesión, sin push todavía si la conversación cambia).
+2. Escribir el helper/test de verificación por `QualifiedCharacters` +
+   `DropLevel`, y curar 2-3 variantes reales de arma/set/alas por clase y
+   tier con él (T1/T2/T3), respetando la grilla 8×15 de la tienda.
+3. Decidir y (si se aprueba) implementar la curva de oro por fase
+   propuesta arriba.
+4. Decidir el propósito de una segunda ventana (`Merchant1`) y si conviene
+   para la variedad de ítems del punto 2; si se sigue, confirmar soporte
+   en el cliente MuMain antes de tocar el servidor.
+5. Validar todo con `/mobabotfight` (requiere servidor + BD locales
+   levantados — según la memoria del proyecto, todavía no lo están en
+   este entorno).
 
 ### Al salir de la partida (cleanup automático)
 

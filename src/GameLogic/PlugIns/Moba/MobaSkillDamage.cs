@@ -50,10 +50,10 @@ public static class MobaSkillDamage
     /// <summary>
     /// Weight of the stat-build term ("A", <see cref="InvestedFraction"/>) in the blended
     /// damage-scaling fraction against the item term ("B", <see cref="MobaItemPower.OffenseFractionOf"/>)
-    /// - see <see cref="BlendedFraction"/>. Stats stay dominant (75%); items are a real,
-    /// bounded add (25%) instead of on top uncapped.
+    /// - see <see cref="BlendedFraction"/>. Stats stay dominant (60%); items are a real,
+    /// bounded add (40%) instead of on top uncapped.
     /// </summary>
-    private const double StatWeight = 0.75;
+    private const double StatWeight = 0.60;
 
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;
