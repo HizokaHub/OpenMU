@@ -71,9 +71,18 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         this._lastDripUtc = now;
 
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-        foreach (var champion in players.Where(p => p.IsMobaClone && p.MobaLevel < MobaLevels.MaxLevel).ToList())
+        var mobaChampions = players.Where(p => p.IsMobaClone).ToList();
+        var leaderLevel = mobaChampions.Select(p => p.MobaLevel).DefaultIfEmpty(0).Max();
+
+        foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel))
         {
             await MobaExperience.GrantAsync(champion, MobaLevels.PassiveExpPerTick, "passive").ConfigureAwait(false);
+
+            // Passive gold: same anti-snowball idea as the EXP catch-up, but a smaller bonus
+            // since gold buys permanent power for the rest of the match.
+            var behind = leaderLevel - champion.MobaLevel >= MobaLevels.CatchUpLevelGap;
+            var goldAmount = behind ? (int)(MobaGold.PassiveGoldPerTick * MobaGold.BehindPassiveMultiplier) : MobaGold.PassiveGoldPerTick;
+            await MobaGold.GrantAsync(champion, goldAmount, "passive").ConfigureAwait(false);
         }
 
         this.LogMatchState(players, now);

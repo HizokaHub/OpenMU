@@ -201,12 +201,17 @@ public static class MobaWaveSpawner
                     champion,
                     isLastHit ? MobaLevels.CreepLastHitExp : MobaLevels.CreepProximityExp,
                     isLastHit ? "creep" : "creep-nearby").ConfigureAwait(false);
+                await MobaGold.GrantAsync(
+                    champion,
+                    isLastHit ? MobaGold.CreepLastHitGold : MobaGold.CreepProximityGold,
+                    isLastHit ? "creep" : "creep-nearby").ConfigureAwait(false);
             }
 
             // Ranged last hit from just outside the proximity radius still gets the full value.
             if (!lastHitterRewarded && lastHitter is { IsMobaClone: true } && MobaTeams.GetTeam(lastHitter) == beneficiaryTeam)
             {
                 await MobaExperience.GrantAsync(lastHitter, MobaLevels.CreepLastHitExp, "creep").ConfigureAwait(false);
+                await MobaGold.GrantAsync(lastHitter, MobaGold.CreepLastHitGold, "creep").ConfigureAwait(false);
             }
         }
         catch

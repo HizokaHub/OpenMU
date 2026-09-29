@@ -209,15 +209,28 @@ sesión se aleja de él, no lo edita. Sobre el clon se aplica:
 
 ### Economía (oro de partida, separado del Zen del servidor)
 
-Fuentes de oro:
+**Implementado (2026-09-30, `MobaGold.cs`)** — antes era solo diseño, no existía
+ningún código que otorgara oro (el clon arrancaba y se quedaba en 0 Zen toda la
+partida). Fuentes de oro:
 
-- **Farmeo de mobs / oleadas** (recompensa individual, tipo *last hit* de LoL).
-- Cada vez que **sube de Master Level** (recompensa de progresión general).
-- **Bono por matar a un jugador rival.**
-- **Shutdown gold**: bono extra por matar a un rival que viene en **racha de
-  kills** (mecánica anti-snowball).
-- **Ingreso pasivo de oro por tiempo** transcurrido, **mayor para el equipo que
-  va perdiendo** (anti-snowball adicional).
+- **Farmeo de mobs / oleadas** (recompensa individual, tipo *last hit* de LoL):
+  20 oro al que hace el último golpe, 10 a los aliados cercanos sin last-hit.
+- Cada vez que **sube de nivel de campeón** (recompensa de progresión general):
+  +40 oro por nivel, además del punto de skill.
+- **Bono por matar a un jugador rival**: 150 + 8 por nivel de la víctima.
+- **Shutdown gold**: desde la 3ª muerte seguida de un rival sin morir él mismo,
+  +35 oro extra por cada racha adicional (mecánica anti-snowball).
+- **Ingreso pasivo de oro por tiempo** transcurrido (10 cada 5 s), **×1,5 para
+  quien va 2+ niveles detrás del líder de la partida** (anti-snowball
+  adicional, mismo umbral que el catch-up de EXP).
+- El bonus de ítem "Zen tras matar monstruo" (`Stats.MoneyAmountRate`, opción
+  excelente de armadura) multiplica **todo** el oro que gana ese campeón, no
+  solo el de farmeo.
+
+Números de primera pasada — con 1 oleada de 6 creeps cada 48 s compartida entre
+5 jugadores por equipo, un jugador promedio ronda ~11.000 Zen en 40 minutos
+(un par de piezas T1/T2), y uno bien farmeado ~18.000-22.000 (T2 completo +
+alguna pieza T3) — a validar y afinar con `/mobabotfight`.
 
 ### Tienda de ítems
 

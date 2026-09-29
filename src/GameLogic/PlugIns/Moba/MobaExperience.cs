@@ -68,6 +68,8 @@ public static class MobaExperience
                 character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(champion);
             }
 
+            await MobaGold.GrantAsync(champion, MobaGold.LevelUpGold, "levelup").ConfigureAwait(false);
+
             leveledUp = true;
 
             champion.Logger.LogDebug("[MOBA] {Name} -> champion level {Level} (via {Reason})", champion.SelectedCharacter?.Name, champion.MobaLevel, reason);
@@ -150,6 +152,9 @@ public static class MobaExperience
             // [MOBA-KILL] trace - fires for every champion death (turret / creep / champion kills alike).
             MobaTelemetry.NoteDeath(victim, string.IsNullOrEmpty(death.KillerName) ? null : death.KillerName);
 
+            // Any death breaks the victim's own kill streak, not just one at an enemy champion's hands.
+            MobaGold.ResetStreak(victim);
+
             if (map.GetObject(death.KillerId) is not Player killer
                 || !killer.IsMobaClone
                 || !MobaTeams.AreEnemies(killer, victim))
@@ -182,6 +187,8 @@ public static class MobaExperience
                 assister.MobaAssists++;
                 await GrantAsync(assister, MobaLevels.AssistExp, "assist").ConfigureAwait(false);
             }
+
+            await MobaGold.GrantChampionKillAsync(killer, victim, assisters).ConfigureAwait(false);
         }
         catch
         {
