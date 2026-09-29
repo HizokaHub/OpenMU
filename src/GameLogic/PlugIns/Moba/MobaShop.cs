@@ -352,24 +352,51 @@ public static class MobaShop
         [Stats.MoneyAmountRate] = 6,
     };
 
+    /// <summary>The (level, option level, luck, excellent count) tuple a full-price tier guarantees.</summary>
+    /// <param name="tier">The tier.</param>
+    /// <returns>The guaranteed stats for that tier.</returns>
+    internal static (int Level, int OptionLevel, bool Luck, int Excellent) TierStatsOf(MobaShopTier tier) => tier switch
+    {
+        MobaShopTier.T2 => (14, 3, true, 4),
+        MobaShopTier.T3 => (15, 4, true, 6),
+        _ => (13, 2, true, 3),
+    };
+
     private static TemporaryItem CreateItem(ItemDefinition definition, MobaShopEntry entry)
     {
-        var item = new TemporaryItem { Definition = definition };
-
         // Per tier: item level, "Option" (+dmg/+def flat) level 1-4, whether it carries
         // Luck, and how many of the item's 6 possible excellent options it gets - T3 is
         // "full" (all 6), so by then every build converges; T1/T2 pick the top few by
-        // ExcellentPickPriority, giving each tier real (if partial) identity.
-        var (level, optionLevel, luck, excellent) = entry.Tier switch
-        {
-            MobaShopTier.T2 => (14, 3, true, 4),
-            MobaShopTier.T3 => (15, 4, true, 6),
-            _ => (13, 2, true, 3),
-        };
+        // ExcellentPickPriority, giving each tier real (if partial) identity. A shop
+        // purchase always gets the tier's guaranteed stats in full - the RNG is reserved
+        // for creep drops (see MobaCreepDrops), which is exactly why buying costs gold.
+        var (level, optionLevel, luck, excellent) = TierStatsOf(entry.Tier);
+        var hasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
+        return CreateItemCore(definition, entry.Level ?? level, entry.Quantity, optionLevel, luck, excellent, hasSkill);
+    }
 
-        item.Level = (byte)Math.Min(entry.Level ?? level, definition.MaximumItemLevel);
+    /// <summary>
+    /// Builds a MOBA item with explicit (rolled) stats instead of a tier's guaranteed ones -
+    /// used by <see cref="MobaCreepDrops"/>, whose drops roll the item level and excellent
+    /// count independently instead of always giving the tier's guaranteed maximum.
+    /// </summary>
+    /// <param name="definition">The item definition.</param>
+    /// <param name="level">The rolled item level (clamped to the item's own max).</param>
+    /// <param name="optionLevel">The "Option" (+dmg/+def) level, 1-4, or 0 for none.</param>
+    /// <param name="luck">Whether the item carries Luck.</param>
+    /// <param name="excellent">How many excellent options (by <see cref="ExcellentPickPriority"/>) it carries.</param>
+    /// <param name="hasSkill">Whether the item carries its innate skill proc.</param>
+    /// <returns>The item.</returns>
+    internal static TemporaryItem CreateRolledItem(ItemDefinition definition, int level, int optionLevel, bool luck, int excellent, bool hasSkill)
+        => CreateItemCore(definition, level, 1, optionLevel, luck, excellent, hasSkill);
+
+    private static TemporaryItem CreateItemCore(ItemDefinition definition, int level, byte quantity, int optionLevel, bool luck, int excellent, bool hasSkill)
+    {
+        var item = new TemporaryItem { Definition = definition };
+
+        item.Level = (byte)Math.Min(Math.Max(0, level), definition.MaximumItemLevel);
         item.Durability = definition.Durability > 1 && !item.IsWearable()
-            ? Math.Clamp((int)entry.Quantity, 1, definition.Durability)
+            ? Math.Clamp((int)quantity, 1, definition.Durability)
             : definition.Durability;
 
         var possibleOptions = definition.PossibleItemOptions.SelectMany(o => o.PossibleOptions).ToList();
@@ -392,7 +419,7 @@ public static class MobaShop
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = excellentOption });
         }
 
-        item.HasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
+        item.HasSkill = hasSkill;
         return item;
     }
 

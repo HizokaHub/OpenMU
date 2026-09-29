@@ -74,6 +74,8 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         var mobaChampions = players.Where(p => p.IsMobaClone).ToList();
         var leaderLevel = mobaChampions.Select(p => p.MobaLevel).DefaultIfEmpty(0).Max();
 
+        MobaMatchPhase.Evaluate(mobaChampions);
+
         foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel))
         {
             await MobaExperience.GrantAsync(champion, MobaLevels.PassiveExpPerTick, "passive").ConfigureAwait(false);

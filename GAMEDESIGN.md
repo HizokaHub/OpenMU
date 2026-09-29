@@ -317,6 +317,23 @@ alguna pieza T3) — a validar y afinar con `/mobabotfight`.
 - **Catálogo inicial (provisional, se afina jugando):** por familia, un arma,
   un set completo y unas alas por tier; accesorios (anillos/pendientes) y
   consumibles (pociones, Ale, Potion of Bless/Soul) comunes a todos.
+- **Drop de ítems de los minions (implementado 2026-09-30, `MobaCreepDrops.cs`):**
+  cada creep que muere tiene **8 % de chance** de dejar tirado un ítem del
+  catálogo (arma/set/alas/accesorio), filtrado por la clase de quien hizo el
+  último golpe — prioridad de recogida para él y los aliados cercanos que
+  compartieron la EXP/oro de esa muerte, libre para cualquiera a los 10 s.
+  - **Solo caen ítems del tier de la fase actual de la partida** (nunca T3 en
+    fase T1). La fase avanza cuando **2 campeones de cada equipo** llegan al
+    nivel de campeón 11 (→ fase T2) o 21 (→ fase T3) — los mismos umbrales
+    que separan los tramos rápido/meseta/difícil de la curva de EXP, nunca
+    retrocede.
+  - **Nivel del ítem**: el nivel garantizado del tier menos un offset —
+    offset 0 con 10 %, -1 con 20 %, -2 con 30 %, -3 con 25 %, -4 con 15 %.
+  - **Cantidad de opciones excelentes**: todas (el máximo del tier) con
+    10 %, 3 con 20 %, 2 con 30 %, 1 con 25 %, 0 con 15 % — mismas
+    prioridades de elección (`ExcellentPickPriority`) que la tienda.
+  - Los dos rolls son independientes entre sí. Números de primera pasada;
+    a afinar jugando / con `/mobabotfight`.
 - **Protocolo propio** (canal MOBA `0xD5`):
   - `C2 D5 06` servidor→cliente: menú (id, título, texto, opciones UTF-8).
   - `C1 D5 07` cliente→servidor: opción elegida (id de menú, índice).

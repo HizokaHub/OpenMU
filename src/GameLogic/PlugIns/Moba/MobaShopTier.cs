@@ -10,12 +10,12 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// </summary>
 public enum MobaShopTier
 {
-    /// <summary>Cheap: plain +0 item.</summary>
+    /// <summary>Cheap: +13, luck, option +8, 3 excellent options (top-priority picks).</summary>
     T1 = 1,
 
-    /// <summary>Medium: +7, luck, option, 2 excellent options.</summary>
+    /// <summary>Medium: +14, luck, option +12, 4 excellent options.</summary>
     T2 = 2,
 
-    /// <summary>Expensive: +11, luck, max option, 4 excellent options.</summary>
+    /// <summary>Expensive: +15, luck, option +16, 6 excellent options (all of them - "full").</summary>
     T3 = 3,
 }

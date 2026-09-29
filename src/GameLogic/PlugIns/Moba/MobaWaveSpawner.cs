@@ -213,6 +213,12 @@ public static class MobaWaveSpawner
                 await MobaExperience.GrantAsync(lastHitter, MobaLevels.CreepLastHitExp, "creep").ConfigureAwait(false);
                 await MobaGold.GrantAsync(lastHitter, MobaGold.CreepLastHitGold, "creep").ConfigureAwait(false);
             }
+
+            if (lastHitter is { IsMobaClone: true } && MobaTeams.GetTeam(lastHitter) == beneficiaryTeam)
+            {
+                var beneficiaries = champions.Contains(lastHitter) ? champions : champions.Append(lastHitter).ToList();
+                await MobaCreepDrops.TryDropAsync(map, deathPosition, lastHitter, beneficiaries).ConfigureAwait(false);
+            }
         }
         catch
         {
