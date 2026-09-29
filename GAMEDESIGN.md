@@ -393,37 +393,27 @@ salvo crítico/excelente que están inline. Reflejo de daño (`Stats.DamageRefle
 ya funcionaba nativo en `Player.HitAsync` — no hizo falta cablearlo, solo
 confirmar que los ítems T2+/T3 lo pueden llevar como opción excelente.
 
-#### Economía de oro — implementado, **sin curva por fase todavía**
+#### Economía de oro — implementado, con curva por fase (2026-09-29)
 
-`MobaGold.cs` (no existía antes de esta sesión). Hoy **todas las tasas son
-planas / por evento**, no hay ninguna curva que las escale con el tiempo o
-la fase de partida:
+`MobaGold.cs`. Fuentes base (planas, por evento):
 
-| Fuente | Valor actual (plano) |
-|---|---|
-| Last-hit de creep | 20 |
-| Proximidad de creep | 10 |
-| Matar campeón | 150 + 8 × nivel de la víctima |
-| Asistencia | 60 |
-| Shutdown (racha 3+) | +35 por racha adicional |
-| Subir de nivel de campeón | 40 |
-| Goteo pasivo | 10 cada 5 s (120/min), ×1,5 si vas 2+ niveles detrás del líder |
+| Fuente | Valor base | ¿Escala con la fase? |
+|---|---|---|
+| Last-hit de creep | 20 | sí |
+| Proximidad de creep | 10 | sí |
+| Matar campeón | 150 + 8 × nivel de la víctima | **no** (ya escala con el nivel) |
+| Shutdown (racha 3+) | +35 por racha adicional | **no** |
+| Asistencia | 60 | sí |
+| Subir de nivel de campeón | 40 | sí |
+| Goteo pasivo | 10 cada 5 s (×1,5 si vas 2+ niveles detrás del líder) | sí |
 
-Lo único que varía con el progreso de la partida es el bono de nivel de la
-víctima al matar y el multiplicador de catch-up — nada escala con **la
-fase de la partida** (T1/T2/T3, ya trackeada en `MobaMatchPhase` para el
-drop de creeps). Con esto, el poder de compra crece solo por acumulación,
-no por diseño de curva.
-
-**Propuesta (no implementada)** para una curva real, reusando las mismas
-fases que ya existen: multiplicar *todas* las fuentes de oro (menos el
-oro de matar campeón, que ya escala con nivel) por un factor según
-`MobaMatchPhase.Current` — **T1 ×1,0, T2 ×1,3, T3 ×1,6**. Con la
-estimación de antes (~11.000 Zen/40 min plano) esto la subiría a
-~14.000-15.000 promedio / ~23.000-29.000 bien farmeado — deja un kit T2
-completo cómodo y algo de T3 alcanzable para el equipo que juega bien,
-sin inflar tanto el arranque de partida. **A implementar y afinar con
-`/mobabotfight` en la próxima sesión.**
+**Curva por fase (decidida con el usuario el 2026-09-29, opción "más
+agresiva"):** multiplicador según `MobaMatchPhase.Current` —
+**T1 ×1,0 / T2 ×1,5 / T3 ×2,0** (`MobaGold.PhaseMultiplierOf`), aplicado en
+`GrantAsync` (`scaleByPhase`, por defecto sí; kill/shutdown lo desactivan).
+Se combina multiplicando con el bono de ítem de Zen (`MoneyAmountRate`) y el
+catch-up. Las estimaciones anteriores (~11.000 Zen/40 min plano) no aplican
+más: **hay que re-medir con `/mobabotfight`** y afinar los factores.
 
 #### Segunda ventana de tienda — investigado, es técnicamente posible
 
@@ -495,8 +485,7 @@ variante; alas: `WingOptionPreference`).
 1. Commitear el cambio de pesos A/B a 60/40 (ya hecho en el working tree
    al cerrar esta sesión, sin push todavía si la conversación cambia).
 2. ~~Helper + variantes de arma/set/alas~~ — **hecho 2026-09-29** (ver arriba).
-3. Decidir y (si se aprueba) implementar la curva de oro por fase
-   propuesta arriba.
+3. ~~Curva de oro por fase~~ — **hecho 2026-09-29** (×1,0/×1,5/×2,0).
 4. Decidir el propósito de una segunda ventana (`Merchant1`) y si conviene
    para la variedad de ítems del punto 2; si se sigue, confirmar soporte
    en el cliente MuMain antes de tocar el servidor.

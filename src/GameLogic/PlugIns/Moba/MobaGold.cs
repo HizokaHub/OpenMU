@@ -52,13 +52,36 @@ public static class MobaGold
     /// </summary>
     public const double BehindPassiveMultiplier = 1.5;
 
+    /// <summary>Gold multiplier during the T1 phase of the match (see <see cref="MobaMatchPhase"/>).</summary>
+    public const double PhaseMultiplierT1 = 1.0;
+
+    /// <summary>Gold multiplier during the T2 phase.</summary>
+    public const double PhaseMultiplierT2 = 1.5;
+
+    /// <summary>Gold multiplier during the T3 phase.</summary>
+    public const double PhaseMultiplierT3 = 2.0;
+
     private static readonly ConditionalWeakTable<Player, Streak> Streaks = new();
+
+    /// <summary>
+    /// Gets the gold multiplier of a match phase. Tier prices grow with the phase, so income
+    /// grows with it too - otherwise buying power would only ever come from accumulation.
+    /// </summary>
+    /// <param name="phase">The match phase.</param>
+    /// <returns>The multiplier applied to phase-scaled gold sources.</returns>
+    public static double PhaseMultiplierOf(MobaShopTier phase) => phase switch
+    {
+        MobaShopTier.T2 => PhaseMultiplierT2,
+        MobaShopTier.T3 => PhaseMultiplierT3,
+        _ => PhaseMultiplierT1,
+    };
 
     /// <summary>Grants gold to a champion, scaled by its equipped item Zen bonus.</summary>
     /// <param name="champion">The champion.</param>
     /// <param name="amount">The base gold amount (before the item bonus).</param>
     /// <param name="reason">Short tag for logging.</param>
-    public static ValueTask GrantAsync(Player champion, int amount, string reason)
+    /// <param name="scaleByPhase">Whether the amount is multiplied by the match phase (<see cref="PhaseMultiplierOf"/>); champion-kill gold opts out because it already scales with the victim's level.</param>
+    public static ValueTask GrantAsync(Player champion, int amount, string reason, bool scaleByPhase = true)
     {
         if (!champion.IsMobaClone || amount <= 0)
         {
@@ -66,7 +89,8 @@ public static class MobaGold
         }
 
         var itemBonus = champion.Attributes?[Stats.MoneyAmountRate] ?? 1f;
-        var final = (int)Math.Round(amount * Math.Max(1f, itemBonus));
+        var phase = scaleByPhase ? PhaseMultiplierOf(MobaMatchPhase.Current) : 1.0;
+        var final = (int)Math.Round(amount * phase * Math.Max(1f, itemBonus));
         champion.Money += final;
 
         champion.Logger.LogDebug(
@@ -98,7 +122,7 @@ public static class MobaGold
             gold += (victimStreak.Count - ShutdownStreakThreshold + 1) * ShutdownGoldPerStreakKill;
         }
 
-        await GrantAsync(killer, gold, isShutdown ? "shutdown" : "champion").ConfigureAwait(false);
+        await GrantAsync(killer, gold, isShutdown ? "shutdown" : "champion", scaleByPhase: false).ConfigureAwait(false);
 
         foreach (var assister in assisters)
         {
