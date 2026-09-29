@@ -13,14 +13,27 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// </summary>
 public static class MobaCombatStats
 {
-    // --- Critical strike (from invested AGI) ---
+    // --- Critical strike (from invested AGI, blended with item Luck) ---
     private const double CritChanceAtMaxAgi = 0.60;
     private const double CritAgiHalfPoint = 14_000;
 
     /// <summary>The extra damage multiplier on a critical hit.</summary>
     public const double CritMultiplier = 1.75;
 
-    /// <summary>Critical-strike chance (0..1) for a champion, scaling with invested AGI.</summary>
+    /// <summary>Weight of the AGI term ("A") in <see cref="FinalCritChanceOf"/> against the item Luck term ("B").</summary>
+    private const double CritStatWeight = 0.75;
+
+    /// <summary>Hard cap on the final (stat + item) crit chance, so stacked Luck can't run away.</summary>
+    private const double MaxCritChance = 0.60;
+
+    /// <summary>Hard cap on the "excellent hit" (x1.2 damage) roll for MOBA champions - see <see cref="AttackableExtensions"/>.</summary>
+    public const double MaxExcellentHitChance = 0.50;
+
+    /// <summary>
+    /// Critical-strike chance (0..1) for a champion from invested AGI alone. This is the
+    /// stat-build term ("A") blended in <see cref="FinalCritChanceOf"/> - use that one for
+    /// the actual combat roll.
+    /// </summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The crit chance.</returns>
     public static double CritChanceOf(Player champion)
@@ -32,6 +45,21 @@ public static class MobaCombatStats
 
         var investedAgi = Math.Max(0, a[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue);
         return CritChanceAtMaxAgi * (investedAgi / (investedAgi + CritAgiHalfPoint));
+    }
+
+    /// <summary>
+    /// The champion's final crit chance: the AGI-only term ("A", <see cref="CritChanceOf"/>)
+    /// blended with the item Luck term ("B", the aggregated <see cref="Stats.CriticalDamageChance"/>
+    /// from equipped Luck options), weighted <see cref="CritStatWeight"/> stats /
+    /// <c>1 - CritStatWeight</c> items, capped at <see cref="MaxCritChance"/>.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The final crit chance, 0..<see cref="MaxCritChance"/>.</returns>
+    public static double FinalCritChanceOf(Player champion)
+    {
+        var fromStats = CritChanceOf(champion);
+        var fromItems = champion.Attributes?[Stats.CriticalDamageChance] ?? 0;
+        return Math.Clamp((CritStatWeight * fromStats) + ((1.0 - CritStatWeight) * fromItems), 0.0, MaxCritChance);
     }
 
     // --- Life steal / spell vamp ---

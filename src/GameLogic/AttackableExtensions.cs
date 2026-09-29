@@ -78,9 +78,22 @@ public static class AttackableExtensions
         bool isClassicPvpDuel = isClassicPvp && attackerPlayer!.DuelRoom?.Opponent == defender;
         var duelDmgDec = isClassicPvpDuel ? 0.6 : 1;
 
+        // MOBA mode: a champion's damage comes from the MOBA skill table (LoL-style base +
+        // per-rank), NOT the S6 weapon/stat formula - so class stats don't warp the numbers.
+        // Per-class stat scaling is layered back on later, deliberately.
+        var isMobaChampionAttacker = attacker is Player { IsMobaClone: true };
+
         DamageAttributes attributes = DamageAttributes.Undefined;
-        bool isCriticalHit = Rand.NextRandomBool(attacker.Attributes[Stats.CriticalDamageChance]);
-        bool isExcellentHit = Rand.NextRandomBool(attacker.Attributes[Stats.ExcellentDamageChance]);
+
+        // MOBA: the vanilla Luck-driven crit roll is replaced by the blended AGI + item roll
+        // further below (see MobaCombatStats.FinalCritChanceOf), so it doesn't double-dip here.
+        bool isCriticalHit = !isMobaChampionAttacker && Rand.NextRandomBool(attacker.Attributes[Stats.CriticalDamageChance]);
+
+        // MOBA: hard cap on the "excellent hit" (x1.2) roll so items can't stack it uncapped.
+        var excellentChance = isMobaChampionAttacker
+            ? Math.Min(attacker.Attributes[Stats.ExcellentDamageChance], PlugIns.Moba.MobaCombatStats.MaxExcellentHitChance)
+            : attacker.Attributes[Stats.ExcellentDamageChance];
+        bool isExcellentHit = Rand.NextRandomBool(excellentChance);
         bool isIgnoringDefense = Rand.NextRandomBool(attacker.Attributes[Stats.DefenseIgnoreChance]);
 
         var defense = 0;
@@ -100,10 +113,6 @@ public static class AttackableExtensions
 
         attacker.GetBaseDmg(skill, out int baseMinDamage, out int baseMaxDamage, out DamageType damageType);
 
-        // MOBA mode: a champion's damage comes from the MOBA skill table (LoL-style base +
-        // per-rank), NOT the S6 weapon/stat formula - so class stats don't warp the numbers.
-        // Per-class stat scaling is layered back on later, deliberately.
-        var isMobaChampionAttacker = attacker is Player { IsMobaClone: true };
         if (attacker is Player { IsMobaClone: true } mobaChampion)
         {
             if (skill?.Skill is { } mobaSkill)
@@ -322,14 +331,15 @@ public static class AttackableExtensions
                 dmg /= 2;
             }
 
-            // MOBA: percent mitigation from the defender's invested VIT, minus the casting
-            // skill's armour penetration; then a crit roll from the attacker's invested AGI.
+            // MOBA: mitigation from the defender's VIT + item blend, minus the casting
+            // skill's armour penetration; then a crit roll blending the attacker's invested
+            // AGI with its equipped Luck (see MobaCombatStats.FinalCritChanceOf).
             if (isMobaChampionAttacker && attacker is Player mobaAtk && defender is Player { IsMobaClone: true } mobaDefender)
             {
                 dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0));
 
                 if ((attributes & DamageAttributes.Critical) == 0
-                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.CritChanceOf(mobaAtk)))
+                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.FinalCritChanceOf(mobaAtk)))
                 {
                     dmg = (int)(dmg * PlugIns.Moba.MobaCombatStats.CritMultiplier);
                     attributes |= DamageAttributes.Critical;

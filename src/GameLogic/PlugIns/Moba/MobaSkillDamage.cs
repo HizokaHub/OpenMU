@@ -45,7 +45,15 @@ public static class MobaSkillDamage
     /// </summary>
     private const double FlatMultiplier = 1.5;
 
-    private const double StatBonusMultiplier = 2.0;
+    private const double StatBonusMultiplier = 2.5;
+
+    /// <summary>
+    /// Weight of the stat-build term ("A", <see cref="InvestedFraction"/>) in the blended
+    /// damage-scaling fraction against the item term ("B", <see cref="MobaItemPower.OffenseFractionOf"/>)
+    /// - see <see cref="BlendedFraction"/>. Stats stay dominant (75%); items are a real,
+    /// bounded add (25%) instead of on top uncapped.
+    /// </summary>
+    private const double StatWeight = 0.75;
 
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;
@@ -148,7 +156,7 @@ public static class MobaSkillDamage
         // stat as it is maxed - the table value is the rank-1 ratio, growing to
         // RankRatioAtMax x that at rank 5.
         var rankRatio = maxStatBonus * (1.0 + ((RankRatioAtMax - 1.0) * ((r - 1) / 4.0)));
-        var bonus = rankRatio * StatBonusMultiplier * InvestedFraction(champion);
+        var bonus = rankRatio * StatBonusMultiplier * BlendedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
@@ -170,7 +178,7 @@ public static class MobaSkillDamage
         const double comboMaxStatBonus = 0.95; // rewards a maxed build like a heavy hitter
 
         var flat = comboFlatBase * FlatMultiplier * 1.25;
-        var bonus = comboMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+        var bonus = comboMaxStatBonus * StatBonusMultiplier * BlendedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         return (int)(flat * (1.0 + bonus) * levelScale);
     }
@@ -184,7 +192,7 @@ public static class MobaSkillDamage
         // Basic attacks grow with champion level (a real damage phase between skills), on
         // top of the global level scale and the primary-stat bonus.
         var flat = (BasicAttackDamage + (BasicAttackPerLevel * (Math.Clamp(champion.MobaLevel, 1, 30) - 1))) * FlatMultiplier;
-        var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * InvestedFraction(champion);
+        var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * BlendedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
     }
@@ -213,6 +221,21 @@ public static class MobaSkillDamage
 
         double invested = attributes[stat] - MobaCloneFactory.BaselineStatValue;
         return Math.Clamp(invested / MobaStatEconomy.MaxPerStat, 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// The final 0..1 fraction fed into every damage-scaling formula in this class: the
+    /// stat-build term ("A", <see cref="InvestedFraction"/>) blended with the item term
+    /// ("B", <see cref="MobaItemPower.OffenseFractionOf"/>), weighted <see cref="StatWeight"/>
+    /// stats / <c>1 - StatWeight</c> items.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The blended fraction, 0..1.</returns>
+    private static double BlendedFraction(Player champion)
+    {
+        var fromStats = InvestedFraction(champion);
+        var fromItems = MobaItemPower.OffenseFractionOf(champion);
+        return Math.Clamp((StatWeight * fromStats) + ((1.0 - StatWeight) * fromItems), 0.0, 1.0);
     }
 
     private static void Spread2(double mid, out int min, out int max)

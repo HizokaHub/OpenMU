@@ -14,12 +14,15 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// </summary>
 public static class MobaDefense
 {
+    /// <summary>VIT at which mitigation reaches half of <see cref="MaxMitigation"/> (diminishing-returns constant).</summary>
+    private const double VitHalfPoint = 12_000;
+
     /// <summary>
-    /// VIT at which mitigation reaches half of <see cref="MaxMitigation"/> (diminishing-returns constant).
-    /// Tuned so a maxed VIT stat (<see cref="MobaStatEconomy.MaxPerStat"/>) alone reaches 45% mitigation,
-    /// leaving the 45%-70% band for item-based defense.
+    /// Weight of the VIT-only mitigation (<see cref="MitigationOf"/>) in the final blend
+    /// against item-driven mitigation (<see cref="MobaItemPower.DefenseFractionOf"/>) - see
+    /// <see cref="FinalMitigationOf"/>. Items are 25%, stats stay dominant at 75%.
     /// </summary>
-    private const double VitHalfPoint = 22_700;
+    private const double StatWeight = 0.75;
 
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;
@@ -66,7 +69,9 @@ public static class MobaDefense
     };
 
     /// <summary>
-    /// The fraction of incoming damage a champion mitigates from invested VIT, 0..<see cref="MaxMitigation"/>.
+    /// The fraction of incoming damage a champion mitigates from invested VIT alone,
+    /// 0..<see cref="MaxMitigation"/>. This is the stat-build term ("A") blended in
+    /// <see cref="FinalMitigationOf"/> - use that one for actual damage mitigation.
     /// </summary>
     /// <param name="defender">The defending champion.</param>
     /// <returns>The mitigation fraction.</returns>
@@ -83,8 +88,23 @@ public static class MobaDefense
     }
 
     /// <summary>
-    /// Applies MOBA mitigation to a raw damage value: reduces it by the defender's VIT
-    /// mitigation, minus the casting skill's armour penetration.
+    /// The champion's final mitigation fraction: the VIT-only term ("A", <see cref="MitigationOf"/>)
+    /// blended with the item-defense term ("B", <see cref="MobaItemPower.DefenseFractionOf"/> scaled
+    /// to the same 0..<see cref="MaxMitigation"/> range), weighted <see cref="StatWeight"/> stats /
+    /// <c>1 - StatWeight</c> items - stats stay the dominant source, items are a real but bounded add.
+    /// </summary>
+    /// <param name="defender">The defending champion.</param>
+    /// <returns>The final mitigation fraction, 0..<see cref="MaxMitigation"/>.</returns>
+    public static double FinalMitigationOf(Player defender)
+    {
+        var fromStats = MitigationOf(defender);
+        var fromItems = MobaItemPower.DefenseFractionOf(defender) * MaxMitigation;
+        return Math.Clamp((StatWeight * fromStats) + ((1.0 - StatWeight) * fromItems), 0.0, MaxMitigation);
+    }
+
+    /// <summary>
+    /// Applies MOBA mitigation to a raw damage value: reduces it by the defender's final
+    /// (stat + item blend) mitigation, minus the casting skill's armour penetration.
     /// </summary>
     /// <param name="rawDamage">The pre-mitigation damage.</param>
     /// <param name="defender">The defending champion.</param>
@@ -97,7 +117,7 @@ public static class MobaDefense
             return rawDamage;
         }
 
-        var mitigation = MitigationOf(defender);
+        var mitigation = FinalMitigationOf(defender);
         if (skillNumber != 0 && PenetrationBySkill.TryGetValue(skillNumber, out var pen))
         {
             mitigation *= 1.0 - pen;
