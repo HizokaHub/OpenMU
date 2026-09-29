@@ -218,26 +218,39 @@ public static class MobaShop
             .OrderBy(c => c.Entry.Tier)
             .ThenBy(c => c.Definition!.Group)
             .ThenBy(c => c.Definition!.Number)
+            .ThenBy(c => c.Entry.Variant)
             .ToList();
 
         var items = new List<Item>();
         var occupied = new bool[GridRows, GridColumns];
+        var seen = new HashSet<string>();
         overflow = 0;
         foreach (var (entry, definition) in candidates)
         {
+            // Variants that resolve to the very same item (e.g. first-generation wings, which have
+            // no wing option to choose from) are offered once.
+            var item = CreateItem(definition!, entry);
+            if (!seen.Add(SignatureOf(item)))
+            {
+                continue;
+            }
+
             if (TryPlace(occupied, definition!.Width, definition.Height) is not { } slot)
             {
                 overflow++;
                 continue;
             }
 
-            var item = CreateItem(definition, entry);
             item.ItemSlot = slot;
             items.Add(item);
         }
 
         return items;
     }
+
+    private static string SignatureOf(Item item)
+        => $"{item.Definition!.Group},{item.Definition.Number},{item.Level},{item.Durability},"
+           + string.Join(";", item.ItemOptions.Select(o => $"{o.ItemOption!.OptionType?.Name}:{o.ItemOption.Number}:{o.Level}").OrderBy(x => x, StringComparer.Ordinal));
 
     private static long UnitPriceOf(Item item)
     {
@@ -328,28 +341,79 @@ public static class MobaShop
     }
 
     /// <summary>
-    /// Pick priority for excellent options, by the attribute they boost (lower = picked
-    /// first when a tier doesn't take the whole pool). Weapon options and armor options
-    /// never appear on the same item, so both rank tables share one dictionary safely.
-    /// Order: raw offense / HP-and-mitigation first, resource-sustain and the Zen bonus
-    /// last - so a T1/T2 item reads as "damage/tanky" before it reads as "sustain/utility".
+    /// Pick priority for excellent options per variant, by the attribute they boost (lower =
+    /// picked first when a tier doesn't take the whole pool; attributes not listed go last).
+    /// Weapon options and armor options never appear on the same item, so both share one
+    /// table per variant safely. Standard: raw offense / HP-and-mitigation first, resource
+    /// sustain and the Zen bonus last - so a T1/T2 item reads as "damage/tanky" before it
+    /// reads as "sustain/utility". Aggressive: crit + attack speed (weapons), reflection +
+    /// defense rate (armor). Sustain: life / mana on kill (weapons), health and mana pool
+    /// (armor). T3 takes all six, so variants only differ at T1/T2.
     /// </summary>
-    private static readonly Dictionary<AttributeDefinition, int> ExcellentPickPriority = new()
+    private static readonly Dictionary<MobaShopVariant, Dictionary<AttributeDefinition, int>> ExcellentPickPriority = new()
     {
-        [Stats.PhysicalBaseDmgIncrease] = 1,
-        [Stats.WizardryBaseDmgIncrease] = 1,
-        [Stats.MaximumHealth] = 1,
-        [Stats.PhysicalBaseDmg] = 2,
-        [Stats.WizardryBaseDmg] = 2,
-        [Stats.ArmorDamageDecrease] = 2,
-        [Stats.ExcellentDamageChance] = 3,
-        [Stats.DefenseRatePvm] = 3,
-        [Stats.AttackSpeedAny] = 4,
-        [Stats.DamageReflection] = 4,
-        [Stats.HealthAfterMonsterKillMultiplier] = 5,
-        [Stats.MaximumMana] = 5,
-        [Stats.ManaAfterMonsterKillMultiplier] = 6,
-        [Stats.MoneyAmountRate] = 6,
+        [MobaShopVariant.Standard] = new()
+        {
+            [Stats.PhysicalBaseDmgIncrease] = 1,
+            [Stats.WizardryBaseDmgIncrease] = 1,
+            [Stats.MaximumHealth] = 1,
+            [Stats.PhysicalBaseDmg] = 2,
+            [Stats.WizardryBaseDmg] = 2,
+            [Stats.ArmorDamageDecrease] = 2,
+            [Stats.ExcellentDamageChance] = 3,
+            [Stats.DefenseRatePvm] = 3,
+            [Stats.AttackSpeedAny] = 4,
+            [Stats.DamageReflection] = 4,
+            [Stats.HealthAfterMonsterKillMultiplier] = 5,
+            [Stats.MaximumMana] = 5,
+            [Stats.ManaAfterMonsterKillMultiplier] = 6,
+            [Stats.MoneyAmountRate] = 6,
+        },
+        [MobaShopVariant.Aggressive] = new()
+        {
+            [Stats.ExcellentDamageChance] = 1,
+            [Stats.DamageReflection] = 1,
+            [Stats.AttackSpeedAny] = 2,
+            [Stats.DefenseRatePvm] = 2,
+            [Stats.PhysicalBaseDmgIncrease] = 3,
+            [Stats.WizardryBaseDmgIncrease] = 3,
+            [Stats.MaximumHealth] = 3,
+            [Stats.HealthAfterMonsterKillMultiplier] = 4,
+            [Stats.MaximumMana] = 4,
+            [Stats.PhysicalBaseDmg] = 5,
+            [Stats.WizardryBaseDmg] = 5,
+            [Stats.ArmorDamageDecrease] = 5,
+            [Stats.ManaAfterMonsterKillMultiplier] = 6,
+            [Stats.MoneyAmountRate] = 6,
+        },
+        [MobaShopVariant.Sustain] = new()
+        {
+            [Stats.HealthAfterMonsterKillMultiplier] = 1,
+            [Stats.MaximumHealth] = 1,
+            [Stats.PhysicalBaseDmgIncrease] = 2,
+            [Stats.WizardryBaseDmgIncrease] = 2,
+            [Stats.MaximumMana] = 2,
+            [Stats.ManaAfterMonsterKillMultiplier] = 3,
+            [Stats.MoneyAmountRate] = 3,
+            [Stats.ExcellentDamageChance] = 4,
+            [Stats.ArmorDamageDecrease] = 4,
+            [Stats.AttackSpeedAny] = 5,
+            [Stats.DefenseRatePvm] = 5,
+            [Stats.PhysicalBaseDmg] = 6,
+            [Stats.WizardryBaseDmg] = 6,
+            [Stats.DamageReflection] = 6,
+        },
+    };
+
+    /// <summary>
+    /// The wing option (one per wing) each variant prefers, most wanted first; a wing that
+    /// offers none of them falls back to its first option.
+    /// </summary>
+    private static readonly Dictionary<MobaShopVariant, AttributeDefinition[]> WingOptionPreference = new()
+    {
+        [MobaShopVariant.Standard] = new[] { Stats.MaximumHealth, Stats.DefenseIgnoreChance },
+        [MobaShopVariant.Aggressive] = new[] { Stats.DefenseIgnoreChance, Stats.FullyReflectDamageAfterHitChance },
+        [MobaShopVariant.Sustain] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance, Stats.MaximumMana },
     };
 
     /// <summary>The (level, option level, luck, excellent count) tuple a full-price tier guarantees.</summary>
@@ -372,7 +436,7 @@ public static class MobaShop
         // for creep drops (see MobaCreepDrops), which is exactly why buying costs gold.
         var (level, optionLevel, luck, excellent) = TierStatsOf(entry.Tier);
         var hasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
-        return CreateItemCore(definition, entry.Level ?? level, entry.Quantity, optionLevel, luck, excellent, hasSkill);
+        return CreateItemCore(definition, entry.Level ?? level, entry.Quantity, optionLevel, luck, excellent, hasSkill, entry.Variant);
     }
 
     /// <summary>
@@ -386,11 +450,12 @@ public static class MobaShop
     /// <param name="luck">Whether the item carries Luck.</param>
     /// <param name="excellent">How many excellent options (by <see cref="ExcellentPickPriority"/>) it carries.</param>
     /// <param name="hasSkill">Whether the item carries its innate skill proc.</param>
+    /// <param name="variant">Which mix of options the item carries.</param>
     /// <returns>The item.</returns>
-    internal static TemporaryItem CreateRolledItem(ItemDefinition definition, int level, int optionLevel, bool luck, int excellent, bool hasSkill)
-        => CreateItemCore(definition, level, 1, optionLevel, luck, excellent, hasSkill);
+    internal static TemporaryItem CreateRolledItem(ItemDefinition definition, int level, int optionLevel, bool luck, int excellent, bool hasSkill, MobaShopVariant variant)
+        => CreateItemCore(definition, level, 1, optionLevel, luck, excellent, hasSkill, variant);
 
-    private static TemporaryItem CreateItemCore(ItemDefinition definition, int level, byte quantity, int optionLevel, bool luck, int excellent, bool hasSkill)
+    private static TemporaryItem CreateItemCore(ItemDefinition definition, int level, byte quantity, int optionLevel, bool luck, int excellent, bool hasSkill, MobaShopVariant variant)
     {
         var item = new TemporaryItem { Definition = definition };
 
@@ -411,12 +476,23 @@ public static class MobaShop
         }
 
         var excellentOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent)
-            .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority.TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
+            .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority[variant].TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
             .ThenBy(o => o.Number)
             .Take(excellent);
         foreach (var excellentOption in excellentOptions)
         {
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = excellentOption });
+        }
+
+        // Wings have no excellent options; each carries exactly one "wing option" instead, and
+        // that choice is what tells the wing variants apart.
+        var wingOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Wing).ToList();
+        if (wingOptions.Count > 0)
+        {
+            var preferred = WingOptionPreference[variant]
+                .Select(a => wingOptions.FirstOrDefault(o => o.PowerUpDefinition?.TargetAttribute == a))
+                .FirstOrDefault(o => o is not null);
+            item.ItemOptions.Add(new ItemOptionLink { ItemOption = preferred ?? wingOptions.OrderBy(o => o.Number).First() });
         }
 
         item.HasSkill = hasSkill;
@@ -456,7 +532,7 @@ public static class MobaShop
         => item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck);
 
     private static int ExcellentCountOf(Item item)
-        => item.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent);
+        => item.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent || o.ItemOption?.OptionType == ItemOptionTypes.Wing); // the client counts a wing option as one excellent bit
 
     private sealed class ShopView
     {

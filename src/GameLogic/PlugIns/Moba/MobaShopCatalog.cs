@@ -31,38 +31,68 @@ public static class MobaShopCatalog
     {
         var entries = new List<MobaShopEntry>();
 
-        void Weapon(MobaFamily family, byte group, short number, MobaShopTier tier)
-            => entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, group, number, tier));
+        // Variants only matter where a tier doesn't already take every option: T1 (3 of 6) and
+        // T2 (4 of 6) get several mixes of the same piece, T3 (all 6) is a single entry.
+        // Weapons: 3 mixes (standard / crit + speed / sustain) at T1 and T2. The T3 weapon may
+        // have a second, genuinely different item ("alt") from the same drop-level band.
+        void Weapon(MobaFamily family, byte group, short number, MobaShopTier tier, short? altNumber = null, byte? altGroup = null)
+        {
+            var variants = tier == MobaShopTier.T3
+                ? new[] { MobaShopVariant.Standard }
+                : new[] { MobaShopVariant.Standard, MobaShopVariant.Aggressive, MobaShopVariant.Sustain };
+            foreach (var variant in variants)
+            {
+                entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, group, number, tier, Variant: variant));
+            }
 
+            if (altNumber is { } alt)
+            {
+                entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, altGroup ?? group, alt, tier));
+            }
+        }
+
+        // Wings carry no excellent options, their identity is the single wing option: an
+        // offensive (defense ignore) and a sustain (health) mix at every tier.
         void Wing(MobaFamily family, byte group, short number, MobaShopTier tier)
-            => entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier));
+        {
+            entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Aggressive));
+            entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier, Variant: MobaShopVariant.Sustain));
+        }
 
         // A set = the pieces helm (7) .. boots (11) with the same number; missing pieces
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.
+        // Sets: 2 mixes (standard tanky / aggressive reflect) at T1 and T2, one at T3. Two
+        // variants of all three tiers would need 132 cells, the merchant grid has 120.
         void Set(MobaFamily family, short setNumber, MobaShopTier tier)
         {
-            for (var group = HelmGroup; group <= BootsGroup; group++)
+            var variants = tier == MobaShopTier.T3
+                ? new[] { MobaShopVariant.Standard }
+                : new[] { MobaShopVariant.Standard, MobaShopVariant.Aggressive };
+            foreach (var variant in variants)
             {
-                entries.Add(new MobaShopEntry(MobaShopCategory.Sets, new[] { family }, group, setNumber, tier));
+                for (var group = HelmGroup; group <= BootsGroup; group++)
+                {
+                    entries.Add(new MobaShopEntry(MobaShopCategory.Sets, new[] { family }, group, setNumber, tier, Variant: variant));
+                }
             }
         }
 
         // --- Weapons ---
         Weapon(MobaFamily.Wizard, 5, 5, MobaShopTier.T1);          // Legendary Staff
         Weapon(MobaFamily.Wizard, 5, 9, MobaShopTier.T2);          // Dragon Soul Staff
-        Weapon(MobaFamily.Wizard, 5, 12, MobaShopTier.T3);         // Grand Viper Staff
+        Weapon(MobaFamily.Wizard, 5, 12, MobaShopTier.T3, altNumber: 33);   // Grand Viper Staff / Chromatic Staff
         Weapon(MobaFamily.Knight, 0, 16, MobaShopTier.T1);         // Sword of Destruction
         Weapon(MobaFamily.Knight, 0, 26, MobaShopTier.T2);         // Flamberge
-        Weapon(MobaFamily.Knight, 0, 22, MobaShopTier.T3);         // Bone Blade
+        Weapon(MobaFamily.Knight, 0, 22, MobaShopTier.T3, altNumber: 20);   // Bone Blade / Knight Blade
         Weapon(MobaFamily.Elf, 4, 6, MobaShopTier.T1);             // Chaos Nature Bow
         Weapon(MobaFamily.Elf, 4, 17, MobaShopTier.T2);            // Celestial Bow
-        Weapon(MobaFamily.Elf, 4, 24, MobaShopTier.T3);            // Air Lyn Bow
+        Weapon(MobaFamily.Elf, 4, 24, MobaShopTier.T3, altNumber: 21);      // Air Lyn Bow / Sylph Wind Bow
         Weapon(MobaFamily.MagicGladiator, 0, 31, MobaShopTier.T1); // Rune Blade
         Weapon(MobaFamily.MagicGladiator, 0, 25, MobaShopTier.T2); // Sword Dancer
-        Weapon(MobaFamily.MagicGladiator, 0, 23, MobaShopTier.T3); // Explosion Blade
+        Weapon(MobaFamily.MagicGladiator, 0, 23, MobaShopTier.T3, altNumber: 21); // Explosion Blade / Dark Reign Blade
         Weapon(MobaFamily.DarkLord, 2, 11, MobaShopTier.T1);       // Lord Scepter
         Weapon(MobaFamily.DarkLord, 2, 15, MobaShopTier.T2);       // Shining Scepter
-        Weapon(MobaFamily.DarkLord, 2, 18, MobaShopTier.T3);       // Stryker Scepter
+        Weapon(MobaFamily.DarkLord, 2, 18, MobaShopTier.T3, altNumber: 14); // Stryker Scepter / Soleil Scepter
         Weapon(MobaFamily.Summoner, 5, 17, MobaShopTier.T1);       // Ancient Stick
         Weapon(MobaFamily.Summoner, 5, 18, MobaShopTier.T2);       // Demonic Stick
         Weapon(MobaFamily.Summoner, 5, 19, MobaShopTier.T3);       // Storm Blitz Stick

@@ -444,32 +444,57 @@ Lo que falta confirmar antes de usarla:
   rápida, comparación). Es una decisión de diseño más que técnica en este
   punto — a definir con el usuario antes de implementar.
 
-#### Variantes múltiples de ítems por clase/tier — sin empezar, método definido
+#### Variantes múltiples de ítems por clase/tier — implementado (2026-09-29)
 
-El usuario pidió 2-3 variantes de arma/set/alas por clase y tier con
-opciones distintas (ej. una más crítica, otra más sustain). Se investigó
-`Weapons.cs` (`Persistence/Initialization/VersionSeasonSix/Items/`) y se
-confirmó el método correcto: `CreateWeapon(...)` expone `dropLevel` como
-9º parámetro (alimenta la fórmula de precio) y los últimos 7 parámetros
-son flags de clase habilitada (wizard/knight/elf/mg/dl/summoner/rf) — la
-misma fuente que ya usa `MobaShop.IsUsableBy` vía
-`definition.QualifiedCharacters`. **Contar esas columnas a mano en el
-código fuente es lento y frágil** (un error deja un ítem fantasma que
-desaparece en silencio del catálogo, sin romper nada pero sin que se
-note). **Se decidió no hacerlo a mano** — la próxima sesión debe escribir
-un test/query chico que cargue la `GameConfiguration` real (mismo
-mecanismo que ya usan los tests de `MobaShopTests`) y filtre candidatos
-por grado (`DropLevel` cercano al ítem actual de cada tier) y por
-`QualifiedCharacters` real, en vez de leer las líneas de `Weapons.cs` a
-ojo. Repetir el mismo enfoque para `Armors.cs` (sets) y `Wings.cs`.
+**Helper de curación:** `tests/.../MobaShopCandidatesReport.cs` (`[Explicit]`, no
+corre con la suite). Carga la `GameConfiguration` real y, por familia/tier, lista
+los candidatos filtrados por `QualifiedCharacters` y `DropLevel` cercano al ítem
+del catálogo; vuelca a `%TEMP%\moba-shop-candidates.txt`. Correr con
+`dotnet test --filter "FullyQualifiedName~MobaShopCandidatesReport"`.
+
+**Hallazgos del reporte (datos reales, no supuestos):**
+- **Sets completos alternativos: no existen** en el mismo tramo de grado — casi
+  todos los demás sets son piezas sueltas (p. ej. Eclipse solo armadura/pantalón/
+  botas). No se puede variar un set por "otro set".
+- **T3 ya trae las 6 excelentes** → cambiar la mezcla no cambia nada. Las
+  variantes de mezcla solo tienen sentido en T1 (3 de 6) y T2 (4 de 6).
+- **Las alas no tienen opciones excelentes**; tienen 1 *wing option* (una de
+  3-4: ignorar defensa, reflejo total, vida total, maná total / vida máx.,
+  maná máx.). Las alas de 1ª generación (Heaven, Satan, Elf, Curse) **no**
+  tienen wing option → no hay variante posible en T1 (se ofrece una sola).
+- Armas: sí hay 1-2 armas nativas alternativas en T3 para 5 de 7 familias.
+
+**Diseño:** `MobaShopVariant` (Standard / Aggressive / Sustain) en cada
+`MobaShopEntry`. La pieza y la *cantidad* de opciones las fija el tier (mismo
+precio); la variante decide *cuáles* (`MobaShop.ExcellentPickPriority` por
+variante; alas: `WingOptionPreference`).
+- **Armas:** T1 y T2 → 3 mezclas (estándar dmg / **Aggressive** crítico+velocidad
+  +vida-al-matar / **Sustain** vida y maná al matar + crítico). T3 → 1 mezcla +
+  **arma alternativa real** para Wizard (Chromatic Staff), Knight (Knight Blade),
+  Elf (Sylph Wind Bow), MG (Dark Reign Blade), DL (Soleil Scepter). Summoner y
+  RF no tienen alternativa nativa.
+- **Sets:** T1 y T2 → 2 mezclas (estándar tanque / **Aggressive** reflejo+
+  defensa+vida+maná); T3 → 1. Con 3 tiers × 2 mezclas harían falta 132 celdas y
+  la grilla tiene 120 (8×15): por eso T3 va sin variante.
+- **Alas:** T2/T3 → 2 (Aggressive = ignorar defensa, Sustain = vida). Capas de
+  DL/RF también (tienen wing option). T1 de 1ª gen → 1.
+- `BuildCategoryItems` **deduplica** variantes que resuelven al mismo ítem.
+- Un ítem con wing option cuenta como 1 opción excelente para el **precio** (+25)
+  y para la **clave de precio del cliente** (el serializador lo mete en el byte
+  de excelentes).
+- **Drops de creeps:** se elige primero el ítem y luego una de sus variantes
+  al azar (un ítem con 3 mezclas no le gana a uno con 1).
+- Tests: `VariantsCarryDifferentOptionsAtSamePrice` (variantes distintas y mismo
+  precio), más los existentes de grilla/serialización. 803/804 (la falla es la
+  preexistente `DescriptionMatchesWhatThePlugInRequires`).
+- Quirk preexistente anotado: las capas de DL/RF usan el mismo ítem en T1 y T2,
+  y `MobaItemPower` resuelve el tier por (grupo, número) → cuenta como T1.
 
 #### Pendiente para la próxima conversación (orden sugerido)
 
 1. Commitear el cambio de pesos A/B a 60/40 (ya hecho en el working tree
    al cerrar esta sesión, sin push todavía si la conversación cambia).
-2. Escribir el helper/test de verificación por `QualifiedCharacters` +
-   `DropLevel`, y curar 2-3 variantes reales de arma/set/alas por clase y
-   tier con él (T1/T2/T3), respetando la grilla 8×15 de la tienda.
+2. ~~Helper + variantes de arma/set/alas~~ — **hecho 2026-09-29** (ver arriba).
 3. Decidir y (si se aprueba) implementar la curva de oro por fase
    propuesta arriba.
 4. Decidir el propósito de una segunda ventana (`Merchant1`) y si conviene

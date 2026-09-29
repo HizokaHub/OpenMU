@@ -14,4 +14,5 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// <param name="Tier">The tier.</param>
 /// <param name="Level">A fixed item level, overriding the tier level (e.g. potion variants); <c>null</c> = by tier.</param>
 /// <param name="Quantity">The stack size for stackable items.</param>
-public sealed record MobaShopEntry(MobaShopCategory Category, MobaFamily[]? Families, byte Group, short Number, MobaShopTier Tier, byte? Level = null, byte Quantity = 1);
+/// <param name="Variant">Which mix of options the item carries (see <see cref="MobaShopVariant"/>).</param>
+public sealed record MobaShopEntry(MobaShopCategory Category, MobaFamily[]? Families, byte Group, short Number, MobaShopTier Tier, byte? Level = null, byte Quantity = 1, MobaShopVariant Variant = MobaShopVariant.Standard);

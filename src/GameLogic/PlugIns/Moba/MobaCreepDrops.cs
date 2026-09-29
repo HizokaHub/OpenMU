@@ -69,7 +69,11 @@ public static class MobaCreepDrops
             return;
         }
 
-        var entry = candidates[Rand.NextInt(0, candidates.Count)];
+        // Pick the item first, then one of its variants, so an item with three mixes doesn't
+        // out-drop one with a single mix.
+        var itemGroups = candidates.GroupBy(e => (e.Group, e.Number)).ToList();
+        var variants = itemGroups[Rand.NextInt(0, itemGroups.Count)].ToList();
+        var entry = variants[Rand.NextInt(0, variants.Count)];
         if (lastHitter.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is not { } definition)
         {
             return;
@@ -80,7 +84,7 @@ public static class MobaCreepDrops
         var level = tierLevel + RollLevelOffset();
         var hasSkill = definition.Skill is not null && tier != MobaShopTier.T1;
 
-        var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill);
+        var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill, entry.Variant);
         var dropPosition = map.Terrain.GetRandomCoordinate(position, ScatterRadius);
         var dropped = new DroppedItem(item, dropPosition, map, null, beneficiaries.Cast<object>());
         await map.AddAsync(dropped).ConfigureAwait(false);
