@@ -150,6 +150,12 @@ public static class MobaPassives
             MobaSecondWindPassive.SweepExpired();
             await MobaCombustionPassive.TickAsync().ConfigureAwait(false);
             await MobaCommandBannerPassive.TickAsync(gameContext).ConfigureAwait(false);
+
+            var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
+            foreach (var champion in players.Where(p => p.IsMobaClone))
+            {
+                MobaItemCaps.Apply(champion);
+            }
         }
         finally
         {
