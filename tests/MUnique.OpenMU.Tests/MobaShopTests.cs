@@ -53,20 +53,23 @@ public class MobaShopTests
         Assert.That(missing, Is.Empty);
     }
 
-    /// <summary>Every family sees items in every category, and they all fit on the merchant grid.</summary>
+    /// <summary>Every family sees items on every menu page, they all fit on the merchant grid and no page is nearly empty.</summary>
     /// <param name="classNumber">The class number.</param>
     [TestCaseSource(nameof(FamilyClassNumbers))]
-    public void EveryCategoryHasItemsAndFits(byte classNumber)
+    public void EveryPageHasItemsAndFits(byte classNumber)
     {
         var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
-        foreach (var category in Enum.GetValues<MobaShopCategory>())
+        for (var page = 0; page < MobaShopCatalog.Pages.Count; page++)
         {
-            var items = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out var overflow);
+            var items = MobaShop.BuildPageItems(this._gameConfiguration, characterClass, page, out var overflow);
+            var cells = items.Sum(i => i.Definition!.Width * i.Definition.Height);
+            var name = $"{characterClass.Name}: {MobaShopCatalog.Pages[page].Name}";
             Assert.Multiple(() =>
             {
-                Assert.That(items, Is.Not.Empty, $"{characterClass.Name}: {category}");
-                Assert.That(overflow, Is.Zero, $"{characterClass.Name}: {category}");
-                Assert.That(items.Select(i => i.ItemSlot).Distinct().Count(), Is.EqualTo(items.Count), $"{characterClass.Name}: {category} slots");
+                Assert.That(items, Is.Not.Empty, name);
+                Assert.That(overflow, Is.Zero, name);
+                Assert.That(cells, Is.GreaterThanOrEqualTo(30), name + " is nearly empty");
+                Assert.That(items.Select(i => i.ItemSlot).Distinct().Count(), Is.EqualTo(items.Count), name + " slots");
             });
         }
     }
@@ -95,9 +98,9 @@ public class MobaShopTests
         foreach (var classNumber in FamilyClassNumbers)
         {
             var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
-            foreach (var category in Enum.GetValues<MobaShopCategory>())
+            for (var category = 0; category < MobaShopCatalog.Pages.Count; category++)
             {
-                foreach (var item in MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out _))
+                foreach (var item in MobaShop.BuildPageItems(this._gameConfiguration, characterClass, category, out _))
                 {
                     serializer.SerializeItem(buffer, item);
                     var flags = buffer[OptionsByteIndex];
@@ -173,5 +176,25 @@ public class MobaShopTests
                 Assert.That(wing.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Wing), Is.LessThanOrEqualTo(1), name + " wing option");
             });
         }
+    }
+
+    /// <summary>Dumps how many of the 120 grid cells each category page uses, per class family.</summary>
+    [Test]
+    [Explicit("Report only")]
+    public void CellsPerPageReport()
+    {
+        var lines = new List<string>();
+        foreach (var classNumber in FamilyClassNumbers)
+        {
+            var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+            var parts = Enumerable.Range(0, MobaShopCatalog.Pages.Count).Select(page =>
+            {
+                var items = MobaShop.BuildPageItems(this._gameConfiguration, characterClass, page, out var overflow);
+                return $"{MobaShopCatalog.Pages[page].Name}={items.Sum(i => i.Definition!.Width * i.Definition.Height)}(+{overflow} overflow)";
+            });
+            lines.Add($"{characterClass.Name}: {string.Join("  ", parts)}");
+        }
+
+        System.IO.File.WriteAllLines(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "moba-cells.txt"), lines);
     }
 }

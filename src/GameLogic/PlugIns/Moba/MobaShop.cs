@@ -105,7 +105,7 @@ public static class MobaShop
         }
 
         Views.Remove(player);
-        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowMenuAsync(CategoryMenuId, VendorTitle, VendorText, MobaShopCatalog.CategoryNames)).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowMenuAsync(CategoryMenuId, VendorTitle, VendorText, MobaShopCatalog.Pages.Select(p => p.Name).ToList())).ConfigureAwait(false);
         return true;
     }
 
@@ -122,13 +122,12 @@ public static class MobaShop
             || !player.IsMobaClone
             || player.OpenedNpc is not { } npc
             || !IsVendor(npc)
-            || optionIndex >= MobaShopCatalog.CategoryNames.Count)
+            || optionIndex >= MobaShopCatalog.Pages.Count)
         {
             return;
         }
 
-        var category = (MobaShopCategory)optionIndex;
-        var view = BuildView(player, category);
+        var view = BuildView(player, optionIndex);
         if (view.Items.Count == 0)
         {
             await player.ShowBlueMessageAsync("[Tienda] No hay ítems de esa categoría para tu clase.").ConfigureAwait(false);
@@ -209,13 +208,29 @@ public static class MobaShop
     /// <param name="overflow">The number of catalog items which didn't fit on the grid.</param>
     /// <returns>The items of the category.</returns>
     public static IReadOnlyList<Item> BuildCategoryItems(GameConfiguration configuration, CharacterClass characterClass, MobaShopCategory category, out int overflow)
+        => BuildItems(configuration, characterClass, new[] { category }, out overflow);
+
+    /// <summary>
+    /// Builds the items a class sees on one menu page (one or more catalog categories sharing
+    /// a single merchant grid, categories in the given order, cheapest tier first in each).
+    /// </summary>
+    /// <param name="configuration">The game configuration.</param>
+    /// <param name="characterClass">The class of the champion.</param>
+    /// <param name="page">The menu page (index into <see cref="MobaShopCatalog.Pages"/>).</param>
+    /// <param name="overflow">The number of catalog items which didn't fit on the grid.</param>
+    /// <returns>The items of the page.</returns>
+    public static IReadOnlyList<Item> BuildPageItems(GameConfiguration configuration, CharacterClass characterClass, int page, out int overflow)
+        => BuildItems(configuration, characterClass, MobaShopCatalog.Pages[page].Categories, out overflow);
+
+    private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow)
     {
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
-            .Where(e => e.Category == category && (e.Families is null || e.Families.Contains(family)))
+            .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
             .Select(e => (Entry: e, Definition: configuration.Items.FirstOrDefault(d => d.Group == e.Group && d.Number == e.Number)))
             .Where(c => c.Definition is not null && IsUsableBy(c.Definition, characterClass))
-            .OrderBy(c => c.Entry.Tier)
+            .OrderBy(c => categories.ToList().IndexOf(c.Entry.Category))
+            .ThenBy(c => c.Entry.Tier)
             .ThenBy(c => c.Definition!.Group)
             .ThenBy(c => c.Definition!.Number)
             .ThenBy(c => c.Entry.Variant)
@@ -227,8 +242,8 @@ public static class MobaShop
         overflow = 0;
         foreach (var (entry, definition) in candidates)
         {
-            // Variants that resolve to the very same item (e.g. first-generation wings, which have
-            // no wing option to choose from) are offered once.
+            // Entries that resolve to the very same item (e.g. the T1 and T2 capes, which are
+            // the same item) are offered once.
             var item = CreateItem(definition!, entry);
             if (!seen.Add(SignatureOf(item)))
             {
@@ -278,7 +293,7 @@ public static class MobaShop
            && VendorsByMap.TryGetValue(map.MapId, out var vendors)
            && vendors.Contains(npc);
 
-    private static ShopView BuildView(Player player, MobaShopCategory category)
+    private static ShopView BuildView(Player player, int page)
     {
         var view = new ShopView();
         if (player.SelectedCharacter?.CharacterClass is not { } characterClass)
@@ -286,10 +301,10 @@ public static class MobaShop
             return view;
         }
 
-        var items = BuildCategoryItems(player.GameContext.Configuration, characterClass, category, out var overflow);
+        var items = BuildPageItems(player.GameContext.Configuration, characterClass, page, out var overflow);
         if (overflow > 0)
         {
-            player.Logger.LogWarning("[MOBA-SHOP] {Overflow} item(s) of category {Category} didn't fit on the grid.", overflow, category);
+            player.Logger.LogWarning("[MOBA-SHOP] {Overflow} item(s) of page {Page} didn't fit on the grid.", overflow, MobaShopCatalog.Pages[page].Name);
         }
 
         foreach (var item in items)

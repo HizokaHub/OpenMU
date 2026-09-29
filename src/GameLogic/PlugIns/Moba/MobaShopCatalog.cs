@@ -14,15 +14,16 @@ public static class MobaShopCatalog
     private const byte HelmGroup = 7;
     private const byte BootsGroup = 11;
 
-    /// <summary>Gets the display names of the categories (menu order = enum order).</summary>
-    public static IReadOnlyList<string> CategoryNames { get; } = new[]
+    /// <summary>
+    /// Gets the pages of the vendor menu, in menu order. A page is one merchant grid (8x15 = 120
+    /// cells) and can share several catalog categories, so no page is left mostly empty: the
+    /// widest class needs 104 cells for weapons + wings + accessories, 110 for sets and 58 for the rest.
+    /// </summary>
+    public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
-        "Armas",
-        "Sets",
-        "Sets (recursos)",
-        "Alas",
-        "Accesorios",
-        "Buffs / Consumibles",
+        new MobaShopPage("Armas, Alas y Accesorios", new[] { MobaShopCategory.Weapons, MobaShopCategory.Wings, MobaShopCategory.Accessories }),
+        new MobaShopPage("Sets", new[] { MobaShopCategory.Sets }),
+        new MobaShopPage("Sets (recursos) y Buffs", new[] { MobaShopCategory.SetsSustain, MobaShopCategory.Consumables }),
     };
 
     /// <summary>Gets all entries of the catalog.</summary>
