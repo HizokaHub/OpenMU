@@ -479,17 +479,43 @@ variante; alas: `WingOptionPreference`).
 - Quirk preexistente anotado: las capas de DL/RF usan el mismo ítem en T1 y T2,
   y `MobaItemPower` resuelve el tier por (grupo, número) → cuenta como T1.
 
-#### Pendiente para la próxima conversación (orden sugerido)
+#### Pendiente para la próxima conversación (actualizado 2026-09-29)
 
-1. Commitear el cambio de pesos A/B a 60/40 (ya hecho en el working tree
-   al cerrar esta sesión, sin push todavía si la conversación cambia).
-2. ~~Helper + variantes de arma/set/alas~~ — **hecho 2026-09-29** (ver arriba).
-3. ~~Curva de oro por fase~~ — **hecho 2026-09-29** (×1,0/×1,5/×2,0).
-4. ~~Segunda ventana (`Merchant1`)~~ — **resuelto 2026-09-29**: el cliente la
-   abre igual que `Merchant`; se usan páginas de menú (ver arriba).
-5. Validar todo con `/mobabotfight` (requiere servidor + BD locales
-   levantados — según la memoria del proyecto, todavía no lo están en
-   este entorno).
+Hecho en esta tanda: pesos A/B 60/40 commiteados, helper de candidatos, variantes
+de armas/sets/alas, curva de oro ×1,0/×1,5/×2,0 (provisional), páginas extra de
+menú. Decisiones nuevas del usuario y lo que queda:
+
+1. **Alas = full option, sin variantes.** Las alas dejan de ser "variantes": se
+   venden **full option** (nivel máximo, luck, opción +4 y su wing option). Hay que
+   quitar `WingsUtility` ("Alas (utilidad)") y las mezclas Aggressive/Sustain de
+   `Wing(...)` en `MobaShopCatalog`, dejando 1 entrada por ala/tier; ajustar
+   `VariantsCarryDifferentOptionsAtSamePrice` y `MobaShopTests`. Decidir cuál
+   wing option lleva cada ala "full" (una sola por ala; sugerencia: la de
+   Maximum Health si existe, si no ignorar defensa).
+2. **Sin espacio vacío por gusto.** No se justifican páginas de menú extra si no
+   hay más variantes reales que meter. Revisar `Sets (recursos)`: tiene contenido
+   real (mezcla Sustain de T1/T2), pero verificar cuántas celdas ocupa cada página
+   y **fusionar** páginas que quepan juntas en una grilla de 120 celdas; no
+   dejar páginas casi vacías. Sets T3 sigue en 1 variante (lleva las 6 opciones).
+3. **Medir la economía de oro y definir el 100 %.** Con `/mobabotfight` (o un
+   simulador/test de la tasa de ingreso si no se puede jugar) medir oro
+   acumulado por minuto para un jugador promedio y uno bien farmeado, por fase.
+   **Sugerencia de objetivo a validar:** T1 completo (~9 piezas, ≈16.000-25.000
+   Zen) hacia el minuto 12-15; T2 completo hacia el 25-30 para un jugador
+   promedio; T3 completo (≈25.000-42.000) solo alcanzable para el que va bien
+   (min 35-40) — no de cada partida. Si la medición queda por debajo, subir
+   los factores de fase (×1,5/×2,0 son el punto de partida, no el definitivo);
+   si el T3 completo llega antes del minuto 30 en promedio, bajarlos. Documentar
+   los números medidos y los factores finales acá.
+4. **Validar todo con `/mobabotfight`.** Requiere servidor + BD locales (Postgres
+   17 corriendo; falta inicializar la BD del servidor y levantarlo) y un cliente
+   MuMain con personaje GM. Es un paso interactivo: el usuario entra al juego,
+   corre el comando y pasa el log/observaciones.
+5. **Nota:** el cliente MuMain abre `Merchant` y `Merchant1` con la misma ventana
+   (`ReceiveTalk` en `WSclient.cpp`, packet `0x30`, ambos en `default:`) — no hay
+   segunda ventana de vendedor; el espacio extra se hace con opciones del menú.
+6. Quirk preexistente: las capas de DL/RF usan el mismo ítem en T1 y T2 y
+   `MobaItemPower` resuelve el tier por (grupo, número) → cuentan como T1.
 
 ### Al salir de la partida (cleanup automático)
 
