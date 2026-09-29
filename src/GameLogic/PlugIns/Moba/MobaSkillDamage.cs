@@ -45,7 +45,7 @@ public static class MobaSkillDamage
     /// </summary>
     private const double FlatMultiplier = 1.5;
 
-    private const double StatBonusMultiplier = 2.5;
+    private const double StatBonusMultiplier = 2.0;
 
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;

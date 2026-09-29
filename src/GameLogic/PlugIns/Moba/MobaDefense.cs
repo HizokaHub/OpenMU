@@ -14,8 +14,12 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// </summary>
 public static class MobaDefense
 {
-    /// <summary>VIT at which mitigation reaches half of <see cref="MaxMitigation"/> (diminishing-returns constant).</summary>
-    private const double VitHalfPoint = 12_000;
+    /// <summary>
+    /// VIT at which mitigation reaches half of <see cref="MaxMitigation"/> (diminishing-returns constant).
+    /// Tuned so a maxed VIT stat (<see cref="MobaStatEconomy.MaxPerStat"/>) alone reaches 45% mitigation,
+    /// leaving the 45%-70% band for item-based defense.
+    /// </summary>
+    private const double VitHalfPoint = 22_700;
 
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;

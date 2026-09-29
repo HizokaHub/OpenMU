@@ -6,7 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 /// <summary>
 /// Champion level / experience constants for the MOBA mode. All numbers here are the
-/// balance knobs for match pacing (target: ~level 30 around 30-40 minutes) - tune in the
+/// balance knobs for match pacing (target: ~level 30 around 30-50 minutes) - tune in the
 /// balance pass.
 /// </summary>
 public static class MobaLevels
@@ -84,8 +84,12 @@ public static class MobaLevels
 
     /// <summary>
     /// EXP required to go from <paramref name="currentLevel"/> to the next level.
-    /// Linear ramp; cumulative to level 30 is ~13.5k. With the passive drip alone a
-    /// champion reaches ~level 16 by 35 min; farm + kills + turrets carry the rest.
+    /// Three-band pacing curve (cumulative to level 30 is ~14.8k), aimed at 30-50 min
+    /// matches: 1-10 climbs fast and cheap, 11-20 is a flat plateau (steady pace through
+    /// the match's middle), 21-29 gets progressively more expensive (a fed champion needs
+    /// disproportionately more per level, so the gap to an even opponent stops widening as
+    /// fast). Tune with the <c>/mobabotfight</c> bot harness against real combined
+    /// (passive + farm + kills + turrets) EXP income, not passive alone.
     /// </summary>
     /// <param name="currentLevel">The current champion level.</param>
     /// <returns>The EXP needed for the next level, or <see cref="long.MaxValue"/> at the cap.</returns>
@@ -96,9 +100,17 @@ public static class MobaLevels
             return long.MaxValue;
         }
 
-        // Steeper than linear so a fed champion needs disproportionately more per level -
-        // it keeps climbing but the gap to a farming opponent stops widening as fast.
-        return 90 + (currentLevel * 28) + (long)(currentLevel * currentLevel * 1.6);
+        if (currentLevel <= 10)
+        {
+            return 100 + (currentLevel * 15);
+        }
+
+        if (currentLevel <= 20)
+        {
+            return 400;
+        }
+
+        return 400 + ((currentLevel - 20) * 120);
     }
 
     /// <summary>Whether the given champion level is a skill-pick milestone.</summary>
