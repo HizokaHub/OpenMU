@@ -263,6 +263,15 @@ public static class MobaShop
         return items;
     }
 
+    /// <summary>Gets the price a catalog entry would have when bought (used by balance reports).</summary>
+    /// <param name="configuration">The game configuration.</param>
+    /// <param name="entry">The catalog entry.</param>
+    /// <returns>The price in Zen, or 0 when the item definition doesn't exist.</returns>
+    public static long PriceOfEntry(GameConfiguration configuration, MobaShopEntry entry)
+        => configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is { } definition
+            ? PriceOf(CreateItem(definition, entry))
+            : 0;
+
     private static string SignatureOf(Item item)
         => $"{item.Definition!.Group},{item.Definition.Number},{item.Level},{item.Durability},"
            + string.Join(";", item.ItemOptions.Select(o => $"{o.ItemOption!.OptionType?.Name}:{o.ItemOption.Number}:{o.Level}").OrderBy(x => x, StringComparer.Ordinal));

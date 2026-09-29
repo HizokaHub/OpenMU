@@ -517,6 +517,52 @@ menú. Decisiones nuevas del usuario y lo que queda:
 6. Quirk preexistente: las capas de DL/RF usan el mismo ítem en T1 y T2 y
    `MobaItemPower` resuelve el tier por (grupo, número) → cuentan como T1.
 
+#### Avance de la sesión 2026-09-29 (tareas 1-3 del pendiente)
+
+1. **Alas full option, sin variantes — hecho.** `Wing(...)` deja 1 entrada por
+   ala/tier; se vende siempre con nivel máximo del ítem, luck, opción +4 y su wing
+   option (Maximum Health si existe, si no ignorar defensa). Se quitó
+   `WingsUtility`, la variante `Utility` y sus preferencias. Test nuevo
+   `WingsAreFullOptionWithoutVariants`; `VariantsCarryDifferentOptionsAtSamePrice`
+   ahora solo mira armas. (T1 y T2 de las capas de DL/RF son el mismo ítem: la
+   tienda ofrece uno solo, `BuildItems` deduplica.)
+2. **Páginas del menú fusionadas — hecho (7 → 3).** Nuevo `MobaShopPage` +
+   `MobaShopCatalog.Pages`; `MobaShop.BuildPageItems` empaqueta varias categorías en
+   una grilla 8x15. Celdas ocupadas (máximo entre clases / mínimo):
+
+   | Categoría | Celdas (min–máx por clase) |
+   |---|---|
+   | Armas | 14–65 |
+   | Sets | 90–110 |
+   | Sets (recursos) | 36–44 |
+   | Alas | 12–42 |
+   | Accesorios | 6 |
+   | Consumibles | 14 |
+
+   Antes: 7 páginas (Alas (utilidad) y Sets (recursos) casi vacías). Ahora:
+   **Armas, Alas y Accesorios** (32–104) · **Sets** (90–110) · **Sets (recursos) y
+   Buffs** (50–58). Test `EveryPageHasItemsAndFits` (sin overflow, ≥30 celdas).
+   Fist Master tiene solo 32 celdas en la 1ª página porque su catálogo es corto
+   (no hay más contenido que meter).
+3. **Economía de oro — medida con simulador, propuesta pendiente de aprobación.**
+   `MobaGoldEconomyReport.cs` (`[Explicit]`) replica las constantes reales de
+   `MobaGold`/`MobaLevels` en ticks de 5 s (1 oleada de 6 creeps/48 s por equipo)
+   con 3 perfiles (presencia en línea / % last-hit / kills·min / asistencias·min:
+   promedio 60 %/20 %/0,25/0,30; bien farmeado 90 %/40 %/0,50/0,40; muy bien
+   100 %/55 %/0,80/0,50 — **supuestos**, a calibrar con `/mobabotfight`).
+   Costos reales del loadout completo (arma + 5 piezas + alas + anillo + colgante,
+   promedio de las 7 familias): **T1 ≈ 22.500, T2 ≈ 30.300, T3 ≈ 40.900**
+   (con alas full option). Mejora de tier = precio del nuevo − 70 % del anterior.
+   Con los factores actuales ×1,0/×1,5/×2,0: promedio **T1 min 47,8; T2 y T3 no
+   llegan en 60 min** (≈340-490 Zen/min); bien farmeado T1 min 35,5, T2 min 57 →
+   **el oro actual está ~4× por debajo del objetivo**.
+   **Hallazgo:** la fase de partida sale del *nivel* (T2 al nivel 11 ≈ **min 4**,
+   T3 al 21 ≈ **min 12**), no del tiempo de compra; el ×2,0 rige desde el min 12 y
+   los tiers de tienda no están alineados con esos umbrales.
+   Búsqueda (K = escala global de todo el oro, más factores de fase) contra
+   objetivos promedio T1 ~13,5 / T2 ~27,5 / sin T3 antes del 45; bien farmeado
+   T3 ~37,5. Resultados en la conversación; ver "Pendiente" para la decisión.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
