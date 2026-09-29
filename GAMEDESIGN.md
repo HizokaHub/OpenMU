@@ -563,6 +563,16 @@ menú. Decisiones nuevas del usuario y lo que queda:
    objetivos promedio T1 ~13,5 / T2 ~27,5 / sin T3 antes del 45; bien farmeado
    T3 ~37,5. Resultados en la conversación; ver "Pendiente" para la decisión.
 
+4. **Servidor local para `/mobabotfight` — listo (2026-09-29).** La BD `openmu` ya
+   estaba inicializada (mapa 200 "MOBA Arena", 20 cuentas de prueba): **no hace falta
+   `-reinit`**. Se levanta con `dotnet build src\Startup\MUnique.OpenMU.Startup.csproj -c Debug`
+   y `dotnet run --no-build --project src\Startup\MUnique.OpenMU.Startup.csproj -c Debug -- -autostart -resolveIp:loopback`
+   (puertos 80 panel, 44406 cliente MuMain, 55901 game server). Cliente:
+   `mu-main\outuild\windows-x64\src\Release\Main.exe` (compilado 2026-09-23 00:47,
+   **antes** del último commit de mu-main `c492d5a3` de las 00:53 → si el menú
+   server-driven de la tienda no aparece, recompilar con `cmake --build --preset windows-x64-release`).
+   Pendiente: que el usuario entre con un personaje GM, corra `/mobabotfight` y pase el log.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
