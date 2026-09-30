@@ -654,6 +654,54 @@ revendiendo al 70 %):
 
 Los ítems dropeados por creeps se venden por 5 de oro fijo.
 
+#### Implementado 2026-09-30 (propuestas A y B aprobadas + ítems nuevos)
+
+**Aprobado por el usuario y ya en código** (commits en `moba/phase1`):
+- **Curva de EXP lineal** `470 + 7·(L−1)`, fases T2/T3 en nivel **9 / 22** (`MobaLevels`, `MobaMatchPhase`).
+- **Oro ×2,7** sobre todas las fuentes (last-hit 54, proximidad 27, kill 405 + 22/nivel, asistencia 160,
+  subir nivel 110, shutdown 95, pasivo 27) y factores de fase **×1,0 / ×1,0 / ×2,6** (`MobaGold`).
+- **Precios ×2,5 por tier** (`MobaShop.BuildTierPrices`): T1 del slot = fórmula MU escalada para que el
+  loadout T1 promedio cueste **6.300**; T2 = ×2,5; T3 = ×6,25 (loadout T2 ≈ 15.100, T3 ≈ 39.400; las capas de
+  DL/RF son el mismo ítem en T1 y T2 y cuestan el precio T1). Las mascotas usan la escalera del colgante.
+  Simulador (`MobaGoldEconomyReport`): promedio T1 min 8,5 · T2 min 22,1 · **T3 min 39,7** con compras perfectas.
+- **Ítems de creep se venden por 5 de oro fijo** (marca `Item.StorePrice = 5`).
+- **Tienda — 4 páginas:** `Consumibles, Accesorios y Alas` · `Armas y Sets (recursos)` · `Sets` ·
+  `Mascotas y Escudos` (21–37 celdas: Elf/RF no tienen escudo).
+- **Recall (tecla B):** canal de 5 s (`MobaRecall`), se corta al moverse, atacar, castear, recibir daño o morir;
+  al terminar teletransporta con la animación de Teleport junto a la tienda del equipo. Cliente: barra de
+  canalización (paquete `C1 07 D5 09`), B sigue abriendo el ranking de Gens fuera del MOBA.
+- **Pergamino de teletransporte** (Town Portal Scroll 14/10, 900 de oro): al usarlo se elige un **minion aliado
+  con clic en el mundo** (`C1 06 D5 0B`), mismo canal de 5 s, se consume al llegar, **enfriamiento 5 min**
+  para todos los pergaminos (`MobaTeleport`).
+- **Escudos y libros por tier** (categoría `Offhand`): Wizard Legendary/Grand Soul/Guardian, Knight
+  Serpent/Dragon/Crimson Glory, MG Legendary/Dragon/Salamander, DL Skull/Tower/Cross, Summoner Sahamutt/
+  Neil/Lagle. Elf y RF no tienen. `MobaItemPower`: para Elf/RF solo cuenta el arma en la fracción ofensiva.
+- **Escudo activo «Égida»** (`MobaCastEffects`): al lanzar Soul Barrier / Defense / Greater Defense se suma una
+  barrera de **30 s** = 10 / 15 / 20 % de la vida máxima según el tier del escudo (5 % sin escudo),
+  mostrada con la burbuja de *Spell of Protection* (efecto 0x22) para no parecerse a Soul Barrier ni al
+  verde del Elf.
+- **Mascotas** (`MobaPets`, `MobaShopCatalog`): valores nativos reescritos en memoria a los del diseño —
+  Guardian Angel 5 % def + 3 % vida · Imp 5 % daño · Uniria velocidad · Skeleton 4 % daño + 5 % EXP · Panda
+  8 % EXP + 3 % def · Unicorn 8 % oro + 3 % def · Dinorant velocidad + 6 % daño + 5 % def · Demon 8 % daño +
+  5 vel. ataque · Spirit of Guardian 8 % def + 3 % vida · Fenrir negro 10 % daño / azul 10 % def / dorado
+  vida-maná-daño. Rudolf no se vende (sin efecto hasta que exista visión).
+- **DL — Dark Horse (T2) y Dark Raven (T3), nivel 50:** Earthshake sube a (195, 48) y el cuervo ataca solo
+  con su dueño (pega como el ataque básico × 0,37 cada 1,5 s). Modelo `MobaPets.DarkLordPetShare`:
+  entre ambos ≈ **25 %** del daño sostenido del DL (Earthshake ≈ 15 %, cuervo ≈ 10 %; test
+  `PetsAreAboutAQuarterOfDarkLordDamage`). **Ojo:** el cuervo ocupa el slot de mano derecha (1) y el
+  cetro pasa a la izquierda, así que un DL elige entre cuervo y escudo. El caballo y las mascotas de utilidad
+  comparten el único slot de mascota.
+- **Opciones MOBA de las piezas** (`MobaItemTraits`, con líneas de tooltip en el cliente, paquete `C2 D5 0A`):
+  arma = **anti-curación** 10/20/30 % (3 s tras cada golpe; recorta lifesteal, Second Wind, pociones y Heal),
+  armadura y pantalón = **resistencia a CC** 5/10/15 % c/u, guantes y botas = **reducción de enfriamiento**
+  3/6/10 % c/u, anillos = **oro por asistencia** 5/10/15 % c/u, colgante = **oro pasivo** 5/10/15 %.
+
+**Pendiente:**
+- **Ward y barredor** (slots 10/11 del HUD): requieren el sistema de visión (Vision v1), que aún no existe.
+- **Validar todo con `/mobabotfight`** (paso interactivo del usuario) y re-medir oro/EXP reales contra el
+  simulador; el cuervo/caballo y las opciones nuevas no se probaron en combate real.
+- Ítem-idea sin implementar: oro por asistencia/pasivo a más piezas, más escudos activos por clase.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
