@@ -702,6 +702,29 @@ Los ítems dropeados por creeps se venden por 5 de oro fijo.
   simulador; el cuervo/caballo y las opciones nuevas no se probaron en combate real.
 - Ítem-idea sin implementar: oro por asistencia/pasivo a más piezas, más escudos activos por clase.
 
+#### Correcciones del usuario tras el 2026-09-30 (a implementar en la próxima conversación)
+
+Reemplazan lo anotado arriba sobre la Égida y los drops:
+- **Égida mal entendida.** NO debe dispararse al lanzar Soul Barrier / Defense / Greater Defense (quitar
+  16, 18 y 27 de `MobaCastEffects.AegisSkills`). Debe dispararse al lanzar **el skill que trae el escudo**
+  (skill del ítem). Sigue siendo: barrera de **30 s** de 10 / 15 / 20 % de la vida máxima según el tier del
+  escudo, con la burbuja de *Spell of Protection* (efecto 0x22). Sin escudo equipado no hay Égida.
+- **Todos los escudos/libros de la tienda deben traer skill** (hoy muchos no tienen: Legendary 6/14, Grand
+  Soul 6/15, Guardian 6/20, Elemental, Frost Barrier… y los libros del Summoner traen las suyas de
+  maldición). Hay que definir/asignar un skill de escudo a **cada** ítem de la categoría `Offhand` (pendiente
+  de decidir: skill nuevo dedicado vs reutilizar uno; debe poder lanzarse desde el cliente, tener cooldown
+  y aparecer en la barra de skills).
+- **Opciones adicionales MOBA en los escudos** (las de `MobaItemTraits`: anti-curación aplica a armas, acá
+  se usan **resistencia a CC, reducción de cooldown, oro por asistencia/pasivo**): **T1 = 1 opción, T2 = 2
+  opciones, T3 = full opciones** (todas las excelentes + todas las adicionales). Si una raza tiene más de un
+  escudo, el T3 es el «full». Falta decidir cuáles opciones exactas y su tamaño por tier, y agregar sus
+  líneas de tooltip en el cliente.
+- **Drops de los creeps:** ahora dropean **solo armas, sets y escudos** (quitar alas y accesorios de
+  `MobaCreepDrops`). Los **escudos dropeados** llevan opciones adicionales al azar: **1 opción 70 %, 2
+  opciones 30 %**.
+- **La revisión/validación de todo (`/mobabotfight`, medir oro/EXP, probar recall, teletransporte, cuervo,
+  Égida, opciones) queda para el final**, después de implementar lo de arriba.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
