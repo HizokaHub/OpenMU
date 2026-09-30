@@ -51,6 +51,9 @@ public static class MobaShop
     // Zen per price point: equipment is scored by grade + upgrades, consumables are cheap.
     private const int PricePerPoint = 10;
 
+    /// <summary>The price of a teleport scroll (fixed; it is limited by its 5 minute cooldown, not by gold).</summary>
+    public const int TeleportScrollPrice = 900;
+
     /// <summary>Each tier of a slot costs this many times the previous one (a 150 % gap).</summary>
     public const double TierPriceRatio = 2.5;
 
@@ -400,6 +403,11 @@ public static class MobaShop
         if (item.Definition is not { } definition)
         {
             return 0;
+        }
+
+        if (definition.Group == MobaTeleport.ScrollGroup && definition.Number == MobaTeleport.ScrollNumber)
+        {
+            return TeleportScrollPrice;
         }
 
         var score = (definition.DropLevel + 10) * (1 + (item.Level * 0.1));

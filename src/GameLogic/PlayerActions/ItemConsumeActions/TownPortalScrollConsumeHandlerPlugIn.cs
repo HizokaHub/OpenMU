@@ -28,6 +28,14 @@ public class TownPortalScrollConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn
     /// <inheritdoc />
     public override async ValueTask<bool> ConsumeItemAsync(Player player, Item item, Item? targetItem, FruitUsage fruitUsage)
     {
+        if (player.IsMobaClone)
+        {
+            // MOBA: the scroll is a teleport to an allied minion picked by clicking it. It is consumed
+            // when the teleport happens, not now, so this reports "not consumed".
+            await PlugIns.Moba.MobaTeleport.BeginTargetingAsync(player, item).ConfigureAwait(false);
+            return false;
+        }
+
         if (await base.ConsumeItemAsync(player, item, targetItem, fruitUsage).ConfigureAwait(false))
         {
             var targetMapDef = player.CurrentMap!.Definition.SafezoneMap ?? player.SelectedCharacter!.CharacterClass!.HomeMap;

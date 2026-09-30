@@ -16,7 +16,8 @@ using MUnique.OpenMU.PlugIns;
 /// Spends one champion skill point on that skill and pushes the updated champion state.
 /// Also handles the option picked in a server-driven NPC menu (the MOBA shop categories):
 /// <code>C1 06 D5 07  menuId  optionIndex</code>, and the recall request (key B):
-/// <code>C1 04 D5 09</code>.
+/// <code>C1 04 D5 09</code>, and the minion picked for the teleport scroll:
+/// <code>C1 06 D5 0B  targetId(u16 LE)</code>.
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: client request handler", Description = "Handles the MOBA client requests: skill level-up (C1 D5 03) and NPC menu option picks (C1 D5 07).")]
@@ -37,6 +38,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
         {
             // C1 06 D5 07 menuId optionIndex: an option picked in a server-driven NPC menu.
             await MobaShop.SelectOptionAsync(player, span[4], span[5]).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 6 && span[3] == 0x0B)
+        {
+            // C1 06 D5 0B targetId(u16 LE): the minion clicked while the teleport scroll is targeting.
+            await MobaTeleport.SelectTargetAsync(player, (ushort)(span[4] | (span[5] << 8))).ConfigureAwait(false);
             return;
         }
 

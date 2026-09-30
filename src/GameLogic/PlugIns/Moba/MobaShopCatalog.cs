@@ -224,6 +224,7 @@ public static class MobaShopCatalog
         Consumable(5, MobaShopTier.T2, quantity: 10);   // Medium Mana Potion
         Consumable(39, MobaShopTier.T2, quantity: 10);  // Medium Complex Potion
         Consumable(9, MobaShopTier.T2, quantity: 3);    // Ale (attack speed buff)
+        Consumable(10, MobaShopTier.T2, quantity: 1);   // Town Portal Scroll: teleport to an allied minion (MobaTeleport)
         Consumable(3, MobaShopTier.T3, quantity: 10);   // Large Healing Potion
         Consumable(6, MobaShopTier.T3, quantity: 10);   // Large Mana Potion
         Consumable(40, MobaShopTier.T3, quantity: 10);  // Large Complex Potion

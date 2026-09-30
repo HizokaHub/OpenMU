@@ -51,8 +51,9 @@ public static class MobaRecall
     /// <param name="player">The champion.</param>
     /// <param name="kind">The channel kind for the client bar.</param>
     /// <param name="destination">Evaluated when the channel completes; <see langword="null"/> aborts.</param>
+    /// <param name="onTeleported">Runs after the champion was teleported (not when the channel was interrupted).</param>
     /// <returns><see langword="true"/> if the channel started.</returns>
-    public static async ValueTask<bool> TryStartAsync(Player player, byte kind, Func<Point?> destination)
+    public static async ValueTask<bool> TryStartAsync(Player player, byte kind, Func<Point?> destination, Func<ValueTask>? onTeleported = null)
     {
         if (!player.IsMobaClone || !player.IsAlive || player.IsTeleporting || player.CurrentMap is null || IsChanneling(player))
         {
@@ -62,7 +63,7 @@ public static class MobaRecall
         var channel = new Channel(new CancellationTokenSource());
         Channels.AddOrUpdate(player, channel);
         await player.InvokeViewPlugInAsync<IMobaChannelPlugIn>(p => p.ShowChannelAsync(kind, (int)(ChannelSeconds * 1000))).ConfigureAwait(false);
-        _ = RunAsync(player, channel, kind, destination);
+        _ = RunAsync(player, channel, kind, destination, onTeleported);
         return true;
     }
 
@@ -91,7 +92,7 @@ public static class MobaRecall
         return map.Terrain.GetRandomCoordinate(new Point(x, y), 2);
     }
 
-    private static async Task RunAsync(Player player, Channel channel, byte kind, Func<Point?> destination)
+    private static async Task RunAsync(Player player, Channel channel, byte kind, Func<Point?> destination, Func<ValueTask>? onTeleported)
     {
         var start = player.Position;
         var health = player.Attributes?[Stats.CurrentHealth] ?? 0;
@@ -138,6 +139,11 @@ public static class MobaRecall
                 else
                 {
                     await player.MoveAsync(target).ConfigureAwait(false);
+                }
+
+                if (onTeleported is not null)
+                {
+                    await onTeleported().ConfigureAwait(false);
                 }
             }
         }
