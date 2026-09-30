@@ -100,6 +100,7 @@ public static class MobaCloneFactory
 
     private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status)
     {
+        MobaPets.EnsureConfigured(player.GameContext.Configuration);
         var context = player.PersistenceContext;
 
         var clone = context.CreateNew<Character>();
@@ -204,6 +205,7 @@ public static class MobaCloneFactory
     /// <param name="clone">The clone to discard.</param>
     public static void DetachClone(Player player, Character clone)
     {
+        MobaPets.EnsureConfigured(player.GameContext.Configuration);
         var context = player.PersistenceContext;
         if (clone.Inventory is { } inventory)
         {

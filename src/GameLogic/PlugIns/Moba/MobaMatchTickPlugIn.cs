@@ -59,6 +59,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Expire temp shields from Greater Defense / Heal / Soul Barrier.
         await MobaCastEffects.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Dark Lords with an equipped Dark Raven: make it attack with its owner.
+        await MobaPets.TickAsync(gameContext).ConfigureAwait(false);
+
         // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
         await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
 

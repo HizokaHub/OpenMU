@@ -42,7 +42,14 @@ public class RavenCommandManager : Disposable, IPetCommandManager
         this._petAttackerSurrogate = new AttackerSurrogate(owner, new RavenAttributeSystem(owner));
     }
 
-    private TimeSpan AttackDelay => TimeSpan.FromMilliseconds(Math.Max(100, 1500 - (this._petAttackerSurrogate.Attributes[Stats.AttackSpeed] * 10)));
+    private TimeSpan AttackDelay => this._owner.IsMobaClone
+        ? TimeSpan.FromSeconds(PlugIns.Moba.MobaPets.RavenAttackSeconds)
+        : TimeSpan.FromMilliseconds(Math.Max(100, 1500 - (this._petAttackerSurrogate.Attributes[Stats.AttackSpeed] * 10)));
+
+    // MOBA: the Raven hits like its owner's basic attack (through the MOBA damage pipeline) times a factor.
+    private IAttacker Attacker => this._owner.IsMobaClone ? this._owner : this._petAttackerSurrogate;
+
+    private double DamageFactor => this._owner.IsMobaClone ? PlugIns.Moba.MobaPets.RavenDamageFactor : 1.0;
 
     /// <summary>
     /// Sets the behaviour.
@@ -106,7 +113,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
             return;
         }
 
-        var attackType = Rand.NextRandomBool(0.3) ? PetAttackType.RangeAttack : PetAttackType.SingleTarget;
+        var attackType = !this._owner.IsMobaClone && Rand.NextRandomBool(0.3) ? PetAttackType.RangeAttack : PetAttackType.SingleTarget;
 
         await this._owner.ForEachWorldObserverAsync<IPetAttackViewPlugIn>(
             p => p.ShowPetAttackAnimationAsync(this._owner, this._pet, target, attackType),
@@ -115,7 +122,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
 
         if (attackType == PetAttackType.SingleTarget)
         {
-            await target.AttackByAsync(this._petAttackerSurrogate, null, false).ConfigureAwait(false);
+            await target.AttackByAsync(this.Attacker, null, false, this.DamageFactor).ConfigureAwait(false);
         }
         else
         {
@@ -152,7 +159,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
                         true)
                     .ConfigureAwait(false);
 
-                await target.AttackByAsync(this._petAttackerSurrogate, null, false).ConfigureAwait(false);
+                await target.AttackByAsync(this.Attacker, null, false, this.DamageFactor).ConfigureAwait(false);
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
         }

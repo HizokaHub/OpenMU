@@ -30,6 +30,9 @@ public enum MobaShopCategory
     /// <summary>Rings and pendants.</summary>
     Accessories,
 
+    /// <summary>Pets and mounts (Guardian Angel, Imp, Fenrir, Dark Horse, Dark Raven...).</summary>
+    Pets,
+
     /// <summary>Potions and buff consumables.</summary>
     Consumables,
 }

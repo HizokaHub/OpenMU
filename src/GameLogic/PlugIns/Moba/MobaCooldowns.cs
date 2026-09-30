@@ -69,6 +69,13 @@ public static class MobaCooldowns
         [27] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Defense
     };
 
+    /// <summary>Gets the cooldown in seconds of a skill at a rank (1..5), as used by balance models.</summary>
+    /// <param name="skillNumber">Persistence skill number.</param>
+    /// <param name="rank">The skill rank 1..5.</param>
+    /// <returns>The cooldown in seconds.</returns>
+    public static double SecondsOf(short skillNumber, int rank)
+        => (PerRankSeconds.TryGetValue(skillNumber, out var table) ? table : DefaultPerRank)[Math.Clamp(rank, 1, MobaSkills.SkillLevelCap) - 1];
+
     /// <summary>
     /// Gets the cooldown to apply after a champion successfully casts the given skill.
     /// Returns <see cref="TimeSpan.Zero"/> when no per-match cooldown should be tracked

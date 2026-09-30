@@ -99,7 +99,7 @@ public static class MobaSkillDamage
         [56] = (85, 20, 0.45),   // Power Slash
         [57] = (95, 23, 0.50),   // Spiral Slash
         [61] = (100, 26, 0.55),  // Fire Burst
-        [62] = (100, 25, 0.55),  // Earthshake
+        [62] = (195, 48, 0.55),  // Earthshake (the Dark Horse skill: ~15 % of a Dark Lord's damage, see MobaPets.DarkLordPetShare)
         [74] = (95, 23, 0.50),   // Fire Blast
         [78] = (100, 25, 0.55),  // Fire Scream
         [214] = (80, 20, 0.45),  // Drain Life
@@ -136,6 +136,21 @@ public static class MobaSkillDamage
         [260] = (120, 30, 0.75), // Killing Blow
         [263] = (135, 33, 0.85), // Dark Side
     };
+
+    /// <summary>Gets the flat (stat-independent) damage of a skill at a rank, as used by balance models.</summary>
+    /// <param name="skillNumber">Persistence skill number.</param>
+    /// <param name="rank">The skill rank 1..5.</param>
+    /// <returns>The flat damage before stat / level scaling.</returns>
+    public static double FlatDamageOf(short skillNumber, int rank)
+    {
+        var (baseDamage, perRank, _) = Table.TryGetValue(skillNumber, out var entry) ? entry : (DefaultBase, DefaultPerRank, DefaultMaxStatBonus);
+        return (baseDamage + (perRank * (Math.Clamp(rank, 1, 5) - 1))) * FlatMultiplier;
+    }
+
+    /// <summary>Gets the flat (stat-independent) basic attack damage at a champion level, as used by balance models.</summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The flat basic attack damage.</returns>
+    public static double BasicAttackFlatOf(int level) => (BasicAttackDamage + (BasicAttackPerLevel * (Math.Clamp(level, 1, 30) - 1))) * FlatMultiplier;
 
     /// <summary>Gets the min/max MOBA damage for a champion's skill at a rank (1..5).</summary>
     /// <param name="champion">The casting champion (for the per-race stat term).</param>

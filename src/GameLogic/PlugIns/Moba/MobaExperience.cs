@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Interfaces;
@@ -52,6 +53,12 @@ public static class MobaExperience
             {
                 amount = (long)(amount * MobaLevels.CatchUpExpMultiplier(MobaMatchTickPlugIn.MatchElapsed));
             }
+        }
+
+        // Pets with an EXP bonus (Panda, Skeleton).
+        if (champion.Attributes is { } expAttributes && expAttributes[Stats.BonusExperienceRate] > 0)
+        {
+            amount = (long)(amount * (1 + expAttributes[Stats.BonusExperienceRate]));
         }
 
         champion.MobaExperience += amount;

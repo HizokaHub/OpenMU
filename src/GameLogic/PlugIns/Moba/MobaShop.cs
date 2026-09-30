@@ -257,6 +257,7 @@ public static class MobaShop
     private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow)
     {
         EnsureTierPrices(configuration);
+        MobaPets.EnsureConfigured(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
             .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
@@ -390,6 +391,7 @@ public static class MobaShop
         MobaShopCategory.Sets or MobaShopCategory.SetsSustain => $"{entry.Families![0]}:set{entry.Group}",
         MobaShopCategory.Wings => $"{entry.Families![0]}:wings",
         MobaShopCategory.Offhand => $"{entry.Families![0]}:offhand",
+        MobaShopCategory.Pets => "acc:pendant",
         _ => entry.Number is 8 or 23 or 24 ? "acc:ring" : "acc:pendant",
     };
 
@@ -577,6 +579,12 @@ public static class MobaShop
         // for creep drops (see MobaCreepDrops), which is exactly why buying costs gold.
         var (level, optionLevel, luck, excellent) = TierStatsOf(entry.Tier);
         var hasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
+        if (entry.Category == MobaShopCategory.Pets)
+        {
+            // Pets carry no upgrade options; their level (Dark Horse / Raven) is the catalog level.
+            (level, optionLevel, luck, excellent) = (0, 0, false, 0);
+            hasSkill = definition.Skill is not null;
+        }
         if (entry.Category == MobaShopCategory.Wings)
         {
             // Wings are always sold full option: max level, luck, +4 option, one wing option.
@@ -646,6 +654,27 @@ public static class MobaShop
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = preferred ?? wingOptions.OrderBy(o => o.Number).First() });
         }
 
+        // Fenrir: the variant picks the colour (black = damage, blue = defense, gold = life / mana / damage).
+        if (definition.Group == 13 && definition.Number == 37)
+        {
+            var colour = variant switch
+            {
+                MobaShopVariant.Aggressive => ItemOptionTypes.BlackFenrir,
+                MobaShopVariant.Sustain => ItemOptionTypes.GoldFenrir,
+                _ => ItemOptionTypes.BlueFenrir,
+            };
+            foreach (var fenrirOption in possibleOptions.Where(o => o.OptionType == colour))
+            {
+                item.ItemOptions.Add(new ItemOptionLink { ItemOption = fenrirOption });
+            }
+        }
+
+        // Trainable pets (Dark Horse / Dark Raven) are sold at their maximum pet level.
+        if (definition.MaximumItemLevel == MobaPets.MaxPetLevel && item.Level > 0)
+        {
+            item.PetExperience = MobaPets.PetExperienceOfLevel(item.Level);
+        }
+
         item.HasSkill = hasSkill;
         return item;
     }
@@ -664,7 +693,7 @@ public static class MobaShop
             var perUnit = item.IsStackable();
             var price = new MobaShopPrice(
                 (ushort)((definition.Group * 512) + definition.Number),
-                item.Level,
+                item.IsTrainablePet() ? (byte)0 : item.Level, // the item serializer sends the level of trainable pets (Dark Horse / Raven) as 0
                 (byte)OptionLevelOf(item),
                 HasLuck(item),
                 (byte)ExcellentCountOf(item),
@@ -682,8 +711,15 @@ public static class MobaShop
     private static bool HasLuck(Item item)
         => item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck);
 
-    private static int ExcellentCountOf(Item item)
-        => item.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent || o.ItemOption?.OptionType == ItemOptionTypes.Wing); // the client counts a wing option as one excellent bit
+    /// <summary>
+    /// The number of "excellent" bits the client sees in the serialized item: excellent options,
+    /// the wing option (one bit) and the Fenrir colour (one bit, however many options it carries).
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>The excellent bit count.</returns>
+    internal static int ExcellentCountOf(Item item)
+        => item.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent || o.ItemOption?.OptionType == ItemOptionTypes.Wing)
+           + item.ItemOptions.Select(o => o.ItemOption?.OptionType).Where(t => t == ItemOptionTypes.BlackFenrir || t == ItemOptionTypes.BlueFenrir || t == ItemOptionTypes.GoldFenrir).Distinct().Count();
 
     private sealed class ShopView
     {

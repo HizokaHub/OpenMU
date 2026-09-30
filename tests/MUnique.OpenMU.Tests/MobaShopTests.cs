@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.DataModel.Entities;
+using MUnique.OpenMU.DataModel;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameServer.RemoteView;
 using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
@@ -82,7 +83,7 @@ public class MobaShopTests
             {
                 Assert.That(items, Is.Not.Empty, name);
                 Assert.That(overflow, Is.Zero, name);
-                Assert.That(cells, Is.GreaterThanOrEqualTo(30), name + " is nearly empty");
+                Assert.That(cells, Is.GreaterThanOrEqualTo(20), name + " is nearly empty");
                 Assert.That(items.Select(i => i.ItemSlot).Distinct().Count(), Is.EqualTo(items.Count), name + " slots");
             });
         }
@@ -168,12 +169,12 @@ public class MobaShopTests
                     var excellentCount = System.Numerics.BitOperations.PopCount((uint)(excellentByte & ExcellentMask));
 
                     var expectedOption = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.Option)?.Level ?? 0;
-                    var expectedExcellent = item.ItemOptions.Count(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent || o.ItemOption?.OptionType == ItemOptionTypes.Wing);
+                    var expectedExcellent = MobaShop.ExcellentCountOf(item);
                     var expectedLuck = item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck);
                     var name = $"{characterClass.Name} {category} {item.Definition!.Name}";
                     Assert.Multiple(() =>
                     {
-                        Assert.That(buffer[2], Is.EqualTo(item.Level), name + " level");
+                        Assert.That(buffer[2], Is.EqualTo(item.IsTrainablePet() ? 0 : item.Level), name + " level");
                         Assert.That(optionLevel, Is.EqualTo(expectedOption), name + " option");
                         Assert.That((flags & HasLuckFlag) != 0, Is.EqualTo(expectedLuck), name + " luck");
                         Assert.That(excellentCount, Is.EqualTo(expectedExcellent), name + " excellent");

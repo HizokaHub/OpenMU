@@ -23,9 +23,10 @@ public static class MobaShopCatalog
     /// </summary>
     public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
-        new MobaShopPage("Consumibles, Accesorios, Escudos y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Offhand, MobaShopCategory.Wings }),
+        new MobaShopPage("Consumibles, Accesorios y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Wings }),
         new MobaShopPage("Armas y Sets (recursos)", new[] { MobaShopCategory.Weapons, MobaShopCategory.SetsSustain }),
         new MobaShopPage("Sets", new[] { MobaShopCategory.Sets }),
+        new MobaShopPage("Mascotas y Escudos", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand }),
     };
 
     /// <summary>Gets all entries of the catalog.</summary>
@@ -189,6 +190,27 @@ public static class MobaShopCatalog
         Accessory(13, MobaShopTier.T2);  // Pendant of Fire
         Accessory(24, MobaShopTier.T3);  // Ring of Magic
         Accessory(28, MobaShopTier.T3);  // Pendant of Ability
+
+        // --- Pets and mounts (one pet slot: a champion picks one). Numbers of every pet are rewritten
+        // to MOBA values by MobaPets. Dark Horse (Earthshake) and Dark Raven only qualify for the Dark
+        // Lord and are sold at their maximum pet level. ---
+        void Pet(short number, MobaShopTier tier, byte level = 0, MobaShopVariant variant = MobaShopVariant.Standard)
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Pets, null, 13, number, tier, Level: level, Variant: variant));
+
+        Pet(0, MobaShopTier.T1);    // Guardian Angel: 5 % defense, 3 % life
+        Pet(1, MobaShopTier.T1);    // Imp: 5 % damage
+        Pet(2, MobaShopTier.T1);    // Horn of Uniria: speed
+        Pet(123, MobaShopTier.T2);  // Pet Skeleton: 4 % damage, 5 % EXP
+        Pet(80, MobaShopTier.T2);   // Pet Panda: 8 % EXP, 3 % defense
+        Pet(106, MobaShopTier.T2);  // Pet Unicorn: 8 % gold, 3 % defense
+        Pet(3, MobaShopTier.T2);    // Horn of Dinorant: speed, 6 % damage, 5 % defense
+        Pet(4, MobaShopTier.T2, MobaPets.MaxPetLevel);   // Dark Horse (DL): Earthshake, ~15 % of the DL's damage
+        Pet(64, MobaShopTier.T3);   // Demon: 8 % damage, attack speed
+        Pet(65, MobaShopTier.T3);   // Spirit of Guardian: 8 % defense, 3 % life
+        Pet(37, MobaShopTier.T3, variant: MobaShopVariant.Aggressive);  // Black Fenrir: 10 % damage
+        Pet(37, MobaShopTier.T3, variant: MobaShopVariant.Standard);    // Blue Fenrir: 10 % defense
+        Pet(37, MobaShopTier.T3, variant: MobaShopVariant.Sustain);     // Gold Fenrir: life / mana / damage
+        Pet(5, MobaShopTier.T3, MobaPets.MaxPetLevel);   // Dark Raven (DL): attacks with its owner, ~10 % of the DL's damage
 
         // --- Buffs / consumables (every class) ---
         void Consumable(short number, MobaShopTier tier, byte level = 0, byte quantity = 1)
