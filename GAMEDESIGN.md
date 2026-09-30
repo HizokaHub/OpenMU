@@ -768,6 +768,24 @@ estimado 40-50 % de bugs de viewport). `MobaVision.cs`:
 - **Pendiente:** ítem
   comprable en tienda, marcador en el minimapa y prueba en partida real. Los skills de área no pasan por la regla.
 
+#### Checklist de validación y pendientes al cierre del 2026-09-30
+
+**A testear en el juego** (servidor + `Main.exe` nuevo; GM testgm/testgm; flujo: `/moba` → `/mobalevel 30` → `/mobabotfight` → `/mobaleave`):
+1. Skill del escudo (Spell of Protection, 210): aparece en la barra al equipar un escudo, se puede lanzar sobre uno mismo, tiene cooldown 60/50/40 s y dispara la Égida (burbuja 0x22, 10/15/20 % de vida máx., 30 s). Sin escudo no hay skill ni Égida. Libros del Summoner: sus maldiciones disparan la Égida.
+2. Opciones de escudos: tooltips (T1 CC 10 · T2 CC 15 + CDR 15 · T3 CC 20 + CDR 25 + oro asistencia 10 + oro pasivo 10), efectos reales, topes CC 50 % / CDR 65 %; guantes y botas ahora 6/12/20 % de CDR. Drops de escudo con 1-2 opciones al azar y su tooltip.
+3. Drops de creeps: solo armas, sets y escudos; se venden por 5 de oro.
+4. Visión v1: `/ward` o tecla `0` / clic slot 10 (75 oro, 150 s, máx. 3); `/sweep` o tecla `-` / slot 11; no se puede apuntar a un campeón enemigo no visto (ataque básico y skills dirigidos).
+5. Oro y EXP reales contra el simulador (`tests/MUnique.OpenMU.Tests/MobaGoldEconomyReport.cs`): T1 completo ~min 8,5, T2 ~22, T3 ~40; nivel 30 ~min 35.
+6. Recall (tecla B, 5 s), pergamino de teletransporte (clic en minion aliado, enfriamiento 5 min), Dark Raven + Dark Horse (~25 % del daño del DL), mascotas de utilidad.
+
+**Pendiente de hacer:**
+- Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
+- Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
+- Que los skills de área también respeten la visión (hoy solo ataque básico y skills dirigidos).
+- Nombre del skill del escudo en el cliente es «Spell of Protection» (no se puede renombrar sin tocar la tabla de skills del cliente).
+- Ajustes de balance según el log de `/mobabotfight`.
+- Falla de test preexistente `DescriptionMatchesWhatThePlugInRequires` (no relacionada).
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
