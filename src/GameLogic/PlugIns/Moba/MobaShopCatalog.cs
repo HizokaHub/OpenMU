@@ -16,14 +16,16 @@ public static class MobaShopCatalog
 
     /// <summary>
     /// Gets the pages of the vendor menu, in menu order. A page is one merchant grid (8x15 = 120
-    /// cells) and can share several catalog categories, so no page is left mostly empty: the
-    /// widest class needs 104 cells for weapons + wings + accessories, 110 for sets and 58 for the rest.
+    /// cells) and can share several catalog categories, each starting on its own row, top to
+    /// bottom in the listed order. Cells used by the widest class (max over classes, plus the
+    /// rows lost to starting each category on a fresh row): consumables + accessories + wings
+    /// about 62, weapons + resource sets about 110, sets about 110.
     /// </summary>
     public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
-        new MobaShopPage("Armas, Alas y Accesorios", new[] { MobaShopCategory.Weapons, MobaShopCategory.Wings, MobaShopCategory.Accessories }),
+        new MobaShopPage("Consumibles, Accesorios y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Wings }),
+        new MobaShopPage("Armas y Sets (recursos)", new[] { MobaShopCategory.Weapons, MobaShopCategory.SetsSustain }),
         new MobaShopPage("Sets", new[] { MobaShopCategory.Sets }),
-        new MobaShopPage("Sets (recursos) y Buffs", new[] { MobaShopCategory.SetsSustain, MobaShopCategory.Consumables }),
     };
 
     /// <summary>Gets all entries of the catalog.</summary>

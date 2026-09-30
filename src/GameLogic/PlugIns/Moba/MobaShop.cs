@@ -36,7 +36,8 @@ public static class MobaShop
     private const string VendorTitle = "Hanzo el herrero";
     private const string VendorText = "¡Bienvenido, campeón! Todo se paga con el Zen de la partida. ¿Qué necesitas?";
 
-    private const int GridColumns = 8;
+    /// <summary>Columns of the merchant grid.</summary>
+    public const int GridColumns = 8;
     private const int GridRows = 15;
 
     // Zen per price point: equipment is scored by grade + upgrades, consumables are cheap.
@@ -240,8 +241,20 @@ public static class MobaShop
         var occupied = new bool[GridRows, GridColumns];
         var seen = new HashSet<string>();
         overflow = 0;
+
+        // Every category starts on its own row (the rows below the previous category's last one),
+        // so a page reads top to bottom as consumables / accessories / wings, not as a jumble.
+        MobaShopCategory? currentCategory = null;
+        var startRow = 0;
+        var lastRow = -1;
         foreach (var (entry, definition) in candidates)
         {
+            if (currentCategory != entry.Category)
+            {
+                currentCategory = entry.Category;
+                startRow = lastRow + 1;
+            }
+
             // Entries that resolve to the very same item (e.g. the T1 and T2 capes, which are
             // the same item) are offered once.
             var item = CreateItem(definition!, entry);
@@ -250,7 +263,7 @@ public static class MobaShop
                 continue;
             }
 
-            if (TryPlace(occupied, definition!.Width, definition.Height) is not { } slot)
+            if (TryPlace(occupied, definition!.Width, definition.Height, startRow) is not { } slot)
             {
                 overflow++;
                 continue;
@@ -258,6 +271,7 @@ public static class MobaShop
 
             item.ItemSlot = slot;
             items.Add(item);
+            lastRow = Math.Max(lastRow, (slot / GridColumns) + definition.Height - 1);
         }
 
         return items;
@@ -324,9 +338,9 @@ public static class MobaShop
         return view;
     }
 
-    private static byte? TryPlace(bool[,] occupied, int width, int height)
+    private static byte? TryPlace(bool[,] occupied, int width, int height, int startRow)
     {
-        for (var y = 0; y + height <= GridRows; y++)
+        for (var y = startRow; y + height <= GridRows; y++)
         {
             for (var x = 0; x + width <= GridColumns; x++)
             {

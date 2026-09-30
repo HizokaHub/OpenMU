@@ -64,6 +64,20 @@ public class MobaShopTests
             var items = MobaShop.BuildPageItems(this._gameConfiguration, characterClass, page, out var overflow);
             var cells = items.Sum(i => i.Definition!.Width * i.Definition.Height);
             var name = $"{characterClass.Name}: {MobaShopCatalog.Pages[page].Name}";
+            TestContext.Out.WriteLine($"{name} -> {cells} celdas");
+
+            // Each category starts on its own row: the row ranges of the categories never overlap
+            // and follow the page's category order.
+            var rowRanges = items
+                .GroupBy(i => MobaShopCatalog.Entries.First(e => MobaShopCatalog.Pages[page].Categories.Contains(e.Category) && e.Group == i.Definition!.Group && e.Number == i.Definition.Number).Category)
+                .Select(g => (Category: g.Key, Min: g.Min(i => i.ItemSlot / MobaShop.GridColumns), Max: g.Max(i => (i.ItemSlot / MobaShop.GridColumns) + i.Definition!.Height - 1)))
+                .OrderBy(r => MobaShopCatalog.Pages[page].Categories.ToList().IndexOf(r.Category))
+                .ToList();
+            for (var i = 1; i < rowRanges.Count; i++)
+            {
+                Assert.That(rowRanges[i].Min, Is.GreaterThan(rowRanges[i - 1].Max), name + " categories overlap in rows");
+            }
+
             Assert.Multiple(() =>
             {
                 Assert.That(items, Is.Not.Empty, name);
