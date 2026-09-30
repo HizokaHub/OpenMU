@@ -694,7 +694,7 @@ Los ítems dropeados por creeps se venden por 5 de oro fijo.
 - **Opciones MOBA de las piezas** (`MobaItemTraits`, con líneas de tooltip en el cliente, paquete `C2 D5 0A`):
   arma = **anti-curación** 10/20/30 % (3 s tras cada golpe; recorta lifesteal, Second Wind, pociones y Heal),
   armadura y pantalón = **resistencia a CC** 5/10/15 % c/u, guantes y botas = **reducción de enfriamiento**
-  3/6/10 % c/u, anillos = **oro por asistencia** 5/10/15 % c/u, colgante = **oro pasivo** 5/10/15 %.
+  3/6/10 % c/u (subido el 2026-09-30 a 6/12/20 % c/u), anillos = **oro por asistencia** 5/10/15 % c/u, colgante = **oro pasivo** 5/10/15 %.
 
 **Pendiente:**
 - **Ward y barredor** (slots 10/11 del HUD): Vision v1 ya existe en el servidor (`/ward`, `/sweep`); falta el HUD.
@@ -751,6 +751,7 @@ Reemplazan lo anotado arriba sobre la Égida y los drops:
   de masas (aturdir, dormir, ralentizar): la resistencia acorta su duración. Cliente: paquete nuevo `C2 D5 0C`
   (opciones por ítem identificado como un precio: tipo + nivel + opción + luck + nº de excelentes; si dos drops
   comparten esa clave adoptan las mismas opciones) y líneas de tooltip en `MobaShopPrices.cpp`/`ZzzInventory.cpp`.
+  **Cooldown uniforme al tope:** guantes y botas suben a 6/12/20 % c/u, así T3 completo = 20 + 20 + 25 (escudo) = **65 %**.
   Cliente recompilado (mu-main).
 
 #### Vision v1 (2026-09-30, implementado en servidor; sin HUD todavía)

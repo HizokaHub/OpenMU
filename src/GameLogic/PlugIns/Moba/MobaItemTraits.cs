@@ -15,7 +15,7 @@ using MUnique.OpenMU.DataModel.Entities;
 /// <list type="bullet">
 /// <item><description>Weapon: <b>anti-heal</b> - hits cut the healing the target receives (10 / 20 / 30 %) for a few seconds.</description></item>
 /// <item><description>Armor and pants: <b>crowd-control resistance</b> (5 / 10 / 15 % each, so up to 30 %).</description></item>
-/// <item><description>Gloves and boots: <b>cooldown reduction</b> (3 / 6 / 10 % each, so up to 20 %).</description></item>
+/// <item><description>Gloves and boots: <b>cooldown reduction</b> (6 / 12 / 20 % each, so up to 40 %; with a T3 shield 65 %).</description></item>
 /// <item><description>Off-hand (shield / book): up to four options by tier - T1 CC resistance 10 %; T2 CC 15 % and
 /// cooldown reduction 15 %; T3 all four (CC 20 %, cooldown 25 %, assist gold 10 %, passive gold 10 %). Shields
 /// dropped by creeps carry 1 (70 %) or 2 (30 %) random ones of the four at the size of their tier.</description></item>
@@ -29,7 +29,7 @@ public static class MobaItemTraits
 
     private static readonly double[] AntiHealByTier = { 0, 0.10, 0.20, 0.30 };
     private static readonly double[] CcResistByTier = { 0, 0.05, 0.10, 0.15 };
-    private static readonly double[] CooldownByTier = { 0, 0.03, 0.06, 0.10 };
+    private static readonly double[] CooldownByTier = { 0, 0.06, 0.12, 0.20 };
     private static readonly double[] GoldByTier = { 0, 0.05, 0.10, 0.15 };
 
     /// <summary>Highest total CC resistance (armor + pants + shield).</summary>
