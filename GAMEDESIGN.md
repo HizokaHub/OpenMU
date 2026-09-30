@@ -742,8 +742,16 @@ Reemplazan lo anotado arriba sobre la Égida y los drops:
   no trae los skills maestros (323/521/524 no existen) y crear skills nuevos exige sembrar datos + iconos; se
   usó un único skill existente y el tier decide barrera y cooldown. **El cliente no necesita paquete nuevo**: la
   barra de skills sale de la lista que envía el servidor (solo el tooltip del ítem usa `m_wSkillIndex`).
-- **Drops de creeps:** solo armas, sets y escudos (sin alas ni accesorios). Falta: opciones adicionales al azar
-  en los escudos dropeados (70 % 1 opción / 30 % 2) — depende de definir las opciones (tarea 3).
+- **Drops de creeps:** solo armas, sets y escudos (sin alas ni accesorios). Los escudos dropeados llevan 1 opción
+  (70 %) o 2 (30 %) al azar entre las 4 de abajo, con el tamaño de su tier.
+- **Opciones de los escudos (`MobaItemTraits`, aprobadas con ajustes del usuario):** T1 resistencia a CC 10 % ·
+  T2 CC 15 % + reducción de cooldown 15 % · T3 CC 20 % + cooldown 25 % + oro por asistencia 10 % + oro pasivo
+  10 % (más las excelentes del tier). Drops de T1/T2 con otras opciones usan tamaños CD 5/15/25 %, oro 5/8/10 %.
+  **Topes totales:** CC 50 % (armadura + pantalón + escudo), cooldown 65 % (guantes + botas + escudo). CC = control
+  de masas (aturdir, dormir, ralentizar): la resistencia acorta su duración. Cliente: paquete nuevo `C2 D5 0C`
+  (opciones por ítem identificado como un precio: tipo + nivel + opción + luck + nº de excelentes; si dos drops
+  comparten esa clave adoptan las mismas opciones) y líneas de tooltip en `MobaShopPrices.cpp`/`ZzzInventory.cpp`.
+  Cliente recompilado (mu-main).
 
 ### Al salir de la partida (cleanup automático)
 

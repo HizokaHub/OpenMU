@@ -26,3 +26,15 @@ public readonly record struct MobaShopPrice(ushort ItemType, byte Level, byte Op
 /// <param name="Kind">The trait kind: 1 anti-heal, 2 CC resistance, 3 cooldown reduction, 4 assist gold, 5 passive gold.</param>
 /// <param name="Percent">The size of the trait in percent.</param>
 public readonly record struct MobaItemTrait(ushort ItemType, byte Kind, byte Percent);
+
+/// <summary>
+/// The MOBA options of one kind of shield / book (identified like a price, by type, level, option level, luck and
+/// excellent count), shown by the client as tooltip lines.
+/// </summary>
+/// <param name="ItemType">The client item type (group * 512 + number).</param>
+/// <param name="Level">The item level (+N).</param>
+/// <param name="OptionLevel">The level of the normal option.</param>
+/// <param name="HasLuck">Whether the item has the luck option.</param>
+/// <param name="ExcellentCount">The number of excellent options.</param>
+/// <param name="Options">The options as (kind, percent); kinds as in <see cref="MobaItemTrait"/>.</param>
+public readonly record struct MobaShieldOption(ushort ItemType, byte Level, byte OptionLevel, bool HasLuck, byte ExcellentCount, IReadOnlyList<(byte Kind, byte Percent)> Options);

@@ -33,4 +33,11 @@ public interface IMobaShopPlugIn : IViewPlugIn
     /// </summary>
     /// <param name="traits">The traits, one per item type.</param>
     ValueTask ShowItemTraitsAsync(IReadOnlyCollection<MobaItemTrait> traits);
+
+    /// <summary>
+    /// Sends the MOBA options of every known shield / book (shop ones and rolled drops), which can differ per item.
+    /// </summary>
+    /// <param name="shields">The shield options.</param>
+    /// <returns>The task.</returns>
+    ValueTask ShowShieldOptionsAsync(IReadOnlyCollection<MobaShieldOption> shields);
 }

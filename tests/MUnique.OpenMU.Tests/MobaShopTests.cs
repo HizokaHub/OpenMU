@@ -150,6 +150,36 @@ public class MobaShopTests
         Assert.That(problems, Is.Empty);
     }
 
+    /// <summary>Shop shields carry 1 / 2 / 4 MOBA options by tier, and a dropped shield rolls 1 or 2 of the four.</summary>
+    [Test]
+    public void ShieldOptionsGrowWithTierAndDropsRollOne()
+    {
+        MobaItemTraits.EnsureShopShieldOptions(this._gameConfiguration);
+        var table = MobaItemTraits.ShieldOptionTable;
+        var legendary = table.First(o => o.ItemType == (6 * 512) + 14);
+        var grandSoul = table.First(o => o.ItemType == (6 * 512) + 15);
+        var guardian = table.First(o => o.ItemType == (6 * 512) + 20);
+        Assert.Multiple(() =>
+        {
+            Assert.That(legendary.Options, Is.EqualTo(new[] { ((byte)2, (byte)10) }));
+            Assert.That(grandSoul.Options, Is.EqualTo(new[] { ((byte)2, (byte)15), ((byte)3, (byte)15) }));
+            Assert.That(guardian.Options, Is.EqualTo(new[] { ((byte)2, (byte)20), ((byte)3, (byte)25), ((byte)4, (byte)10), ((byte)5, (byte)10) }));
+        });
+
+        // A rolled drop (level 9, not a shop level) gets 1 or 2 distinct options.
+        var definition = this._gameConfiguration.Items.First(d => d.Group == 6 && d.Number == 20);
+        var counts = new HashSet<int>();
+        for (var level = 0; level < 13; level++)
+        {
+            var item = MobaShop.CreateRolledItem(definition, level, 2, true, level % 4, true, MobaShopVariant.Standard);
+            MobaItemTraits.AssignDropOptions(item, MobaShopTier.T3);
+            var options = MobaItemTraits.ShieldOptionTable.First(o => o.ItemType == (6 * 512) + 20 && o.Level == item.Level && o.ExcellentCount == MobaShop.ExcellentCountOf(item)).Options;
+            counts.Add(options.Count);
+            Assert.That(options.Count, Is.InRange(1, 2));
+            Assert.That(options.Select(o => o.Kind).Distinct().Count(), Is.EqualTo(options.Count));
+        }
+    }
+
     /// <summary>Every family that can carry an off-hand item sees one per tier; Elf and Rage Fighter see none.</summary>
     [Test]
     public void OffhandItemsExistPerTierForShieldClasses()

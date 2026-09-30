@@ -85,6 +85,15 @@ public static class MobaCreepDrops
         var hasSkill = definition.Skill is not null && (tier != MobaShopTier.T1 || entry.Category == MobaShopCategory.Offhand);
 
         var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill, entry.Variant);
+        if (entry.Category == MobaShopCategory.Offhand && MobaItemTraits.AssignDropOptions(item, tier))
+        {
+            // A new kind of shield: tell every champion so the tooltip shows its options.
+            foreach (var champion in (await lastHitter.GameContext.GetPlayersAsync().ConfigureAwait(false)).Where(p => p.IsMobaClone))
+            {
+                await champion.InvokeViewPlugInAsync<Views.Moba.IMobaShopPlugIn>(p => p.ShowShieldOptionsAsync(MobaItemTraits.ShieldOptionTable)).ConfigureAwait(false);
+            }
+        }
+
         var dropPosition = map.Terrain.GetRandomCoordinate(position, ScatterRadius);
         var dropped = new DroppedItem(item, dropPosition, map, null, beneficiaries.Cast<object>());
         await map.AddAsync(dropped).ConfigureAwait(false);

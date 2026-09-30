@@ -262,6 +262,7 @@ public static class MobaShop
         EnsureTierPrices(configuration);
         MobaPets.EnsureConfigured(configuration);
         MobaShieldSkills.EnsureConfigured(configuration);
+        MobaItemTraits.EnsureShopShieldOptions(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
             .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
@@ -578,7 +579,7 @@ public static class MobaShop
         _ => (13, 2, true, 3),
     };
 
-    private static TemporaryItem CreateItem(ItemDefinition definition, MobaShopEntry entry)
+    internal static TemporaryItem CreateItem(ItemDefinition definition, MobaShopEntry entry)
     {
         // Per tier: item level, "Option" (+dmg/+def flat) level 1-4, whether it carries
         // Luck, and how many of the item's 6 possible excellent options it gets - T3 is
@@ -719,12 +720,13 @@ public static class MobaShop
 
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowPricesAsync(prices.Values, SellPercent)).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowItemTraitsAsync(MobaItemTraits.TooltipTraits)).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowShieldOptionsAsync(MobaItemTraits.ShieldOptionTable)).ConfigureAwait(false);
     }
 
-    private static int OptionLevelOf(Item item)
+    internal static int OptionLevelOf(Item item)
         => item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.Option)?.Level ?? 0;
 
-    private static bool HasLuck(Item item)
+    internal static bool HasLuck(Item item)
         => item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck);
 
     /// <summary>

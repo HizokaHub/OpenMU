@@ -31,6 +31,7 @@ public class MobaShopPlugIn : IMobaShopPlugIn
     private const byte MenuSubCode = 0x06;
     private const byte PricesSubCode = 0x08;
     private const byte TraitsSubCode = 0x0A;
+    private const byte ShieldOptionsSubCode = 0x0C;
     private const int TraitEntryLength = 4;
     private const int HeaderLength = 5;
     private const int MaxTitleBytes = 64;
@@ -149,6 +150,47 @@ public class MobaShopPlugIn : IMobaShopPlugIn
                 span[offset++] = (byte)(trait.ItemType >> 8);
                 span[offset++] = trait.Kind;
                 span[offset++] = trait.Percent;
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ShowShieldOptionsAsync(IReadOnlyCollection<MobaShieldOption> shields)
+    {
+        if (this._player.Connection is not { Connected: true } connection)
+        {
+            return;
+        }
+
+        // Per entry: type u16, level, optionLevel, luck, excellentCount, optionCount, optionCount * (kind, percent).
+        var entries = shields.Take(MaxPrices).ToList();
+        var length = HeaderLength + 2 + entries.Sum(e => 7 + (e.Options.Count * 2));
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            WriteHeader(span, length, ShieldOptionsSubCode);
+            var offset = HeaderLength;
+            span[offset++] = (byte)(entries.Count & 0xFF);
+            span[offset++] = (byte)(entries.Count >> 8);
+            foreach (var shield in entries)
+            {
+                span[offset++] = (byte)(shield.ItemType & 0xFF);
+                span[offset++] = (byte)(shield.ItemType >> 8);
+                span[offset++] = shield.Level;
+                span[offset++] = shield.OptionLevel;
+                span[offset++] = shield.HasLuck ? (byte)1 : (byte)0;
+                span[offset++] = shield.ExcellentCount;
+                span[offset++] = (byte)shield.Options.Count;
+                foreach (var (kind, percent) in shield.Options)
+                {
+                    span[offset++] = kind;
+                    span[offset++] = percent;
+                }
             }
 
             return length;
