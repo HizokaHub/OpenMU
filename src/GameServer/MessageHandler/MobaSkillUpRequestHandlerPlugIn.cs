@@ -48,6 +48,14 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 4 && span[3] is 0x0D or 0x0E)
+        {
+            // C1 04 D5 0D: ward (HUD slot 10); C1 04 D5 0E: sweeper (HUD slot 11).
+            var message = span[3] == 0x0D ? MobaVision.TryPlaceWard(player) : MobaVision.TrySweep(player);
+            await player.ShowBlueMessageAsync(message).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 4 && span[3] == 0x09)
         {
             // C1 04 D5 09: recall (key B).

@@ -764,7 +764,8 @@ estimado 40-50 % de bugs de viewport). `MobaVision.cs`:
 - **Ward:** 75 de oro (Zen del clon), dura 150 s, máx. 3 por campeón (el más viejo se reemplaza). Comando
   `/ward` (pone el ward en tu posición).
 - **Barredor:** `/sweep` destruye wards enemigos en radio 6, enfriamiento 90 s.
-- **Pendiente:** cablear los slots 10 y 11 del HUD del cliente a estos comandos (hoy solo por chat), ítem
+- **HUD cableado (cliente recompilado):** slot 10 = Ward (tecla `0` o clic), slot 11 = Barredor (tecla `-` o clic); paquetes `C1 04 D5 0D` / `D5 0E`, la respuesta llega como mensaje azul. Los comandos `/ward` y `/sweep` siguen.
+- **Pendiente:** ítem
   comprable en tienda, marcador en el minimapa y prueba en partida real. Los skills de área no pasan por la regla.
 
 ### Al salir de la partida (cleanup automático)
