@@ -36,11 +36,6 @@ public static class MobaCastEffects
         [18] = (0.15, 3.0), // Defense (BK)
     };
 
-    /// <summary>
-    /// The skills that also raise the 30 s "Aegis" barrier: Soul Barrier, Defense and Greater Defense.
-    /// </summary>
-    private static readonly HashSet<short> AegisSkills = new() { 16, 18, 27 };
-
     /// <summary>How long the Aegis barrier lasts.</summary>
     private static readonly TimeSpan AegisDuration = TimeSpan.FromSeconds(30);
 
@@ -87,7 +82,8 @@ public static class MobaCastEffects
             state.ExpiresUtc = DateTime.UtcNow.AddSeconds(shield.Seconds);
         }
 
-        if (AegisSkills.Contains(number))
+        // Casting the skill of the equipped shield (or the Summoner's book) raises the Aegis barrier.
+        if (MobaShieldSkills.IsEquippedOffhandSkill(champion, skill))
         {
             await ApplyAegisAsync(champion).ConfigureAwait(false);
         }
@@ -95,7 +91,7 @@ public static class MobaCastEffects
 
     /// <summary>
     /// The Aegis barrier fraction of max HP for an off-hand tier: T1 10 %, T2 15 %, T3 20 %,
-    /// 5 % without a shield / book.
+    /// none without a shield / book (the barrier only exists through the shield's own skill).
     /// </summary>
     /// <param name="offhandTier">The tier of the equipped off-hand item, 0 for none.</param>
     /// <returns>The barrier as a fraction of the champion's maximum health.</returns>
@@ -104,7 +100,7 @@ public static class MobaCastEffects
         1 => 0.10,
         2 => 0.15,
         3 => 0.20,
-        _ => 0.05,
+        _ => 0,
     };
 
     private static async ValueTask ApplyAegisAsync(Player champion)

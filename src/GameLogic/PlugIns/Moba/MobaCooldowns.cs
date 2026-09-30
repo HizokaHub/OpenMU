@@ -94,6 +94,12 @@ public static class MobaCooldowns
             return TimeSpan.Zero;
         }
 
+        if (MobaShieldSkills.IsShieldSkill((short)skill.Number))
+        {
+            // Item skills aren't in the learned list; the shield skill has its own per-tier cooldown.
+            return MobaShieldSkills.CooldownOf(champion);
+        }
+
         var learned = character.LearnedSkills.FirstOrDefault(s => s.Skill?.Number == skill.Number);
         if (learned is null)
         {

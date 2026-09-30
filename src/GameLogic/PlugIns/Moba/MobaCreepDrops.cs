@@ -61,7 +61,7 @@ public static class MobaCreepDrops
         var family = MobaPassives.FamilyOf(lastHitter);
         var candidates = MobaShopCatalog.Entries
             .Where(e => e.Tier == tier
-                        && e.Category is MobaShopCategory.Weapons or MobaShopCategory.Offhand or MobaShopCategory.Sets or MobaShopCategory.SetsSustain or MobaShopCategory.Wings or MobaShopCategory.Accessories
+                        && e.Category is MobaShopCategory.Weapons or MobaShopCategory.Offhand or MobaShopCategory.Sets or MobaShopCategory.SetsSustain
                         && (e.Families is null || e.Families.Contains(family)))
             .ToList();
         if (candidates.Count == 0)
@@ -82,7 +82,7 @@ public static class MobaCreepDrops
         var (tierLevel, optionLevel, luck, tierExcellent) = MobaShop.TierStatsOf(tier);
         var excellent = Math.Min(RollExcellentCount() ?? tierExcellent, tierExcellent);
         var level = tierLevel + RollLevelOffset();
-        var hasSkill = definition.Skill is not null && tier != MobaShopTier.T1;
+        var hasSkill = definition.Skill is not null && (tier != MobaShopTier.T1 || entry.Category == MobaShopCategory.Offhand);
 
         var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill, entry.Variant);
         var dropPosition = map.Terrain.GetRandomCoordinate(position, ScatterRadius);

@@ -725,6 +725,26 @@ Reemplazan lo anotado arriba sobre la Égida y los drops:
 - **La revisión/validación de todo (`/mobabotfight`, medir oro/EXP, probar recall, teletransporte, cuervo,
   Égida, opciones) queda para el final**, después de implementar lo de arriba.
 
+#### Sesión 2026-09-30 (3ª tanda) — Égida, skill de escudos, drops (hecho)
+
+- **Égida corregida:** ya no se dispara con Soul Barrier / Defense / Greater Defense. Se dispara al lanzar
+  **el skill del ítem de la mano izquierda** (`MobaShieldSkills.IsEquippedOffhandSkill`): barrera de 30 s de
+  10 / 15 / 20 % de la vida máxima según el tier del escudo, burbuja Spell of Protection (0x22). Sin escudo
+  equipado no hay Égida (`AegisFractionOf(0) = 0`; además el skill del escudo solo existe mientras está equipado).
+- **Skill en todos los escudos (`MobaShieldSkills`):** todos los escudos del catálogo (grupo 6) reciben, en
+  memoria, el skill **Spell of Protection (210)** — skill S6 con icono propio en el cliente, `All` clases, que
+  ningún campeón aprende en el MOBA (no está en los loadouts). Se hace autocasteable (`Buff`, `Self`) y se amplía
+  a las clases que pueden usar cada escudo. Se vende con el skill desde T1 (`HasSkill`). **Cooldown por tier del
+  escudo equipado: 60 / 50 / 40 s** (los skills de ítem no están en `LearnedSkills`, por eso `MobaCooldowns`
+  tiene un caso propio). Los libros del Summoner siguen con sus maldiciones (223/224/225) y también disparan la
+  Égida. `TargetedSkillDefaultPlugin`: el skill 210 cuenta como lanzado sin efecto mágico propio.
+  **Desvío respecto a lo aprobado:** se habían elegido 3 skills nuevos (uno por tier), pero la configuración S6
+  no trae los skills maestros (323/521/524 no existen) y crear skills nuevos exige sembrar datos + iconos; se
+  usó un único skill existente y el tier decide barrera y cooldown. **El cliente no necesita paquete nuevo**: la
+  barra de skills sale de la lista que envía el servidor (solo el tooltip del ítem usa `m_wSkillIndex`).
+- **Drops de creeps:** solo armas, sets y escudos (sin alas ni accesorios). Falta: opciones adicionales al azar
+  en los escudos dropeados (70 % 1 opción / 30 % 2) — depende de definir las opciones (tarea 3).
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a

@@ -101,6 +101,7 @@ public static class MobaCloneFactory
     private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status)
     {
         MobaPets.EnsureConfigured(player.GameContext.Configuration);
+        MobaShieldSkills.EnsureConfigured(player.GameContext.Configuration);
         var context = player.PersistenceContext;
 
         var clone = context.CreateNew<Character>();

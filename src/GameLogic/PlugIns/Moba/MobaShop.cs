@@ -261,6 +261,7 @@ public static class MobaShop
     {
         EnsureTierPrices(configuration);
         MobaPets.EnsureConfigured(configuration);
+        MobaShieldSkills.EnsureConfigured(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
             .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
@@ -587,6 +588,12 @@ public static class MobaShop
         // for creep drops (see MobaCreepDrops), which is exactly why buying costs gold.
         var (level, optionLevel, luck, excellent) = TierStatsOf(entry.Tier);
         var hasSkill = definition.Skill is not null && entry.Tier != MobaShopTier.T1;
+        if (entry.Category == MobaShopCategory.Offhand)
+        {
+            // Every shield / book carries its skill from tier 1 (it raises the Aegis barrier).
+            hasSkill = definition.Skill is not null;
+        }
+
         if (entry.Category == MobaShopCategory.Pets)
         {
             // Pets carry no upgrade options; their level (Dark Horse / Raven) is the catalog level.

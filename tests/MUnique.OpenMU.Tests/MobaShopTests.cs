@@ -113,11 +113,41 @@ public class MobaShopTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(MobaCastEffects.AegisFractionOf(0), Is.EqualTo(0.05));
+            Assert.That(MobaCastEffects.AegisFractionOf(0), Is.EqualTo(0));
             Assert.That(MobaCastEffects.AegisFractionOf(1), Is.EqualTo(0.10));
             Assert.That(MobaCastEffects.AegisFractionOf(2), Is.EqualTo(0.15));
             Assert.That(MobaCastEffects.AegisFractionOf(3), Is.EqualTo(0.20));
         });
+    }
+
+    /// <summary>Every shield / book of the catalog carries a skill its classes can cast, with a cooldown, and the pieces are sold with it.</summary>
+    [Test]
+    public void EveryOffhandItemCarriesACastableSkill()
+    {
+        MobaShieldSkills.EnsureConfigured(this._gameConfiguration);
+        var problems = new List<string>();
+        foreach (var entry in MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand))
+        {
+            var definition = this._gameConfiguration.Items.First(d => d.Group == entry.Group && d.Number == entry.Number);
+            if (definition.Skill is not { } skill)
+            {
+                problems.Add($"{definition.Name}: no skill");
+                continue;
+            }
+
+            var missing = definition.QualifiedCharacters.Where(c => !skill.QualifiedCharacters.Contains(c)).Select(c => c.Name).ToList();
+            if (missing.Count > 0)
+            {
+                problems.Add($"{definition.Name}: skill {skill.Number} not castable by {string.Join(", ", missing)}");
+            }
+
+            if (entry.Group == 6 && !MobaShieldSkills.IsShieldSkill((short)skill.Number))
+            {
+                problems.Add($"{definition.Name}: skill {skill.Number} is not the shield skill");
+            }
+        }
+
+        Assert.That(problems, Is.Empty);
     }
 
     /// <summary>Every family that can carry an off-hand item sees one per tier; Elf and Rage Fighter see none.</summary>

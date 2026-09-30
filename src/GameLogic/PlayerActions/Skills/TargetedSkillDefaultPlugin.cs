@@ -295,6 +295,11 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
                     }
                 }
             }
+            else if (PlugIns.Moba.MobaShieldSkills.IsShieldSkill((short)skill.Number))
+            {
+                // The shield skills have no effect of their own: the cast itself raises the Aegis barrier.
+                success = true;
+            }
             else if (skill.MagicEffectDef != null)
             {
                 // Buffs are allowed in the Safezone of Blood Castle.
