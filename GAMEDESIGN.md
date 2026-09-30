@@ -778,6 +778,12 @@ estimado 40-50 % de bugs de viewport). `MobaVision.cs`:
 5. Oro y EXP reales contra el simulador (`tests/MUnique.OpenMU.Tests/MobaGoldEconomyReport.cs`): T1 completo ~min 8,5, T2 ~22, T3 ~40; nivel 30 ~min 35.
 6. Recall (tecla B, 5 s), pergamino de teletransporte (clic en minion aliado, enfriamiento 5 min), Dark Raven + Dark Horse (~25 % del daño del DL), mascotas de utilidad.
 
+**Comando de pruebas `/mobafight` (2026-09-30, `MobaFightChatCommandPlugIn.cs`, GM, hay que estar en la arena con `/moba`):**
+`/mobafight 1` → tu campeón va al equipo azul contra 1 bot rojo de clase al azar; `/mobafight 2` → 2v2 (vos + 1 bot
+aliado al azar vs 2 bots rojos al azar); ambos crean oleadas de creeps de los dos equipos cada **50 s** y aseguran
+torretas/nexos/tienda. `/mobafight stop` elimina todos los bots y creeps y detiene las oleadas (las estructuras
+quedan). Cada ejecución limpia antes lo anterior.
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
