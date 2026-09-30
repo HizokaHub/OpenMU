@@ -809,6 +809,11 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Pergamino de TP:** el minion elegido queda clavado (`MobaCreepHold`) durante los 5 s del canal y se suelta al llegar; el destino es la casilla libre más cercana pegada al minion, nunca la suya. Cliente: `TrySendMobaTeleportClick` se llama desde la selección de objetos y desde las teclas (el clic podía consumirse antes), y mientras se espera el objetivo un clic que no da en ningún minion ya no hace caminar al héroe (ESC cancela).
 - **Dark Raven:** está en el catálogo de la página «Mascotas y Escudos» del DL (slot 8, 2.190 de oro, nivel 50); `MobaShopPageReport` (Explicit) vuelca lo que ve cada clase en cada página.
 
+**Log de `/mobafight 2` de bots (27 min, 2026-09-30):**
+- **Funciona:** los bots compran (packs de poción, armaduras, alas, anillos...), revenden lo reemplazado, lootean equipo, hacen recall a la tienda con oro suficiente y usan el pergamino de TP (`[MOBA-TP]`: «teleported next to minion», a 1 tile del minion). Ningún error/excepción en el log.
+- **Falla:** Azul ganó todo (KDA 196/8, nivel medio 24,5 vs 16) pero **nunca bajó el nexo rojo** (100 % todo el tiempo): los bots rojos reaparecen en su fuente a ~19 tiles del nexo, siempre hay un enemigo a la vista y el estado «Fight» le ganaba al asedio (`GroupPush` exige que no haya enemigos cerca). Además, parado a 4 tiles del nexo un bot melee (rango 2) nunca llegaba a pegarle («walking in» eterno).
+- **Arreglo:** un equipo **dominante** (≥ 5 niveles de ventaja de campeón, `DominanceLevels`) con ≥ 50 % de vida pasa a `GroupPush` aunque haya enemigos, sin exigir oleada, y puede cuerpear torreta y asediar nexo; distancia de parada al nexo 1 tile. Falta ver en el próximo log que el nexo baje (`[MOBA-STRUCT] ... Red Nexus HP`).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

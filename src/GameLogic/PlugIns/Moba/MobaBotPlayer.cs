@@ -62,8 +62,11 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>An allied wave within this many tiles of the enemy nexus is what lets the bots siege it (the turret needs the wave within <see cref="TurretDangerTiles"/> + 3).</summary>
     private const int NexusWaveSupportTiles = 26;
 
+    /// <summary>A team this many champion levels ahead stops camping the respawning enemies and takes the objectives, wave or not.</summary>
+    private const double DominanceLevels = 5;
+
     /// <summary>How far (Y tiles) short of the enemy nexus a bot stands to hit it.</summary>
-    private const int NexusStandOffTiles = 4;
+    private const int NexusStandOffTiles = 1;
 
     /// <summary>Hard no-go radius around the enemy nexus / spawn - bots never path in here (no diving the fountain for respawn kills).</summary>
     private const int FountainExclusionTiles = 18;
@@ -97,6 +100,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     // --- macro thresholds ---
     private const float RecallHpPct = 0.15f;
     private const float FightBailPct = 0.18f;
+    private const float DominantPushHpPct = 0.5f;
     private const float RetreatRecoverPct = 0.55f;
     private const int RecallSafeTiles = 18;
     private const int RecallCancelTiles = 13;
@@ -124,6 +128,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _combatUntilUtc;
     private DateTime _recallStartUtc;
     private DateTime _holdUntilUtc;
+    private bool _isDominant;
     private int _developSkillCursor;
     private int _comboStep;
     private Player? _aggressor;
@@ -368,6 +373,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         var ctx = this.BuildContext(map, pos, now);
+        this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels;
         if (await this.TickEconomyAsync(ctx).ConfigureAwait(false))
         {
             return;
@@ -674,6 +680,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return BotState.Fight;
         }
 
+        // Far ahead: keep the pressure on the objective instead of trading with enemies that respawn right in front of it.
+        if (this._isDominant && c.FrontEnemyStructure is not null && c.HpPct >= DominantPushHpPct)
+        {
+            return BotState.GroupPush;
+        }
+
         if (forcedFight)
         {
             // Not yet locked in: we can still decline a clearly lost fight and keep farming.
@@ -872,15 +884,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private async ValueTask TickPushAsync(BotContext c)
     {
         var structure = c.FrontEnemyStructure;
-        if (structure is null || !c.WaveAtFront || structure.GetDistanceTo(c.Pos) > 30)
+        if (structure is null || !(c.WaveAtFront || this._isDominant) || (!this._isDominant && structure.GetDistanceTo(c.Pos) > 30))
         {
             this._state = BotState.Lane;
             await this.TickLaneAsync(c).ConfigureAwait(false);
             return;
         }
 
-        // Any enemy champ shows up -> stop pushing, fight.
-        if (c.EnemyChampsNear.Count > 0)
+        // Any enemy champ shows up -> stop pushing, fight (unless the team is far ahead).
+        if (c.EnemyChampsNear.Count > 0 && !this._isDominant)
         {
             this._state = BotState.Fight;
             await this.TickFightAsync(c).ConfigureAwait(false);
@@ -1321,7 +1333,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             var waveTanking = map.GetAttackablesInRange(turret.Position, TurretDangerTiles + 3)
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
-            var margin = waveTanking ? TurretBodyMargin : -LaneLimitMargin;
+            var margin = waveTanking || this._isDominant ? TurretBodyMargin : -LaneLimitMargin;
             limitY = goingSouth ? turret.Position.Y + margin : turret.Position.Y - margin;
         }
         else
@@ -1334,9 +1346,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
             // The wave has reached the nexus: the bots go in with it and hit the nexus from just short of it.
             siegingNexus = enemyStructures.Any(m => MobaStructures.GetStructureType(m) == MobaStructureType.Nexus)
-                && map.GetAttackablesInRange(enemyNexus, NexusWaveSupportTiles)
-                    .OfType<NPC.Monster>()
-                    .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+                && (this._isDominant
+                    || map.GetAttackablesInRange(enemyNexus, NexusWaveSupportTiles)
+                        .OfType<NPC.Monster>()
+                        .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m)));
             limitY = siegingNexus
                 ? (goingSouth ? enemyNexus.Y - NexusStandOffTiles : enemyNexus.Y + NexusStandOffTiles)
                 : wavePastRuin
