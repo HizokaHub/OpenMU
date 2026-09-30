@@ -804,6 +804,12 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **`/mobafight 2`** entrega además un pergamino de teletransporte a cada campeón (vos y los bots).
 - **Pergamino de teletransporte (humano):** el clic sobre el minion no hace nada y no hay datos para saber por qué; se agregaron logs `[MOBA-TP]` (servidor) y `[MOBA-TP-CLIENT]` (cliente, `ErrorReport.txt`) para ver si el modo de apuntado se activa y si el clic llega con un minion seleccionado.
 
+**Ajustes tras la revisión del usuario (2026-09-30):**
+- Aprobado tal cual: regeneración de maná, packs de poción (+7/+8/+9, 500/900/1.500), asedio de bots, economía de bots, TP de los bots.
+- **Oro del suelo:** los creeps sueltan Zen nativo (`DroppedMoney`, se recoge con espacio/clic) además del oro directo de `MobaGold`; los bots ahora también lo recogen (`MobaBotEconomy.FindWantedDrop`, gasta hasta 3 intentos por drop). Los drops del suelo duran **60 s** (`GameConfiguration.ItemDropDuration`), con prioridad de recogida de 10 s para quien hizo el kill/aliados cercanos (`DroppedItem.TimeUntilDropIsFree`). **Ojo:** este Zen de suelo no estaba en el simulador de economía.
+- **Pergamino de TP:** el minion elegido queda clavado (`MobaCreepHold`) durante los 5 s del canal y se suelta al llegar; el destino es la casilla libre más cercana pegada al minion, nunca la suya. Cliente: `TrySendMobaTeleportClick` se llama desde la selección de objetos y desde las teclas (el clic podía consumirse antes), y mientras se espera el objetivo un clic que no da en ningún minion ya no hace caminar al héroe (ESC cancela).
+- **Dark Raven:** está en el catálogo de la página «Mascotas y Escudos» del DL (slot 8, 2.190 de oro, nivel 50); `MobaShopPageReport` (Explicit) vuelca lo que ve cada clase en cada página.
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

@@ -30,6 +30,9 @@ public static class MobaTeleport
     /// <summary>Minutes before another scroll can be used.</summary>
     public const double CooldownMinutes = 5;
 
+    /// <summary>Extra seconds the targeted minion is held beyond the channel, so it does not move right before the landing.</summary>
+    private const double HoldMarginSeconds = 1;
+
     /// <summary>Seconds the champion has to click a minion after using the scroll.</summary>
     public const double TargetingSeconds = 15;
 
@@ -88,16 +91,62 @@ public static class MobaTeleport
 
         player.Logger.LogInformation("[MOBA-TP] \"{Name}\" channelling teleport to minion {Id} @ {Pos}.", player.SelectedCharacter?.Name, targetId, minion.Position);
 
-        await MobaRecall.TryStartAsync(
+        // The minion stands still for the whole channel, so the arrival point stays where it was clicked.
+        MobaCreepHold.Hold(minion, TimeSpan.FromSeconds(MobaRecall.ChannelSeconds + HoldMarginSeconds));
+        var started = await MobaRecall.TryStartAsync(
             player,
             MobaRecall.KindTeleport,
-            () => minion.IsAlive && minion.CurrentMap is { } map ? map.Terrain.GetRandomCoordinate(minion.Position, 2) : null,
+            () => minion.IsAlive && minion.CurrentMap is { } map ? ArrivalPointNextTo(minion, map) : null,
             async () =>
             {
+                MobaCreepHold.Release(minion);
                 player.Logger.LogInformation("[MOBA-TP] \"{Name}\" teleported next to minion {Id} @ {Pos}.", player.SelectedCharacter?.Name, targetId, player.Position);
                 state.CooldownUntilUtc = DateTime.UtcNow.AddMinutes(CooldownMinutes);
                 await ConsumeAsync(player, scroll).ConfigureAwait(false);
             }).ConfigureAwait(false);
+        if (!started)
+        {
+            MobaCreepHold.Release(minion);
+        }
+    }
+
+    /// <summary>
+    /// The tile a champion lands on: a free, walkable tile right next to the minion (never the minion's own tile);
+    /// if every neighbour is taken, the closest free tile within two tiles of it.
+    /// </summary>
+    private static Point? ArrivalPointNextTo(Monster minion, GameMap map)
+    {
+        var center = minion.Position;
+        var occupied = map.GetAttackablesInRange(center, 3).Select(a => a.Position).ToHashSet();
+        Point? best = null;
+        var bestDistance = double.MaxValue;
+        for (var dx = -2; dx <= 2; dx++)
+        {
+            for (var dy = -2; dy <= 2; dy++)
+            {
+                var x = center.X + dx;
+                var y = center.Y + dy;
+                if ((dx == 0 && dy == 0) || x < 0 || y < 0 || x > byte.MaxValue || y > byte.MaxValue || !map.Terrain.WalkMap[x, y])
+                {
+                    continue;
+                }
+
+                var candidate = new Point((byte)x, (byte)y);
+                if (occupied.Contains(candidate))
+                {
+                    continue;
+                }
+
+                var distance = candidate.EuclideanDistanceTo(center);
+                if (distance < bestDistance)
+                {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
+        }
+
+        return best;
     }
 
     private static async ValueTask EndTargetingAsync(Player player, State state)

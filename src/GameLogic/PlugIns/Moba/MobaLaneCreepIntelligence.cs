@@ -247,7 +247,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return;
         }
 
-        if (monster.Attributes[Stats.IsStunned] > 0 || monster.Attributes[Stats.IsAsleep] > 0 || monster.Attributes[Stats.IsFrozen] > 0)
+        if (monster.Attributes[Stats.IsStunned] > 0 || monster.Attributes[Stats.IsAsleep] > 0 || monster.Attributes[Stats.IsFrozen] > 0
+            || MobaCreepHold.IsHeld(monster))
         {
             return;
         }

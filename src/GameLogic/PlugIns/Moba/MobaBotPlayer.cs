@@ -740,7 +740,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (drop.GetDistanceTo(this) <= 2)
         {
-            await MobaBotEconomy.PickUpAndEquipAsync(this, drop).ConfigureAwait(false);
+            await MobaBotEconomy.PickUpAsync(this, drop).ConfigureAwait(false);
         }
         else
         {

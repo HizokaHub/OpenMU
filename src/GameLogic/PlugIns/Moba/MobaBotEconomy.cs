@@ -33,6 +33,7 @@ internal static class MobaBotEconomy
     public const int TeleportMinDistance = 45;
 
     private const int ResalePercent = 70;
+    private const int MaxLootAttempts = 3;
     private const double ManaPotionBelow = 0.30;
     private const double HealthPotionBelow = 0.40;
     private static readonly TimeSpan PotionCooldown = TimeSpan.FromSeconds(1);
@@ -121,21 +122,45 @@ internal static class MobaBotEconomy
         await new ItemConsumeAction().HandleConsumeRequestAsync(bot, slot, slot, FruitUsage.Undefined).ConfigureAwait(false);
     }
 
-    /// <summary>Finds a dropped piece of gear on the ground near the bot that is better than what it wears.</summary>
+    /// <summary>
+    /// Finds something on the ground near the bot worth picking up: dropped gold, or a piece of gear that is
+    /// better than what it wears.
+    /// </summary>
     /// <param name="bot">The bot.</param>
-    /// <returns>The dropped item, or <see langword="null"/>.</returns>
-    public static DroppedItem? FindWantedDrop(Player bot)
+    /// <returns>The loot, or <see langword="null"/>.</returns>
+    public static ILocateable? FindWantedDrop(Player bot)
     {
         if (bot.CurrentMap is not { } map || bot.SelectedCharacter?.CharacterClass is not { } characterClass)
         {
             return null;
         }
 
+        var attempts = States.GetOrCreateValue(bot).LootAttempts;
         return map.GetDropsInRange(bot.Position, LootRadius)
-            .OfType<DroppedItem>()
-            .Where(d => IsUpgrade(bot, d.Item, characterClass) && (d.IsPlayerAnOwner(bot) || !d.IsOwnerPickupPriorityActive))
+            .Where(d => attempts.GetValueOrDefault(d) < MaxLootAttempts)
+            .Where(d => d is DroppedMoney
+                        || d is DroppedItem item && IsUpgrade(bot, item.Item, characterClass) && (item.IsPlayerAnOwner(bot) || !item.IsOwnerPickupPriorityActive))
             .OrderBy(d => d.GetDistanceTo(bot))
             .FirstOrDefault();
+    }
+
+    /// <summary>Picks up the loot next to the bot: gold goes into the purse, gear is worn if it is better.</summary>
+    /// <param name="bot">The bot.</param>
+    /// <param name="loot">The loot found by <see cref="FindWantedDrop"/>.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask PickUpAsync(Player bot, ILocateable loot)
+    {
+        var attempts = States.GetOrCreateValue(bot).LootAttempts;
+        attempts[loot] = attempts.GetValueOrDefault(loot) + 1; // gold reserved for someone else is given up after a few tries
+        switch (loot)
+        {
+            case DroppedMoney money:
+                await new PickupItemAction().PickupItemAsync(bot, money.Id).ConfigureAwait(false);
+                break;
+            case DroppedItem item:
+                await PickUpAndEquipAsync(bot, item).ConfigureAwait(false);
+                break;
+        }
     }
 
     /// <summary>Picks up a dropped item next to the bot and wears it if it is better than the equipped piece.</summary>
@@ -426,5 +451,7 @@ internal static class MobaBotEconomy
         public DateTime NextPotionUtc;
 
         public DateTime NextTeleportTryUtc;
+
+        public Dictionary<ILocateable, int> LootAttempts { get; } = new();
     }
 }
