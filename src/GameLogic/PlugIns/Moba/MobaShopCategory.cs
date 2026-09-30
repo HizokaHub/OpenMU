@@ -12,6 +12,9 @@ public enum MobaShopCategory
     /// <summary>Weapons (and ammunition).</summary>
     Weapons,
 
+    /// <summary>Off-hand items: shields (and the Summoner's books).</summary>
+    Offhand,
+
     /// <summary>Armor sets (helm, armor, pants, gloves, boots).</summary>
     Sets,
 

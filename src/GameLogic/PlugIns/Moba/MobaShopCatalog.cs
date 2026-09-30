@@ -23,7 +23,7 @@ public static class MobaShopCatalog
     /// </summary>
     public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
-        new MobaShopPage("Consumibles, Accesorios y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Wings }),
+        new MobaShopPage("Consumibles, Accesorios, Escudos y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Offhand, MobaShopCategory.Wings }),
         new MobaShopPage("Armas y Sets (recursos)", new[] { MobaShopCategory.Weapons, MobaShopCategory.SetsSustain }),
         new MobaShopPage("Sets", new[] { MobaShopCategory.Sets }),
     };
@@ -59,6 +59,11 @@ public static class MobaShopCatalog
         // one entry per wing and tier - no variants.
         void Wing(MobaFamily family, byte group, short number, MobaShopTier tier)
             => entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier));
+
+        // Off-hand: one shield (or book, for the Summoner) per tier. The Elf (bow + arrows) and the
+        // Rage Fighter (gloves) can't carry one.
+        void Offhand(MobaFamily family, byte group, short number, MobaShopTier tier)
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Offhand, new[] { family }, group, number, tier));
 
         // A set = the pieces helm (7) .. boots (11) with the same number; missing pieces
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.
@@ -110,6 +115,23 @@ public static class MobaShopCatalog
         Weapon(MobaFamily.RageFighter, 0, 34, MobaShopTier.T2);    // Piercing Blade Glove
         Weapon(MobaFamily.RageFighter, 0, 35, MobaShopTier.T3);    // Phoenix Soul Star
         entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { MobaFamily.Elf }, 4, 15, MobaShopTier.T1, Level: 0, Quantity: 255)); // Arrows
+
+        // --- Off-hand (shields / books) ---
+        Offhand(MobaFamily.Wizard, 6, 14, MobaShopTier.T1);           // Legendary Shield
+        Offhand(MobaFamily.Wizard, 6, 15, MobaShopTier.T2);           // Grand Soul Shield
+        Offhand(MobaFamily.Wizard, 6, 20, MobaShopTier.T3);           // Guardian Shield
+        Offhand(MobaFamily.Knight, 6, 11, MobaShopTier.T1);           // Serpent Shield
+        Offhand(MobaFamily.Knight, 6, 13, MobaShopTier.T2);           // Dragon Shield
+        Offhand(MobaFamily.Knight, 6, 17, MobaShopTier.T3);           // Crimson Glory
+        Offhand(MobaFamily.MagicGladiator, 6, 14, MobaShopTier.T1);   // Legendary Shield
+        Offhand(MobaFamily.MagicGladiator, 6, 13, MobaShopTier.T2);   // Dragon Shield
+        Offhand(MobaFamily.MagicGladiator, 6, 18, MobaShopTier.T3);   // Salamander Shield
+        Offhand(MobaFamily.DarkLord, 6, 6, MobaShopTier.T1);          // Skull Shield
+        Offhand(MobaFamily.DarkLord, 6, 8, MobaShopTier.T2);          // Tower Shield
+        Offhand(MobaFamily.DarkLord, 6, 21, MobaShopTier.T3);         // Cross Shield
+        Offhand(MobaFamily.Summoner, 5, 21, MobaShopTier.T1);         // Book of Sahamutt
+        Offhand(MobaFamily.Summoner, 5, 22, MobaShopTier.T2);         // Book of Neil
+        Offhand(MobaFamily.Summoner, 5, 23, MobaShopTier.T3);         // Book of Lagle
 
         // --- Sets ---
         Set(MobaFamily.Wizard, 3, MobaShopTier.T1);                // Legendary

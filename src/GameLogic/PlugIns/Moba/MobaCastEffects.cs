@@ -36,6 +36,20 @@ public static class MobaCastEffects
         [18] = (0.15, 3.0), // Defense (BK)
     };
 
+    /// <summary>
+    /// The skills that also raise the 30 s "Aegis" barrier: Soul Barrier, Defense and Greater Defense.
+    /// </summary>
+    private static readonly HashSet<short> AegisSkills = new() { 16, 18, 27 };
+
+    /// <summary>How long the Aegis barrier lasts.</summary>
+    private static readonly TimeSpan AegisDuration = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// The Aegis barrier is shown with the client's "Spell of Protection" bubble (effect 0x22),
+    /// so it doesn't look like the Soul Barrier or the Elf's green Greater Defense.
+    /// </summary>
+    private static readonly MagicEffectDefinition AegisDefinition = new() { Number = 0x22, InformObservers = true, StopByDeath = true };
+
     private static readonly ConditionalWeakTable<Player, ShieldState> Shields = new();
 
     private sealed class ShieldState
@@ -73,7 +87,49 @@ public static class MobaCastEffects
             state.ExpiresUtc = DateTime.UtcNow.AddSeconds(shield.Seconds);
         }
 
-        await ValueTask.CompletedTask.ConfigureAwait(false);
+        if (AegisSkills.Contains(number))
+        {
+            await ApplyAegisAsync(champion).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// The Aegis barrier fraction of max HP for an off-hand tier: T1 10 %, T2 15 %, T3 20 %,
+    /// 5 % without a shield / book.
+    /// </summary>
+    /// <param name="offhandTier">The tier of the equipped off-hand item, 0 for none.</param>
+    /// <returns>The barrier as a fraction of the champion's maximum health.</returns>
+    public static double AegisFractionOf(int offhandTier) => offhandTier switch
+    {
+        1 => 0.10,
+        2 => 0.15,
+        3 => 0.20,
+        _ => 0.05,
+    };
+
+    private static async ValueTask ApplyAegisAsync(Player champion)
+    {
+        if (champion.Attributes is not { } a)
+        {
+            return;
+        }
+
+        var amount = (float)(a[Stats.MaximumHealth] * AegisFractionOf(MobaItemPower.OffhandTierOf(champion)));
+        if (champion.MagicEffectList.ActiveEffects.TryGetValue(AegisDefinition.Number, out var previous))
+        {
+            await previous.DisposeAsync().ConfigureAwait(false);
+        }
+
+        var effect = new MagicEffect(AegisDuration, AegisDefinition, new MagicEffect.ElementWithTarget(new SimpleElement(amount, AggregateType.AddRaw), Stats.MaximumShield));
+        await champion.MagicEffectList.AddEffectAsync(effect).ConfigureAwait(false);
+        a[Stats.CurrentShield] = Math.Min(a[Stats.MaximumShield], a[Stats.CurrentShield] + amount);
+
+        // Registered after the list's own handler, so the barrier is already gone from MaximumShield here.
+        effect.EffectTimeOut += _ =>
+        {
+            a[Stats.CurrentShield] = Math.Min(a[Stats.CurrentShield], a[Stats.MaximumShield]);
+            return ValueTask.CompletedTask;
+        };
     }
 
     /// <summary>Called from the match tick: expires temp shields whose timer has run out.</summary>

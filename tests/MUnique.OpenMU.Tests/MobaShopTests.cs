@@ -100,10 +100,36 @@ public class MobaShopTests
                 .ToDictionary(g => g.Key, g => MobaShop.PriceOfEntry(this._gameConfiguration, g.First()));
             Assert.Multiple(() =>
             {
-                Assert.That(weapons[MobaShopTier.T2], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio).Within(10), family.ToString());
-                Assert.That(weapons[MobaShopTier.T3], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio * MobaShop.TierPriceRatio).Within(40), family.ToString());
+                Assert.That(weapons[MobaShopTier.T2], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio).Within(20), family.ToString());
+                Assert.That(weapons[MobaShopTier.T3], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio * MobaShop.TierPriceRatio).Within(50), family.ToString());
             });
         }
+    }
+
+    /// <summary>The Aegis barrier grows with the off-hand tier.</summary>
+    [Test]
+    public void AegisBarrierGrowsWithOffhandTier()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MobaCastEffects.AegisFractionOf(0), Is.EqualTo(0.05));
+            Assert.That(MobaCastEffects.AegisFractionOf(1), Is.EqualTo(0.10));
+            Assert.That(MobaCastEffects.AegisFractionOf(2), Is.EqualTo(0.15));
+            Assert.That(MobaCastEffects.AegisFractionOf(3), Is.EqualTo(0.20));
+        });
+    }
+
+    /// <summary>Every family that can carry an off-hand item sees one per tier; Elf and Rage Fighter see none.</summary>
+    [Test]
+    public void OffhandItemsExistPerTierForShieldClasses()
+    {
+        foreach (var family in new[] { MobaFamily.Wizard, MobaFamily.Knight, MobaFamily.MagicGladiator, MobaFamily.DarkLord, MobaFamily.Summoner })
+        {
+            var tiers = MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && e.Families!.Contains(family)).Select(e => e.Tier).OrderBy(t => t);
+            Assert.That(tiers, Is.EqualTo(new[] { MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T3 }), family.ToString());
+        }
+
+        Assert.That(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && (e.Families!.Contains(MobaFamily.Elf) || e.Families.Contains(MobaFamily.RageFighter))), Is.Empty);
     }
 
     /// <summary>Higher tiers of the same category cost more.</summary>

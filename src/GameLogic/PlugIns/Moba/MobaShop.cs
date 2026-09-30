@@ -389,6 +389,7 @@ public static class MobaShop
         MobaShopCategory.Weapons => $"{entry.Families![0]}:weapon",
         MobaShopCategory.Sets or MobaShopCategory.SetsSustain => $"{entry.Families![0]}:set{entry.Group}",
         MobaShopCategory.Wings => $"{entry.Families![0]}:wings",
+        MobaShopCategory.Offhand => $"{entry.Families![0]}:offhand",
         _ => entry.Number is 8 or 23 or 24 ? "acc:ring" : "acc:pendant",
     };
 

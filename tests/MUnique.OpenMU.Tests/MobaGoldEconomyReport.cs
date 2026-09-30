@@ -211,7 +211,7 @@ public class MobaGoldEconomyReport
                 var counts = entry.Category switch
                 {
                     MobaShopCategory.Weapons => !(entry.Group == 4 && entry.Number == 15) && weaponTiers.Add(entry.Tier),
-                    MobaShopCategory.Sets or MobaShopCategory.Wings or MobaShopCategory.Accessories => true,
+                    MobaShopCategory.Offhand or MobaShopCategory.Sets or MobaShopCategory.Wings or MobaShopCategory.Accessories => true,
                     _ => false,
                 };
 

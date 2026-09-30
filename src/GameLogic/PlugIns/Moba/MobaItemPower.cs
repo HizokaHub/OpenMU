@@ -20,6 +20,9 @@ public static class MobaItemPower
 
     private static readonly byte[] OffenseSlots = { InventoryConstants.LeftHandSlot, InventoryConstants.RightHandSlot };
 
+    // Elf (bow + arrows) and Rage Fighter (gloves) have no shield / book: only the weapon slot counts.
+    private static readonly byte[] WeaponOnlySlots = { InventoryConstants.RightHandSlot };
+
     private static readonly byte[] DefenseSlots =
     {
         InventoryConstants.HelmSlot, InventoryConstants.ArmorSlot, InventoryConstants.PantsSlot,
@@ -30,7 +33,14 @@ public static class MobaItemPower
     /// <summary>How itemized a champion's weapon slots are, 0 (empty/starter) to 1 (both hands T3).</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The offense item fraction, 0..1.</returns>
-    public static double OffenseFractionOf(Player champion) => FractionOf(champion, OffenseSlots);
+    public static double OffenseFractionOf(Player champion)
+        => FractionOf(champion, MobaPassives.FamilyOf(champion) is MobaFamily.Elf or MobaFamily.RageFighter ? WeaponOnlySlots : OffenseSlots);
+
+    /// <summary>The tier (0 = none, 1..3) of the champion's equipped off-hand item (shield / book).</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The off-hand tier.</returns>
+    public static int OffhandTierOf(Player champion)
+        => champion.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot) is { } item ? (int)TierPointsOf(item) : 0;
 
     /// <summary>How itemized a champion's armour/wings/accessory slots are, 0 to 1 (all T3).</summary>
     /// <param name="champion">The champion.</param>
