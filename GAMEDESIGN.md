@@ -697,7 +697,7 @@ Los ítems dropeados por creeps se venden por 5 de oro fijo.
   3/6/10 % c/u, anillos = **oro por asistencia** 5/10/15 % c/u, colgante = **oro pasivo** 5/10/15 %.
 
 **Pendiente:**
-- **Ward y barredor** (slots 10/11 del HUD): requieren el sistema de visión (Vision v1), que aún no existe.
+- **Ward y barredor** (slots 10/11 del HUD): Vision v1 ya existe en el servidor (`/ward`, `/sweep`); falta el HUD.
 - **Validar todo con `/mobabotfight`** (paso interactivo del usuario) y re-medir oro/EXP reales contra el
   simulador; el cuervo/caballo y las opciones nuevas no se probaron en combate real.
 - Ítem-idea sin implementar: oro por asistencia/pasivo a más piezas, más escudos activos por clase.
@@ -752,6 +752,19 @@ Reemplazan lo anotado arriba sobre la Égida y los drops:
   (opciones por ítem identificado como un precio: tipo + nivel + opción + luck + nº de excelentes; si dos drops
   comparten esa clave adoptan las mismas opciones) y líneas de tooltip en `MobaShopPrices.cpp`/`ZzzInventory.cpp`.
   Cliente recompilado (mu-main).
+
+#### Vision v1 (2026-09-30, implementado en servidor; sin HUD todavía)
+
+Alcance aprobado: **solo bloqueo de targeteo** (sin ocultar modelos en el cliente; eso queda como v2, riesgo
+estimado 40-50 % de bugs de viewport). `MobaVision.cs`:
+- Un campeón enemigo solo se puede apuntar (ataque básico `HitAction` y skills dirigidos
+  `TargetedSkillDefaultPlugin`) si lo ve el equipo: campeón/creep aliado a ≤ 9 tiles, torreta/nexo aliado a ≤ 11,
+  o ward aliado a ≤ 8. Creeps y torretas ven lo de su propio rango, así que no necesitan regla.
+- **Ward:** 75 de oro (Zen del clon), dura 150 s, máx. 3 por campeón (el más viejo se reemplaza). Comando
+  `/ward` (pone el ward en tu posición).
+- **Barredor:** `/sweep` destruye wards enemigos en radio 6, enfriamiento 90 s.
+- **Pendiente:** cablear los slots 10 y 11 del HUD del cliente a estos comandos (hoy solo por chat), ítem
+  comprable en tienda, marcador en el minimapa y prueba en partida real. Los skills de área no pasan por la regla.
 
 ### Al salir de la partida (cleanup automático)
 

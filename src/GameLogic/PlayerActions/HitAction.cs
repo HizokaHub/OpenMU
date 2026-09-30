@@ -70,6 +70,12 @@ public class HitAction
             }
         }
 
+        if (!PlugIns.Moba.MobaVision.CanTarget(player, target))
+        {
+            // MOBA: an enemy champion the team doesn't see can't be targeted.
+            return;
+        }
+
         player.Rotation = lookingDirection;
         await target.AttackByAsync(player, null, false).ConfigureAwait(false);
         if (player.Attributes?[Stats.TransformationSkin] is { } skin and not 0
