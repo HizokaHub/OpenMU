@@ -111,6 +111,8 @@ public static class MobaProgression
         SetAbsolute(attributes, Stats.DefensePvp, defense);
         SetAbsolute(attributes, Stats.DefensePvm, defense);
 
+        MobaMana.DisableNativeRegen(attributes);
+
         attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
         attributes[Stats.CurrentMana] = attributes[Stats.MaximumMana];
         attributes[Stats.CurrentShield] = attributes[Stats.MaximumShield];

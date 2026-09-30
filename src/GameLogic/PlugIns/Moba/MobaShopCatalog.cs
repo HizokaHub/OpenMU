@@ -14,6 +14,19 @@ public static class MobaShopCatalog
     private const byte HelmGroup = 7;
     private const byte BootsGroup = 11;
 
+    /// <summary>Units of a recovery potion sold per pack.</summary>
+    public const byte PotionPackSize = 100;
+
+    /// <summary>Item level of the recovery potions per tier (+7 / +8 / +9): each level adds recovery and shortens the recovery time.</summary>
+    /// <param name="tier">The tier.</param>
+    /// <returns>The item level.</returns>
+    public static byte PotionLevelOf(MobaShopTier tier) => tier switch
+    {
+        MobaShopTier.T1 => 7,
+        MobaShopTier.T2 => 8,
+        _ => 9,
+    };
+
     /// <summary>
     /// Gets the pages of the vendor menu, in menu order. A page is one merchant grid (8x15 = 120
     /// cells) and can share several catalog categories, each starting on its own row, top to
@@ -216,18 +229,22 @@ public static class MobaShopCatalog
         void Consumable(short number, MobaShopTier tier, byte level = 0, byte quantity = 1)
             => entries.Add(new MobaShopEntry(MobaShopCategory.Consumables, null, 14, number, tier, level, quantity));
 
-        Consumable(1, MobaShopTier.T1, quantity: 10);   // Small Healing Potion
-        Consumable(4, MobaShopTier.T1, quantity: 10);   // Small Mana Potion
-        Consumable(35, MobaShopTier.T1, quantity: 10);  // Small Shield Potion
+        void Potion(short number, MobaShopTier tier)
+            => Consumable(number, tier, PotionLevelOf(tier), PotionPackSize);
+
+        // Recovery potions come in packs of PotionPackSize at a fixed level per tier (+7 / +8 / +9: more recovery, faster).
+        Potion(1, MobaShopTier.T1);   // Small Healing Potion
+        Potion(4, MobaShopTier.T1);   // Small Mana Potion
+        Potion(35, MobaShopTier.T1);  // Small Shield Potion
         Consumable(8, MobaShopTier.T1, quantity: 3);    // Antidote
-        Consumable(2, MobaShopTier.T2, quantity: 10);   // Medium Healing Potion
-        Consumable(5, MobaShopTier.T2, quantity: 10);   // Medium Mana Potion
-        Consumable(39, MobaShopTier.T2, quantity: 10);  // Medium Complex Potion
+        Potion(2, MobaShopTier.T2);   // Medium Healing Potion
+        Potion(5, MobaShopTier.T2);   // Medium Mana Potion
+        Potion(39, MobaShopTier.T2);  // Medium Complex Potion
         Consumable(9, MobaShopTier.T2, quantity: 3);    // Ale (attack speed buff)
         Consumable(10, MobaShopTier.T2, quantity: 1);   // Town Portal Scroll: teleport to an allied minion (MobaTeleport)
-        Consumable(3, MobaShopTier.T3, quantity: 10);   // Large Healing Potion
-        Consumable(6, MobaShopTier.T3, quantity: 10);   // Large Mana Potion
-        Consumable(40, MobaShopTier.T3, quantity: 10);  // Large Complex Potion
+        Potion(3, MobaShopTier.T3);   // Large Healing Potion
+        Potion(6, MobaShopTier.T3);   // Large Mana Potion
+        Potion(40, MobaShopTier.T3);  // Large Complex Potion
         Consumable(7, MobaShopTier.T3, level: 0, quantity: 3); // Potion of Bless (damage buff)
         Consumable(7, MobaShopTier.T3, level: 1, quantity: 3); // Potion of Soul (attack speed buff)
 

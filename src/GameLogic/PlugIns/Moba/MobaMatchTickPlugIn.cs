@@ -56,6 +56,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // No HP / SD regen while in combat.
         await MobaCombatRegen.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Champion mana regeneration (scaled to the loadout, see MobaMana).
+        await MobaMana.TickAsync(gameContext).ConfigureAwait(false);
+
         // Expire temp shields from Greater Defense / Heal / Soul Barrier.
         await MobaCastEffects.TickAsync(gameContext).ConfigureAwait(false);
 

@@ -1129,7 +1129,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         // MOBA mode: S6 mana costs are tiny; scale them up so mana is a real constraint
         // (x3). The Magic Gladiator "Impulso híbrido" passive still discounts on top.
-        const float MobaManaCostMultiplier = 3f;
+        const float MobaManaCostMultiplier = PlugIns.Moba.MobaMana.CostMultiplier;
         var manaCostMultiplier = this.IsMobaClone
             ? MobaManaCostMultiplier * PlugIns.Moba.MobaHybridSurgePassive.ConsumeSpellManaMultiplier(this)
             : 1f;

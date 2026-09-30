@@ -61,6 +61,14 @@ public static class MobaShop
     public const int T1LoadoutPrice = 6300;
     private const int ConsumablePricePerPoint = 2;
 
+    /// <summary>Price of a full pack of recovery potions by potion number: small / medium / large (healing, mana, shield, complex).</summary>
+    private static readonly Dictionary<short, long> PotionPackPrices = new()
+    {
+        [1] = 500, [4] = 500, [35] = 500,
+        [2] = 900, [5] = 900, [36] = 900, [39] = 900,
+        [3] = 1_500, [6] = 1_500, [37] = 1_500, [40] = 1_500,
+    };
+
     private static readonly (byte X, byte Y) BlueVendorPos = (112, 57);
     private static readonly (byte X, byte Y) RedVendorPos = (112, 208);
 
@@ -217,6 +225,12 @@ public static class MobaShop
     /// <returns>The price in Zen.</returns>
     public static long PriceOf(Item item)
     {
+        if (item.Definition is { Group: 14 } potion && PotionPackPrices.TryGetValue((short)potion.Number, out var packPrice))
+        {
+            // Recovery potions: a fixed price per unit, scaled by how many are left in the pack.
+            return Math.Max(1, (long)Math.Round(packPrice * Math.Max(1, item.Durability) / MobaShopCatalog.PotionPackSize));
+        }
+
         if (item.IsStackable())
         {
             return UnitPriceOf(item) * (long)Math.Max(1, item.Durability);
@@ -635,9 +649,11 @@ public static class MobaShop
         var item = new TemporaryItem { Definition = definition };
 
         item.Level = (byte)Math.Min(Math.Max(0, level), definition.MaximumItemLevel);
-        item.Durability = definition.Durability > 1 && !item.IsWearable()
-            ? Math.Clamp((int)quantity, 1, definition.Durability)
-            : definition.Durability;
+        item.Durability = definition.Group == 14 && quantity > 1 && !item.IsWearable()
+            ? Math.Max(1, (int)quantity) // packs are bigger than the S6 stack size
+            : definition.Durability > 1 && !item.IsWearable()
+                ? Math.Clamp((int)quantity, 1, definition.Durability)
+                : definition.Durability;
 
         var possibleOptions = definition.PossibleItemOptions.SelectMany(o => o.PossibleOptions).ToList();
         if (optionLevel > 0 && possibleOptions.FirstOrDefault(o => o.OptionType == ItemOptionTypes.Option) is { } option)
