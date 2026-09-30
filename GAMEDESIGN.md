@@ -603,6 +603,57 @@ Reemplazan / corrigen lo propuesto en "Avance de la sesión 2026-09-29":
   --preset windows-x64-release --clean-first` (~10 min). Si vuelve a pasar tras
   tocar un header de NewUI, hacer build limpio.
 
+#### Sesión 2026-09-29 (2ª tanda) — hecho + propuestas pendientes de aprobación
+
+**Hecho:** cliente recompilado (crash resuelto); página de tienda nueva
+(commit `5844ffc09`): `Consumibles, Accesorios y Alas` (arriba consumibles, en
+medio accesorios, abajo alas, cada categoría en fila propia; 32–62 celdas) ·
+`Armas y Sets (recursos)` (50–105 celdas) · `Sets` (90–110). Test
+`EveryPageHasItemsAndFits` ahora también verifica que las categorías no se
+mezclen en filas.
+
+**Decisiones nuevas del usuario (aún sin implementar):**
+- Brecha de precio de **150 % entre tiers**: T2 = 2,5 × T1, T3 = 6,25 × T1
+  (ej. arma 100 / 250 / 625). El oro recibido hasta el nivel 8 debe alcanzar
+  para el **T1 completo**.
+- **DL:** vender **Dark Horse (13/4)** y **Dark Raven (13/5)** a nivel máximo
+  (50); ajustar el daño de Earthshake (caballo) y del ataque del cuervo para que
+  entre ambos sean **25 % del daño total del DL**.
+- Ítems de **utilidad** (Fenrir, Demon, Imp, Guardian Angel, Spirit of Guardian,
+  Panda, Unicorn, Skeleton, Rudolf…): definir % de aporte sobre el total.
+- **Recall** con la tecla **B** (canalizado, como LoL, se ve como teletransporte).
+
+**Propuesta A — curva de EXP / fases** (simulador; fuentes de EXP sin tocar):
+`ExpToNext(L) = 470 + 7 × (L − 1)` (lineal, 470 → 666; total a nivel 30 ≈ 16.500).
+Umbrales de fase `T2LevelThreshold = 9`, `T3LevelThreshold = 22`.
+
+| Perfil | Nv 2 | Nv 5 | Nv 9 (T2) | Nv 15 | Nv 22 (T3) | Nv 30 |
+|---|---|---|---|---|---|---|
+| Promedio | 1,1 | 4,2 | 8,5 | 15,5 | 24,2 | 34,8 |
+| Bien farmeado | 1,0 | 3,8 | 7,8 | 14,1 | 21,9 | 31,4 |
+| Flojo | 1,1 | 4,4 | 9,1 | 16,5 | 25,8 | 37,4 |
+
+(min de partida en que se alcanza cada nivel; ≈ 1,1–1,4 min/nivel.)
+
+**Propuesta B — precios y oro:** precio de un ítem = precio T1 de su mismo slot
+× 2,5^(tier−1) (mismo precio para todas las variantes del tier). Loadout
+completo (promedio de familias) anclado a **T1 = 6.300 · T2 = 15.750 ·
+T3 = 39.375**; mejora T2 = 15.750 − 70 % × 6.300 = 11.340; mejora T3 = 39.375 −
+70 % × 15.750 = 28.350. Oro: escala global **K = 2,7** sobre todas las fuentes
+(last-hit 54, proximidad 27, kill 405 + 22/nivel, asistencia 160, subir nivel
+110, shutdown 95, pasivo 27 por tick) y factores de fase **T1 ×1,0 / T2 ×1,0 /
+T3 ×2,6**. Simulación con compras perfectas (T1 completo, luego mejoras
+revendiendo al 70 %):
+
+| Perfil | T1 completo | T2 completo | T3 completo | Oro hasta nivel 8 |
+|---|---|---|---|---|
+| Promedio | min 8,5 | min 22,8 | **min 39,9** | 6.339 (≥ 6.300 ✔) |
+| Bien farmeado | 6,4 | 16,9 | 32,5 | 7.878 |
+| Muy bien | 5,2 | 13,7 | 28,5 | 8.991 |
+| Flojo | 10,9 | 26,6 | 47,7 | 5.294 |
+
+Los ítems dropeados por creeps se venden por 5 de oro fijo.
+
 ### Al salir de la partida (cleanup automático)
 
 - El **clon se descarta** (nunca se persistió). El personaje real vuelve a
