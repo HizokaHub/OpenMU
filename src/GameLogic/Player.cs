@@ -1118,6 +1118,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         if (this.IsMobaClone
             && PlugIns.Moba.MobaCooldowns.IsOnCooldown(this, skill.Number, DateTime.UtcNow))
         {
+            if (this is not PlugIns.Moba.MobaBotPlayer)
+            {
+                var left = this.MobaSkillCooldowns.TryGetValue(skill.Number, out var readyAt) ? (readyAt - DateTime.UtcNow).TotalSeconds : 0;
+                this.Logger.LogInformation("[MOBA-CAST] \"{Name}\" skill #{Skill} REJECTED: cooldown, {Left:F2}s left", this.SelectedCharacter?.Name, skill.Number, left);
+            }
+
             return false;
         }
 
@@ -1141,6 +1147,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         if (skill.ConsumeRequirements.Any(r => RequiredValue(r) > this.Attributes![r.Attribute]))
         {
+            if (this.IsMobaClone && this is not PlugIns.Moba.MobaBotPlayer)
+            {
+                var missing = skill.ConsumeRequirements.Where(r => RequiredValue(r) > this.Attributes![r.Attribute])
+                    .Select(r => $"{r.Attribute?.Designation} need {RequiredValue(r):F0} have {this.Attributes![r.Attribute]:F0}");
+                this.Logger.LogInformation("[MOBA-CAST] \"{Name}\" skill #{Skill} REJECTED: resources ({Missing})", this.SelectedCharacter?.Name, skill.Number, string.Join(", ", missing));
+            }
+
             return false;
         }
 

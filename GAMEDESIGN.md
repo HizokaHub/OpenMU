@@ -791,6 +791,11 @@ aliado al azar vs 2 bots rojos al azar); ambos crean oleadas de creeps de los do
 torretas/nexos/tienda. `/mobafight stop` elimina todos los bots y creeps y detiene las oleadas (las estructuras
 quedan). Cada ejecución limpia antes lo anterior.
 
+**Primer log real de `/mobafight 1` (2026-09-30) — hallazgos y arreglos:**
+- **Auto-target sin Ctrl:** el cliente exigía Ctrl para apuntar a otro jugador (regla PvP vainilla). Nuevo `IsMobaEnemyChampion` en `ZzzInterface.cpp`: en MOBA, un campeón del equipo contrario es atacable/auto-apuntable sin Ctrl (usa `c->MobaTeam` vs `g_MyMobaTeam`).
+- **Skills que "no dejan tirar después del CD":** causa probable = **maná**. El servidor cobra ×3 el costo S6 (`Player.TryConsumeForSkillAsync`) pero el cliente chequeaba el costo nativo, así que animaba el cast y el servidor lo descartaba en silencio. En el log el DL llegó a 32/450 de maná (t=99 s) y regenera ~1/s. Arreglo: el cliente chequea ×3 en MOBA (`MOBA_MANA_COST_MULTIPLIER`). **Pendiente de decidir: regeneración de maná en MOBA** (hoy muy baja para costos ×3).
+- **Logs nuevos:** servidor `[MOBA-CAST] ... REJECTED: cooldown|resources (...)` (solo campeones humanos, no bots) y cliente `[MOBA-CAST-CLIENT] skill N rejected locally: cooldown|mana` en `ErrorReport.txt` (máx. 1 por skill cada 500 ms).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
