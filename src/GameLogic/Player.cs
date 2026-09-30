@@ -765,6 +765,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         PlugIns.Moba.MobaCombatDebug.LogHit(attacker, this, skill?.Skill, hitInfo, isCombo);
 
+        // A recall / teleport channel breaks when hitting or being hit.
+        PlugIns.Moba.MobaRecall.Interrupt(this);
+        if (attacker is Player attackingPlayer)
+        {
+            PlugIns.Moba.MobaRecall.Interrupt(attackingPlayer);
+        }
+
         if (this.Attributes[Stats.IsAsleep] > 0)
         {
             await this.MagicEffectList.ClearAllEffectsProducingSpecificStatAsync(Stats.IsAsleep).ConfigureAwait(false);
@@ -1163,6 +1170,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         {
             // Heavy skills have a brief recovery lock (wind-up telegraph); shield skills
             // grant a decaying temp shield.
+            PlugIns.Moba.MobaRecall.Interrupt(this);
             await PlugIns.Moba.MobaCastEffects.OnCastAsync(this, skill).ConfigureAwait(false);
         }
 
