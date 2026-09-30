@@ -19,6 +19,7 @@ using MUnique.OpenMU.PlugIns;
 /// Prices: C2 lenHi lenLo D5 08  sellPercent(u8)  count(u16 LE)
 ///                               count * [ type(u16 LE) level optLevel flags excCount price(u32 LE) ]
 ///         flags: 0x01 = luck, 0x02 = price is per unit of a stack.
+/// Traits: C2 lenHi lenLo D5 0A  count(u16 LE)  count * [ type(u16 LE) kind percent ]
 /// </code>
 /// </summary>
 [PlugIn]
@@ -29,6 +30,8 @@ public class MobaShopPlugIn : IMobaShopPlugIn
     private const byte PacketCode = 0xD5;
     private const byte MenuSubCode = 0x06;
     private const byte PricesSubCode = 0x08;
+    private const byte TraitsSubCode = 0x0A;
+    private const int TraitEntryLength = 4;
     private const int HeaderLength = 5;
     private const int MaxTitleBytes = 64;
     private const int MaxTextBytes = 512;
@@ -114,6 +117,38 @@ public class MobaShopPlugIn : IMobaShopPlugIn
                 span[offset++] = (byte)((price.Price >> 8) & 0xFF);
                 span[offset++] = (byte)((price.Price >> 16) & 0xFF);
                 span[offset++] = (byte)((price.Price >> 24) & 0xFF);
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ShowItemTraitsAsync(IReadOnlyCollection<MobaItemTrait> traits)
+    {
+        if (this._player.Connection is not { Connected: true } connection)
+        {
+            return;
+        }
+
+        var entries = traits.Take(MaxPrices).ToList();
+        var length = HeaderLength + 2 + (entries.Count * TraitEntryLength);
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            WriteHeader(span, length, TraitsSubCode);
+            var offset = HeaderLength;
+            span[offset++] = (byte)(entries.Count & 0xFF);
+            span[offset++] = (byte)(entries.Count >> 8);
+            foreach (var trait in entries)
+            {
+                span[offset++] = (byte)(trait.ItemType & 0xFF);
+                span[offset++] = (byte)(trait.ItemType >> 8);
+                span[offset++] = trait.Kind;
+                span[offset++] = trait.Percent;
             }
 
             return length;

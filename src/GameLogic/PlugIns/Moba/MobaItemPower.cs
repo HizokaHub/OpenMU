@@ -47,6 +47,26 @@ public static class MobaItemPower
     /// <returns>The defense item fraction, 0..1.</returns>
     public static double DefenseFractionOf(Player champion) => FractionOf(champion, DefenseSlots);
 
+    /// <summary>
+    /// The shop tier (0 = none, 1..3) of the item equipped in a slot, only if it is a catalog item of
+    /// the given category (e.g. the weapon slot must hold a weapon, not the Dark Raven).
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="slot">The inventory slot.</param>
+    /// <param name="category">The expected catalog category.</param>
+    /// <returns>The tier, or 0.</returns>
+    public static int TierIn(Player champion, byte slot, MobaShopCategory category)
+    {
+        var item = champion.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == slot);
+        if (item?.Definition is not { } definition)
+        {
+            return 0;
+        }
+
+        var entry = MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == category && e.Group == definition.Group && e.Number == definition.Number);
+        return entry is null ? 0 : (int)entry.Tier;
+    }
+
     private static double FractionOf(Player champion, byte[] slots)
     {
         if (slots.Length == 0 || champion.Inventory is not { } inventory)

@@ -28,11 +28,17 @@ public static class MobaVampAndSpecial
             return;
         }
 
+        // Anti-heal weapons: this hit cuts the victim's healing for a few seconds.
+        if (victim is Player { IsMobaClone: true } antiHealVictim)
+        {
+            MobaItemTraits.ApplyAntiHeal(attacker, antiHealVictim);
+        }
+
         // Life steal / spell vamp.
         var vamp = MobaCombatStats.VampOf(attacker, skill is not null);
         if (vamp > 0 && attacker.Attributes is { } a && attacker.IsAlive)
         {
-            var heal = (float)(dealt * vamp);
+            var heal = (float)MobaItemTraits.ScaleHealing(attacker, dealt * vamp);
             var max = a[Stats.MaximumHealth];
             var cur = a[Stats.CurrentHealth];
             if (cur < max)

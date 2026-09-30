@@ -77,7 +77,7 @@ public static class MobaSecondWindPassive
             return;
         }
 
-        var healed = attributes[Stats.CurrentHealth] + (hit.HealthDamage * LeechFraction);
+        var healed = attributes[Stats.CurrentHealth] + (float)MobaItemTraits.ScaleHealing(knight, hit.HealthDamage * LeechFraction);
         attributes[Stats.CurrentHealth] = Math.Min(attributes[Stats.MaximumHealth], healed);
     }
 

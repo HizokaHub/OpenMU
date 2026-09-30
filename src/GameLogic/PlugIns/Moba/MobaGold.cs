@@ -91,6 +91,14 @@ public static class MobaGold
             return ValueTask.CompletedTask;
         }
 
+        // Rings pay extra for assists, the pendant for the passive drip.
+        var traitBonus = reason switch
+        {
+            "assist" => 1 + MobaItemTraits.AssistGoldBonusOf(champion),
+            "passive" => 1 + MobaItemTraits.PassiveGoldBonusOf(champion),
+            _ => 1.0,
+        };
+        amount = (int)Math.Round(amount * traitBonus);
         var itemBonus = champion.Attributes?[Stats.MoneyAmountRate] ?? 1f;
         var phase = scaleByPhase ? PhaseMultiplierOf(MobaMatchPhase.Current) : 1.0;
         var final = (int)Math.Round(amount * phase * Math.Max(1f, itemBonus));

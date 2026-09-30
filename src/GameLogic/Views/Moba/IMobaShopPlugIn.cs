@@ -26,4 +26,11 @@ public interface IMobaShopPlugIn : IViewPlugIn
     /// <param name="prices">The prices.</param>
     /// <param name="sellPercent">The percentage of the price paid back when selling.</param>
     ValueTask ShowPricesAsync(IReadOnlyCollection<MobaShopPrice> prices, byte sellPercent);
+
+    /// <summary>
+    /// Sends the MOBA-only options of the shop items (see <see cref="MobaItemTrait"/>) the client
+    /// adds to the item tooltips.
+    /// </summary>
+    /// <param name="traits">The traits, one per item type.</param>
+    ValueTask ShowItemTraitsAsync(IReadOnlyCollection<MobaItemTrait> traits);
 }

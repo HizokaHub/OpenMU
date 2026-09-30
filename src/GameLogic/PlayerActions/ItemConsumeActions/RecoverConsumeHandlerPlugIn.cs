@@ -107,6 +107,11 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
             }
 
             var recoverAmount = totalRecoverAmount * (step.RecoverPercentage / 100.0);
+            if (this.CurrentAttribute == Stats.CurrentHealth)
+            {
+                recoverAmount = PlugIns.Moba.MobaItemTraits.ScaleHealing(player, recoverAmount);
+            }
+
             playerAttributes[this.CurrentAttribute] = (uint)Math.Min(playerAttributes[this.MaximumAttribute], playerAttributes[this.CurrentAttribute] + recoverAmount);
             await this.OnAfterRecoverAsync(player).ConfigureAwait(false);
         }

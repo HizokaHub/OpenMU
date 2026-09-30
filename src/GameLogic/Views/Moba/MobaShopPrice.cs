@@ -17,3 +17,12 @@ namespace MUnique.OpenMU.GameLogic.Views.Moba;
 /// <param name="PerUnit">Whether <paramref name="Price"/> is per unit of a stack (multiplied by the durability).</param>
 /// <param name="Price">The buy price.</param>
 public readonly record struct MobaShopPrice(ushort ItemType, byte Level, byte OptionLevel, bool HasLuck, byte ExcellentCount, bool PerUnit, uint Price);
+
+/// <summary>
+/// A MOBA-only option of a shop item (anti-heal, crowd-control resistance, cooldown reduction, assist / passive gold),
+/// which the client shows as an extra line in the item tooltip.
+/// </summary>
+/// <param name="ItemType">The client item type (group * 512 + number).</param>
+/// <param name="Kind">The trait kind: 1 anti-heal, 2 CC resistance, 3 cooldown reduction, 4 assist gold, 5 passive gold.</param>
+/// <param name="Percent">The size of the trait in percent.</param>
+public readonly record struct MobaItemTrait(ushort ItemType, byte Kind, byte Percent);

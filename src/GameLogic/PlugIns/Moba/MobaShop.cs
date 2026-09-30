@@ -703,6 +703,7 @@ public static class MobaShop
         }
 
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowPricesAsync(prices.Values, SellPercent)).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowItemTraitsAsync(MobaItemTraits.TooltipTraits)).ConfigureAwait(false);
     }
 
     private static int OptionLevelOf(Item item)

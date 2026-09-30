@@ -423,6 +423,11 @@ public static class AttackableExtensions
             {
                 var regenerationValue = player.Attributes.CreateElement(powerUpDefinition);
                 var value = regenerationValue.Value + (skillEntry.Level == 0 ? 0 : regenerationValue.Value * skillEntry.CalculateValue() / 100);
+                if (regeneration.CurrentAttribute == Stats.CurrentHealth)
+                {
+                    value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, value);
+                }
+
                 target.Attributes[regeneration.CurrentAttribute] = Math.Min(
                     target.Attributes[regeneration.CurrentAttribute] + value,
                     target.Attributes[regeneration.MaximumAttribute]);
