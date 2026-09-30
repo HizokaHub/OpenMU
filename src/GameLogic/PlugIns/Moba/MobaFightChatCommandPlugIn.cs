@@ -12,14 +12,14 @@ using MUnique.OpenMU.PlugIns;
 
 /// <summary>
 /// Dev command <c>/mobafight 1|2|stop</c>. <c>1</c>: the caller's champion goes to team
-/// Blue against one random red bot. <c>2</c>: a 2v2 - the caller plus one random blue bot
+/// Blue against one random red bot. <c>2</c>: a 2v2 of bots only - two random blue bots against two random red bots, the caller just watches
 /// against two random red bots. Both start a lane wave for each team every 50 s.
 /// <c>stop</c> removes every bot and lane creep and stops the waves (structures stay).
 /// </summary>
 [Guid("9E4B7A12-3C58-4D96-B1F0-5A2D8C6E7F31")]
 [PlugIn]
-[Display(Name = "MOBA: quick fight", Description = "Dev command '/mobafight 1|2|stop' - quick 1v1 / 2v2 against random bots with lane waves every 50 s.")]
-[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2v2), /mobafight stop (clear bots + creeps + waves)", null)]
+[Display(Name = "MOBA: quick fight", Description = "Dev command '/mobafight 1|2|stop' - quick 1v1 (you vs a bot) / 2v2 (bots only, you watch) with lane waves every 50 s.")]
+[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2 bots vs 2 bots), /mobafight stop (clear bots + creeps + waves)", null)]
 public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobafight";
@@ -80,19 +80,26 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
         await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
 
-        MobaTeams.Set(player, MobaTeam.Blue);
+        // 1v1: the caller plays blue. 2v2: bots only, the caller is a neutral spectator (no team, so nobody targets them).
+        var spectating = n > 1;
+        if (spectating)
+        {
+            MobaTeams.Clear(player);
+        }
+        else
+        {
+            MobaTeams.Set(player, MobaTeam.Blue);
+        }
 
-        // Red: n random classes. Blue ally (2v2 only): 1 random class besides the player.
         var red = await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, RandomFamilies(n)).ConfigureAwait(false);
-        var blue = n > 1
-            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(n - 1)).ConfigureAwait(false)
+        var blue = spectating
+            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(n)).ConfigureAwait(false)
             : 0;
 
-        // 2v2 also tests the teleport scroll: every champion (you and the bots) starts with one.
+        // 2v2 also tests the teleport scroll: every bot starts with one.
         var scrolls = 0;
-        if (n > 1)
+        if (spectating)
         {
-            scrolls += await MobaShop.GiveTeleportScrollAsync(player).ConfigureAwait(false) ? 1 : 0;
             foreach (var bot in MobaBotPlayer.All)
             {
                 scrolls += await MobaShop.GiveTeleportScrollAsync(bot).ConfigureAwait(false) ? 1 : 0;
@@ -103,7 +110,9 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
         player.Logger.LogInformation("[MOBA-FIGHT] /mobafight {N}v{N}: {Blue} blue bot(s), {Red} red bot(s), {S} structures, waves every {Sec}s.", n, n, blue, red, structures, WaveIntervalSeconds);
         await player.ShowBlueMessageAsync(
-            $"[mobafight] {n}v{n}: vos en equipo azul{(blue > 0 ? $" + {blue} bot aliado" : string.Empty)} vs {red} bot(s) rojo(s). Oleadas cada {WaveIntervalSeconds} s.{(scrolls > 0 ? $" {scrolls} pergamino(s) de teletransporte entregados." : string.Empty)} /mobafight stop para limpiar.").ConfigureAwait(false);
+            (spectating
+                ? $"[mobafight] {n}v{n} de bots: {blue} azules vs {red} rojos (vos solo mirás)."
+                : $"[mobafight] {n}v{n}: vos en equipo azul vs {red} bot rojo.") + $" Oleadas cada {WaveIntervalSeconds} s.{(scrolls > 0 ? $" {scrolls} pergamino(s) de teletransporte entregados." : string.Empty)} /mobafight stop para limpiar.").ConfigureAwait(false);
     }
 
     private static async ValueTask<(int Bots, int Creeps)> StopAsync(GameMap arena)
