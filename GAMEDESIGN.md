@@ -4,6 +4,13 @@
 > centralizar el trabajo en este repositorio. A partir de ahora el diseño y el
 > desarrollo avanzan únicamente aquí.
 
+> **Regla de proceso — servidor:** siempre que haya que reiniciar o levantar el
+> servidor (tras cambios de código, recompilar, etc.), lo hace Claude, no el
+> usuario: cerrar el proceso `MUnique.OpenMU.Startup`, compilar el Startup en
+> Debug y levantarlo con `dotnet run --no-build --project
+> src\Startup\MUnique.OpenMU.Startup.csproj -c Debug -- -autostart
+> -resolveIp:loopback` (en segundo plano), y avisar cuando esté listo.
+
 > **Regla de proceso (desde 2026-09-30):** si el usuario pide un prompt para
 > arrancar una tarea en una conversación nueva, este documento tiene que estar
 > al día con todo lo decidido/hecho hasta ese momento **antes** de dar el
