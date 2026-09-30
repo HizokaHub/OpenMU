@@ -30,6 +30,14 @@ public static class MobaShop
     /// <summary>The percentage of the price paid back when selling an item to the vendor.</summary>
     public const byte SellPercent = 70;
 
+    /// <summary>
+    /// The fixed gold the vendor pays for an item dropped by a creep (instead of
+    /// <see cref="SellPercent"/> of its price). Such items are flagged with this value in
+    /// <see cref="Item.StorePrice"/> (a field the MOBA mode doesn't use otherwise), which
+    /// survives the copy into the persistent inventory item.
+    /// </summary>
+    public const int CreepDropSellPrice = 5;
+
     /// <summary>The identifier of the category menu, echoed back by the client.</summary>
     public const byte CategoryMenuId = 1;
 
@@ -42,6 +50,12 @@ public static class MobaShop
 
     // Zen per price point: equipment is scored by grade + upgrades, consumables are cheap.
     private const int PricePerPoint = 10;
+
+    /// <summary>Each tier of a slot costs this many times the previous one (a 150 % gap).</summary>
+    public const double TierPriceRatio = 2.5;
+
+    /// <summary>The price of the average full T1 loadout (weapon, armor set, wings, ring, pendant).</summary>
+    public const int T1LoadoutPrice = 6300;
     private const int ConsumablePricePerPoint = 2;
 
     private static readonly (byte X, byte Y) BlueVendorPos = (112, 57);
@@ -49,6 +63,9 @@ public static class MobaShop
 
     private static readonly ConcurrentDictionary<ushort, List<NonPlayerCharacter>> VendorsByMap = new();
     private static readonly ConditionalWeakTable<Player, ShopView> Views = new();
+    private static readonly object TierPriceLock = new();
+    private static Dictionary<(byte, short), long>? _tierPrices;
+    private static double _formulaScale = 1.0;
 
     /// <summary>
     /// Spawns the vendors on the arena map, if they aren't there yet.
@@ -182,7 +199,9 @@ public static class MobaShop
             return false;
         }
 
-        price = (int)(PriceOf(item) * SellPercent / 100);
+        price = item.StorePrice == CreepDropSellPrice
+            ? CreepDropSellPrice
+            : (int)(PriceOf(item) * SellPercent / 100);
         return true;
     }
 
@@ -195,8 +214,20 @@ public static class MobaShop
     /// <returns>The price in Zen.</returns>
     public static long PriceOf(Item item)
     {
-        var unit = UnitPriceOf(item);
-        return item.IsStackable() ? unit * (long)Math.Max(1, item.Durability) : unit;
+        if (item.IsStackable())
+        {
+            return UnitPriceOf(item) * (long)Math.Max(1, item.Durability);
+        }
+
+        // Equipment: the price comes from the tier ladder (see BuildTierPrices), not from the item's own stats.
+        if (item.Definition is { } definition && _tierPrices is { } prices)
+        {
+            return prices.TryGetValue((definition.Group, (short)definition.Number), out var tierPrice)
+                ? tierPrice
+                : RoundPrice(UnitPriceOf(item) * _formulaScale);
+        }
+
+        return UnitPriceOf(item);
     }
 
     /// <summary>
@@ -225,6 +256,7 @@ public static class MobaShop
 
     private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow)
     {
+        EnsureTierPrices(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
             .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
@@ -282,13 +314,83 @@ public static class MobaShop
     /// <param name="entry">The catalog entry.</param>
     /// <returns>The price in Zen, or 0 when the item definition doesn't exist.</returns>
     public static long PriceOfEntry(GameConfiguration configuration, MobaShopEntry entry)
-        => configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is { } definition
+        => EnsureTierPrices(configuration) && configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is { } definition
             ? PriceOf(CreateItem(definition, entry))
             : 0;
 
     private static string SignatureOf(Item item)
         => $"{item.Definition!.Group},{item.Definition.Number},{item.Level},{item.Durability},"
            + string.Join(";", item.ItemOptions.Select(o => $"{o.ItemOption!.OptionType?.Name}:{o.ItemOption.Number}:{o.Level}").OrderBy(x => x, StringComparer.Ordinal));
+
+    private static bool EnsureTierPrices(GameConfiguration configuration)
+    {
+        if (_tierPrices is null)
+        {
+            lock (TierPriceLock)
+            {
+                if (_tierPrices is null)
+                {
+                    var (prices, scale) = BuildTierPrices(configuration);
+                    _formulaScale = scale;
+                    _tierPrices = prices;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static long RoundPrice(double price) => Math.Max(10, (long)Math.Round(price / 10.0) * 10);
+
+    /// <summary>
+    /// Builds the equipment price ladder: every tier costs <see cref="TierPriceRatio"/> times the
+    /// previous one (a 150 % gap: 100 / 250 / 625). The T1 price of a slot (weapon, each set piece,
+    /// wings, ring, pendant) is what the old grade/options formula gives the T1 item, scaled so the
+    /// average full T1 loadout costs <see cref="T1LoadoutPrice"/>; T2 and T3 items of the same slot
+    /// (and family) are that price times 2.5 and 6.25. All variants of a tier cost the same.
+    /// </summary>
+    private static (Dictionary<(byte, short), long> Prices, double Scale) BuildTierPrices(GameConfiguration configuration)
+    {
+        var entries = MobaShopCatalog.Entries
+            .Where(e => e.Category != MobaShopCategory.Consumables && e.Quantity == 1 && e.Variant == MobaShopVariant.Standard)
+            .Select(e => (Entry: e, Definition: configuration.Items.FirstOrDefault(d => d.Group == e.Group && d.Number == e.Number)))
+            .Where(c => c.Definition is not null)
+            .ToList();
+
+        // Formula price of the T1 item of every slot.
+        var t1Formula = new Dictionary<string, long>();
+        foreach (var (entry, definition) in entries.Where(c => c.Entry.Tier == MobaShopTier.T1))
+        {
+            t1Formula.TryAdd(SlotKeyOf(entry), UnitPriceOf(CreateItem(definition!, entry)));
+        }
+
+        // Scale so the average full T1 loadout (per family: weapon + set pieces + wings, plus the
+        // shared ring and pendant) costs T1LoadoutPrice.
+        var accessories = t1Formula.Where(kv => kv.Key.StartsWith("acc:", StringComparison.Ordinal)).Sum(kv => kv.Value);
+        var families = Enum.GetValues<MobaFamily>();
+        var loadoutTotal = families.Sum(f => t1Formula.Where(kv => kv.Key.StartsWith(f + ":", StringComparison.Ordinal)).Sum(kv => kv.Value) + accessories);
+        var scale = T1LoadoutPrice / ((double)loadoutTotal / families.Length);
+
+        var prices = new Dictionary<(byte, short), long>();
+        foreach (var (entry, definition) in entries.OrderBy(c => c.Entry.Tier))
+        {
+            if (t1Formula.TryGetValue(SlotKeyOf(entry), out var basePrice))
+            {
+                prices.TryAdd((definition!.Group, (short)definition.Number), RoundPrice(basePrice * scale * Math.Pow(TierPriceRatio, (int)entry.Tier - 1)));
+            }
+        }
+
+        return (prices, scale);
+    }
+
+    // Which "slot" of the ladder an entry belongs to: T1/T2/T3 items of the same slot are the same rung.
+    private static string SlotKeyOf(MobaShopEntry entry) => entry.Category switch
+    {
+        MobaShopCategory.Weapons => $"{entry.Families![0]}:weapon",
+        MobaShopCategory.Sets or MobaShopCategory.SetsSustain => $"{entry.Families![0]}:set{entry.Group}",
+        MobaShopCategory.Wings => $"{entry.Families![0]}:wings",
+        _ => entry.Number is 8 or 23 or 24 ? "acc:ring" : "acc:pendant",
+    };
 
     private static long UnitPriceOf(Item item)
     {
@@ -497,7 +599,11 @@ public static class MobaShop
     /// <param name="variant">Which mix of options the item carries.</param>
     /// <returns>The item.</returns>
     internal static TemporaryItem CreateRolledItem(ItemDefinition definition, int level, int optionLevel, bool luck, int excellent, bool hasSkill, MobaShopVariant variant)
-        => CreateItemCore(definition, level, 1, optionLevel, luck, excellent, hasSkill, variant);
+    {
+        var item = CreateItemCore(definition, level, 1, optionLevel, luck, excellent, hasSkill, variant);
+        item.StorePrice = CreepDropSellPrice;
+        return item;
+    }
 
     private static TemporaryItem CreateItemCore(ItemDefinition definition, int level, byte quantity, int optionLevel, bool luck, int excellent, bool hasSkill, MobaShopVariant variant)
     {

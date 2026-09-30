@@ -82,14 +82,20 @@ public static class MobaLevels
     /// <summary>Seconds between passive EXP ticks.</summary>
     public const double PassiveTickSeconds = 5;
 
+    /// <summary>EXP to go from level 1 to level 2 (~1 minute of an average player's income).</summary>
+    public const int BaseExpToNext = 470;
+
+    /// <summary>Extra EXP each level costs over the previous one.</summary>
+    public const int ExpToNextPerLevel = 7;
+
     /// <summary>
-    /// EXP required to go from <paramref name="currentLevel"/> to the next level.
-    /// Three-band pacing curve (cumulative to level 30 is ~14.8k), aimed at 30-50 min
-    /// matches: 1-10 climbs fast and cheap, 11-20 is a flat plateau (steady pace through
-    /// the match's middle), 21-29 gets progressively more expensive (a fed champion needs
-    /// disproportionately more per level, so the gap to an even opponent stops widening as
-    /// fast). Tune with the <c>/mobabotfight</c> bot harness against real combined
-    /// (passive + farm + kills + turrets) EXP income, not passive alone.
+    /// EXP required to go from <paramref name="currentLevel"/> to the next level. Linear
+    /// curve (470 at level 1 to 666 at level 29, cumulative to level 30 is ~16.5k): with the
+    /// average player's income (~470 EXP/min) each level takes ~1.1-1.4 min and level 30 is
+    /// reached around minute 35; the T2 / T3 match phases (levels 9 / 22, see
+    /// <see cref="MobaMatchPhase"/>) fall around minutes 8 / 24. Tune with the
+    /// <c>/mobabotfight</c> bot harness against real combined (passive + farm + kills +
+    /// turrets) EXP income.
     /// </summary>
     /// <param name="currentLevel">The current champion level.</param>
     /// <returns>The EXP needed for the next level, or <see cref="long.MaxValue"/> at the cap.</returns>
@@ -100,17 +106,7 @@ public static class MobaLevels
             return long.MaxValue;
         }
 
-        if (currentLevel <= 10)
-        {
-            return 100 + (currentLevel * 15);
-        }
-
-        if (currentLevel <= 20)
-        {
-            return 400;
-        }
-
-        return 400 + ((currentLevel - 20) * 120);
+        return BaseExpToNext + (ExpToNextPerLevel * (currentLevel - 1));
     }
 
     /// <summary>Whether the given champion level is a skill-pick milestone.</summary>

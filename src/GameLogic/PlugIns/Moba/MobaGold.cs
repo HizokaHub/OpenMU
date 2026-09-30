@@ -14,36 +14,39 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// "Zen after kill", <see cref="Stats.MoneyAmountRate"/>) on top. A separate currency/
 /// economy from <see cref="MobaExperience"/>/<see cref="MobaLevels"/>: gold buys shop gear
 /// mid-match, EXP buys champion levels - see GAMEDESIGN.md "Economía". First-pass numbers;
-/// tune with <c>/mobabotfight</c>.
+/// tune with <c>/mobabotfight</c>. The base values are the original ones times the global
+/// scale K = 2.7, found with the income simulator (<c>MobaGoldEconomyReport</c>) so that an
+/// average player with perfect purchases (reselling the previous tier at 70 %) completes T1
+/// by level 8 (~min 8.5), T2 by ~min 23 and T3 by ~min 40.
 /// </summary>
 public static class MobaGold
 {
     /// <summary>Gold to the champion that last-hits an enemy lane creep.</summary>
-    public const int CreepLastHitGold = 20;
+    public const int CreepLastHitGold = 54;
 
     /// <summary>Gold to every other nearby champion of the killing team when a creep dies (proximity, no last hit needed).</summary>
-    public const int CreepProximityGold = 10;
+    public const int CreepProximityGold = 27;
 
     /// <summary>Base gold for killing an enemy champion, plus <see cref="ChampionKillGoldPerVictimLevel"/> per victim level.</summary>
-    public const int ChampionKillGoldBase = 150;
+    public const int ChampionKillGoldBase = 405;
 
     /// <summary>Extra champion-kill gold per level of the victim.</summary>
-    public const int ChampionKillGoldPerVictimLevel = 8;
+    public const int ChampionKillGoldPerVictimLevel = 22;
 
     /// <summary>Gold for each allied champion near an enemy champion kill (assist).</summary>
-    public const int AssistGold = 60;
+    public const int AssistGold = 160;
 
     /// <summary>Gold granted every time a champion levels up, on top of the skill point.</summary>
-    public const int LevelUpGold = 40;
+    public const int LevelUpGold = 110;
 
     /// <summary>Kill streak (since the victim's last death) at which "shutdown gold" starts paying out.</summary>
     public const int ShutdownStreakThreshold = 3;
 
     /// <summary>Extra gold to the killer per streak-kill of the victim beyond <see cref="ShutdownStreakThreshold"/>.</summary>
-    public const int ShutdownGoldPerStreakKill = 35;
+    public const int ShutdownGoldPerStreakKill = 95;
 
     /// <summary>Passive gold per tick (same <see cref="MobaLevels.PassiveTickSeconds"/> cadence as the EXP drip).</summary>
-    public const int PassiveGoldPerTick = 10;
+    public const int PassiveGoldPerTick = 27;
 
     /// <summary>
     /// Passive gold multiplier for a champion <see cref="MobaLevels.CatchUpLevelGap"/>+ levels
@@ -56,10 +59,10 @@ public static class MobaGold
     public const double PhaseMultiplierT1 = 1.0;
 
     /// <summary>Gold multiplier during the T2 phase.</summary>
-    public const double PhaseMultiplierT2 = 1.5;
+    public const double PhaseMultiplierT2 = 1.0;
 
     /// <summary>Gold multiplier during the T3 phase.</summary>
-    public const double PhaseMultiplierT3 = 2.0;
+    public const double PhaseMultiplierT3 = 2.6;
 
     private static readonly ConditionalWeakTable<Player, Streak> Streaks = new();
 

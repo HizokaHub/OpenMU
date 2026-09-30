@@ -88,6 +88,24 @@ public class MobaShopTests
         }
     }
 
+    /// <summary>Each tier of a slot costs 2.5 times the previous one (a 150 % gap): 100 / 250 / 625.</summary>
+    [Test]
+    public void TiersHaveAOneHundredFiftyPercentGap()
+    {
+        foreach (var family in new[] { MobaFamily.Wizard, MobaFamily.Knight, MobaFamily.Elf, MobaFamily.Summoner })
+        {
+            var weapons = MobaShopCatalog.Entries
+                .Where(e => e.Category == MobaShopCategory.Weapons && e.Families!.Contains(family) && e.Variant == MobaShopVariant.Standard && e.Quantity == 1)
+                .GroupBy(e => e.Tier)
+                .ToDictionary(g => g.Key, g => MobaShop.PriceOfEntry(this._gameConfiguration, g.First()));
+            Assert.Multiple(() =>
+            {
+                Assert.That(weapons[MobaShopTier.T2], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio).Within(10), family.ToString());
+                Assert.That(weapons[MobaShopTier.T3], Is.EqualTo(weapons[MobaShopTier.T1] * MobaShop.TierPriceRatio * MobaShop.TierPriceRatio).Within(40), family.ToString());
+            });
+        }
+    }
+
     /// <summary>Higher tiers of the same category cost more.</summary>
     [Test]
     public void HigherTiersCostMore()

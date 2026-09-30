@@ -9,17 +9,16 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// are currently in. A match starts in the T1 phase and advances - never regresses - once
 /// <b>both</b> teams have at least 2 champions at the phase's champion-level threshold, so
 /// one team being far ahead doesn't unlock T3 drops for the team that's behind too. The
-/// thresholds (11 / 21) line up with the fast / plateau / hard bands of
-/// <see cref="MobaLevels.ExpToNext"/>, so the drop phase tracks the same match pacing the
-/// EXP curve was tuned around.
+/// thresholds (9 / 22) put the phases at about minute 8 (T2) and 24 (T3) for an average
+/// player on the <see cref="MobaLevels.ExpToNext"/> curve.
 /// </summary>
 public static class MobaMatchPhase
 {
     /// <summary>Champion level at which 2+ champions per team unlock T2 creep drops.</summary>
-    public const int T2LevelThreshold = 11;
+    public const int T2LevelThreshold = 9;
 
     /// <summary>Champion level at which 2+ champions per team unlock T3 creep drops.</summary>
-    public const int T3LevelThreshold = 21;
+    public const int T3LevelThreshold = 22;
 
     /// <summary>Champions per team required at the threshold level to advance the phase.</summary>
     public const int ChampionsRequiredPerTeam = 2;

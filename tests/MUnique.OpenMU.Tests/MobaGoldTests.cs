@@ -19,8 +19,8 @@ public class MobaGoldTests
         Assert.Multiple(() =>
         {
             Assert.That(MobaGold.PhaseMultiplierOf(MobaShopTier.T1), Is.EqualTo(1.0));
-            Assert.That(MobaGold.PhaseMultiplierOf(MobaShopTier.T2), Is.EqualTo(1.5));
-            Assert.That(MobaGold.PhaseMultiplierOf(MobaShopTier.T3), Is.EqualTo(2.0));
+            Assert.That(MobaGold.PhaseMultiplierOf(MobaShopTier.T2), Is.EqualTo(1.0));
+            Assert.That(MobaGold.PhaseMultiplierOf(MobaShopTier.T3), Is.EqualTo(2.6));
         });
     }
 }

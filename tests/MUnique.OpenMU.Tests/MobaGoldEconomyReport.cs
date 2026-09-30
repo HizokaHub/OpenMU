@@ -50,7 +50,7 @@ public class MobaGoldEconomyReport
             new Profile("Muy bien", 1.00, 0.55, 0.80, 0.50),
         };
 
-        foreach (var (name, t2, t3) in new[] { ("Factores x1,0/x1,5/x2,0", 1.5, 2.0), ("Plano x1,0/x1,0/x1,0 (referencia)", 1.0, 1.0) })
+        foreach (var (name, t2, t3) in new[] { ($"Factores actuales x1,0/x{MobaGold.PhaseMultiplierT2:0.0}/x{MobaGold.PhaseMultiplierT3:0.0}", MobaGold.PhaseMultiplierT2, MobaGold.PhaseMultiplierT3), ("Plano x1,0/x1,0/x1,0 (referencia)", 1.0, 1.0) })
         {
             sb.AppendLine().AppendLine($"=== {name} ===");
             foreach (var profile in profiles)
@@ -72,17 +72,17 @@ public class MobaGoldEconomyReport
         var avg = new Profile("Promedio", 0.60, 0.20, 0.25, 0.30);
         var good = new Profile("Bien farmeado", 0.90, 0.40, 0.50, 0.40);
         var results = new List<(double Score, string Text)>();
-        for (var scale = 3.0; scale <= 7.01; scale += 0.25)
+        for (var scale = 0.7; scale <= 1.31; scale += 0.05)
         {
-            for (var m2 = 0.6; m2 <= 1.51; m2 += 0.1)
+            for (var m2 = 0.6; m2 <= 1.51; m2 += 0.2)
             {
-                for (var m3 = 0.6; m3 <= 1.51; m3 += 0.1)
+                for (var m3 = 1.0; m3 <= 4.01; m3 += 0.2)
                 {
                     var a = Simulate(null, avg, avg, m2, m3, costs, scale);
                     var g = Simulate(null, good, avg, m2, m3, costs, scale);
-                    // Targets: avg T1 ~13.5, avg T2 ~27.5, avg no T3 before 45; good T3 ~37.5.
+                    // Targets (perfect purchases, average profile): T1 ~8.5, T2 ~23, T3 ~40.
                     double Miss(double? v, double target) => v is null ? 30 : Math.Abs(v.Value - target);
-                    var score = Miss(a.T1, 13.5) + Miss(a.T2, 27.5) + Miss(g.T3, 37.5) + (a.T3 is { } t && t < 45 ? 45 - t : 0);
+                    var score = Miss(a.T1, 8.5) + (Miss(a.T2, 23) * 0.5) + Miss(a.T3, 40);
                     results.Add((score, $"K={scale:0.00} m2={m2:0.0} m3={m3:0.0} | prom T1={a.T1:0.0} T2={a.T2:0.0} T3={a.T3:0.0} | bien T1={g.T1:0.0} T2={g.T2:0.0} T3={g.T3:0.0} | score={score:0.0}"));
                 }
             }
