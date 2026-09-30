@@ -216,6 +216,43 @@ public static class MobaShop
         return true;
     }
 
+    /// <summary>Puts a teleport scroll into the champion's inventory (for tests; a champion normally buys it).</summary>
+    /// <param name="player">The champion.</param>
+    /// <returns><see langword="true"/> if the scroll was added.</returns>
+    internal static async ValueTask<bool> GiveTeleportScrollAsync(Player player)
+    {
+        var definition = player.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == MobaTeleport.ScrollGroup && d.Number == MobaTeleport.ScrollNumber);
+        if (definition is null || player.Inventory is not { } inventory)
+        {
+            return false;
+        }
+
+        var scroll = CreateItem(definition, new MobaShopEntry(MobaShopCategory.Consumables, null, MobaTeleport.ScrollGroup, MobaTeleport.ScrollNumber, MobaShopTier.T2));
+        var slot = inventory.CheckInvSpace(scroll);
+        return slot is not null && await inventory.AddItemAsync((byte)slot, scroll).ConfigureAwait(false);
+    }
+
+    /// <summary>Gets the point next to the team's vendor, where its champions recall to.</summary>
+    /// <param name="team">The team.</param>
+    /// <returns>The vendor position, or <see langword="null"/> without a team.</returns>
+    internal static MUnique.OpenMU.Pathfinding.Point? VendorPositionOf(MobaTeam team)
+        => team switch
+        {
+            MobaTeam.Blue => new MUnique.OpenMU.Pathfinding.Point(BlueVendorPos.X, BlueVendorPos.Y),
+            MobaTeam.Red => new MUnique.OpenMU.Pathfinding.Point(RedVendorPos.X, RedVendorPos.Y),
+            _ => null,
+        };
+
+    /// <summary>Gets what the shop pays for an item (the flat price of creep drops, else the resale share of its price).</summary>
+    /// <param name="item">The item.</param>
+    /// <param name="price">The selling price.</param>
+    /// <returns>Always <see langword="true"/>; kept as a pair with <see cref="TryGetSellPrice"/>.</returns>
+    internal static bool TryGetSellPriceFor(Item item, out int price)
+    {
+        price = item.StorePrice == CreepDropSellPrice ? CreepDropSellPrice : (int)(PriceOf(item) * SellPercent / 100);
+        return true;
+    }
+
     /// <summary>
     /// Calculates the shop price of an item: proportional to its grade (drop level, which is
     /// what the base stats of MU items scale with), its level and its options. Stacks are

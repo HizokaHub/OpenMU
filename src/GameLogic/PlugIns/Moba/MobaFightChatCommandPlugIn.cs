@@ -88,11 +88,22 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
             ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(n - 1)).ConfigureAwait(false)
             : 0;
 
+        // 2v2 also tests the teleport scroll: every champion (you and the bots) starts with one.
+        var scrolls = 0;
+        if (n > 1)
+        {
+            scrolls += await MobaShop.GiveTeleportScrollAsync(player).ConfigureAwait(false) ? 1 : 0;
+            foreach (var bot in MobaBotPlayer.All)
+            {
+                scrolls += await MobaShop.GiveTeleportScrollAsync(bot).ConfigureAwait(false) ? 1 : 0;
+            }
+        }
+
         MobaWavePeriodicSpawner.Start(arena, player.GameContext, TimeSpan.FromSeconds(WaveIntervalSeconds));
 
         player.Logger.LogInformation("[MOBA-FIGHT] /mobafight {N}v{N}: {Blue} blue bot(s), {Red} red bot(s), {S} structures, waves every {Sec}s.", n, n, blue, red, structures, WaveIntervalSeconds);
         await player.ShowBlueMessageAsync(
-            $"[mobafight] {n}v{n}: vos en equipo azul{(blue > 0 ? $" + {blue} bot aliado" : string.Empty)} vs {red} bot(s) rojo(s). Oleadas cada {WaveIntervalSeconds} s. /mobafight stop para limpiar.").ConfigureAwait(false);
+            $"[mobafight] {n}v{n}: vos en equipo azul{(blue > 0 ? $" + {blue} bot aliado" : string.Empty)} vs {red} bot(s) rojo(s). Oleadas cada {WaveIntervalSeconds} s.{(scrolls > 0 ? $" {scrolls} pergamino(s) de teletransporte entregados." : string.Empty)} /mobafight stop para limpiar.").ConfigureAwait(false);
     }
 
     private static async ValueTask<(int Bots, int Creeps)> StopAsync(GameMap arena)

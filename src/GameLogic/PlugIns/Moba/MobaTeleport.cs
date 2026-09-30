@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
@@ -59,6 +60,7 @@ public static class MobaTeleport
 
         state.Scroll = scroll;
         state.TargetingUntilUtc = now.AddSeconds(TargetingSeconds);
+        player.Logger.LogInformation("[MOBA-TP] \"{Name}\" scroll used, waiting for a minion click ({Seconds}s).", player.SelectedCharacter?.Name, TargetingSeconds);
         await player.InvokeViewPlugInAsync<IMobaChannelPlugIn>(p => p.ShowChannelAsync(KindTargeting, 1)).ConfigureAwait(false);
         await player.ShowBlueMessageAsync("[MOBA] Haz clic en un minion aliado para teletransportarte a él.").ConfigureAwait(false);
     }
@@ -71,6 +73,7 @@ public static class MobaTeleport
     {
         if (!States.TryGetValue(player, out var state) || state.Scroll is not { } scroll || DateTime.UtcNow > state.TargetingUntilUtc)
         {
+            player.Logger.LogInformation("[MOBA-TP] \"{Name}\" minion click {Id} ignored: not targeting (or timed out).", player.SelectedCharacter?.Name, targetId);
             return;
         }
 
@@ -78,9 +81,12 @@ public static class MobaTeleport
         if (player.CurrentMap?.GetObject(targetId) is not Monster { IsAlive: true } minion
             || !MobaTeams.AreAllies(player, minion))
         {
+            player.Logger.LogInformation("[MOBA-TP] \"{Name}\" clicked {Id}: not a living allied minion.", player.SelectedCharacter?.Name, targetId);
             await player.ShowBlueMessageAsync("[MOBA] Ese no es un minion aliado.").ConfigureAwait(false);
             return;
         }
+
+        player.Logger.LogInformation("[MOBA-TP] \"{Name}\" channelling teleport to minion {Id} @ {Pos}.", player.SelectedCharacter?.Name, targetId, minion.Position);
 
         await MobaRecall.TryStartAsync(
             player,
@@ -88,6 +94,7 @@ public static class MobaTeleport
             () => minion.IsAlive && minion.CurrentMap is { } map ? map.Terrain.GetRandomCoordinate(minion.Position, 2) : null,
             async () =>
             {
+                player.Logger.LogInformation("[MOBA-TP] \"{Name}\" teleported next to minion {Id} @ {Pos}.", player.SelectedCharacter?.Name, targetId, player.Position);
                 state.CooldownUntilUtc = DateTime.UtcNow.AddMinutes(CooldownMinutes);
                 await ConsumeAsync(player, scroll).ConfigureAwait(false);
             }).ConfigureAwait(false);

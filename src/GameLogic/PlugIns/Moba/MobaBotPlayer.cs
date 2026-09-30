@@ -59,6 +59,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>With an allied wave, how far (Y tiles) PAST a live enemy front turret a bot may go - just enough to body it, never a free run to the base.</summary>
     private const int TurretBodyMargin = 3;
 
+    /// <summary>An allied wave within this many tiles of the enemy nexus is what lets the bots siege it (the turret needs the wave within <see cref="TurretDangerTiles"/> + 3).</summary>
+    private const int NexusWaveSupportTiles = 26;
+
+    /// <summary>How far (Y tiles) short of the enemy nexus a bot stands to hit it.</summary>
+    private const int NexusStandOffTiles = 4;
+
     /// <summary>Hard no-go radius around the enemy nexus / spawn - bots never path in here (no diving the fountain for respawn kills).</summary>
     private const int FountainExclusionTiles = 18;
 
@@ -117,6 +123,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private DateTime _comboResetUtc;
     private DateTime _combatUntilUtc;
     private DateTime _recallStartUtc;
+    private DateTime _holdUntilUtc;
     private int _developSkillCursor;
     private int _comboStep;
     private Player? _aggressor;
@@ -353,7 +360,18 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         var pos = this.Position;
         var now = DateTime.UtcNow;
+
+        // Standing still for the teleport scroll channel (it breaks when the bot moves or is hit).
+        if (now < this._holdUntilUtc && MobaRecall.IsChanneling(this))
+        {
+            return;
+        }
+
         var ctx = this.BuildContext(map, pos, now);
+        if (await this.TickEconomyAsync(ctx).ConfigureAwait(false))
+        {
+            return;
+        }
 
         // --- macro state machine ---------------------------------------------------------
         var prevState = this._state;
@@ -546,7 +564,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         // A friendly wave is at the front objective (needed to actually push a turret).
         var waveAtFront = frontEnemyStructure is { } fs
-            && map.GetAttackablesInRange(fs.Position, TurretDangerTiles + 3)
+            && map.GetAttackablesInRange(fs.Position, MobaStructures.GetStructureType(fs) == MobaStructureType.Nexus ? NexusWaveSupportTiles : TurretDangerTiles + 3)
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
 
@@ -622,6 +640,14 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
         }
 
+        // Enough gold for the next upgrade and nobody around: recall to the shop.
+        if (!committed && !c.InCombat && c.EnemyChampsNear.Count == 0 && !MobaBotEconomy.IsAtShop(this)
+            && this.IsSafeSpot(c) && MobaBotEconomy.WantsShopTrip(this))
+        {
+            this.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" recalls to shop with {Gold} gold.", this.Name, this.Money);
+            return BotState.Recalling;
+        }
+
         // Team is being run over: play defence at our own turret, never walk out to feed.
         if (c.EnemyAvgLevel - c.AllyAvgLevel >= DefendBehindLevels)
         {
@@ -681,6 +707,47 @@ public sealed class MobaBotPlayer : OfflinePlayer
         var ownHalf = MobaTeams.GetTeam(this) == MobaTeam.Blue ? c.Pos.Y < 122 : c.Pos.Y > 134;
         var noEnemyClose = !c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallSafeTiles);
         return ownHalf && noEnemyClose;
+    }
+
+    /// <summary>
+    /// Shopping, potions, looting and the teleport scroll. Returns <see langword="true"/> when it used the
+    /// bot's turn (walking to loot, standing for a teleport channel), so the macro brain skips this tick.
+    /// </summary>
+    private async ValueTask<bool> TickEconomyAsync(BotContext c)
+    {
+        await MobaBotEconomy.DrinkPotionsAsync(this, c.InCombat).ConfigureAwait(false);
+
+        if (MobaBotEconomy.IsAtShop(this))
+        {
+            await MobaBotEconomy.ShopAsync(this).ConfigureAwait(false);
+            var channel = await MobaBotEconomy.TryTeleportAsync(this).ConfigureAwait(false);
+            if (channel > TimeSpan.Zero)
+            {
+                this._holdUntilUtc = c.Now + channel;
+                return true;
+            }
+        }
+
+        if (c.EnemyChampsNear.Count > 0 || c.InCombat || this._state is BotState.Recalling or BotState.Retreat)
+        {
+            return false;
+        }
+
+        if (MobaBotEconomy.FindWantedDrop(this) is not { } drop)
+        {
+            return false;
+        }
+
+        if (drop.GetDistanceTo(this) <= 2)
+        {
+            await MobaBotEconomy.PickUpAndEquipAsync(this, drop).ConfigureAwait(false);
+        }
+        else
+        {
+            await this.WalkTowardAsync(drop.Position).ConfigureAwait(false);
+        }
+
+        return true;
     }
 
     private async ValueTask TickRecallAsync(BotContext c)
@@ -1246,6 +1313,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             .FirstOrDefault();
 
         int limitY;
+        var siegingNexus = false;
         if (frontTurret is { } turret)
         {
             // Turret alive: the wave only decides whether we stop SHORT of it or may body it -
@@ -1263,17 +1331,28 @@ public sealed class MobaBotPlayer : OfflinePlayer
             var wavePastRuin = map.GetAttackablesInRange(enemyTurretAnchor, TurretDangerTiles + 3)
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
-            limitY = wavePastRuin
-                ? (goingSouth ? enemySpawn.Y - FountainExclusionTiles : enemySpawn.Y + FountainExclusionTiles)
-                : (goingSouth ? enemyTurretAnchor.Y - LaneLimitMargin : enemyTurretAnchor.Y + LaneLimitMargin);
+
+            // The wave has reached the nexus: the bots go in with it and hit the nexus from just short of it.
+            siegingNexus = enemyStructures.Any(m => MobaStructures.GetStructureType(m) == MobaStructureType.Nexus)
+                && map.GetAttackablesInRange(enemyNexus, NexusWaveSupportTiles)
+                    .OfType<NPC.Monster>()
+                    .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
+            limitY = siegingNexus
+                ? (goingSouth ? enemyNexus.Y - NexusStandOffTiles : enemyNexus.Y + NexusStandOffTiles)
+                : wavePastRuin
+                    ? (goingSouth ? enemySpawn.Y - FountainExclusionTiles : enemySpawn.Y + FountainExclusionTiles)
+                    : (goingSouth ? enemyTurretAnchor.Y - LaneLimitMargin : enemyTurretAnchor.Y + LaneLimitMargin);
         }
 
         // The enemy fountain (nexus + spawn) is ALWAYS off-limits - never dive it for respawn kills.
         var nexusLimit = goingSouth ? enemyNexus.Y - FountainExclusionTiles : enemyNexus.Y + FountainExclusionTiles;
         var spawnLimit = goingSouth ? enemySpawn.Y - FountainExclusionTiles : enemySpawn.Y + FountainExclusionTiles;
-        limitY = goingSouth
-            ? Math.Min(limitY, Math.Min(nexusLimit, spawnLimit))
-            : Math.Max(limitY, Math.Max(nexusLimit, spawnLimit));
+        if (!siegingNexus)
+        {
+            limitY = goingSouth
+                ? Math.Min(limitY, Math.Min(nexusLimit, spawnLimit))
+                : Math.Max(limitY, Math.Max(nexusLimit, spawnLimit));
+        }
 
         var clampedY = goingSouth ? Math.Min(target.Y, limitY) : Math.Max(target.Y, limitY);
         if (clampedY != target.Y)
