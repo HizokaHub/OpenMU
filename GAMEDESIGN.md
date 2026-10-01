@@ -890,6 +890,12 @@ quedan). Cada ejecución limpia antes lo anterior.
    Presentar la lista al usuario para confirmar cada integración antes de codificar (cada una necesita un reporte/test propio).
 5. **Pendientes que siguen:** verificar con un `/mobafight 2` (nexo < 100 %, mascotas/Égida/ward/barredor de bots, SD nuevo, reparto de puntos del árbol, logs `[MOBA-BOT-UTIL]` y `[MOBA-BOT-ECON]`); revisar con el usuario lo probado en juego (minimapa, Nv/puntos en C, «+», árbol Master, `[MOBA-MANA]`); cooldown visual del barredor (slot 11); ítem de ward comprable; skills de área con visión; brillo de pociones +7/+8/+9; validar oro/EXP contra `MobaGoldEconomyReport`; validar Égida, opciones de escudos, drops, caballo/cuervo del DL y mascotas de utilidad con logs; comprobar si los bots respetan `MobaVision.CanTarget`; Vision v2 solo si el usuario lo pide.
 
+**Sesión 2026-10-01 (4ª parte) — primer `/mobafight 2` con el árbol/SD/bots nuevos (log `openmu-server-mobafight2c.log`, 14,5 min):**
+- **Sin errores/excepciones.** Funciona: bots ponen wards y usan el barredor (`[MOBA-BOT-UTIL]`), compran Imp (T1), packs de poción y equipo. Égida de bots: ningún registro en el log (hay que ver si lanzan el skill 210; el log no lo anota).
+- **El nexo siguió en 100 %** (torreta roja a 51 %): 113 avisos `IDLE`. **Bug 1 (reportado por el usuario):** bots a distancia (mago y elfas) congelados «walking in (dist 6 > range 6)»: con el objetivo a 6,3 tiles y rango 6, el destino de `StepShortOf` quedaba a < 1 tile y `WalkTowardAsync` lo ignora. Arreglo: el bot se detiene a `range-1` (`MobaBotPlayer.EngageAsync`).
+- **Bug 2: vida máxima de las elfas BAJA al subir de nivel** (8.118 → 3.936; la azul llegó a −2.083). Causa probable: `MobaItemCaps.CapAttribute` restaba un delta plano, que un multiplicador de la stat amplifica y pasa del tope. Arreglo: se mide el efecto real del elemento y se reescala para caer exactamente en el tope. **Falta confirmar en un nuevo `/mobafight 2`** (la vida máx. de las elfas debe crecer con el nivel).
+- Mascotas: solo se vio Imp (T1); las de T2/T3 requieren que todo el equipo llegue al tier anterior (no ocurrió en 14 min).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

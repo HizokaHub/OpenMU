@@ -1081,7 +1081,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
             }
 
             this.EngageNote($"walking in (dist {dist:F0} > range {range})", target);
-            await this.WalkTowardAsync(StepShortOf(pos, target.Position, range)).ConfigureAwait(false);
+            // Stop 1 tile inside the range: with the exact range the destination of a target at
+            // e.g. 6.3 tiles (range 6) lands < 1 tile away, which WalkTowardAsync ignores - the
+            // ranged bot then stood frozen "walking in" forever.
+            await this.WalkTowardAsync(StepShortOf(pos, target.Position, Math.Max(1, range - 1))).ConfigureAwait(false);
             return;
         }
 

@@ -69,8 +69,21 @@ public static class MobaItemCaps
         var current = attributes[stat];
         if (current > cap)
         {
-            var element = new SimpleElement(cap - current, AggregateType.AddRaw);
+            var delta = cap - current;
+            var element = new SimpleElement(delta, AggregateType.AddRaw);
             attributes.AddElement(element, stat);
+
+            // A flat AddRaw element is amplified when the stat also has a multiplier (e.g. an
+            // Elf's max HP), so the clamp would overshoot far below the cap (even negative).
+            // Measure what it really did and rescale it so the final value lands on the cap.
+            var effect = attributes[stat] - current;
+            if (Math.Abs(attributes[stat] - cap) > 0.5f && effect < -0.001f)
+            {
+                attributes.RemoveElement(element, stat);
+                element = new SimpleElement(delta * (delta / effect), AggregateType.AddRaw);
+                attributes.AddElement(element, stat);
+            }
+
             tracked = element;
         }
     }
