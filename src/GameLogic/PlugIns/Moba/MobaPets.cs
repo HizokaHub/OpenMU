@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Configuration.Items;
@@ -212,6 +213,7 @@ public static class MobaPets
                     && champion.PetCommandManager is { } manager)
                 {
                     ActivatedRavens.Add(pet, new object());
+                    champion.Logger.LogInformation("[MOBA-RAVEN] {name}: Raven (lv {level}, slot {slot}) equipped, switching it to attack-with-owner.", champion.SelectedCharacter?.Name, pet.Level, pet.ItemSlot);
                     await manager.SetBehaviourAsync(PetBehaviour.AttackWithOwner, null).ConfigureAwait(false);
                 }
             }

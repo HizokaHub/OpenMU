@@ -27,6 +27,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
     private readonly List<IAttackable> _targetBuffer = new(MaxRangeHits);
     private readonly AsyncLock _rangeAttackLock = new();
 
+    private DateTime _lastLogUtc;
     private CancellationTokenSource? _attackCts;
     private PetBehaviour _currentBehaviour;
 
@@ -111,6 +112,12 @@ public class RavenCommandManager : Disposable, IPetCommandManager
         if (this._owner.IsAtSafezone())
         {
             return;
+        }
+
+        if (this._owner.IsMobaClone && this._owner is not PlugIns.Moba.MobaBotPlayer && (DateTime.UtcNow - this._lastLogUtc).TotalSeconds >= 10)
+        {
+            this._lastLogUtc = DateTime.UtcNow;
+            this._owner.Logger.LogInformation("[MOBA-RAVEN] {name}: the Raven attacks {target}.", this._owner.SelectedCharacter?.Name, target);
         }
 
         var attackType = !this._owner.IsMobaClone && Rand.NextRandomBool(0.3) ? PetAttackType.RangeAttack : PetAttackType.SingleTarget;

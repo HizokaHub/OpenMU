@@ -273,6 +273,17 @@ public class MoveItemAction
                 return Movement.Normal;
             }
 
+            if (player.IsMobaClone)
+            {
+                player.Logger.LogInformation(
+                    "[MOBA-EQUIP] {name} can't equip {item} in slot {slot}: slot allowed={allowed}, complies={complies}.",
+                    player.SelectedCharacter?.Name,
+                    itemDefinition.Name,
+                    toSlot,
+                    itemDefinition.ItemSlot.ItemSlots.Contains(toSlot),
+                    player.CompliesRequirements(item));
+            }
+
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.YouCantWearThisItem)).ConfigureAwait(false);
             return Movement.None;
         }

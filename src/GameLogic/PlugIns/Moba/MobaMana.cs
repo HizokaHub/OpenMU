@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.GameLogic.Attributes;
 
@@ -28,6 +29,9 @@ public static class MobaMana
 
     /// <summary>Upper bound of the regeneration, as a share of the maximum mana per second (a full pool in ~8 s).</summary>
     public const double MaxRegenPoolShare = 0.12;
+
+    /// <summary>Seconds between two <c>[MOBA-MANA]</c> telemetry lines of a human champion.</summary>
+    private const double TelemetrySeconds = 5;
 
     private static readonly ConditionalWeakTable<Player, RegenState> States = new();
 
@@ -95,15 +99,47 @@ public static class MobaMana
                 var elapsed = state.LastUtc == default ? 0 : Math.Min((now - state.LastUtc).TotalSeconds, 2);
                 state.LastUtc = now;
                 var max = attributes[Stats.MaximumMana];
-                if (elapsed <= 0 || attributes[Stats.CurrentMana] >= max)
+                var before = attributes[Stats.CurrentMana];
+
+                // Mana the champion spent (or drank) since the last tick: what it has now vs. what the last tick left it with.
+                var spentOrDrunk = state.LastMana - (double)before;
+                if (state.LastMana >= 0)
                 {
-                    continue;
+                    state.SpentOrDrunk += spentOrDrunk;
                 }
 
-                state.Carry += RegenPerSecond(champion) * elapsed;
-                var whole = Math.Floor(state.Carry);
-                state.Carry -= whole;
-                attributes[Stats.CurrentMana] = (uint)Math.Min(max, attributes[Stats.CurrentMana] + whole);
+                if (elapsed > 0 && before < max)
+                {
+                    state.Carry += RegenPerSecond(champion) * elapsed;
+                    var whole = Math.Floor(state.Carry);
+                    state.Carry -= whole;
+                    var after = (uint)Math.Min(max, before + whole);
+                    state.Regenerated += after - before;
+                    attributes[Stats.CurrentMana] = after;
+                }
+
+                state.LastMana = attributes[Stats.CurrentMana];
+                if (champion is not MobaBotPlayer && (now - state.LastLogUtc).TotalSeconds >= TelemetrySeconds)
+                {
+                    // Only logs while something happened, so an idle full pool doesn't flood the log.
+                    if (state.Regenerated > 0 || Math.Abs(state.SpentOrDrunk) > 0.5)
+                    {
+                        champion.Logger.LogInformation(
+                            "[MOBA-MANA] {name}: {cur}/{max} | regen {rate:0.0}/s (priciest skill {cost}) | in the last {secs:0}s: +{regen} regenerated, {spent:0} spent or drunk",
+                            champion.SelectedCharacter?.Name,
+                            attributes[Stats.CurrentMana],
+                            max,
+                            RegenPerSecond(champion),
+                            MostExpensiveSkillCost(champion),
+                            Math.Min((now - state.LastLogUtc).TotalSeconds, 60),
+                            state.Regenerated,
+                            state.SpentOrDrunk);
+                    }
+
+                    state.LastLogUtc = now;
+                    state.Regenerated = 0;
+                    state.SpentOrDrunk = 0;
+                }
             }
         }
         catch
@@ -117,5 +153,13 @@ public static class MobaMana
         public DateTime LastUtc;
 
         public double Carry;
+
+        public double LastMana = -1;
+
+        public double Regenerated;
+
+        public double SpentOrDrunk;
+
+        public DateTime LastLogUtc;
     }
 }
