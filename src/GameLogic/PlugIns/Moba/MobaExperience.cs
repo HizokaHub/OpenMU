@@ -19,6 +19,14 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public static class MobaExperience
 {
+    private static async ValueTask ShowStatPointsAsync(Player champion)
+    {
+        if (champion.SelectedCharacter is { } character && MobaStatEconomy.PointsPerLevel(champion) > 0)
+        {
+            await champion.ShowBlueMessageAsync($"[MOBA] +{MobaStatEconomy.PointsPerLevel(champion):N0} puntos de stats ({character.LevelUpPoints:N0} sin gastar): /mobaadd <str|agi|ene|vit|cmd> <cantidad>, /mobastats para ver el reparto.").ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// Adds <paramref name="amount"/> experience to a champion and processes any level-ups.
     /// </summary>
@@ -86,10 +94,12 @@ public static class MobaExperience
                 await champion.InvokeViewPlugInAsync<IShowMessagePlugIn>(p =>
                     p.ShowMessageAsync($"NIVEL {champion.MobaLevel} - elegí una habilidad", MessageType.GoldenCenter)).ConfigureAwait(false);
                 await champion.ShowBlueMessageAsync($"[MOBA] ¡Nivel {champion.MobaLevel}! Tenés un pick de habilidad disponible.").ConfigureAwait(false);
+                await ShowStatPointsAsync(champion).ConfigureAwait(false);
             }
             else
             {
                 await champion.ShowBlueMessageAsync($"[MOBA] Nivel de campeón {champion.MobaLevel} (+1 punto de habilidad, {champion.MobaSkillPoints} sin gastar).").ConfigureAwait(false);
+                await ShowStatPointsAsync(champion).ConfigureAwait(false);
             }
 
             if (champion.MobaLevel >= MobaLevels.MaxLevel)

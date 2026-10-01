@@ -92,6 +92,19 @@ public static class MobaVision
         return IsWardedBy(team, map, position);
     }
 
+    /// <summary>Gets the positions of the standing wards of a team on a map (for the minimap).</summary>
+    /// <param name="team">The team.</param>
+    /// <param name="map">The map.</param>
+    /// <returns>The ward positions.</returns>
+    public static IReadOnlyList<Point> WardsOf(MobaTeam team, GameMap map)
+    {
+        lock (WardLock)
+        {
+            Wards.RemoveAll(w => w.ExpiresUtc <= DateTime.UtcNow);
+            return Wards.Where(w => w.Team == team && ReferenceEquals(w.Map, map)).Select(w => w.Position).ToList();
+        }
+    }
+
     /// <summary>Places a ward of the champion at its position, paying <see cref="WardCost"/> gold.</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>A message for the champion (success or why not).</returns>
