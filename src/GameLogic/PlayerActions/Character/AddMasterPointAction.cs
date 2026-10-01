@@ -46,6 +46,12 @@ public class AddMasterPointAction
             return;
         }
 
+        if (player.IsMobaClone && !PlugIns.Moba.MobaMasterTree.IsAllowed(skill))
+        {
+            await player.ShowBlueMessageAsync("[MOBA] Ese nodo del árbol no está disponible en la partida (solo daño, vida máxima y maná máximo).").ConfigureAwait(false);
+            return;
+        }
+
         var learnedSkill = player.SelectedCharacter.LearnedSkills.FirstOrDefault(ls => ls.Skill?.Number == skillId);
         if (learnedSkill is null)
         {
@@ -112,6 +118,18 @@ public class AddMasterPointAction
         {
             player.Logger.LogWarning("Character not in a qualified class to learn the skill, account {0}, character {1}", player.Account!.LoginName, player.SelectedCharacter.Name);
             return false;
+        }
+
+        if (player.IsMobaClone)
+        {
+            // MOBA: its own rank rule replaces the tree's (most nodes of the lower ranks are refused here).
+            if (!PlugIns.Moba.MobaMasterTree.MeetsRank(player, skill))
+            {
+                _ = player.ShowBlueMessageAsync($"[MOBA] Este nodo pide {PlugIns.Moba.MobaMasterTree.PointsNeededInRoot(skill)} puntos en esta rama.");
+                return false;
+            }
+
+            return true;
         }
 
         if (!this.CheckRank(skill.MasterDefinition, player.SelectedCharacter))

@@ -50,10 +50,16 @@ public static class MobaSkillDamage
     /// <summary>
     /// Weight of the stat-build term ("A", <see cref="InvestedFraction"/>) in the blended
     /// damage-scaling fraction against the item term ("B", <see cref="MobaItemPower.OffenseFractionOf"/>)
-    /// - see <see cref="BlendedFraction"/>. Stats stay dominant (60%); items are a real,
-    /// bounded add (40%) instead of on top uncapped.
+    /// - see <see cref="BlendedFraction"/>. Damage weights (2026-10-01, set by the user): stats 45 %,
+    /// master tree 20 % (<see cref="MobaMasterTree.OffenseFraction"/>), items 35 %.
     /// </summary>
-    private const double StatWeight = 0.60;
+    private const double StatWeight = 0.45;
+
+    /// <summary>Weight of the master tree term ("T") in the damage blend.</summary>
+    private const double TreeWeight = 0.20;
+
+    /// <summary>Weight of the item term ("B") in the damage blend.</summary>
+    private const double ItemWeight = 0.35;
 
     /// <summary>Flat base + spread for a champion's basic attack.</summary>
     private const int BasicAttackDamage = 45;
@@ -250,7 +256,8 @@ public static class MobaSkillDamage
     {
         var fromStats = InvestedFraction(champion);
         var fromItems = MobaItemPower.OffenseFractionOf(champion);
-        return Math.Clamp((StatWeight * fromStats) + ((1.0 - StatWeight) * fromItems), 0.0, 1.0);
+        var fromTree = MobaMasterTree.OffenseFraction(champion);
+        return Math.Clamp((StatWeight * fromStats) + (TreeWeight * fromTree) + (ItemWeight * fromItems), 0.0, 1.0);
     }
 
     private static void Spread2(double mid, out int min, out int max)

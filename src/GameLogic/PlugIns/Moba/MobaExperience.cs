@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views;
+using MUnique.OpenMU.GameLogic.Views.Character;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Pathfinding;
@@ -23,7 +24,7 @@ public static class MobaExperience
     {
         if (champion.SelectedCharacter is { } character && MobaStatEconomy.PointsPerLevel(champion) > 0)
         {
-            await champion.ShowBlueMessageAsync($"[MOBA] +{MobaStatEconomy.PointsPerLevel(champion):N0} puntos de stats ({character.LevelUpPoints:N0} sin gastar): /mobaadd <str|agi|ene|vit|cmd> <cantidad>, /mobastats para ver el reparto.").ConfigureAwait(false);
+            await champion.ShowBlueMessageAsync($"[MOBA] +{MobaStatEconomy.PointsPerLevel(champion):N0} puntos de stats ({character.LevelUpPoints:N0} sin gastar) y +{MobaMasterTree.PointsPerLevel} del árbol Master ({character.MasterLevelUpPoints} sin gastar): /mobaadd <str|agi|ene|vit|cmd> <cantidad>, /mobastats para ver el reparto.").ConfigureAwait(false);
         }
     }
 
@@ -81,6 +82,12 @@ public static class MobaExperience
             if (champion.SelectedCharacter is { } character)
             {
                 character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(champion);
+                character.MasterLevelUpPoints += MobaMasterTree.PointsPerLevel;
+            }
+
+            if (champion.Attributes is { } levelAttributes)
+            {
+                levelAttributes[Stats.MasterLevel] = champion.MobaLevel; // shown in the master tree window
             }
 
             await MobaGold.GrantAsync(champion, MobaGold.LevelUpGold, "levelup").ConfigureAwait(false);
@@ -117,6 +124,10 @@ public static class MobaExperience
         }
 
         await PushStateAsync(champion).ConfigureAwait(false);
+        if (leveledUp)
+        {
+            await champion.InvokeViewPlugInAsync<IUpdateMasterStatsPlugIn>(p => p.SendMasterStatsAsync()).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Sends the champion its current level / experience / skill points for the HUD bar.</summary>

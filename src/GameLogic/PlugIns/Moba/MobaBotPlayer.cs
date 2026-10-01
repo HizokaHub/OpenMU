@@ -336,7 +336,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         // that barely lives still keeps its level's worth of stats and skill ranks.
         if (!this._isDummy)
         {
-            this.DevelopIfDue();
+            await this.DevelopIfDueAsync().ConfigureAwait(false);
         }
 
         if (!this.IsAlive)
@@ -1397,8 +1397,11 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// developed bot is a real "full build" opponent to fight against. Skill points rank
     /// the loadout abilities round-robin toward the cap; stat points dump into the class's
     /// primary stat (up to <see cref="MobaStatEconomy.MaxPerStat"/>).
+    /// Since 2026-10-01 the bot plays the build a human would: stat points go 35 % primary / 35 % VIT
+    /// (mitigation) / 30 % AGI (critical), each capped, and master points fill the offense nodes of its tree,
+    /// then health and mana (<see cref="MobaMasterTree.NodesInFillOrder"/>).
     /// </summary>
-    private void DevelopIfDue()
+    private async ValueTask DevelopIfDueAsync()
     {
         var now = DateTime.UtcNow;
         if (now < this._nextDevelopUtc)
@@ -1428,7 +1431,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             }
         }
 
-        // Dump stat points into the primary stat.
+        // Spend stat points the way a human would: primary stat for damage, VIT for mitigation, AGI for crit.
         var available = (int)Math.Max(0, character.LevelUpPoints);
         if (available > 0)
         {
@@ -1440,14 +1443,81 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 _ => Stats.BaseEnergy,
             };
 
-            var invested = (int)Math.Round(attributes[primary] - MobaCloneFactory.BaselineStatValue);
-            var room = Math.Max(0, MobaStatEconomy.MaxPerStat - invested);
-            var applied = Math.Min(available, room);
-            if (applied > 0)
+            // (stat, share of every batch). The primary of an Elf is AGI itself, so it gets AGI's share too.
+            var plan = new List<(AttributeDefinition Stat, double Share)>
             {
-                attributes[primary] += applied;
-                character.LevelUpPoints -= applied;
+                (primary, 0.35),
+                (Stats.BaseVitality, 0.35),
+                (Stats.BaseAgility, 0.30),
+            };
+
+            var batch = available;
+            foreach (var (stat, share) in plan)
+            {
+                if (character.LevelUpPoints <= 0)
+                {
+                    break;
+                }
+
+                this.InvestStat(character, attributes, stat, (int)Math.Ceiling(batch * share));
             }
+
+            // Whatever is left (a stat hit its cap): top up the planned stats, then the other stats of the class.
+            foreach (var stat in plan.Select(p => p.Stat).Concat(new[] { Stats.BaseEnergy, Stats.BaseStrength }).Distinct())
+            {
+                if (character.LevelUpPoints <= 0)
+                {
+                    break;
+                }
+
+                this.InvestStat(character, attributes, stat, (int)character.LevelUpPoints);
+            }
+        }
+
+        // Master tree: offense nodes first (the tree term of the damage), then health and mana.
+        if (character.MasterLevelUpPoints > 0)
+        {
+            var action = new PlayerActions.Character.AddMasterPointAction();
+            foreach (var node in MobaMasterTree.NodesInFillOrder(this).ToList())
+            {
+                var maxLevel = node.MasterDefinition!.MaximumLevel;
+                var offenseDone = MobaMasterTree.IsOffense(node) && MobaMasterTree.OffensePoints(this) >= MobaMasterTree.OffenseCapOf(this);
+                if (offenseDone && MobaMasterTree.IsOffense(node))
+                {
+                    continue;
+                }
+
+                var guardPoints = 0;
+                while (character.MasterLevelUpPoints > 0 && guardPoints++ < 40
+                       && (character.LearnedSkills.FirstOrDefault(l => l.Skill == node)?.Level ?? 0) < maxLevel
+                       && MobaMasterTree.MeetsRank(this, node)
+                       && !(MobaMasterTree.IsOffense(node) && MobaMasterTree.OffensePoints(this) >= MobaMasterTree.OffenseCapOf(this)))
+                {
+                    await action.AddMasterPointAsync(this, (ushort)node.Number).ConfigureAwait(false);
+                }
+
+                if (character.MasterLevelUpPoints <= 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void InvestStat(DataModel.Entities.Character character, IAttributeSystem attributes, AttributeDefinition stat, int wanted)
+    {
+        if (character.CharacterClass?.GetStatAttribute(stat) is not { IncreasableByPlayer: true } || wanted <= 0)
+        {
+            return;
+        }
+
+        var invested = (int)Math.Round(attributes[stat] - MobaCloneFactory.BaselineStatValue);
+        var room = Math.Max(0, MobaStatEconomy.MaxPerStat - invested);
+        var applied = Math.Min(Math.Min(wanted, (int)Math.Max(0, character.LevelUpPoints)), room);
+        if (applied > 0)
+        {
+            attributes[stat] += applied;
+            character.LevelUpPoints -= applied;
         }
     }
 

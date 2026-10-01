@@ -125,6 +125,7 @@ public static class MobaCloneFactory
         }
 
         EnsureAttribute(context, clone, Stats.Level, MatchStartLevel);
+        EnsureAttribute(context, clone, Stats.MasterLevel, 1f);
 
         // Skill combo (normally unlocked by a quest): give it to every clone of a class
         // that has a combo definition (Blade Knight, Magic Gladiator, their generations)
