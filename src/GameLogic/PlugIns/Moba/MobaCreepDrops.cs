@@ -5,10 +5,9 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using MUnique.OpenMU.DataModel.Configuration.Items;
-using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
-/// Lane creeps have a small chance to drop a MOBA-shop item on death - a free bonus on top
+/// Lane creeps drop (through <see cref="MobaCreepDropGenerator"/>) nothing 35 %, Zen 35 % or a MOBA-shop item 30 % on death - a free bonus on top
 /// of the gold economy (<see cref="MobaGold"/>), rolled independently on level and excellent
 /// count so a drop can land anywhere from a bare piece to a lucky near-full one. Only items
 /// of the match's current phase (<see cref="MobaMatchPhase"/>) can drop - no T3 drops while
@@ -16,11 +15,17 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public static class MobaCreepDrops
 {
-    /// <summary>Chance a creep death drops anything at all.</summary>
-    public const double DropChance = 0.08;
+    /// <summary>Chance that a creep death drops nothing.</summary>
+    public const double NothingChance = 0.35;
 
-    /// <summary>Tiles around the death position a drop may land, so multiple drops from one wave don't stack on one tile.</summary>
-    private const int ScatterRadius = 2;
+    /// <summary>Chance that a creep death drops Zen (native <c>DroppedMoney</c>, picked up from the ground).</summary>
+    public const double ZenChance = 0.35;
+
+    /// <summary>Chance that a creep death drops an item (the remaining 30 %).</summary>
+    public const double ItemChance = 1.0 - NothingChance - ZenChance;
+
+    /// <summary>Share of the item drops that are weapons / shields; the rest are sets.</summary>
+    public const double WeaponsAndShieldsShare = 0.65;
 
     /// <summary>Excellent-option count roll, independent of the level roll. "Full" resolves to the phase tier's own guaranteed count (see <see cref="MobaShop.TierStatsOf"/>).</summary>
     private static readonly (int? Count, double Weight)[] ExcellentCountRoll =
@@ -43,30 +48,35 @@ public static class MobaCreepDrops
     };
 
     /// <summary>
-    /// Rolls a drop for one dead creep. Call from the creep-death handler alongside the
-    /// EXP / gold grants.
+    /// Builds the item a dead creep drops for <paramref name="lastHitter"/> (its class filters the items): weapons and
+    /// shields 65 % of the time, sets 35 %. The roll of WHETHER something drops (nothing / Zen / item) is made by
+    /// <see cref="MobaCreepDropGenerator"/>.
     /// </summary>
-    /// <param name="map">The arena map.</param>
-    /// <param name="position">Where the creep died.</param>
-    /// <param name="lastHitter">The champion that last-hit the creep (also the drop's class filter).</param>
-    /// <param name="beneficiaries">Champions who get first pickup priority (the creep's beneficiary team).</param>
-    public static async ValueTask TryDropAsync(GameMap map, Point position, Player lastHitter, IReadOnlyList<Player> beneficiaries)
+    /// <param name="lastHitter">The champion that last-hit the creep.</param>
+    /// <returns>The item, or <see langword="null"/> if there is nothing to drop for that champion and phase.</returns>
+    public static async ValueTask<Item?> CreateItemAsync(Player lastHitter)
     {
-        if (!lastHitter.IsMobaClone || !Rand.NextRandomBool(DropChance))
+        if (!lastHitter.IsMobaClone)
         {
-            return;
+            return null;
         }
 
         var tier = MobaMatchPhase.Current;
         var family = MobaPassives.FamilyOf(lastHitter);
-        var candidates = MobaShopCatalog.Entries
-            .Where(e => e.Tier == tier
-                        && e.Category is MobaShopCategory.Weapons or MobaShopCategory.Offhand or MobaShopCategory.Sets or MobaShopCategory.SetsSustain
-                        && (e.Families is null || e.Families.Contains(family)))
+        var all = MobaShopCatalog.Entries
+            .Where(e => e.Tier == tier && (e.Families is null || e.Families.Contains(family)))
             .ToList();
+        var arms = all.Where(e => e.Category is MobaShopCategory.Weapons or MobaShopCategory.Offhand).ToList();
+        var sets = all.Where(e => e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain).ToList();
+        var candidates = Rand.NextRandomBool(WeaponsAndShieldsShare) ? arms : sets;
         if (candidates.Count == 0)
         {
-            return;
+            candidates = arms.Count > 0 ? arms : sets;
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
         }
 
         // Pick the item first, then one of its variants, so an item with three mixes doesn't
@@ -76,7 +86,7 @@ public static class MobaCreepDrops
         var entry = variants[Rand.NextInt(0, variants.Count)];
         if (lastHitter.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is not { } definition)
         {
-            return;
+            return null;
         }
 
         var (tierLevel, optionLevel, luck, tierExcellent) = MobaShop.TierStatsOf(tier);
@@ -94,9 +104,7 @@ public static class MobaCreepDrops
             }
         }
 
-        var dropPosition = map.Terrain.GetRandomCoordinate(position, ScatterRadius);
-        var dropped = new DroppedItem(item, dropPosition, map, null, beneficiaries.Cast<object>());
-        await map.AddAsync(dropped).ConfigureAwait(false);
+        return item;
     }
 
     private static int? RollExcellentCount() => WeightedPick(ExcellentCountRoll);
@@ -118,4 +126,37 @@ public static class MobaCreepDrops
 
         return options[^1].Value;
     }
+}
+
+/// <summary>
+/// Drop generator of the lane creeps: replaces the native drop groups of the monster definition (the native items
+/// are gone) with nothing 35 % / Zen 35 % (native amount: experience + 7) / MOBA item 30 %.
+/// </summary>
+public sealed class MobaCreepDropGenerator : IDropGenerator
+{
+    private const int BaseMoneyDrop = 7;
+
+    /// <inheritdoc />
+    public async ValueTask<(IEnumerable<Item> Items, uint? Money)> GenerateItemDropsAsync(MonsterDefinition monster, int gainedExperience, Player player)
+    {
+        var roll = Rand.NextDouble();
+        if (roll < MobaCreepDrops.NothingChance)
+        {
+            return (Enumerable.Empty<Item>(), null);
+        }
+
+        if (roll < MobaCreepDrops.NothingChance + MobaCreepDrops.ZenChance)
+        {
+            return (Enumerable.Empty<Item>(), (uint)Math.Max(1, gainedExperience + BaseMoneyDrop));
+        }
+
+        var item = await MobaCreepDrops.CreateItemAsync(player).ConfigureAwait(false);
+        return (item is null ? Enumerable.Empty<Item>() : new[] { item }, null);
+    }
+
+    /// <inheritdoc />
+    public Item? GenerateItemDrop(DropItemGroup group) => null;
+
+    /// <inheritdoc />
+    public (Item? Item, uint? Money, ItemDropEffect DropEffect) GenerateItemDrop(IEnumerable<DropItemGroup> groups) => (null, null, default);
 }

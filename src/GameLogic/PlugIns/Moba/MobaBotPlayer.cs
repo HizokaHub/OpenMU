@@ -65,6 +65,16 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>A team this many champion levels ahead stops camping the respawning enemies and takes the objectives, wave or not.</summary>
     private const double DominanceLevels = 5;
 
+    /// <summary>Team death surplus over the enemy that also counts as dominance.</summary>
+    private const int DominanceDeaths = 6;
+
+    /// <summary>An ally this close to (or farther than) a fight is worth walking to instead of fighting 1v2.</summary>
+    private const double RegroupMaxTiles = 60;
+
+    private static readonly TimeSpan RegroupBudget = TimeSpan.FromSeconds(10);
+
+    private static readonly TimeSpan RegroupCooldown = TimeSpan.FromSeconds(25);
+
     /// <summary>How far (Y tiles) short of the enemy nexus a bot stands to hit it.</summary>
     private const int NexusStandOffTiles = 1;
 
@@ -375,7 +385,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         var ctx = this.BuildContext(map, pos, now);
-        this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels;
+        // Dominant by levels, or by a big death surplus (a team that keeps killing a respawning enemy without levelling past it).
+        this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels || ctx.DeathDeficit <= -DominanceDeaths;
         if (await this.TickEconomyAsync(ctx).ConfigureAwait(false))
         {
             return;
@@ -435,6 +446,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 BotState.DefendBase => "defend-base",
                 BotState.Retreat => "retreat",
                 BotState.Recalling => "recall",
+                BotState.Regroup => "regroup",
                 _ => "?",
             };
 
@@ -483,6 +495,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             case BotState.DefendBase:
                 await this.TickDefendAsync(ctx).ConfigureAwait(false);
                 return;
+            case BotState.Regroup:
+                await this.WalkTowardAsync(this._regroupPoint).ConfigureAwait(false);
+                return;
             case BotState.Fight:
                 await this.TickFightAsync(ctx).ConfigureAwait(false);
                 return;
@@ -500,6 +515,14 @@ public sealed class MobaBotPlayer : OfflinePlayer
     // ==================================================================================
     private bool _losingTeam;
 
+    private Point _regroupPoint;
+
+    private DateTime _regroupStartUtc;
+
+    private DateTime _regroupCooldownUtc;
+
+    private IAttackable? _focus;
+
     private enum BotState
     {
         Lane,
@@ -508,6 +531,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         DefendBase,
         Retreat,
         Recalling,
+        Regroup,
     }
 
     private readonly record struct BotContext(
@@ -528,7 +552,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
         NPC.Monster? FrontEnemyStructure,
         bool AlliedCreepsAtPos,
         bool WaveAtFront,
-        int DeathDeficit);
+        int DeathDeficit,
+        List<Player> AllAllies,
+        List<Player> AllEnemies);
 
     private BotContext BuildContext(GameMap map, Point pos, DateTime now)
     {
@@ -602,7 +628,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             frontEnemyStructure,
             alliedCreepsAtPos,
             waveAtFront,
-            allies.Append(this).Sum(p => p.MobaDeaths) - enemies.Sum(p => p.MobaDeaths));
+            allies.Append(this).Sum(p => p.MobaDeaths) - enemies.Sum(p => p.MobaDeaths),
+            allies.Where(p => p.IsAlive).ToList(),
+            enemies.Where(p => p.IsAlive).ToList());
 
         static double Power(IEnumerable<Player> champs) => champs.Sum(p =>
         {
@@ -700,6 +728,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return BotState.GroupPush;
         }
 
+        // Fight together: walk to an ally who is already in a fight, or wait for the ally instead of starting a 1v2.
+        if (!committed && c.HpPct > FightBailPct + 0.2f && this.TryRegroup(c, forcedFight) is { } regroupAt)
+        {
+            this._regroupPoint = regroupAt;
+            return BotState.Regroup;
+        }
+
         if (forcedFight)
         {
             // Not yet locked in: we can still decline a clearly lost fight and keep farming.
@@ -725,6 +760,59 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         return BotState.Lane;
+    }
+
+    /// <summary>
+    /// Where to walk to fight together with an ally, or <see langword="null"/>: (a) an ally in a fight with an enemy champion
+    /// that I am not part of yet -> join it; (b) I would start a fight with more enemies than allies near me while an ally is
+    /// further away -> go to that ally first. Limited to <see cref="RegroupBudget"/> per episode, then a cooldown, so it can
+    /// never stall a bot.
+    /// </summary>
+    private Point? TryRegroup(BotContext c, bool forcedFight)
+    {
+        var now = c.Now;
+        if (now < this._regroupCooldownUtc)
+        {
+            return null;
+        }
+
+        Point? target = null;
+        var joinable = c.AllAllies
+            .Where(a => !ReferenceEquals(a, this) && !c.AllyChampsNear.Contains(a)
+                        && a.GetDistanceTo(c.Pos) <= RegroupMaxTiles
+                        && MobaCombatLog.InCombat(a, TimeSpan.FromSeconds(2))
+                        && c.AllEnemies.Any(e => e.GetDistanceTo(a.Position) <= 18))
+            .OrderBy(a => a.GetDistanceTo(c.Pos))
+            .FirstOrDefault();
+        if (joinable is not null && !c.InCombat)
+        {
+            target = joinable.Position;
+        }
+        else if (forcedFight && !c.InCombat && c.EnemyChampsNear.Count > c.AllyChampsNear.Count)
+        {
+            var ally = c.AllAllies
+                .Where(a => !ReferenceEquals(a, this) && !c.AllyChampsNear.Contains(a) && a.GetDistanceTo(c.Pos) <= RegroupMaxTiles)
+                .OrderBy(a => a.GetDistanceTo(c.Pos))
+                .FirstOrDefault();
+            target = ally?.Position;
+        }
+
+        if (target is null)
+        {
+            return null;
+        }
+
+        if (this._state != BotState.Regroup)
+        {
+            this._regroupStartUtc = now;
+        }
+        else if (now - this._regroupStartUtc > RegroupBudget)
+        {
+            this._regroupCooldownUtc = now + RegroupCooldown;
+            return null;
+        }
+
+        return target;
     }
 
     /// <summary>A spot is safe to start / continue a recall: our own half of the lane and no enemy champion nearby.</summary>
@@ -900,13 +988,35 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
     }
 
+    /// <summary>
+    /// Lowest-health enemy champion in range, but sticky: once a target is chosen the bot stays on it while it lives and
+    /// stays in range, and only switches to a newcomer that is nearly dead (&lt; 30 %) while the target is still healthy
+    /// (&gt; 50 %). Without this the whole team flips targets every time someone new enters the fight.
+    /// </summary>
+    private IAttackable? PickFocus(BotContext c)
+    {
+        static float Pct(Player p) => p.Attributes is { } a ? a[Stats.CurrentHealth] / Math.Max(1f, a[Stats.MaximumHealth]) : 1f;
+
+        var lowest = c.EnemyChampsInRange
+            .OrderBy(e => e.Attributes?[Stats.CurrentHealth] ?? float.MaxValue)
+            .FirstOrDefault();
+        if (this._focus is Player { IsAlive: true } current && c.EnemyChampsInRange.Contains(current))
+        {
+            if (lowest is null || ReferenceEquals(lowest, current) || !(Pct(lowest) < 0.30f && Pct(current) > 0.50f))
+            {
+                return current;
+            }
+        }
+
+        this._focus = lowest;
+        return lowest;
+    }
+
     private async ValueTask TickFightAsync(BotContext c)
     {
         // Shared focus: everyone piles the lowest-effective-HP enemy champion in range,
         // falling back to the aggressor, then nearest.
-        var focus = c.EnemyChampsInRange
-            .OrderBy(e => (e.Attributes?[Stats.CurrentHealth] ?? float.MaxValue))
-            .FirstOrDefault() as IAttackable
+        var focus = this.PickFocus(c)
             ?? (this._aggressor is { IsAlive: true } agg && agg.GetDistanceTo(c.Pos) <= AcquireRangeTiles ? agg : null)
             ?? c.EnemyChampsNear.OrderBy(e => e.GetDistanceTo(c.Pos)).FirstOrDefault();
 

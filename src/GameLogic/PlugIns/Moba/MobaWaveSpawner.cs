@@ -34,6 +34,8 @@ public static class MobaWaveSpawner
     /// </summary>
     public const int MaxLiveCreepsPerTeam = 54;
 
+    private static readonly IDropGenerator CreepDropGenerator = new MobaCreepDropGenerator();
+
     private const float CreepMinDamage = 60f;
     private const float CreepMaxDamage = 85f;
     private const float CreepDefense = 20f;
@@ -147,7 +149,7 @@ public static class MobaWaveSpawner
                     area,
                     definition,
                     map,
-                    gameContext.DropGenerator,
+                    CreepDropGenerator,
                     intelligence,
                     gameContext.PlugInManager,
                     gameContext.PathFinderPool);
@@ -214,11 +216,6 @@ public static class MobaWaveSpawner
                 await MobaGold.GrantAsync(lastHitter, MobaGold.CreepLastHitGold, "creep").ConfigureAwait(false);
             }
 
-            if (lastHitter is { IsMobaClone: true } && MobaTeams.GetTeam(lastHitter) == beneficiaryTeam)
-            {
-                var beneficiaries = champions.Contains(lastHitter) ? champions : champions.Append(lastHitter).ToList();
-                await MobaCreepDrops.TryDropAsync(map, deathPosition, lastHitter, beneficiaries).ConfigureAwait(false);
-            }
         }
         catch
         {
