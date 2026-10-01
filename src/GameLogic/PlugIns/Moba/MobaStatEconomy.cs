@@ -18,11 +18,30 @@ public static class MobaStatEconomy
     /// <summary>Points a fresh clone starts with, for testing (roughly one maxed stat).</summary>
     public const int TestStartPoints = 30_000;
 
+    /// <summary>Stat points one click on a "+" button of the character window invests (the client repeats the click for Shift / Ctrl).</summary>
+    public const int ClickAmount = 100;
+
     private const int NormalTotal = 100_000;
 
     private const int RageFighterSummonerTotal = 112_000;
 
     private const int DarkLordTotal = 130_000;
+
+    /// <summary>The points a "+" click may invest: <see cref="ClickAmount"/> limited by the unspent points and the room left under <see cref="MaxPerStat"/>.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="baseStat">The base stat attribute (strength, agility, ...).</param>
+    /// <returns>The amount to invest, 0 if the stat is capped or there are no points.</returns>
+    public static int ClickAmountFor(Player champion, MUnique.OpenMU.AttributeSystem.AttributeDefinition baseStat)
+    {
+        if (champion.SelectedCharacter is not { } character || champion.Attributes is not { } attributes)
+        {
+            return 0;
+        }
+
+        var invested = (int)Math.Round(attributes[baseStat] - MobaCloneFactory.BaselineStatValue);
+        var room = Math.Max(0, MaxPerStat - invested);
+        return (int)Math.Min(ClickAmount, Math.Min(Math.Max(0, character.LevelUpPoints), room));
+    }
 
     /// <summary>Points granted per champion level for the given champion's class.</summary>
     /// <param name="champion">The champion.</param>

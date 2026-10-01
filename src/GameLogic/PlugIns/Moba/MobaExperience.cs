@@ -135,7 +135,7 @@ public static class MobaExperience
             .ToList();
 
         return champion.InvokeViewPlugInAsync<IMobaChampionStatePlugIn>(p =>
-            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints, skillLevels));
+            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints, champion.SelectedCharacter?.LevelUpPoints ?? 0, skillLevels));
     }
 
     /// <summary>Grants EXP to every MOBA champion of <paramref name="team"/> on the map.</summary>

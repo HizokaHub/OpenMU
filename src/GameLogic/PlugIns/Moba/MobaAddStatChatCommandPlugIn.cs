@@ -83,6 +83,7 @@ public class MobaAddStatChatCommandPlugIn : ChatCommandPlugInBase<MobaAddStatCha
         attributes[baseStat] += applied;
         character.LevelUpPoints -= applied;
 
+        await MobaExperience.PushStateAsync(player).ConfigureAwait(false);
         var newInvested = invested + applied;
         await player.ShowBlueMessageAsync(
             $"[mobaadd] +{applied:N0} {arguments.Stat!.ToUpperInvariant()} → invertido {newInvested:N0}/{MobaStatEconomy.MaxPerStat:N0} · quedan {character.LevelUpPoints:N0} puntos. (/mobastats)")

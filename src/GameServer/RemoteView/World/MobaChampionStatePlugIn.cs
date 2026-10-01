@@ -16,7 +16,7 @@ using MUnique.OpenMU.PlugIns;
 /// <code>
 /// C1 len D5 02  level(1)  exp(u32 LE)  nextExp(u32 LE)  skillPoints(1)  count(1)  [ skillNum(u16 LE) level(1) ] * count
 /// </code>
-/// nextExp 0 = at the champion level cap.
+/// followed by the unspent stat points (u32 LE). nextExp 0 = at the champion level cap.
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: champion state", Description = "Sends champion level + experience + skill levels for the HUD.")]
@@ -34,7 +34,7 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
     public MobaChampionStatePlugIn(RemotePlayer player) => this._player = player;
 
     /// <inheritdoc />
-    public async ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, IReadOnlyList<(short Number, byte Level)> skillLevels)
+    public async ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, long statPoints, IReadOnlyList<(short Number, byte Level)> skillLevels)
     {
         if (this._player.Connection is not { Connected: true } connection)
         {
@@ -44,7 +44,8 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
         var exp = (uint)Math.Clamp(experience, 0, uint.MaxValue);
         var next = (uint)Math.Clamp(experienceToNextLevel, 0, uint.MaxValue);
         var count = Math.Min(skillLevels.Count, 40);
-        var length = HeaderLength + 1 + (count * 3);
+        var stats = (uint)Math.Clamp(statPoints, 0, uint.MaxValue);
+        var length = HeaderLength + (count * 3) + 4;
 
         int Write()
         {
@@ -73,6 +74,12 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
                 span[offset + 2] = lvl;
                 offset += 3;
             }
+
+            // Unspent stat points (u32 LE) after the skill list.
+            span[offset] = (byte)(stats & 0xFF);
+            span[offset + 1] = (byte)((stats >> 8) & 0xFF);
+            span[offset + 2] = (byte)((stats >> 16) & 0xFF);
+            span[offset + 3] = (byte)((stats >> 24) & 0xFF);
 
             return length;
         }

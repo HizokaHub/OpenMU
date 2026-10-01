@@ -32,6 +32,22 @@ internal class CharacterStatIncreasePacketHandlerPlugIn : ISubPacketHandlerPlugI
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
         IncreaseCharacterStatPoint message = packet;
-        await this._increaseStatsAction.IncreaseStatsAsync(player, message.StatType.GetAttributeDefinition()).ConfigureAwait(false);
+        var attribute = message.StatType.GetAttributeDefinition();
+        if (player.IsMobaClone)
+        {
+            // MOBA: a click invests a chunk (the clone has thousands of points), capped per stat.
+            var amount = MUnique.OpenMU.GameLogic.PlugIns.Moba.MobaStatEconomy.ClickAmountFor(player, attribute);
+            if (amount <= 0)
+            {
+                await player.ShowBlueMessageAsync("[MOBA] Sin puntos de stats o ese stat ya está al tope (30.000).").ConfigureAwait(false);
+                return;
+            }
+
+            await this._increaseStatsAction.IncreaseStatsAsync(player, attribute, (ushort)amount).ConfigureAwait(false);
+            await MUnique.OpenMU.GameLogic.PlugIns.Moba.MobaExperience.PushStateAsync(player).ConfigureAwait(false);
+            return;
+        }
+
+        await this._increaseStatsAction.IncreaseStatsAsync(player, attribute).ConfigureAwait(false);
     }
 }
