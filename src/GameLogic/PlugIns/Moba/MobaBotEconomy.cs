@@ -265,6 +265,11 @@ internal static class MobaBotEconomy
         }
 
         var lowest = ranks.Values.Min();
+        if (weaponRank >= 1 && PetPurchase(bot, gold, lowest) is { } pet)
+        {
+            return pet;
+        }
+
         foreach (var slot in SlotPriority)
         {
             if (!ranks.TryGetValue(slot, out var rank) || rank != lowest)
@@ -281,6 +286,53 @@ internal static class MobaBotEconomy
             if (next is not null && gold >= next.Price - resale)
             {
                 return new Purchase(next.Template, slot, next.Price, current, resale);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The pets a bot buys, by shop tier: the damage pets a human would pick (the Dark Lord takes both its mount and its
+    /// Raven, every other class one pet slot upgraded tier by tier). A tier-t pet is bought once all the gear is at tier t - 1.
+    /// </summary>
+    private static IEnumerable<(short Number, MobaShopVariant Variant, int Tier)> WantedPets(Player bot)
+        => MobaPassives.FamilyOf(bot) == MobaFamily.DarkLord
+            ? new[] { ((short)4, MobaShopVariant.Standard, 2), ((short)5, MobaShopVariant.Standard, 3) }
+            : new[] { ((short)1, MobaShopVariant.Standard, 1), ((short)3, MobaShopVariant.Standard, 2), ((short)37, MobaShopVariant.Aggressive, 3) };
+
+    /// <summary>The next pet the bot wants and can afford, or <see langword="null"/>.</summary>
+    private static Purchase? PetPurchase(Player bot, long gold, int lowestGearRank)
+    {
+        if (bot.SelectedCharacter?.CharacterClass is not { } characterClass || bot.Inventory is not { } inventory)
+        {
+            return null;
+        }
+
+        var family = MobaPassives.FamilyOf(bot);
+        foreach (var (number, variant, tier) in WantedPets(bot))
+        {
+            if (lowestGearRank < tier - 1
+                || MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Pets && e.Number == number && e.Variant == variant && (e.Families is null || e.Families.Contains(family))) is not { } entry
+                || bot.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is not { } definition
+                || definition.QualifiedCharacters.Count > 0 && !definition.QualifiedCharacters.Contains(characterClass)
+                || BestSlotFor(bot, definition) is not { } slot)
+            {
+                continue;
+            }
+
+            var template = MobaShop.CreateItem(definition, entry);
+            var price = MobaShop.PriceOf(template);
+            var current = inventory.GetItem(slot);
+            if (current is not null && MobaShop.PriceOf(current) >= price)
+            {
+                continue; // already owns this pet (or a better one)
+            }
+
+            var resale = current is null ? 0 : ResaleOf(bot, current);
+            if (gold >= price - resale)
+            {
+                return new Purchase(template, slot, price, current, resale);
             }
         }
 

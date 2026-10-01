@@ -105,6 +105,18 @@ public static class MobaVision
         }
     }
 
+    /// <summary>Whether a standing ward of the champion's team is within <paramref name="radius"/> tiles of it.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="radius">The radius in tiles.</param>
+    /// <returns><c>true</c> if one is.</returns>
+    public static bool OwnWardNear(Player champion, int radius) => WardNear(champion, radius, ownTeam: true);
+
+    /// <summary>Whether a standing ward of the enemy team is within <paramref name="radius"/> tiles of the champion.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="radius">The radius in tiles.</param>
+    /// <returns><c>true</c> if one is.</returns>
+    public static bool EnemyWardNear(Player champion, int radius) => WardNear(champion, radius, ownTeam: false);
+
     /// <summary>Places a ward of the champion at its position, paying <see cref="WardCost"/> gold.</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>A message for the champion (success or why not).</returns>
@@ -158,6 +170,21 @@ public static class MobaVision
             var removed = Wards.RemoveAll(w => w.ExpiresUtc > DateTime.UtcNow && w.Team != team && ReferenceEquals(w.Map, map)
                                                && w.Position.EuclideanDistanceTo(champion.Position) <= SweepRadius);
             return removed > 0 ? $"[MOBA] Sweeper destroyed {removed} ward(s)." : "[MOBA] No enemy wards nearby.";
+        }
+    }
+
+    private static bool WardNear(Player champion, int radius, bool ownTeam)
+    {
+        if (champion.CurrentMap is not { } map)
+        {
+            return false;
+        }
+
+        var team = MobaTeams.GetTeam(champion);
+        lock (WardLock)
+        {
+            return Wards.Any(w => w.ExpiresUtc > DateTime.UtcNow && ReferenceEquals(w.Map, map) && (w.Team == team) == ownTeam
+                                  && w.Position.EuclideanDistanceTo(champion.Position) <= radius);
         }
     }
 

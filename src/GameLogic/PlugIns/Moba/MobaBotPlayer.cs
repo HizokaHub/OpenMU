@@ -132,6 +132,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _developSkillCursor;
     private int _comboStep;
     private Player? _aggressor;
+    private DateTime _nextUtilityUtc;
+    private DateTime _nextWardUtc;
     private BotState _state = BotState.Lane;
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
@@ -378,6 +380,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
         {
             return;
         }
+
+        await this.TickUtilityAsync(ctx).ConfigureAwait(false);
 
         // --- macro state machine ---------------------------------------------------------
         var prevState = this._state;
@@ -725,6 +729,45 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// Shopping, potions, looting and the teleport scroll. Returns <see langword="true"/> when it used the
     /// bot's turn (walking to loot, standing for a teleport channel), so the macro brain skips this tick.
     /// </summary>
+    /// <summary>
+    /// What a human does with the buttons that are not attacks: raises the Aegis barrier of the shield when a fight turns
+    /// against it, drops a ward on the lane and sweeps enemy wards next to it.
+    /// </summary>
+    private async ValueTask TickUtilityAsync(BotContext c)
+    {
+        if (c.Now < this._nextUtilityUtc)
+        {
+            return;
+        }
+
+        this._nextUtilityUtc = c.Now + TimeSpan.FromSeconds(1);
+
+        // Aegis (skill 210, the skill of the equipped shield / book): in a fight, as soon as it is no longer healthy.
+        if ((c.EnemyChampsInRange.Count > 0 || c.InCombat) && c.HpPct < 0.8f
+            && this.SkillList?.GetSkill((ushort)MobaShieldSkills.ShieldSkillNumber) is { Skill: { } aegis } aegisEntry
+            && MobaShieldSkills.IsEquippedOffhandSkill(this, aegis)
+            && !MobaCooldowns.IsOnCooldown(this, aegis.Number, c.Now)
+            && await this.TryConsumeForSkillAsync(aegisEntry).ConfigureAwait(false))
+        {
+            this.Logger.LogInformation("[MOBA-BOT-UTIL] \"{Name}\" raised the Aegis (hp {Hp:P0}).", this.Name, c.HpPct);
+        }
+
+        // Sweeper: an enemy ward within its radius.
+        if (MobaVision.EnemyWardNear(this, MobaVision.SweepRadius) && !MobaVision.TrySweep(this).Contains("ready in", StringComparison.Ordinal))
+        {
+            this.Logger.LogInformation("[MOBA-BOT-UTIL] \"{Name}\" used the sweeper.", this.Name);
+        }
+
+        // Ward: on the lane, out of a fight, with no ward of the team around and nothing better to spend the gold on.
+        if (this._state == BotState.Lane && !c.InCombat && c.EnemyChampsNear.Count == 0 && c.Now >= this._nextWardUtc
+            && !MobaBotEconomy.IsAtShop(this) && !MobaBotEconomy.WantsShopTrip(this)
+            && this.Money >= MobaVision.WardCost && !MobaVision.OwnWardNear(this, MobaVision.WardRadius + 2))
+        {
+            this._nextWardUtc = c.Now + TimeSpan.FromSeconds(45);
+            this.Logger.LogInformation("[MOBA-BOT-UTIL] \"{Name}\" {Result}", this.Name, MobaVision.TryPlaceWard(this));
+        }
+    }
+
     private async ValueTask<bool> TickEconomyAsync(BotContext c)
     {
         await MobaBotEconomy.DrinkPotionsAsync(this, c.InCombat).ConfigureAwait(false);
