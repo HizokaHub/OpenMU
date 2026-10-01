@@ -896,6 +896,11 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Bug 2: vida máxima de las elfas BAJA al subir de nivel** (8.118 → 3.936; la azul llegó a −2.083). Causa probable: `MobaItemCaps.CapAttribute` restaba un delta plano, que un multiplicador de la stat amplifica y pasa del tope. Arreglo: se mide el efecto real del elemento y se reescala para caer exactamente en el tope. **Falta confirmar en un nuevo `/mobafight 2`** (la vida máx. de las elfas debe crecer con el nivel).
 - Mascotas: solo se vio Imp (T1); las de T2/T3 requieren que todo el equipo llegue al tier anterior (no ocurrió en 14 min).
 
+**Sesión 2026-10-01 (5ª parte) — 2º `/mobafight 2` (`openmu-server-mobafight2d.log`, 4,2 min):**
+- Verificado: los `IDLE` pasaron de 113 a 1 (bug de rango fraccional resuelto) y la vida máx. de las elfas ahora crece con el nivel (1.710 → 3.260 → 4.765). Nexo aún 100 % (partida muy corta).
+- Los bots azules **no estaban quietos**: peleaban (433-469 acciones contra campeones, ~125 contra creeps, igual que los rojos) pero perdieron la escaramuza de Nv 1 en el medio (4 campeones a la vez) y se desató un **snowball**: rojo 7-8/1, oro 3.288 y armadura/pociones/mascota, azul 1/8 sin comprar nada más que bisutería; el daño por golpe del MG rojo fue 20× el del azul (nivel 4 + equipo vs nivel 3 sin equipo).
+- **Cambio (decidido por el usuario): defensa por muertes.** `MobaBotPlayer.DecideState`: el equipo que pierde por ≥ 3 muertes (≥ 2 con 1 nivel de desventaja) pasa a `DefendBase` (junto a su torreta, solo pelea lo que entra a su sombra) y sale al bajar la diferencia a ≤ 1 (histéresis, `_losingTeam`). Antes solo se activaba con 8 niveles de desventaja. Falta ver en un nuevo `/mobafight 2` que los perdedores se protejan y que la partida no se estanque (si nadie muere, la diferencia no cambia).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

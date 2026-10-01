@@ -498,6 +498,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     // ==================================================================================
     //  Macro brain
     // ==================================================================================
+    private bool _losingTeam;
+
     private enum BotState
     {
         Lane,
@@ -525,7 +527,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
         Player? Aggressor,
         NPC.Monster? FrontEnemyStructure,
         bool AlliedCreepsAtPos,
-        bool WaveAtFront);
+        bool WaveAtFront,
+        int DeathDeficit);
 
     private BotContext BuildContext(GameMap map, Point pos, DateTime now)
     {
@@ -598,7 +601,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._aggressor,
             frontEnemyStructure,
             alliedCreepsAtPos,
-            waveAtFront);
+            waveAtFront,
+            allies.Append(this).Sum(p => p.MobaDeaths) - enemies.Sum(p => p.MobaDeaths));
 
         static double Power(IEnumerable<Player> champs) => champs.Sum(p =>
         {
@@ -659,7 +663,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         // Team is being run over: play defence at our own turret, never walk out to feed.
-        if (c.EnemyAvgLevel - c.AllyAvgLevel >= DefendBehindLevels)
+        // Also when we are being farmed: 3+ more team deaths than the enemy (2+ with a level deficit) -> turtle at
+        // our turret and farm the waves; leave it once the gap closes to 1 (hysteresis, no flip-flop).
+        var levelDeficit = c.EnemyAvgLevel - c.AllyAvgLevel;
+        this._losingTeam = this._losingTeam
+            ? c.DeathDeficit > 1
+            : c.DeathDeficit >= 3 || (c.DeathDeficit >= 2 && levelDeficit >= 1);
+        if (levelDeficit >= DefendBehindLevels || this._losingTeam)
         {
             return forcedFight && c.HpPct > FightBailPct ? BotState.Fight : BotState.DefendBase;
         }
