@@ -56,8 +56,31 @@ public class MobaMasterTreeReport
                 {
                     var d = skill.MasterDefinition!;
                     var kind = d.ReplacedSkill is not null ? "ACTIVE(replaces " + d.ReplacedSkill.Number + ")" : (d.TargetAttribute is null ? "ACTIVE" : "passive");
-                    sb.AppendLine($"   #{skill.Number,3} r{d.Rank} max{d.MaximumLevel,2} min{d.MinimumLevel} {kind,-22} {skill.Name} -> {d.TargetAttribute?.Designation ?? "-"} [{d.Aggregation}] f='{d.ValueFormula}'");
+                    sb.AppendLine($"   #{skill.Number,3} r{d.Rank} max{d.MaximumLevel,2} min{d.MinimumLevel} {MobaMasterTree.KindOf(skill),-12} {(MobaMasterTree.IsAllowed(skill) ? "ON " : "off")} {kind,-22} {skill.Name} -> {d.TargetAttribute?.Designation ?? "-"} [{d.Aggregation}] f='{d.ValueFormula}'");
                 }
+            }
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("==================== Resumen por tipo (capacidad en puntos de nodo; tope = lo que da todo el término árbol) ====================");
+        foreach (var classNumber in MasterClassNumbers)
+        {
+            var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+            sb.AppendLine($"{MobaPassives.FamilyOf(classNumber),-16}" + string.Join(" | ", Enum.GetValues<MobaTreeKind>().Select(k =>
+            {
+                var nodes = this._gameConfiguration.Skills.Where(s => s.MasterDefinition is not null && MobaMasterTree.KindOf(s) == k && s.QualifiedCharacters.Contains(characterClass)).ToList();
+                return $"{k} {nodes.Count}n/{nodes.Sum(n => n.MasterDefinition!.MaximumLevel)}p/tope {MobaMasterTree.CapFor(this._gameConfiguration.Skills, characterClass, k)}";
+            })));
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("==================== Nodos por tipo (nombre -> atributo) ====================");
+        foreach (var group in this._gameConfiguration.Skills.Where(s => s.MasterDefinition is not null).GroupBy(MobaMasterTree.KindOf).OrderBy(g => g.Key))
+        {
+            sb.AppendLine($"-- {group.Key} ({(MobaMasterTree.AllowedKinds.Contains(group.Key) ? "habilitado" : "no habilitado")})");
+            foreach (var name in group.Select(s => $"{s.Name} -> {s.MasterDefinition!.TargetAttribute?.Designation ?? (s.MasterDefinition.ReplacedSkill is { } r ? "reemplaza " + r.Number : "-")}").Distinct().OrderBy(n => n))
+            {
+                sb.AppendLine($"     {name}");
             }
         }
 

@@ -17,13 +17,6 @@ public static class MobaDefense
     /// <summary>VIT at which mitigation reaches half of <see cref="MaxMitigation"/> (diminishing-returns constant).</summary>
     private const double VitHalfPoint = 12_000;
 
-    /// <summary>
-    /// Weight of the VIT-only mitigation (<see cref="MitigationOf"/>) in the final blend
-    /// against item-driven mitigation (<see cref="MobaItemPower.DefenseFractionOf"/>) - see
-    /// <see cref="FinalMitigationOf"/>. Items are 40%, stats stay dominant at 60%.
-    /// </summary>
-    private const double StatWeight = 0.60;
-
     /// <summary>Hard cap on the VIT-derived percent mitigation.</summary>
     private const double MaxMitigation = 0.70;
 
@@ -90,8 +83,8 @@ public static class MobaDefense
     /// <summary>
     /// The champion's final mitigation fraction: the VIT-only term ("A", <see cref="MitigationOf"/>)
     /// blended with the item-defense term ("B", <see cref="MobaItemPower.DefenseFractionOf"/> scaled
-    /// to the same 0..<see cref="MaxMitigation"/> range), weighted <see cref="StatWeight"/> stats /
-    /// <c>1 - StatWeight</c> items - stats stay the dominant source, items are a real but bounded add.
+    /// to the same 0..<see cref="MaxMitigation"/> range), weighted by <see cref="MobaMasterTree.Blend(double?, double, double)"/>
+    /// (45 % stats, 20 % master tree defense nodes, 35 % items).
     /// </summary>
     /// <param name="defender">The defending champion.</param>
     /// <returns>The final mitigation fraction, 0..<see cref="MaxMitigation"/>.</returns>
@@ -99,7 +92,8 @@ public static class MobaDefense
     {
         var fromStats = MitigationOf(defender);
         var fromItems = MobaItemPower.DefenseFractionOf(defender) * MaxMitigation;
-        return Math.Clamp((StatWeight * fromStats) + ((1.0 - StatWeight) * fromItems), 0.0, MaxMitigation);
+        var fromTree = MobaMasterTree.Fraction(defender, MobaTreeKind.Defense) * MaxMitigation;
+        return Math.Clamp(MobaMasterTree.Blend(fromTree, fromStats, fromItems), 0.0, MaxMitigation);
     }
 
     /// <summary>

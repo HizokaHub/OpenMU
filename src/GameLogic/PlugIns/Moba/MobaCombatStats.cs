@@ -20,9 +20,6 @@ public static class MobaCombatStats
     /// <summary>The extra damage multiplier on a critical hit.</summary>
     public const double CritMultiplier = 1.75;
 
-    /// <summary>Weight of the AGI term ("A") in <see cref="FinalCritChanceOf"/> against the item Luck term ("B").</summary>
-    private const double CritStatWeight = 0.60;
-
     /// <summary>Hard cap on the final (stat + item) crit chance, so stacked Luck can't run away.</summary>
     private const double MaxCritChance = 0.60;
 
@@ -50,8 +47,8 @@ public static class MobaCombatStats
     /// <summary>
     /// The champion's final crit chance: the AGI-only term ("A", <see cref="CritChanceOf"/>)
     /// blended with the item Luck term ("B", the aggregated <see cref="Stats.CriticalDamageChance"/>
-    /// from equipped Luck options), weighted <see cref="CritStatWeight"/> stats /
-    /// <c>1 - CritStatWeight</c> items, capped at <see cref="MaxCritChance"/>.
+    /// from equipped Luck options), weighted 45 % stats / 20 % master tree crit nodes /
+    /// 35 % items (<see cref="MobaMasterTree.Blend(double?, double, double)"/>), capped at <see cref="MaxCritChance"/>.
     /// </summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The final crit chance, 0..<see cref="MaxCritChance"/>.</returns>
@@ -59,7 +56,8 @@ public static class MobaCombatStats
     {
         var fromStats = CritChanceOf(champion);
         var fromItems = champion.Attributes?[Stats.CriticalDamageChance] ?? 0;
-        return Math.Clamp((CritStatWeight * fromStats) + ((1.0 - CritStatWeight) * fromItems), 0.0, MaxCritChance);
+        var fromTree = MobaMasterTree.Fraction(champion, MobaTreeKind.Crit) * MaxCritChance;
+        return Math.Clamp(MobaMasterTree.Blend(fromTree, fromStats, fromItems), 0.0, MaxCritChance);
     }
 
     // --- Life steal / spell vamp ---

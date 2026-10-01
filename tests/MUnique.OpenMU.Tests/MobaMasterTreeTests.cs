@@ -41,8 +41,8 @@ public class MobaMasterTreeTests
                 .Where(s => s.MasterDefinition is not null && s.QualifiedCharacters.Contains(characterClass))
                 .ToList();
             var offense = nodes.Where(MobaMasterTree.IsOffense).Sum(s => s.MasterDefinition!.MaximumLevel);
-            Assert.That(offense, Is.GreaterThanOrEqualTo(80), $"class {classNumber} offense capacity");
-            Assert.That(MobaMasterTree.OffenseCapFor(this._gameConfiguration.Skills, characterClass), Is.InRange(64, MobaMasterTree.OffensePointsForMax), $"class {classNumber} cap");
+            Assert.That(offense, Is.GreaterThanOrEqualTo(60), $"class {classNumber} offense capacity");
+            Assert.That(MobaMasterTree.OffenseCapFor(this._gameConfiguration.Skills, characterClass), Is.InRange(48, MobaMasterTree.OffensePointsForMax), $"class {classNumber} cap");
             Assert.That(nodes.Any(s => MobaMasterTree.IsAllowed(s) && !MobaMasterTree.IsOffense(s)), Is.True, $"class {classNumber} has health/mana nodes");
         }
     }
@@ -58,6 +58,56 @@ public class MobaMasterTreeTests
                 Assert.That(MobaMasterTree.IsAllowed(skill), Is.False, skill.Number.ToString());
             }
         }
+    }
+
+    /// <summary>Every class has defense and critical nodes, and the tree terms of both can be completed with few points.</summary>
+    [Test]
+    public void EveryClassHasDefenseAndCritNodes()
+    {
+        foreach (var classNumber in MasterClassNumbers)
+        {
+            var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+            var defense = MobaMasterTree.CapFor(this._gameConfiguration.Skills, characterClass, MobaTreeKind.Defense);
+            var crit = MobaMasterTree.CapFor(this._gameConfiguration.Skills, characterClass, MobaTreeKind.Crit);
+            Assert.That(defense, Is.InRange(60, MobaMasterTree.OffensePointsForMax), $"class {classNumber} defense cap");
+            Assert.That(crit, Is.InRange(1, MobaMasterTree.OffensePointsForMax), $"class {classNumber} crit cap");
+        }
+    }
+
+    /// <summary>The classifier puts the troublesome designations in the right kind.</summary>
+    [TestCase("Maximum Health", false, MobaTreeKind.Health)]
+    [TestCase("Maximum Mana", false, MobaTreeKind.Mana)]
+    [TestCase("Item Duration Increase", false, MobaTreeKind.Useless)]
+    [TestCase("Base Defense", false, MobaTreeKind.Defense)]
+    [TestCase("Defense Rate (PvM)", false, MobaTreeKind.Defense)]
+    [TestCase("Poison Resistance", false, MobaTreeKind.Defense)]
+    [TestCase("Maximum Shield", false, MobaTreeKind.Other)]
+    [TestCase("Critical Damage Chance", false, MobaTreeKind.Crit)]
+    [TestCase("Critical Damage Bonus", false, MobaTreeKind.Crit)]
+    [TestCase("Raven exc damage chance", false, MobaTreeKind.Crit)]
+    [TestCase("Spear Mastery Double Damage Chance (MST)", false, MobaTreeKind.Crit)]
+    [TestCase("Attack Rate (PvP)", false, MobaTreeKind.Crit)]
+    [TestCase("Minimum Physical Base Damage", false, MobaTreeKind.Offense)]
+    [TestCase("Two Handed Staff Mastery PvP Bonus Damage (MST)", false, MobaTreeKind.Offense)]
+    [TestCase("Soul Barrier Damage Receive Decrement", false, MobaTreeKind.Other)]
+    [TestCase("Weakness Physical Damage Decrement", false, MobaTreeKind.Other)]
+    [TestCase("Health Recovery Multiplier", false, MobaTreeKind.Recovery)]
+    [TestCase("Mana Usage Reduction", false, MobaTreeKind.Utility)]
+    [TestCase("Weapon Mastery Bonus Attack Speed (MST)", false, MobaTreeKind.Utility)]
+    [TestCase("Flame Strengthener", true, MobaTreeKind.Strengthener)]
+    [TestCase(null, false, MobaTreeKind.Strengthener)]
+    public void ClassifierPutsNodesInTheRightKind(string? designation, bool replaces, MobaTreeKind expected)
+        => Assert.That(MobaMasterTree.Classify(replaces, designation), Is.EqualTo(expected));
+
+    /// <summary>The blend is 45/20/35 and renormalizes when the class has no nodes of the kind.</summary>
+    [Test]
+    public void BlendUsesTheUserWeights()
+    {
+        Assert.That(MobaMasterTree.Blend(1.0, 1.0, 1.0), Is.EqualTo(1.0).Within(1e-9));
+        Assert.That(MobaMasterTree.Blend(0.0, 1.0, 1.0), Is.EqualTo(0.80).Within(1e-9));
+        Assert.That(MobaMasterTree.Blend(1.0, 0.0, 0.0), Is.EqualTo(0.20).Within(1e-9));
+        Assert.That(MobaMasterTree.Blend((double?)null, 1.0, 1.0), Is.EqualTo(1.0).Within(1e-9));
+        Assert.That(MobaMasterTree.Blend((double?)null, 1.0, 0.0), Is.EqualTo(0.45 / 0.80).Within(1e-9));
     }
 
     /// <summary>The first two ranks are free, the rest need 10 points per rank above 2.</summary>

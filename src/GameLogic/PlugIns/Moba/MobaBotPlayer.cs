@@ -1398,8 +1398,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// the loadout abilities round-robin toward the cap; stat points dump into the class's
     /// primary stat (up to <see cref="MobaStatEconomy.MaxPerStat"/>).
     /// Since 2026-10-01 the bot plays the build a human would: stat points go 35 % primary / 35 % VIT
-    /// (mitigation) / 30 % AGI (critical), each capped, and master points fill the offense nodes of its tree,
-    /// then health and mana (<see cref="MobaMasterTree.NodesInFillOrder"/>).
+    /// (mitigation) / 30 % AGI (critical), each capped, and master points follow the fill plan of the tree
+    /// (<see cref="MobaMasterTree.NextNodeToFill"/>).
     /// </summary>
     private async ValueTask DevelopIfDueAsync()
     {
@@ -1474,29 +1474,16 @@ public sealed class MobaBotPlayer : OfflinePlayer
             }
         }
 
-        // Master tree: offense nodes first (the tree term of the damage), then health and mana.
+        // Master tree: the fill plan of a player (offense / defense half-way, crit, then the rest, then health and mana).
         if (character.MasterLevelUpPoints > 0)
         {
             var action = new PlayerActions.Character.AddMasterPointAction();
-            foreach (var node in MobaMasterTree.NodesInFillOrder(this).ToList())
+            var guardPoints = 0;
+            while (character.MasterLevelUpPoints > 0 && guardPoints++ < 200 && MobaMasterTree.NextNodeToFill(this) is { } node)
             {
-                var maxLevel = node.MasterDefinition!.MaximumLevel;
-                var offenseDone = MobaMasterTree.IsOffense(node) && MobaMasterTree.OffensePoints(this) >= MobaMasterTree.OffenseCapOf(this);
-                if (offenseDone && MobaMasterTree.IsOffense(node))
-                {
-                    continue;
-                }
-
-                var guardPoints = 0;
-                while (character.MasterLevelUpPoints > 0 && guardPoints++ < 40
-                       && (character.LearnedSkills.FirstOrDefault(l => l.Skill == node)?.Level ?? 0) < maxLevel
-                       && MobaMasterTree.MeetsRank(this, node)
-                       && !(MobaMasterTree.IsOffense(node) && MobaMasterTree.OffensePoints(this) >= MobaMasterTree.OffenseCapOf(this)))
-                {
-                    await action.AddMasterPointAsync(this, (ushort)node.Number).ConfigureAwait(false);
-                }
-
-                if (character.MasterLevelUpPoints <= 0)
+                var before = character.MasterLevelUpPoints;
+                await action.AddMasterPointAsync(this, (ushort)node.Number).ConfigureAwait(false);
+                if (character.MasterLevelUpPoints >= before)
                 {
                     break;
                 }

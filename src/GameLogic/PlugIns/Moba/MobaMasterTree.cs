@@ -8,111 +8,298 @@ using System.Collections.Concurrent;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
 
+/// <summary>The MOBA role of a master tree node, decided from the attribute the node improves.</summary>
+public enum MobaTreeKind
+{
+    /// <summary>No effect that makes sense in the MOBA model (mastery side effects, curses...). Not available yet.</summary>
+    Other,
+
+    /// <summary>Damage nodes: feed the tree term of the damage blend.</summary>
+    Offense,
+
+    /// <summary>Maximum health (bounded by the level curve caps).</summary>
+    Health,
+
+    /// <summary>Maximum mana (bounded by the level curve caps).</summary>
+    Mana,
+
+    /// <summary>Defense, defense rates, shields and resistances: feed the tree term of the mitigation blend.</summary>
+    Defense,
+
+    /// <summary>Critical / double-damage chances and attack rate: feed the tree term of the critical blend.</summary>
+    Crit,
+
+    /// <summary>Health / mana / AG / SD recovery and recovery on monster kill. Not available yet.</summary>
+    Recovery,
+
+    /// <summary>Mana usage reduction, attack speed, summons: utility. Not available yet.</summary>
+    Utility,
+
+    /// <summary>Active nodes that replace a skill by another one ("X Strengthener"). Not available yet.</summary>
+    Strengthener,
+
+    /// <summary>Item / pet durability: meaningless in the MOBA. Not available yet.</summary>
+    Useless,
+}
+
 /// <summary>
 /// The Master Skill Tree inside a MOBA match. The champion earns <see cref="PointsPerLevel"/> master points per
 /// champion level (about 145 over 29 level-ups, a sixth of a full tree) and spends them in the native tree window,
-/// but only on the nodes that make sense in the MOBA combat model:
+/// but only on the node kinds (<see cref="MobaTreeKind"/>) that make sense in the MOBA combat model and are enabled in
+/// <see cref="AllowedKinds"/>:
 /// <list type="bullet">
-/// <item>Passive nodes whose effect is damage ("offense" nodes): they do nothing natively (MOBA damage comes from
-/// <see cref="MobaSkillDamage"/>), they feed the tree term of the damage blend - <see cref="OffenseFraction"/>.</item>
+/// <item>Offense, defense and critical nodes do nothing natively (MOBA combat comes from the MOBA tables), they feed the
+/// tree term (20 %) of the damage, mitigation and critical blends - see <see cref="Fraction"/>.</item>
 /// <item>Maximum Health and Maximum Mana (bounded by the MOBA level curve caps).</item>
 /// </list>
-/// Every other node (skill strengtheners that replace a skill, resistances, durability, recoveries, ...) is refused:
-/// it would either replace a skill the MOBA tables know by number or do nothing. The tree's rank requirements are
-/// replaced by <see cref="MeetsRank"/>, because the nodes of the lower ranks are mostly refused ones.
+/// Every other node is refused until its kind is integrated. The tree's rank requirements are replaced by
+/// <see cref="MeetsRank"/>, because the nodes of the lower ranks are mostly refused ones.
 /// </summary>
 public static class MobaMasterTree
 {
     /// <summary>Master points granted per champion level.</summary>
     public const int PointsPerLevel = 5;
 
-    /// <summary>Most points in offense nodes that are ever needed for the whole tree term of the damage blend.</summary>
+    /// <summary>Most points in nodes of one kind that are ever needed for the whole tree term of a blend.</summary>
     public const int OffensePointsForMax = 100;
 
-    /// <summary>Share of a class's offense-node capacity that gives the whole tree term (classes with few offense nodes need fewer points).</summary>
+    /// <summary>Share of a class's capacity in a kind that gives the whole tree term (classes with few nodes of the kind need fewer points).</summary>
     public const double OffenseCapacityShare = 0.8;
 
     /// <summary>Points in the same root per rank above 2 needed to learn a node (rank 1 and 2 are free).</summary>
     public const int PointsPerRank = 10;
 
-    private static readonly ConcurrentDictionary<short, bool> OffenseCache = new();
+    /// <summary>Weight of the stats term in every blend (damage, mitigation, critical).</summary>
+    public const double StatsWeight = 0.45;
 
-    private static readonly ConcurrentDictionary<short, int> OffenseCapCache = new();
+    /// <summary>Weight of the tree term in every blend.</summary>
+    public const double TreeWeight = 0.20;
+
+    /// <summary>Weight of the items term in every blend.</summary>
+    public const double ItemsWeight = 0.35;
+
+    /// <summary>The node kinds champions may spend points on (the rest is refused, see the type description).</summary>
+    public static readonly IReadOnlySet<MobaTreeKind> AllowedKinds = new HashSet<MobaTreeKind>
+    {
+        MobaTreeKind.Offense,
+        MobaTreeKind.Health,
+        MobaTreeKind.Mana,
+        MobaTreeKind.Defense,
+        MobaTreeKind.Crit,
+    };
+
+    /// <summary>The order a player (or a bot) fills the tree: (kind, share of that kind's cap to reach in this stage).</summary>
+    public static readonly IReadOnlyList<(MobaTreeKind Kind, double CapShare)> FillStages = new (MobaTreeKind, double)[]
+    {
+        (MobaTreeKind.Offense, 0.5),
+        (MobaTreeKind.Defense, 0.5),
+        (MobaTreeKind.Crit, 1.0),
+        (MobaTreeKind.Offense, 1.0),
+        (MobaTreeKind.Defense, 1.0),
+        (MobaTreeKind.Health, 1.0),
+        (MobaTreeKind.Mana, 1.0),
+    };
+
+    private static readonly ConcurrentDictionary<short, MobaTreeKind> KindCache = new();
+
+    private static readonly ConcurrentDictionary<(byte Class, MobaTreeKind Kind), int> CapCache = new();
 
     /// <summary>Whether the MOBA lets champions spend points on the master skill.</summary>
     /// <param name="skill">The master skill.</param>
-    /// <returns><c>true</c> for offense nodes, maximum health and maximum mana.</returns>
-    public static bool IsAllowed(Skill skill)
-    {
-        var definition = skill.MasterDefinition;
-        if (definition is null || definition.ReplacedSkill is not null || definition.TargetAttribute is null)
-        {
-            return false;
-        }
-
-        return IsOffense(skill) || definition.TargetAttribute == Stats.MaximumHealth || definition.TargetAttribute == Stats.MaximumMana;
-    }
+    /// <returns><c>true</c> if the kind of the node is in <see cref="AllowedKinds"/>.</returns>
+    public static bool IsAllowed(Skill skill) => AllowedKinds.Contains(KindOf(skill));
 
     /// <summary>Whether the master skill is a passive whose effect is damage.</summary>
     /// <param name="skill">The master skill.</param>
     /// <returns><c>true</c> for offense nodes.</returns>
-    public static bool IsOffense(Skill skill)
+    public static bool IsOffense(Skill skill) => KindOf(skill) == MobaTreeKind.Offense;
+
+    /// <summary>Classifies a master skill node by what it improves.</summary>
+    /// <param name="skill">The master skill.</param>
+    /// <returns>The kind; <see cref="MobaTreeKind.Other"/> for non master skills.</returns>
+    public static MobaTreeKind KindOf(Skill skill)
     {
-        if (skill.MasterDefinition is not { ReplacedSkill: null, TargetAttribute: { } target })
+        if (skill.MasterDefinition is not { } definition)
         {
-            return false;
+            return MobaTreeKind.Other;
         }
 
-        return OffenseCache.GetOrAdd(skill.Number, _ => (target.Designation?.ToString() ?? string.Empty).Contains("Damage", StringComparison.OrdinalIgnoreCase));
+        return KindCache.GetOrAdd(skill.Number, _ => Classify(definition.ReplacedSkill is not null, definition.TargetAttribute?.Designation?.ToString()));
     }
 
-    /// <summary>Gets the points the champion has in offense nodes.</summary>
-    /// <param name="champion">The champion.</param>
-    /// <returns>The points.</returns>
-    public static int OffensePoints(Player champion)
+    /// <summary>Classifies a node from whether it replaces a skill and the designation of its target attribute.</summary>
+    /// <param name="replacesSkill">Whether the node replaces a skill by another.</param>
+    /// <param name="designation">The designation of the target attribute, or <c>null</c> for an active node without one.</param>
+    /// <returns>The kind.</returns>
+    public static MobaTreeKind Classify(bool replacesSkill, string? designation)
     {
-        var points = 0;
+        if (replacesSkill || designation is null)
+        {
+            return MobaTreeKind.Strengthener;
+        }
+
+        bool Has(string text) => designation.Contains(text, StringComparison.OrdinalIgnoreCase);
+
+        if (designation.Equals("Maximum Health", StringComparison.OrdinalIgnoreCase))
+        {
+            return MobaTreeKind.Health;
+        }
+
+        if (designation.Equals("Maximum Mana", StringComparison.OrdinalIgnoreCase))
+        {
+            return MobaTreeKind.Mana;
+        }
+
+        if (Has("Item Duration") || Has("Pet Duration") || Has("Durability"))
+        {
+            return MobaTreeKind.Useless;
+        }
+
+        if (Has("recover"))
+        {
+            return MobaTreeKind.Recovery;
+        }
+
+        if (Has("Mana Usage") || Has("Attack Speed") || Has("Summoned Monster") || Has("Swell Life"))
+        {
+            return MobaTreeKind.Utility;
+        }
+
+        if (Has("Critical Damage") || Has("Double Damage Chance") || Has("Raven critical") || Has("Raven exc") || Has("Attack Rate"))
+        {
+            return MobaTreeKind.Crit;
+        }
+
+        // Debuffs / reductions of a skill's own effects and chances of mastery side effects: skill-bound, not generic.
+        if (Has("Decrement") || Has("Receive") || Has("Chance") || Has("Extra Projectiles") || Has("Bonus Healing") || Has("Berserker"))
+        {
+            return MobaTreeKind.Other;
+        }
+
+        // Maximum Shield stays out: the champion's shield is the level curve plus the Aegis barrier, a node would add uncapped durability.
+        if (Has("Maximum Shield"))
+        {
+            return MobaTreeKind.Other;
+        }
+
+        if (Has("Defense") || Has("Resistance") || Has("Block") || Has("Total Vitality"))
+        {
+            return MobaTreeKind.Defense;
+        }
+
+        return Has("Damage") ? MobaTreeKind.Offense : MobaTreeKind.Other;
+    }
+
+    /// <summary>How much one point of the node counts toward its kind's term (attack rate does little without an accuracy roll).</summary>
+    /// <param name="skill">The node.</param>
+    /// <returns>The weight, 0..1.</returns>
+    public static double PointWeight(Skill skill)
+        => skill.MasterDefinition?.TargetAttribute?.Designation?.ToString()?.Contains("Attack Rate", StringComparison.OrdinalIgnoreCase) == true ? 0.5 : 1.0;
+
+    /// <summary>Gets the weighted points the champion has in nodes of a kind.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The points.</returns>
+    public static double PointsIn(Player champion, MobaTreeKind kind)
+    {
+        var points = 0.0;
         foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
         {
-            if (entry.Skill is { MasterDefinition: not null } skill && IsOffense(skill))
+            if (entry.Skill is { MasterDefinition: not null } skill && KindOf(skill) == kind)
             {
-                points += entry.Level;
+                points += entry.Level * PointWeight(skill);
             }
         }
 
         return points;
     }
 
-    /// <summary>The points in offense nodes that give the champion's class the whole tree term: <c>min(<see cref="OffensePointsForMax"/>, 80 % of the class's offense capacity)</c>.</summary>
+    /// <summary>Gets the points the champion has in offense nodes.</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The points.</returns>
-    public static int OffenseCapOf(Player champion)
+    public static int OffensePoints(Player champion) => (int)PointsIn(champion, MobaTreeKind.Offense);
+
+    /// <summary>The weighted points in a kind that give the champion's class the whole tree term: <c>min(<see cref="OffensePointsForMax"/>, 80 % of the class's capacity in the kind)</c>; 0 if the class has no such nodes.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The points.</returns>
+    public static int CapOf(Player champion, MobaTreeKind kind)
     {
         if (champion.SelectedCharacter?.CharacterClass is not { } characterClass)
         {
             return OffensePointsForMax;
         }
 
-        return OffenseCapCache.GetOrAdd(characterClass.Number, _ => OffenseCapFor(champion.GameContext.Configuration.Skills, characterClass));
+        return CapCache.GetOrAdd((characterClass.Number, kind), _ => CapFor(champion.GameContext.Configuration.Skills, characterClass, kind));
     }
 
-    /// <summary>Computes the offense cap of a class from the skill list.</summary>
+    /// <summary>The offense cap of the champion's class (at least 1).</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The points.</returns>
+    public static int OffenseCapOf(Player champion) => Math.Max(1, CapOf(champion, MobaTreeKind.Offense));
+
+    /// <summary>Computes the cap of a class in a kind from the skill list (0 if the class has no such nodes).</summary>
+    /// <param name="skills">All skills.</param>
+    /// <param name="characterClass">The class.</param>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The points.</returns>
+    public static int CapFor(IEnumerable<Skill> skills, CharacterClass characterClass, MobaTreeKind kind)
+    {
+        var capacity = skills
+            .Where(s => s.MasterDefinition is not null && KindOf(s) == kind && s.QualifiedCharacters.Contains(characterClass))
+            .Sum(s => s.MasterDefinition!.MaximumLevel * PointWeight(s));
+        return (int)Math.Min(OffensePointsForMax, capacity * OffenseCapacityShare);
+    }
+
+    /// <summary>The offense cap of a class from the skill list (at least 1).</summary>
     /// <param name="skills">All skills.</param>
     /// <param name="characterClass">The class.</param>
     /// <returns>The points.</returns>
     public static int OffenseCapFor(IEnumerable<Skill> skills, CharacterClass characterClass)
+        => Math.Max(1, CapFor(skills, characterClass, MobaTreeKind.Offense));
+
+    /// <summary>The tree term of a blend: points in the kind over <see cref="CapOf"/>, or <c>null</c> if the class has no nodes of the kind (the blend then drops the tree term and renormalizes).</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="kind">The kind.</param>
+    /// <returns>0..1, or <c>null</c>.</returns>
+    public static double? Fraction(Player champion, MobaTreeKind kind)
     {
-        var capacity = skills
-            .Where(s => s.MasterDefinition is not null && IsOffense(s) && s.QualifiedCharacters.Contains(characterClass))
-            .Sum(s => (int)s.MasterDefinition!.MaximumLevel);
-        return Math.Max(1, Math.Min(OffensePointsForMax, (int)(capacity * OffenseCapacityShare)));
+        var cap = CapOf(champion, kind);
+        return cap <= 0 ? null : Math.Clamp(PointsIn(champion, kind) / cap, 0.0, 1.0);
     }
 
-    /// <summary>The tree term of the damage blend: offense points over <see cref="OffenseCapOf"/>.</summary>
+    /// <summary>The tree term of the damage blend.</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>0..1.</returns>
-    public static double OffenseFraction(Player champion)
-        => Math.Clamp(OffensePoints(champion) / (double)OffenseCapOf(champion), 0.0, 1.0);
+    public static double OffenseFraction(Player champion) => Fraction(champion, MobaTreeKind.Offense) ?? 0.0;
+
+    /// <summary>
+    /// The shared blend of the damage, mitigation and critical formulas (2026-10-01, set by the user):
+    /// <c>0,45 × stats + 0,20 × tree + 0,35 × items</c>. A class without nodes of the kind has no tree term, so
+    /// the stats and items weights are renormalized instead of the class losing a fifth of the result.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="kind">The tree kind that feeds the tree term.</param>
+    /// <param name="fromStats">The stats term, 0..1.</param>
+    /// <param name="fromItems">The items term, 0..1.</param>
+    /// <returns>The blended 0..1 fraction.</returns>
+    public static double Blend(Player champion, MobaTreeKind kind, double fromStats, double fromItems)
+        => Blend(Fraction(champion, kind), fromStats, fromItems);
+
+    /// <summary>The blend of <see cref="Blend(Player, MobaTreeKind, double, double)"/> with the tree term given.</summary>
+    /// <param name="fromTree">The tree term, or <c>null</c> if the class has none.</param>
+    /// <param name="fromStats">The stats term, 0..1.</param>
+    /// <param name="fromItems">The items term, 0..1.</param>
+    /// <returns>The blended 0..1 fraction.</returns>
+    public static double Blend(double? fromTree, double fromStats, double fromItems)
+    {
+        if (fromTree is { } tree)
+        {
+            return Math.Clamp((StatsWeight * fromStats) + (TreeWeight * tree) + (ItemsWeight * fromItems), 0.0, 1.0);
+        }
+
+        return Math.Clamp(((StatsWeight * fromStats) + (ItemsWeight * fromItems)) / (StatsWeight + ItemsWeight), 0.0, 1.0);
+    }
 
     /// <summary>Points the champion needs in the node's root to learn it: (rank - 2) * <see cref="PointsPerRank"/>, at least 0.</summary>
     /// <param name="skill">The node.</param>
@@ -144,16 +331,36 @@ public static class MobaMasterTree
         return inRoot >= needed;
     }
 
-    /// <summary>The nodes of the champion's class, in the order a player (or a bot) would fill them: offense first, by rank, then health, then mana.</summary>
+    /// <summary>The next node a bot (or a player following the fill plan) would put a point in, or <c>null</c> if nothing is left.</summary>
     /// <param name="champion">The champion.</param>
-    /// <returns>The allowed nodes.</returns>
-    public static IEnumerable<Skill> NodesInFillOrder(Player champion)
+    /// <returns>The node.</returns>
+    public static Skill? NextNodeToFill(Player champion)
     {
-        var characterClass = champion.SelectedCharacter?.CharacterClass;
-        return champion.GameContext.Configuration.Skills
-            .Where(s => s.MasterDefinition is not null && IsAllowed(s) && characterClass is not null && s.QualifiedCharacters.Contains(characterClass))
-            .OrderBy(s => IsOffense(s) ? 0 : (s.MasterDefinition!.TargetAttribute == Stats.MaximumHealth ? 1 : 2))
-            .ThenBy(s => s.MasterDefinition!.Rank)
-            .ThenBy(s => s.Number);
+        if (champion.SelectedCharacter?.CharacterClass is not { } characterClass)
+        {
+            return null;
+        }
+
+        var learned = champion.SelectedCharacter.LearnedSkills;
+        foreach (var (kind, share) in FillStages)
+        {
+            var isCapped = kind is MobaTreeKind.Offense or MobaTreeKind.Defense or MobaTreeKind.Crit;
+            if (isCapped && PointsIn(champion, kind) >= CapOf(champion, kind) * share)
+            {
+                continue;
+            }
+
+            var node = champion.GameContext.Configuration.Skills
+                .Where(s => s.MasterDefinition is not null && KindOf(s) == kind && IsAllowed(s) && s.QualifiedCharacters.Contains(characterClass))
+                .OrderBy(s => s.MasterDefinition!.Rank)
+                .ThenBy(s => s.Number)
+                .FirstOrDefault(s => (learned.FirstOrDefault(l => l.Skill == s)?.Level ?? 0) < s.MasterDefinition!.MaximumLevel && MeetsRank(champion, s));
+            if (node is not null)
+            {
+                return node;
+            }
+        }
+
+        return null;
     }
 }

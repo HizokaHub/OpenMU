@@ -48,7 +48,7 @@ public class AddMasterPointAction
 
         if (player.IsMobaClone && !PlugIns.Moba.MobaMasterTree.IsAllowed(skill))
         {
-            await player.ShowBlueMessageAsync("[MOBA] Ese nodo del árbol no está disponible en la partida (solo daño, vida máxima y maná máximo).").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[MOBA] Ese nodo del árbol no está disponible en la partida (se habilitan por tipo: daño, vida, maná, defensa y crítico por ahora).").ConfigureAwait(false);
             return;
         }
 
