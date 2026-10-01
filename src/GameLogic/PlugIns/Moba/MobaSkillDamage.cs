@@ -129,6 +129,11 @@ public static class MobaSkillDamage
         [263] = (135, 33, 0.85), // Dark Side
     };
 
+    /// <summary>Whether the skill has its own damage entry (it is a damaging skill of the MOBA tables).</summary>
+    /// <param name="skillNumber">Persistence skill number.</param>
+    /// <returns><c>true</c> if the skill deals tabled damage.</returns>
+    public static bool HasDamageEntry(short skillNumber) => Table.ContainsKey(skillNumber);
+
     /// <summary>Gets the flat (stat-independent) damage of a skill at a rank, as used by balance models.</summary>
     /// <param name="skillNumber">Persistence skill number.</param>
     /// <param name="rank">The skill rank 1..5.</param>
@@ -157,7 +162,7 @@ public static class MobaSkillDamage
             : (DefaultBase, DefaultPerRank, DefaultMaxStatBonus);
 
         var r = Math.Clamp(rank, 1, 5);
-        var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier;
+        var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier * (1.0 + MobaMasterTree.StrengthenerBonusOf(champion, skillNumber));
 
         // Per-rank stat ratio (LoL AP/AD ratio): the skill scales harder with the primary
         // stat as it is maxed - the table value is the rank-1 ratio, growing to

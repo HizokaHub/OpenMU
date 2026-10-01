@@ -61,7 +61,9 @@ public sealed class SkillList : ISkillList, IDisposable
         this._learnedSkills = this._player.SelectedCharacter.LearnedSkills ?? new List<SkillEntry>();
         this._learnedSkills.Where(entry => entry.Skill is null).ForEach(entry => throw Error.NotInitializedProperty(entry, nameof(entry.Skill)));
 
-        this._availableSkills = this._learnedSkills.ToDictionary(skillEntry => skillEntry.Skill!.Number.ToUnsigned());
+        this._availableSkills = this._learnedSkills
+            .Where(skillEntry => !(player.IsMobaClone && skillEntry.Skill!.MasterDefinition?.ReplacedSkill is not null))
+            .ToDictionary(skillEntry => skillEntry.Skill!.Number.ToUnsigned());
         this._itemSkills = new List<SkillEntry>();
         this._player.Inventory.EquippedItems
             .Where(item => item.HasSkill)
@@ -105,7 +107,7 @@ public sealed class SkillList : ISkillList, IDisposable
         skillEntry.Level = 0;
         await this.AddLearnedSkillAsync(skillEntry).ConfigureAwait(false);
 
-        if (skill.MasterDefinition?.ReplacedSkill is { } replacedSkill)
+        if (skill.MasterDefinition?.ReplacedSkill is { } replacedSkill && !this._player.IsMobaClone)
         {
             await this._player.InvokeViewPlugInAsync<ISkillListViewPlugIn>(p => p.RemoveSkillAsync(replacedSkill)).ConfigureAwait(false);
         }
@@ -167,6 +169,13 @@ public sealed class SkillList : ISkillList, IDisposable
 
     private async ValueTask AddLearnedSkillAsync(SkillEntry skill)
     {
+        if (this._player.IsMobaClone && skill.Skill!.MasterDefinition?.ReplacedSkill is not null)
+        {
+            // MOBA: a strengthener node only adds its points (MobaMasterTree.StrengthenerBonusOf); the base skill stays in the bar.
+            this._learnedSkills.Add(skill);
+            return;
+        }
+
         this._availableSkills.Add(skill.Skill!.Number.ToUnsigned(), skill);
         this._learnedSkills.Add(skill);
 

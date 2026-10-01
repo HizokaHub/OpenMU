@@ -35,7 +35,7 @@ public enum MobaTreeKind
     /// <summary>Mana usage reduction (capped 40 %) and weapon-mastery attack speed (capped at the item cap).</summary>
     Utility,
 
-    /// <summary>Active nodes that replace a skill by another one ("X Strengthener"). Not available yet.</summary>
+    /// <summary>"X Strengthener" nodes of a damaging skill: in the MOBA they do not replace the skill, they add damage to it (<see cref="MobaMasterTree.StrengthenerBonusOf"/>).</summary>
     Strengthener,
 
     /// <summary>Pet duration: meaningless in the MOBA. Not available.</summary>
@@ -78,6 +78,12 @@ public static class MobaMasterTree
     /// <summary>Points in the same root per rank above 2 needed to learn a node (rank 1 and 2 are free).</summary>
     public const int PointsPerRank = 10;
 
+    /// <summary>Damage added to the base skill per point in one of its strengthener nodes (20 points = +30 %).</summary>
+    public const double StrengthenerBonusPerPoint = 0.015;
+
+    /// <summary>Most extra damage the strengtheners of one skill give together.</summary>
+    public const double StrengthenerBonusMax = 0.45;
+
     /// <summary>Extra damage reduction of a fully filled <see cref="MobaTreeKind.Durability"/> term (multiplicative, after the mitigation cap).</summary>
     public const double DurabilityDamageReduction = 0.15;
 
@@ -105,6 +111,7 @@ public static class MobaMasterTree
         MobaTreeKind.Durability,
         MobaTreeKind.Recovery,
         MobaTreeKind.Utility,
+        MobaTreeKind.Strengthener,
     };
 
     /// <summary>The order a player (or a bot) fills the tree: (kind, share of that kind's cap to reach in this stage).</summary>
@@ -113,6 +120,7 @@ public static class MobaMasterTree
         (MobaTreeKind.Offense, 0.5),
         (MobaTreeKind.Defense, 0.5),
         (MobaTreeKind.Crit, 1.0),
+        (MobaTreeKind.Strengthener, 0.4),
         (MobaTreeKind.Shield, 0.5),
         (MobaTreeKind.Durability, 0.5),
         (MobaTreeKind.Utility, 0.5),
@@ -149,7 +157,33 @@ public static class MobaMasterTree
             return MobaTreeKind.Other;
         }
 
-        return KindCache.GetOrAdd(skill.Number, _ => Classify(definition.ReplacedSkill is not null, definition.TargetAttribute?.Designation?.ToString()));
+        return KindCache.GetOrAdd(skill.Number, _ =>
+        {
+            var kind = Classify(definition.ReplacedSkill is not null, definition.TargetAttribute?.Designation?.ToString());
+
+            // Only the strengtheners of a damaging skill have something to add to; the rest (buffs, summons...) stay off.
+            return kind == MobaTreeKind.Strengthener && !(definition.ReplacedSkill is not null && MobaSkillDamage.HasDamageEntry((short)skill.GetBaseSkill().Number))
+                ? MobaTreeKind.Other
+                : kind;
+        });
+    }
+
+    /// <summary>The extra damage the champion's strengthener nodes give to a skill (+1,5 % per point, at most +45 %).</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="skillNumber">The (base) skill number.</param>
+    /// <returns>0..<see cref="StrengthenerBonusMax"/>.</returns>
+    public static double StrengthenerBonusOf(Player champion, short skillNumber)
+    {
+        var points = 0;
+        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        {
+            if (entry.Skill is { MasterDefinition.ReplacedSkill: not null } skill && KindOf(skill) == MobaTreeKind.Strengthener && skill.GetBaseSkill().Number == skillNumber)
+            {
+                points += entry.Level;
+            }
+        }
+
+        return Math.Min(StrengthenerBonusMax, points * StrengthenerBonusPerPoint);
     }
 
     /// <summary>Classifies a node from whether it replaces a skill and the designation of its target attribute.</summary>
@@ -397,7 +431,8 @@ public static class MobaMasterTree
             }
 
             var node = champion.GameContext.Configuration.Skills
-                .Where(s => s.MasterDefinition is not null && KindOf(s) == kind && IsAllowed(s) && s.QualifiedCharacters.Contains(characterClass))
+                .Where(s => s.MasterDefinition is not null && KindOf(s) == kind && IsAllowed(s) && s.QualifiedCharacters.Contains(characterClass)
+                            && (kind != MobaTreeKind.Strengthener || learned.Any(l => l.Skill?.Number == s.GetBaseSkill().Number)))
                 .OrderBy(s => s.MasterDefinition!.Rank)
                 .ThenBy(s => s.Number)
                 .FirstOrDefault(s => (learned.FirstOrDefault(l => l.Skill == s)?.Level ?? 0) < s.MasterDefinition!.MaximumLevel && MeetsRank(champion, s));

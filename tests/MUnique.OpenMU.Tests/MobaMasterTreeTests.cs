@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.Tests;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using MUnique.OpenMU.DataModel.Configuration;
+using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
 using MUnique.OpenMU.Persistence.InMemory;
@@ -47,17 +48,18 @@ public class MobaMasterTreeTests
         }
     }
 
-    /// <summary>No allowed node replaces a skill (the MOBA tables know skills by number).</summary>
+    /// <summary>Every allowed strengthener node ends in a damaging skill of the MOBA tables (the others stay off).</summary>
     [Test]
-    public void AllowedNodesNeverReplaceASkill()
+    public void AllowedStrengthenersBoostATabledSkill()
     {
-        foreach (var skill in this._gameConfiguration.Skills.Where(s => s.MasterDefinition is not null))
+        var allowed = 0;
+        foreach (var skill in this._gameConfiguration.Skills.Where(s => s.MasterDefinition?.ReplacedSkill is not null && MobaMasterTree.IsAllowed(s)))
         {
-            if (skill.MasterDefinition!.ReplacedSkill is not null)
-            {
-                Assert.That(MobaMasterTree.IsAllowed(skill), Is.False, skill.Number.ToString());
-            }
+            allowed++;
+            Assert.That(MobaSkillDamage.HasDamageEntry((short)skill.GetBaseSkill().Number), Is.True, $"{skill.Name} ({skill.Number})");
         }
+
+        Assert.That(allowed, Is.GreaterThan(20));
     }
 
     /// <summary>Every class has defense and critical nodes, and the tree terms of both can be completed with few points.</summary>
