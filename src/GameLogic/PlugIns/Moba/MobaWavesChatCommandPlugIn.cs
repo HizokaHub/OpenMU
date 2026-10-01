@@ -22,7 +22,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("D6B4E1A7-2C93-4F58-8A0D-7E1C5B3F9A24")]
 [PlugIn]
 [Display(Name = "MOBA: periodic wave spawner command", Description = "GM command '/mobawaves [seconds|off]' - toggle continuous lane waves.")]
-[ChatCommandHelp(Command, "Start/stop continuous MOBA lane waves ('/mobawaves', '/mobawaves 20', '/mobawaves off').", typeof(MobaWavesChatCommandArgs))]
+[ChatCommandHelp(Command, "Start/stop continuous MOBA lane waves ('/mobawaves', '/mobawaves 20', '/mobawaves off').", typeof(MobaWavesChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaWavesChatCommandPlugIn : ChatCommandPlugInBase<MobaWavesChatCommandArgs>
 {
     private const string Command = "/mobawaves";

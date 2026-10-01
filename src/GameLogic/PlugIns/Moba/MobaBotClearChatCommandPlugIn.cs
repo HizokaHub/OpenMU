@@ -13,7 +13,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("A1C4F736-8E29-4D50-9B63-2F7A0C6E5B18")]
 [PlugIn]
 [Display(Name = "MOBA: clear test bots", Description = "Dev command '/mobabotclear' - remove all MOBA test bots.")]
-[ChatCommandHelp(Command, "Remove all MOBA test bots.", null)]
+[ChatCommandHelp(Command, "Remove all MOBA test bots.", null, CharacterStatus.GameMaster)]
 public class MobaBotClearChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobabotclear";

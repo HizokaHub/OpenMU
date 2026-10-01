@@ -37,7 +37,19 @@ public class ChatCommandHelpAttribute : Attribute
     /// <param name="description">The description of the command.</param>
     /// <param name="argumentsType">Type of the arguments.</param>
     public ChatCommandHelpAttribute(string command, string description, Type? argumentsType)
-        : this(command, argumentsType, CharacterStatus.Normal)
+        : this(command, description, argumentsType, CharacterStatus.Normal)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChatCommandHelpAttribute" /> class.
+    /// </summary>
+    /// <param name="command">The command.</param>
+    /// <param name="description">The description of the command.</param>
+    /// <param name="argumentsType">Type of the arguments.</param>
+    /// <param name="minimumCharacterStatus">The minimum character status.</param>
+    public ChatCommandHelpAttribute(string command, string description, Type? argumentsType, CharacterStatus minimumCharacterStatus)
+        : this(command, argumentsType, minimumCharacterStatus)
     {
         this.Description = description;
     }

@@ -21,7 +21,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("C3A9F1D2-5E47-4B80-9A16-2D8C7B0E4F35")]
 [PlugIn]
 [Display(Name = "MOBA: spawn lane wave command", Description = "GM command '/mobawave [red]' - spawn a marching lane wave for a team.")]
-[ChatCommandHelp(Command, "Spawn a MOBA lane wave (blue marches south, 'red' marches north).", typeof(MobaTeamChatCommandArgs))]
+[ChatCommandHelp(Command, "Spawn a MOBA lane wave (blue marches south, 'red' marches north).", typeof(MobaTeamChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaWaveChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatCommandArgs>
 {
     private const string Command = "/mobawave";

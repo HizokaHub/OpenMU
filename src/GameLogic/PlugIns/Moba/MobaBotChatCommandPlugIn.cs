@@ -26,7 +26,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("3D9A6E82-1B47-4C05-8F62-9A0E7C3B1D54")]
 [PlugIn]
 [Display(Name = "MOBA: spawn test bots", Description = "Dev command '/mobabot <blue|red> <class|all> [count]' or '/mobabot <class1> <class2>' for a quick 1v1.")]
-[ChatCommandHelp(Command, "Spawn MOBA champion test bots: /mobabot <blue|red> <class|all> [count], or /mobabot <class1> <class2> for a quick 1v1", typeof(MobaBotChatCommandArgs))]
+[ChatCommandHelp(Command, "Spawn MOBA champion test bots: /mobabot <blue|red> <class|all> [count], or /mobabot <class1> <class2> for a quick 1v1", typeof(MobaBotChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommandArgs>
 {
     private const string Command = "/mobabot";

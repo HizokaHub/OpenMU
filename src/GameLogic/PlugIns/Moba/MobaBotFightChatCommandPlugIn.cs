@@ -18,7 +18,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("6C2E9B41-4A83-4F50-8D67-1B0A7E3C5F92")]
 [PlugIn]
 [Display(Name = "MOBA: bot brawl", Description = "Dev command '/mobabotfight [n]' - spawn an n-vs-n bot fight.")]
-[ChatCommandHelp(Command, "Spawn an n-vs-n bot fight (n = 1..7, default 7): /mobabotfight [n]", null)]
+[ChatCommandHelp(Command, "Spawn an n-vs-n bot fight (n = 1..7, default 7): /mobabotfight [n]", null, CharacterStatus.GameMaster)]
 public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobabotfight";

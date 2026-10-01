@@ -19,7 +19,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("9E4B7A12-3C58-4D96-B1F0-5A2D8C6E7F31")]
 [PlugIn]
 [Display(Name = "MOBA: quick fight", Description = "Dev command '/mobafight 1|2|stop' - quick 1v1 (you vs a bot) / 2v2 (bots only, you watch) with lane waves every 50 s.")]
-[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2 bots vs 2 bots), /mobafight stop (clear bots + creeps + waves)", null)]
+[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2 bots vs 2 bots), /mobafight stop (clear bots + creeps + waves)", null, CharacterStatus.GameMaster)]
 public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobafight";

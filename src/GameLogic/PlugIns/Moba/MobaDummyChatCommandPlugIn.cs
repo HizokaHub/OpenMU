@@ -21,7 +21,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("6C2F91A4-3D80-4B17-9E52-8A1F0C7B6D34")]
 [PlugIn]
 [Display(Name = "MOBA: spawn training dummies", Description = "Dev command '/mobadummy [class] [count]'.")]
-[ChatCommandHelp(Command, "Spawn stationary MOBA training dummies: /mobadummy [class] [count]", typeof(MobaDummyChatCommandArgs))]
+[ChatCommandHelp(Command, "Spawn stationary MOBA training dummies: /mobadummy [class] [count]", typeof(MobaDummyChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaDummyChatCommandPlugIn : ChatCommandPlugInBase<MobaDummyChatCommandArgs>
 {
     private const string Command = "/mobadummy";

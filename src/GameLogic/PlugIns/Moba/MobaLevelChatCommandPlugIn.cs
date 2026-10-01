@@ -18,7 +18,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("A0F31C64-2B58-4E97-8D1A-6C0B9E7F4A25")]
 [PlugIn]
 [Display(Name = "MOBA: set champion level", Description = "Dev command '/mobalevel <level>'.")]
-[ChatCommandHelp(Command, "Jump your MOBA champion to a level (1..30): /mobalevel <level>", typeof(MobaLevelChatCommandArgs))]
+[ChatCommandHelp(Command, "Jump your MOBA champion to a level (1..30): /mobalevel <level>", typeof(MobaLevelChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaLevelChatCommandPlugIn : ChatCommandPlugInBase<MobaLevelChatCommandArgs>
 {
     private const string Command = "/mobalevel";

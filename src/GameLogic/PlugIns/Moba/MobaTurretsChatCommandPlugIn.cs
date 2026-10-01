@@ -20,7 +20,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("E7C2A5B9-4D18-4A63-9F70-1B8E3C6D2A45")]
 [PlugIn]
 [Display(Name = "MOBA: toggle lane turrets command", Description = "GM command '/mobaturrets' - spawn/remove the mid-lane turrets.")]
-[ChatCommandHelp(Command, "Spawn or remove the MOBA mid-lane turrets (one per team).", typeof(EmptyChatCommandArgs))]
+[ChatCommandHelp(Command, "Spawn or remove the MOBA mid-lane turrets (one per team).", typeof(EmptyChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaTurretsChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
 {
     private const string Command = "/mobaturrets";

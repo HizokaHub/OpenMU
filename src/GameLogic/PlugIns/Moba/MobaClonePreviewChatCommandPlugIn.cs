@@ -23,7 +23,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("9E4B2A17-6D8C-4F03-A1E5-8C2B7F0D4E96")]
 [PlugIn]
 [Display(Name = "MOBA: clone preview command", Description = "GM command '/mobaclonepreview' - build + report + discard a match clone.")]
-[ChatCommandHelp(Command, "Build, report and discard a MOBA match clone of your character.", typeof(EmptyChatCommandArgs))]
+[ChatCommandHelp(Command, "Build, report and discard a MOBA match clone of your character.", typeof(EmptyChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaClonePreviewChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
 {
     private const string Command = "/mobaclonepreview";

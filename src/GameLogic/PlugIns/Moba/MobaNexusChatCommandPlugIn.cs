@@ -19,7 +19,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("F1A9D2C6-3E85-4B70-8C24-9D6B1E7F3A58")]
 [PlugIn]
 [Display(Name = "MOBA: toggle nexuses command", Description = "GM command '/mobanexus' - spawn/remove the team nexuses (destroy one to end the match).")]
-[ChatCommandHelp(Command, "Spawn or remove the MOBA nexuses (destroying one ends the match).", typeof(EmptyChatCommandArgs))]
+[ChatCommandHelp(Command, "Spawn or remove the MOBA nexuses (destroying one ends the match).", typeof(EmptyChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaNexusChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
 {
     private const string Command = "/mobanexus";
