@@ -31,6 +31,9 @@ public static class MobaItemCaps
     /// </summary>
     public const float MaxResourceMultiplier = 1.20f;
 
+    /// <summary>Hard cap on the mana usage reduction of the master tree.</summary>
+    public const float MaxManaUsageReduction = 0.40f;
+
     private static readonly ConditionalWeakTable<Player, State> States = new();
 
     /// <summary>Re-applies the caps for one champion. Cheap; called from the MOBA tick.</summary>
@@ -44,6 +47,8 @@ public static class MobaItemCaps
 
         var state = States.GetOrCreateValue(champion);
         CapAttribute(attributes, Stats.AttackSpeed, MaxAttackSpeed, ref state.AttackSpeedElement);
+
+        CapAttribute(attributes, Stats.ManaUsageReduction, MaxManaUsageReduction, ref state.ManaUsageElement);
 
         var (hpMul, _) = MobaProgression.RoleTilt(MobaPassives.FamilyOf(champion));
         var maxHealthCap = MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier;
@@ -77,5 +82,7 @@ public static class MobaItemCaps
         public IElement? HealthElement;
 
         public IElement? ManaElement;
+
+        public IElement? ManaUsageElement;
     }
 }

@@ -117,7 +117,8 @@ public static class MobaDefense
             mitigation *= 1.0 - pen;
         }
 
-        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation)));
+        var durability = MobaMasterTree.DurabilityDamageReduction * (MobaMasterTree.Fraction(defender, MobaTreeKind.Durability) ?? 0.0);
+        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability)));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
         // max HP. Big burst still wins fights - it just can't delete a champion in one frame.

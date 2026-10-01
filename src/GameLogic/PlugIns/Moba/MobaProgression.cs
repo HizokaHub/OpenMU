@@ -18,7 +18,7 @@ using MUnique.OpenMU.GameLogic.Attributes;
 /// <list type="bullet">
 /// <item>HP: <c>1,200 -&gt; 45,000</c> (a squishy at 30; VIT / items push tanks higher)</item>
 /// <item>Mana: <c>900 -&gt; 14,000</c></item>
-/// <item>Shield (SD): <c>300 -&gt; 9,000</c></item>
+/// <item>Shield (SD): a third of the health (25 % of health + shield)</item>
 /// <item>Defense (flat): <c>15 -&gt; 400</c></item>
 /// <item>Damage scale: <c>1.0x -&gt; 22x</c> multiplied onto every skill / basic hit</item>
 /// </list>
@@ -31,8 +31,8 @@ public static class MobaProgression
     private const float ManaLevel1 = 450f;
     private const float ManaLevelMax = 3_400f;
 
-    private const float ShieldLevel1 = 400f;
-    private const float ShieldLevelMax = 10_000f;
+    /// <summary>The shield (SD) is a quarter of the champion's total durability (health + shield): shield = health / 3.</summary>
+    public const float ShieldPerHealth = 1f / 3f;
 
     private const float DefenseLevel1 = 15f;
     private const float DefenseLevelMax = 400f;
@@ -53,7 +53,7 @@ public static class MobaProgression
     /// <summary>Max shield (SD) for a champion at the given level.</summary>
     /// <param name="level">Champion level (1..30).</param>
     /// <returns>The scaled max shield.</returns>
-    public static float ShieldAt(int level) => Lerp(ShieldLevel1, ShieldLevelMax, level);
+    public static float ShieldAt(int level) => HealthAt(level) * ShieldPerHealth;
 
     /// <summary>Flat defense for a champion at the given level.</summary>
     /// <param name="level">Champion level (1..30).</param>
@@ -104,7 +104,7 @@ public static class MobaProgression
 
         SetAbsolute(attributes, Stats.MaximumHealth, HealthAt(level) * hpMul);
         SetAbsolute(attributes, Stats.MaximumMana, ManaAt(level));
-        SetAbsolute(attributes, Stats.MaximumShield, ShieldAt(level));
+        SetAbsolute(attributes, Stats.MaximumShield, ShieldAt(level) * hpMul);
 
         var defense = DefenseAt(level);
         SetAbsolute(attributes, Stats.DefenseBase, defense);

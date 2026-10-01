@@ -110,7 +110,8 @@ public static class MobaCastEffects
             return;
         }
 
-        var amount = (float)(a[Stats.MaximumHealth] * AegisFractionOf(MobaItemPower.OffhandTierOf(champion)));
+        var treeBonus = 1.0 + (MobaMasterTree.AegisTreeBonus * (MobaMasterTree.Fraction(champion, MobaTreeKind.Shield) ?? 0.0));
+        var amount = (float)(a[Stats.MaximumHealth] * AegisFractionOf(MobaItemPower.OffhandTierOf(champion)) * treeBonus);
         if (champion.MagicEffectList.ActiveEffects.TryGetValue(AegisDefinition.Number, out var previous))
         {
             await previous.DisposeAsync().ConfigureAwait(false);

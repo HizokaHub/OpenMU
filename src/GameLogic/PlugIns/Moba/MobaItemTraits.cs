@@ -31,6 +31,9 @@ public static class MobaItemTraits
     private static readonly double[] CcResistByTier = { 0, 0.05, 0.10, 0.15 };
     private static readonly double[] CooldownByTier = { 0, 0.06, 0.12, 0.20 };
     private static readonly double[] GoldByTier = { 0, 0.05, 0.10, 0.15 };
+    private static readonly double[] SdPierceByTier = { 0, 0.05, 0.10, 0.15 };
+    private static readonly double[] SdBypassByTier = { 0, 0.03, 0.06, 0.10 };
+    private static readonly double[] SdGuardByTier = { 0, 0.02, 0.04, 0.06 };
 
     /// <summary>Highest total CC resistance (armor + pants + shield).</summary>
     public const double MaxCcResist = 0.50;
@@ -75,6 +78,29 @@ public static class MobaItemTraits
         => AntiHealByTier[Math.Max(
             MobaItemPower.TierIn(champion, InventoryConstants.RightHandSlot, MobaShopCategory.Weapons),
             MobaItemPower.TierIn(champion, InventoryConstants.LeftHandSlot, MobaShopCategory.Weapons))];
+
+    /// <summary>
+    /// SD piercing of the weapon: how much less of a hit goes to the victim's shield (the native 90 % ratio drops by this).
+    /// </summary>
+    /// <param name="champion">The attacking champion.</param>
+    /// <returns>0..0.15.</returns>
+    public static double SdPierceOf(Player champion)
+        => SdPierceByTier[Math.Max(
+            MobaItemPower.TierIn(champion, InventoryConstants.RightHandSlot, MobaShopCategory.Weapons),
+            MobaItemPower.TierIn(champion, InventoryConstants.LeftHandSlot, MobaShopCategory.Weapons))];
+
+    /// <summary>Chance of a hit to ignore the victim's shield altogether (wings).</summary>
+    /// <param name="champion">The attacking champion.</param>
+    /// <returns>0..0.10.</returns>
+    public static double SdBypassOf(Player champion)
+        => SdBypassByTier[MobaItemPower.TierIn(champion, InventoryConstants.WingsSlot, MobaShopCategory.Wings)];
+
+    /// <summary>How much more of a hit the shield of the champion takes (armor and pants), up to 12 %.</summary>
+    /// <param name="champion">The defending champion.</param>
+    /// <returns>0..0.12.</returns>
+    public static double SdGuardOf(Player champion)
+        => SdGuardByTier[MobaItemPower.TierIn(champion, InventoryConstants.ArmorSlot, MobaShopCategory.Sets)]
+           + SdGuardByTier[MobaItemPower.TierIn(champion, InventoryConstants.PantsSlot, MobaShopCategory.Sets)];
 
     /// <summary>The crowd-control duration reduction of the armor and pants.</summary>
     /// <param name="champion">The champion.</param>

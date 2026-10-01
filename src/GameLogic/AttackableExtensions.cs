@@ -361,7 +361,8 @@ public static class AttackableExtensions
     /// <returns>The calculated hit info.</returns>
     public static HitInfo GetHitInfo(this IAttackable defender, uint damage, DamageAttributes attributes, IAttacker attacker, uint manaToll = 0)
     {
-        var shieldBypass = Rand.NextRandomBool(attacker.Attributes[Stats.ShieldBypassChance]);
+        var mobaAttacker = attacker as Player is { IsMobaClone: true } champion ? champion : null;
+        var shieldBypass = Rand.NextRandomBool(attacker.Attributes[Stats.ShieldBypassChance] + (mobaAttacker is null ? 0 : PlugIns.Moba.MobaItemTraits.SdBypassOf(mobaAttacker)));
         if (shieldBypass || defender.Attributes[Stats.CurrentShield] < 1)
         {
             return new HitInfo(damage, 0, attributes, manaToll);
@@ -370,6 +371,16 @@ public static class AttackableExtensions
         var shieldRatio = 0.90;
         shieldRatio -= attacker.Attributes[Stats.ShieldDecreaseRateIncrease];
         shieldRatio += defender.Attributes[Stats.ShieldRateIncrease];
+        if (mobaAttacker is not null)
+        {
+            shieldRatio -= PlugIns.Moba.MobaItemTraits.SdPierceOf(mobaAttacker);
+        }
+
+        if (defender is Player { IsMobaClone: true } mobaDefender)
+        {
+            shieldRatio += PlugIns.Moba.MobaItemTraits.SdGuardOf(mobaDefender);
+        }
+
         shieldRatio = Math.Max(0, shieldRatio);
         shieldRatio = Math.Min(1, shieldRatio);
         return new HitInfo((uint)(damage * (1 - shieldRatio)), (uint)(damage * shieldRatio), attributes, manaToll);

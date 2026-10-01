@@ -77,11 +77,14 @@ public class MobaMasterTreeTests
     /// <summary>The classifier puts the troublesome designations in the right kind.</summary>
     [TestCase("Maximum Health", false, MobaTreeKind.Health)]
     [TestCase("Maximum Mana", false, MobaTreeKind.Mana)]
-    [TestCase("Item Duration Increase", false, MobaTreeKind.Useless)]
+    [TestCase("Item Duration Increase", false, MobaTreeKind.Durability)]
     [TestCase("Base Defense", false, MobaTreeKind.Defense)]
     [TestCase("Defense Rate (PvM)", false, MobaTreeKind.Defense)]
     [TestCase("Poison Resistance", false, MobaTreeKind.Defense)]
-    [TestCase("Maximum Shield", false, MobaTreeKind.Other)]
+    [TestCase("Maximum Shield", false, MobaTreeKind.Shield)]
+    [TestCase("Health recover after Monster kill, multiplier of max health", false, MobaTreeKind.KillRecovery)]
+    [TestCase("Ability Recovery Multiplier", false, MobaTreeKind.Other)]
+    [TestCase("Pet Duration Increase", false, MobaTreeKind.Useless)]
     [TestCase("Critical Damage Chance", false, MobaTreeKind.Crit)]
     [TestCase("Critical Damage Bonus", false, MobaTreeKind.Crit)]
     [TestCase("Raven exc damage chance", false, MobaTreeKind.Crit)]
@@ -98,6 +101,20 @@ public class MobaMasterTreeTests
     [TestCase(null, false, MobaTreeKind.Strengthener)]
     public void ClassifierPutsNodesInTheRightKind(string? designation, bool replaces, MobaTreeKind expected)
         => Assert.That(MobaMasterTree.Classify(replaces, designation), Is.EqualTo(expected));
+
+    /// <summary>Every class has Aegis (shield), durability, recovery and utility nodes to spend points on.</summary>
+    [Test]
+    public void EveryClassHasTheNewKinds()
+    {
+        foreach (var classNumber in MasterClassNumbers)
+        {
+            var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+            foreach (var kind in new[] { MobaTreeKind.Shield, MobaTreeKind.Durability, MobaTreeKind.Recovery, MobaTreeKind.Utility })
+            {
+                Assert.That(MobaMasterTree.CapFor(this._gameConfiguration.Skills, characterClass, kind), Is.GreaterThan(0), $"class {classNumber} {kind}");
+            }
+        }
+    }
 
     /// <summary>The blend is 45/20/35 and renormalizes when the class has no nodes of the kind.</summary>
     [Test]

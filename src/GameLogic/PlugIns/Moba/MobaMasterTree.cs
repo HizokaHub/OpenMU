@@ -29,17 +29,26 @@ public enum MobaTreeKind
     /// <summary>Critical / double-damage chances and attack rate: feed the tree term of the critical blend.</summary>
     Crit,
 
-    /// <summary>Health / mana / AG / SD recovery and recovery on monster kill. Not available yet.</summary>
+    /// <summary>Health / mana / SD recovery (out of combat; mana feeds <see cref="MobaMana"/>).</summary>
     Recovery,
 
-    /// <summary>Mana usage reduction, attack speed, summons: utility. Not available yet.</summary>
+    /// <summary>Mana usage reduction (capped 40 %) and weapon-mastery attack speed (capped at the item cap).</summary>
     Utility,
 
     /// <summary>Active nodes that replace a skill by another one ("X Strengthener"). Not available yet.</summary>
     Strengthener,
 
-    /// <summary>Item / pet durability: meaningless in the MOBA. Not available yet.</summary>
+    /// <summary>Pet duration: meaningless in the MOBA. Not available.</summary>
     Useless,
+
+    /// <summary>Maximum shield (SD): feeds the Aegis barrier (the shield pool itself is fixed by the level curve).</summary>
+    Shield,
+
+    /// <summary>Item durability nodes ("Durability Reduction"), reassigned to a damage reduction (up to <see cref="MobaMasterTree.DurabilityDamageReduction"/>).</summary>
+    Durability,
+
+    /// <summary>Recovery after killing a monster: the native values are divisors read as multipliers (a full heal per kill), so they stay off until given MOBA values.</summary>
+    KillRecovery,
 }
 
 /// <summary>
@@ -69,6 +78,12 @@ public static class MobaMasterTree
     /// <summary>Points in the same root per rank above 2 needed to learn a node (rank 1 and 2 are free).</summary>
     public const int PointsPerRank = 10;
 
+    /// <summary>Extra damage reduction of a fully filled <see cref="MobaTreeKind.Durability"/> term (multiplicative, after the mitigation cap).</summary>
+    public const double DurabilityDamageReduction = 0.15;
+
+    /// <summary>Extra Aegis barrier of a fully filled <see cref="MobaTreeKind.Shield"/> term: the tree is 20 % of the total, so +25 % of the tier barrier.</summary>
+    public const double AegisTreeBonus = 0.25;
+
     /// <summary>Weight of the stats term in every blend (damage, mitigation, critical).</summary>
     public const double StatsWeight = 0.45;
 
@@ -86,6 +101,10 @@ public static class MobaMasterTree
         MobaTreeKind.Mana,
         MobaTreeKind.Defense,
         MobaTreeKind.Crit,
+        MobaTreeKind.Shield,
+        MobaTreeKind.Durability,
+        MobaTreeKind.Recovery,
+        MobaTreeKind.Utility,
     };
 
     /// <summary>The order a player (or a bot) fills the tree: (kind, share of that kind's cap to reach in this stage).</summary>
@@ -94,8 +113,14 @@ public static class MobaMasterTree
         (MobaTreeKind.Offense, 0.5),
         (MobaTreeKind.Defense, 0.5),
         (MobaTreeKind.Crit, 1.0),
+        (MobaTreeKind.Shield, 0.5),
+        (MobaTreeKind.Durability, 0.5),
+        (MobaTreeKind.Utility, 0.5),
+        (MobaTreeKind.Recovery, 0.5),
         (MobaTreeKind.Offense, 1.0),
         (MobaTreeKind.Defense, 1.0),
+        (MobaTreeKind.Shield, 1.0),
+        (MobaTreeKind.Durability, 1.0),
         (MobaTreeKind.Health, 1.0),
         (MobaTreeKind.Mana, 1.0),
     };
@@ -150,9 +175,25 @@ public static class MobaMasterTree
             return MobaTreeKind.Mana;
         }
 
-        if (Has("Item Duration") || Has("Pet Duration") || Has("Durability"))
+        if (Has("Item Duration"))
+        {
+            return MobaTreeKind.Durability;
+        }
+
+        if (Has("Pet Duration"))
         {
             return MobaTreeKind.Useless;
+        }
+
+        if (Has("after Monster kill"))
+        {
+            return MobaTreeKind.KillRecovery;
+        }
+
+        // The champion has no AG, so its recovery does nothing.
+        if (Has("Ability Recovery"))
+        {
+            return MobaTreeKind.Other;
         }
 
         if (Has("recover"))
@@ -160,9 +201,14 @@ public static class MobaMasterTree
             return MobaTreeKind.Recovery;
         }
 
-        if (Has("Mana Usage") || Has("Attack Speed") || Has("Summoned Monster") || Has("Swell Life"))
+        if (Has("Mana Usage") || Has("Attack Speed"))
         {
             return MobaTreeKind.Utility;
+        }
+
+        if (Has("Summoned Monster") || Has("Swell Life"))
+        {
+            return MobaTreeKind.Other;
         }
 
         if (Has("Critical Damage") || Has("Double Damage Chance") || Has("Raven critical") || Has("Raven exc") || Has("Attack Rate"))
@@ -176,10 +222,10 @@ public static class MobaMasterTree
             return MobaTreeKind.Other;
         }
 
-        // Maximum Shield stays out: the champion's shield is the level curve plus the Aegis barrier, a node would add uncapped durability.
+        // The shield pool is fixed by the level curve (a quarter of the durability); the nodes make the Aegis barrier bigger instead.
         if (Has("Maximum Shield"))
         {
-            return MobaTreeKind.Other;
+            return MobaTreeKind.Shield;
         }
 
         if (Has("Defense") || Has("Resistance") || Has("Block") || Has("Total Vitality"))
@@ -344,7 +390,7 @@ public static class MobaMasterTree
         var learned = champion.SelectedCharacter.LearnedSkills;
         foreach (var (kind, share) in FillStages)
         {
-            var isCapped = kind is MobaTreeKind.Offense or MobaTreeKind.Defense or MobaTreeKind.Crit;
+            var isCapped = kind is not (MobaTreeKind.Health or MobaTreeKind.Mana);
             if (isCapped && PointsIn(champion, kind) >= CapOf(champion, kind) * share)
             {
                 continue;
