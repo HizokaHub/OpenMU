@@ -907,6 +907,13 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Pelear juntos (pedido del usuario):** nuevo estado `Regroup` (`TryRegroup`): (a) si un aliado está peleando con un campeón enemigo a ≤ 60 tiles y yo aún no estoy en combate, voy a unirme; (b) si voy a empezar una pelea con más enemigos que aliados cerca y hay un aliado más lejos, voy primero hacia él. Máximo 10 s por episodio y luego 25 s de enfriamiento (no puede trabar al bot). Intención en el log: `regroup`.
 - **Drops de creeps (pedido del usuario):** los creeps usan `MobaCreepDropGenerator` en vez del generador nativo, así que ya no sueltan los ítems nativos del monstruo: 35 % nada, 35 % Zen (nativo: EXP + 7, `DroppedMoney`), 30 % ítem MOBA; del ítem, 65 % armas/escudos y 35 % sets (`MobaCreepDrops.WeaponsAndShieldsShare`). Se eliminó el 8 % anterior y el drop MOBA aparte (ya no hay doble drop). Ahora el ítem lo recogen quien mató y su grupo con prioridad de 10 s (antes todo el equipo cercano).
 
+**Sesión 2026-10-01 (7ª parte) — 4º `/mobafight 2` (`openmu-server-mobafight2f.log`, ~7 min, partida Rojo gana):**
+- **El asedio funciona:** Nexo azul 100 % → 24 % (t=355 s) con torreta azul caída; sin excepciones, 4 `IDLE`. Rojo dominó (23/2 y 6/3 contra 4/14 y 1/15), azul pasó a `DefendBase` repetidamente (funciona la defensa por muertes).
+- **`Regroup` funciona:** 8 entradas `->Regroup` (Lane→Regroup 7, Fight→Regroup 1; salidas a Lane 5, Fight 2, DefendBase 1).
+- Mascotas: Imp (T1) y **Horn of Dinorant (T2)** comprados. Ward/barredor siguen activos.
+- **Égida de bots: NUNCA se lanzó** aunque el MG azul compró «Legendary Shield» (22:51:38) y estuvo 83 golpes en combate con 67-84 % de vida. Causa aún desconocida (¿habilidad no añadida a la `SkillList`, `HasSkill` falso del ítem comprado, cooldown, maná?). Se agregó el log de diagnóstico `[MOBA-BOT-UTIL] ... did NOT raise the Aegis: offhand=… hasSkill=… defSkill=… inSkillList=… cooldown=… mana=…` (cada 20 s); falta revisarlo en el próximo `/mobafight 2`.
+- Drops de creeps 35/35/30: sin log propio, no verificado todavía (se pueden ver ítems/Zen en el suelo jugando con `/mobafight 1`).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

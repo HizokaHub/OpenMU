@@ -513,6 +513,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     // ==================================================================================
     //  Macro brain
     // ==================================================================================
+    private DateTime _nextAegisDiagUtc;
+
     private bool _losingTeam;
 
     private Point _regroupPoint;
@@ -848,6 +850,22 @@ public sealed class MobaBotPlayer : OfflinePlayer
             && await this.TryConsumeForSkillAsync(aegisEntry).ConfigureAwait(false))
         {
             this.Logger.LogInformation("[MOBA-BOT-UTIL] \"{Name}\" raised the Aegis (hp {Hp:P0}).", this.Name, c.HpPct);
+        }
+        else if ((c.EnemyChampsInRange.Count > 0 || c.InCombat) && c.HpPct < 0.8f && c.Now >= this._nextAegisDiagUtc
+                 && this.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot) is { } offhand)
+        {
+            // Diagnostic: it holds an off-hand item but did not raise the Aegis - say why (throttled).
+            this._nextAegisDiagUtc = c.Now + TimeSpan.FromSeconds(20);
+            var entry = this.SkillList?.GetSkill((ushort)MobaShieldSkills.ShieldSkillNumber);
+            this.Logger.LogInformation(
+                "[MOBA-BOT-UTIL] \"{Name}\" did NOT raise the Aegis: offhand={Item} hasSkill={HasSkill} defSkill={DefSkill} inSkillList={InList} cooldown={Cd} mana={Mana}",
+                this.Name,
+                offhand.Definition?.Name,
+                offhand.HasSkill,
+                offhand.Definition?.Skill?.Number,
+                entry is not null,
+                entry?.Skill is { } sk && MobaCooldowns.IsOnCooldown(this, sk.Number, c.Now),
+                this.Attributes?[Stats.CurrentMana]);
         }
 
         // Sweeper: an enemy ward within its radius.
