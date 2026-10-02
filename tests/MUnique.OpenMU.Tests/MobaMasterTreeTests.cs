@@ -142,4 +142,29 @@ public class MobaMasterTreeTests
         Assert.That(MobaMasterTree.PointsNeededInRoot(byRank[3]), Is.EqualTo(10));
         Assert.That(MobaMasterTree.PointsNeededInRoot(byRank[5]), Is.EqualTo(30));
     }
+    /// <summary>The MOBA kill recovery runs linearly from 2 % (1 point) to 10 % (20 points) of the maximum.</summary>
+    [Test]
+    public void KillRecoveryRunsFromTwoToTenPercent()
+    {
+        Assert.That(MobaMasterTree.KillRecoveryFraction(0), Is.EqualTo(0));
+        Assert.That(MobaMasterTree.KillRecoveryFraction(1), Is.EqualTo(0.02).Within(1e-9));
+        Assert.That(MobaMasterTree.KillRecoveryFraction(20), Is.EqualTo(0.10).Within(1e-9));
+        Assert.That(MobaMasterTree.KillRecoveryFraction(50), Is.EqualTo(0.10).Within(1e-9));
+        Assert.That(MobaMasterTree.KillRecoveryFraction(10), Is.EqualTo(0.02 + (0.08 * 9 / 19.0)).Within(1e-9));
+    }
+
+    /// <summary>Every master class has kill-recovery nodes for HP and mana, all of them recognized by the clone filter and allowed.</summary>
+    [Test]
+    public void EveryClassHasKillRecoveryNodes()
+    {
+        foreach (var classNumber in MasterClassNumbers)
+        {
+            var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+            var nodes = this._gameConfiguration.Skills
+                .Where(s => s.MasterDefinition is not null && s.QualifiedCharacters.Contains(characterClass) && MobaMasterTree.KindOf(s) == MobaTreeKind.KillRecovery)
+                .ToList();
+            Assert.That(nodes, Is.Not.Empty, characterClass.Name);
+            Assert.That(nodes.All(n => MobaMasterTree.IsKillRecoveryTarget(n.MasterDefinition!.TargetAttribute) && MobaMasterTree.IsAllowed(n)), Is.True, characterClass.Name);
+        }
+    }
 }

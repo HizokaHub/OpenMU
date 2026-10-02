@@ -862,6 +862,11 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             var additionalValue = (uint)((this.Attributes![recoverAfterMonsterKill.RegenerationMultiplier] * this.Attributes[recoverAfterMonsterKill.MaximumAttribute]) + this.Attributes[recoverAfterMonsterKill.AbsoluteAttribute]);
             this.Attributes[recoverAfterMonsterKill.CurrentAttribute] = (uint)Math.Min(this.Attributes[recoverAfterMonsterKill.MaximumAttribute], this.Attributes[recoverAfterMonsterKill.CurrentAttribute] + additionalValue);
         }
+
+        if (this.IsMobaClone)
+        {
+            PlugIns.Moba.MobaMasterTree.ApplyKillRecovery(this);
+        }
     }
 
     /// <summary>

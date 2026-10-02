@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
+using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
 
@@ -112,6 +113,7 @@ public static class MobaMasterTree
         MobaTreeKind.Recovery,
         MobaTreeKind.Utility,
         MobaTreeKind.Strengthener,
+        MobaTreeKind.KillRecovery,
     };
 
     /// <summary>The order a player (or a bot) fills the tree: (kind, share of that kind's cap to reach in this stage).</summary>
@@ -125,6 +127,7 @@ public static class MobaMasterTree
         (MobaTreeKind.Durability, 0.5),
         (MobaTreeKind.Utility, 0.5),
         (MobaTreeKind.Recovery, 0.5),
+        (MobaTreeKind.KillRecovery, 0.5),
         (MobaTreeKind.Offense, 1.0),
         (MobaTreeKind.Defense, 1.0),
         (MobaTreeKind.Shield, 1.0),
@@ -275,6 +278,58 @@ public static class MobaMasterTree
     /// <returns>The weight, 0..1.</returns>
     public static double PointWeight(Skill skill)
         => skill.MasterDefinition?.TargetAttribute?.Designation?.ToString()?.Contains("Attack Rate", StringComparison.OrdinalIgnoreCase) == true ? 0.5 : 1.0;
+
+    /// <summary>Share of the maximum restored per last hit with 1 point in a "recover after monster kill" node.</summary>
+    public const double KillRecoveryMin = 0.02;
+
+    /// <summary>Share of the maximum restored per last hit with a fully filled (20 points) kill-recovery node.</summary>
+    public const double KillRecoveryMax = 0.10;
+
+    /// <summary>
+    /// Whether a master node's native effect is one of the "recover after monster kill" multipliers. Their native values are
+    /// divisors read as multipliers (a full heal per kill), so a MOBA clone never gets the native effect: see <see cref="ApplyKillRecovery"/>.
+    /// </summary>
+    /// <param name="target">The node's target attribute.</param>
+    /// <returns><c>true</c> for the health / mana / shield kill-recovery multipliers.</returns>
+    public static bool IsKillRecoveryTarget(AttributeDefinition? target)
+        => target == Stats.HealthAfterMonsterKillMultiplier
+           || target == Stats.ManaAfterMonsterKillMultiplier
+           || target == Stats.ShieldAfterMonsterKillMultiplier;
+
+    /// <summary>The MOBA kill-recovery fraction of a node level: 2 % at 1 point, rising linearly to 10 % at 20.</summary>
+    /// <param name="level">The node level.</param>
+    /// <returns>The fraction of the maximum, 0 for level 0.</returns>
+    public static double KillRecoveryFraction(int level)
+        => level <= 0 ? 0 : KillRecoveryMin + ((KillRecoveryMax - KillRecoveryMin) * (Math.Min(level, 20) - 1) / 19.0);
+
+    /// <summary>
+    /// Restores HP / mana / SD after the champion's last hit on a monster: 2 % (1 point) to 10 % (20 points) of the maximum
+    /// of each resource, from its own node ("Monster Attack Life / Mana / SD Inc", "Recover HP / Mana / SD from Monster Kills").
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    public static void ApplyKillRecovery(Player champion)
+    {
+        if (champion.Attributes is not { } a)
+        {
+            return;
+        }
+
+        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        {
+            var target = entry.Skill?.MasterDefinition?.TargetAttribute;
+            if (!IsKillRecoveryTarget(target))
+            {
+                continue;
+            }
+
+            var (current, max) = target == Stats.HealthAfterMonsterKillMultiplier
+                ? (Stats.CurrentHealth, Stats.MaximumHealth)
+                : target == Stats.ManaAfterMonsterKillMultiplier
+                    ? (Stats.CurrentMana, Stats.MaximumMana)
+                    : (Stats.CurrentShield, Stats.MaximumShield);
+            a[current] = Math.Min(a[max], a[current] + (a[max] * (float)KillRecoveryFraction(entry.Level)));
+        }
+    }
 
     /// <summary>Gets the weighted points the champion has in nodes of a kind.</summary>
     /// <param name="champion">The champion.</param>

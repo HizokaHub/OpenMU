@@ -209,6 +209,12 @@ public sealed class SkillList : ISkillList, IDisposable
             return;
         }
 
+        if (this._player.IsMobaClone && PlugIns.Moba.MobaMasterTree.IsKillRecoveryTarget(masterDefinition.TargetAttribute))
+        {
+            // MOBA: the native kill-recovery value is a divisor read as a multiplier; the MOBA value is applied by MobaMasterTree.ApplyKillRecovery.
+            return;
+        }
+
         var passiveBoost = new PassiveSkillBoostPowerUp(skillEntry);
         this.PassivePowerUps.Add(passiveBoost);
         this.PassivePowerUps.Add(new PowerUpWrapper(passiveBoost, masterDefinition.TargetAttribute, this._player.Attributes!));
