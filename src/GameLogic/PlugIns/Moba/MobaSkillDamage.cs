@@ -250,6 +250,22 @@ public static class MobaSkillDamage
         return MobaMasterTree.Blend(champion, MobaTreeKind.Offense, fromStats, fromItems);
     }
 
+    /// <summary>
+    /// Per-hit attribution for the burst analysis ([MOBA-DMG+]): the multiplicative pieces that
+    /// make a champion hit as hard as it does - the level scale, and the stat / tree / item terms
+    /// of the blend with the resulting bonus on a rank-1 hit of a 0.5-ratio skill.
+    /// </summary>
+    /// <param name="champion">The attacking champion.</param>
+    /// <returns>A compact tag, e.g. <c>lvl=5.3x stats=0.21 tree=0.10 items=0.55 blend=0.35 crit=14%</c>.</returns>
+    public static string AttributionTag(Player champion)
+    {
+        var stats = InvestedFraction(champion);
+        var items = MobaItemPower.OffenseFractionOf(champion);
+        var tree = MobaMasterTree.Fraction(champion, MobaTreeKind.Offense);
+        var blend = MobaMasterTree.Blend(tree, stats, items);
+        return FormattableString.Invariant($"lvl={MobaProgression.DamageScaleFor(champion):F2}x stats={stats:F2} tree={(tree is { } t ? t.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "n/a")} items={items:F2} blend={blend:F2} crit={MobaCombatStats.FinalCritChanceOf(champion):P0}");
+    }
+
     private static void Spread2(double mid, out int min, out int max)
     {
         min = (int)(mid * (1.0 - Spread));

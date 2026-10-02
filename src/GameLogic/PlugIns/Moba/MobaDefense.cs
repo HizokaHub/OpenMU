@@ -96,6 +96,15 @@ public static class MobaDefense
         return Math.Clamp(MobaMasterTree.Blend(fromTree, fromStats, fromItems), 0.0, MaxMitigation);
     }
 
+    /// <summary>Per-hit attribution of the victim's mitigation for the burst analysis ([MOBA-DMG+]).</summary>
+    /// <param name="defender">The defending champion.</param>
+    /// <returns>A compact tag with the stat / tree / item terms and the final mitigation.</returns>
+    public static string AttributionTag(Player defender)
+    {
+        var tree = MobaMasterTree.Fraction(defender, MobaTreeKind.Defense);
+        return FormattableString.Invariant($"stats={MitigationOf(defender):P0} tree={(tree is { } t ? (t * MaxMitigation).ToString("P0", System.Globalization.CultureInfo.InvariantCulture) : "n/a")} items={MobaItemPower.DefenseFractionOf(defender) * MaxMitigation:P0} final={FinalMitigationOf(defender):P0}");
+    }
+
     /// <summary>
     /// Applies MOBA mitigation to a raw damage value: reduces it by the defender's final
     /// (stat + item blend) mitigation, minus the casting skill's armour penetration.

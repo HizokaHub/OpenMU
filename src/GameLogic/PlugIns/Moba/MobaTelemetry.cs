@@ -281,6 +281,11 @@ public static class MobaTelemetry
             }
 
             var lvlTag = LevelTag(attacker, victim);
+            if (attacker is Player { IsMobaClone: true } mobaAttacker)
+            {
+                lvlTag += $" | atk[{MobaSkillDamage.AttributionTag(mobaAttacker)}] def[{MobaDefense.AttributionTag(victim)}]";
+            }
+
             victim.Logger.LogInformation(
                 "[MOBA-DMG+] {Attacker} -> {Victim} | {Skill}{Combo} | hp={HpDmg} sd={SdDmg} ({Pct:P0} maxHP){Mit} | victim {HpAfter:F0}/{MaxHp:F0}+{SdAfter:F0}sd | dist={Dist:F1} | {Lvl}",
                 attackerName,
