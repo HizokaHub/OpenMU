@@ -852,7 +852,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this.Logger.LogInformation("[MOBA-BOT-UTIL] \"{Name}\" raised the Aegis (hp {Hp:P0}).", this.Name, c.HpPct);
         }
         else if ((c.EnemyChampsInRange.Count > 0 || c.InCombat) && c.HpPct < 0.8f && c.Now >= this._nextAegisDiagUtc
-                 && this.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot) is { } offhand)
+                 && this.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot) is { } offhand
+                 && (offhand.Definition?.Group == 6 || offhand.Definition?.Skill?.Number == MobaShieldSkills.ShieldSkillNumber || (offhand.Definition?.Name.ToString() ?? string.Empty).Contains("Book", StringComparison.Ordinal)))
         {
             // Diagnostic: it holds an off-hand item but did not raise the Aegis - say why (throttled).
             this._nextAegisDiagUtc = c.Now + TimeSpan.FromSeconds(20);

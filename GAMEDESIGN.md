@@ -914,6 +914,12 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Égida de bots: NUNCA se lanzó** aunque el MG azul compró «Legendary Shield» (22:51:38) y estuvo 83 golpes en combate con 67-84 % de vida. Causa aún desconocida (¿habilidad no añadida a la `SkillList`, `HasSkill` falso del ítem comprado, cooldown, maná?). Se agregó el log de diagnóstico `[MOBA-BOT-UTIL] ... did NOT raise the Aegis: offhand=… hasSkill=… defSkill=… inSkillList=… cooldown=… mana=…` (cada 20 s); falta revisarlo en el próximo `/mobafight 2`.
 - Drops de creeps 35/35/30: sin log propio, no verificado todavía (se pueden ver ítems/Zen en el suelo jugando con `/mobafight 1`).
 
+**Sesión 2026-10-01 (8ª parte) — 5º `/mobafight 2` (`openmu-server-mobafight2g.log`, ~16 min de partida + 17 min con la arena vacía):**
+- **La partida TERMINÓ bien:** cayó el nexo azul (gana Rojo, KDA 21/5 y 12/3 contra 5/21 y 4/9) hacia t=900-980 s. `MobaMatchEnder` quitó torretas, nexos y creeps (por eso desaparecieron los `[MOBA-STRUCT]` y las oleadas, `creeps=0`). Primer fin de partida real por asedio de bots dominantes: **tarea 1 (nexo < 100 %) verificada.**
+- Lo que parecía un cuelgue (428 `IDLE`, 1.000 s) era la arena vacía: los bots de `/mobafight` no son participantes con dueño, así que `EndMatchAsync` no los quitaba y quedaban parados sin estructuras. **Arreglo:** `EndMatchAsync` ahora llama a `MobaBotPlayer.ClearAllAsync()`.
+- **Égida de bots:** en esta partida ningún bot llevaba escudo/libro (clases DL, DW, Summoner, DW; el diagnóstico solo salió con cetro/báculo/palo, falsos positivos). El diagnóstico ahora solo avisa si lleva escudo (grupo 6), skill 210 o «Book». Sigue sin explicarse el caso del MG azul con «Legendary Shield» del 4º log: hay que repetir con una composición que incluya MG/Knight/Elf o Summoner con libro.
+- El log trae `MOBA-BURST` (6-7k de daño en < 2 s a un mago de 11k: el equipo rojo con 2 nivel de ventaja revienta de un combo; revisar balance de ráfaga si se desea).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
