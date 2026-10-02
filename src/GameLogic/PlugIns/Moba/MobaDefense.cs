@@ -30,8 +30,29 @@ public static class MobaDefense
     /// </summary>
     private const double MaxHitFractionOfMaxHp = 0.30;
 
+    /// <summary>Length of the sliding window of the burst brake.</summary>
+    private static readonly TimeSpan BurstWindow = TimeSpan.FromSeconds(2);
+
+    private const double BurstFreeFraction = 0.45;
+
+    /// <summary>Between <see cref="BurstFreeFraction"/> and this fraction a hit counts <see cref="BurstMidShare"/>; beyond, <see cref="BurstTailShare"/>.</summary>
+    private const double BurstMidFraction = 0.70;
+
+    private const double BurstMidShare = 0.50;
+
+    private const double BurstTailShare = 0.25;
+
+    private static readonly ConditionalWeakTable<Player, BurstState> Bursts = new();
+
     /// <summary>Last mitigation applied per defender (for the [MOBA-DMG] trace): raw pre-mitigation, final, and the effective mitigation fraction.</summary>
     public static readonly ConditionalWeakTable<Player, MitigationTrace> LastMitigation = new();
+
+    private sealed class BurstState
+    {
+        public Queue<(long At, int Amount)> Hits { get; } = new();
+
+        public double Sum { get; set; }
+    }
 
     /// <summary>One recorded mitigation step, read back by the combat trace on the same hit.</summary>
     public sealed class MitigationTrace
@@ -106,14 +127,52 @@ public static class MobaDefense
     }
 
     /// <summary>
+    /// The burst brake (2026-10-02): the damage a champion takes inside a 2 s window counts in full up to
+    /// 45 % of its max HP, at 50 % up to 70 % and at 25 % beyond, so a focus-fire combo can no longer delete
+    /// a champion from ~85 % in two seconds while sustained damage over longer windows is untouched.
+    /// </summary>
+    private static int ApplyBurstBrake(Player defender, int damage, float maxHp)
+    {
+        if (maxHp <= 0 || damage <= 0)
+        {
+            return damage;
+        }
+
+        var state = Bursts.GetOrCreateValue(defender);
+        lock (state)
+        {
+            var now = Environment.TickCount64;
+            while (state.Hits.Count > 0 && now - state.Hits.Peek().At > BurstWindow.TotalMilliseconds)
+            {
+                state.Sum -= state.Hits.Dequeue().Amount;
+            }
+
+            // The window keeps the pre-brake damage; the brake is the difference of the counting curve.
+            var free = maxHp * BurstFreeFraction;
+            var mid = maxHp * BurstMidFraction;
+            double Counted(double x) => x <= free
+                ? x
+                : x <= mid
+                    ? free + ((x - free) * BurstMidShare)
+                    : free + ((mid - free) * BurstMidShare) + ((x - mid) * BurstTailShare);
+
+            var braked = Math.Max(1, (int)(Counted(state.Sum + damage) - Counted(state.Sum)));
+            state.Hits.Enqueue((now, damage));
+            state.Sum += damage;
+            return braked;
+        }
+    }
+
+    /// <summary>
     /// Applies MOBA mitigation to a raw damage value: reduces it by the defender's final
     /// (stat + item blend) mitigation, minus the casting skill's armour penetration.
     /// </summary>
     /// <param name="rawDamage">The pre-mitigation damage.</param>
     /// <param name="defender">The defending champion.</param>
     /// <param name="skillNumber">The skill number, or 0 for a basic attack.</param>
+    /// <param name="critMultiplier">The critical multiplier, applied before the per-hit cap and the burst brake (1 = no crit).</param>
     /// <returns>The post-mitigation damage (at least 1 if the input was positive).</returns>
-    public static int Apply(int rawDamage, Player defender, short skillNumber)
+    public static int Apply(int rawDamage, Player defender, short skillNumber, double critMultiplier = 1.0)
     {
         if (rawDamage <= 0)
         {
@@ -127,7 +186,7 @@ public static class MobaDefense
         }
 
         var durability = MobaMasterTree.DurabilityDamageReduction * (MobaMasterTree.Fraction(defender, MobaTreeKind.Durability) ?? 0.0);
-        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability)));
+        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
         // max HP. Big burst still wins fights - it just can't delete a champion in one frame.
@@ -139,6 +198,11 @@ public static class MobaDefense
             {
                 capped = hitCap;
             }
+        }
+
+        if (defender.Attributes is { } ba)
+        {
+            capped = ApplyBurstBrake(defender, capped, ba[Stats.MaximumHealth]);
         }
 
         var trace = LastMitigation.GetOrCreateValue(defender);

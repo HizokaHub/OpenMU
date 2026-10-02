@@ -933,6 +933,13 @@ quedan). Cada ejecución limpia antes lo anterior.
 - Daño por golpe medio sobre la vida máx. del rival: Nv 2 → 0,4 %, Nv 5 → 2 %, Nv 9 → 4,3 %. Palancas: (1) **cadencia** (los bots lanzan básico/skill cada ~0,27-0,55 s), (2) **escala de nivel** `DamageScale` 1 → 15 (Nv 9 = 4,86×, Nv 6 = 3,41×; casi todo el daño es `flat × escala`, el bono de stats/árbol/ítems pesa mucho menos), (3) focus de 2 atacantes, (4) críticos. El tope por golpe (30 % de la vida máx.) no limita sumas.
 - Se agregó la atribución por golpe al trazo `[MOBA-DMG+]`: `atk[lvl=…x stats=… tree=… items=… blend=… crit=…] def[stats=… tree=… items=… final=…]` (commit "atribución por golpe"). Falta un `/mobafight 2` nuevo con eso para el reparto exacto; opciones de balance presentadas al usuario, a la espera de su confirmación (freno de ráfaga por ventana / bajar `DamageScaleLevelMax` / limitar cadencia de bots / bajar el tope por golpe).
 
+**Sesión 2026-10-02 — ráfaga, estructuras y SD (aprobado por el usuario, hecho):**
+- **Freno de ráfaga** (`MobaDefense.ApplyBurstBrake`): en una ventana de 2 s el daño recibido cuenta completo hasta 45 % de la vida máx., al 50 % hasta 70 % y al 25 % por encima. **El crítico ahora multiplica antes del tope por golpe** (antes el tope del 30 % quedaba en la práctica ~52 %): `MobaDefense.Apply(..., critMultiplier)`.
+- **Cadencia de bots:** el básico de tejido pasa de 260 ms a 540 ms (2 ticks del cerebro): de ~5,4 a ~3,4 golpes/s por bot.
+- **Vida de estructuras por fase:** torreta 9.000 y nexo 16.000 × **1 / 2,5 / 5** en T1 / T2 / T3 (`MobaStructureSpawner.StructureHealthMultiplier/ApplyPhaseHealth`, se re-escala al cambiar la fase conservando el % de vida). La fase se reinicia a T1 al terminar la partida y al correr `/mobafight`.
+- **SD:** causa del pozo inflado (Nv 3: 7.300 SD con 7.200 de vida): `ApplyLevelScaling` fija la SD a la curva solo al subir de nivel y la fórmula nativa suma después los puntos de stats invertidos. Ahora `MobaItemCaps.Apply` recorta cada tick la SD a `ShieldAt(nivel) × rol × 1,2` más la barrera temporal de Égida / skill (`MobaCastEffects.TemporaryShieldOf`).
+- Tests 855/855. **A verificar con un `/mobafight 2`:** ráfagas (`[MOBA-BURST]` máx. ~60 %), la partida dura más con estructuras más duras (`[MOBA-STRUCT]`), SD ≤ vida/3 × 1,2 en `[MOBA-DMG+]`.
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

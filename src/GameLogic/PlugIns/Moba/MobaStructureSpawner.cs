@@ -44,6 +44,36 @@ public static class MobaStructureSpawner
     private static readonly ConcurrentDictionary<ushort, List<Monster>> TurretsByMap = new();
     private static readonly ConcurrentDictionary<ushort, List<Monster>> NexusesByMap = new();
 
+    /// <summary>
+    /// Structure max-HP multiplier of a match phase (2026-10-02, requested by the user): champion damage grows
+    /// 15x from level 1 to 30 while the structures were flat, so late hits took a turret in one or two hits.
+    /// </summary>
+    /// <param name="tier">The match phase.</param>
+    /// <returns>The multiplier (T1 x1, T2 x2.5, T3 x5).</returns>
+    public static float StructureHealthMultiplier(MobaShopTier tier) => tier switch
+    {
+        MobaShopTier.T3 => 5f,
+        MobaShopTier.T2 => 2.5f,
+        _ => 1f,
+    };
+
+    /// <summary>Re-scales the max HP of every living turret / nexus to the phase, keeping each one's HP percentage.</summary>
+    /// <param name="tier">The new match phase.</param>
+    public static void ApplyPhaseHealth(MobaShopTier tier)
+    {
+        var multiplier = StructureHealthMultiplier(tier);
+        foreach (var (monsters, baseHealth) in new[] { (TurretsByMap.Values, TurretHealth), (NexusesByMap.Values, NexusHealth) })
+        {
+            foreach (var structure in monsters.SelectMany(list => list.ToArray()).Where(m => m.IsAlive))
+            {
+                var max = structure.Attributes[Stats.MaximumHealth];
+                var ratio = max > 0 ? structure.Attributes[Stats.CurrentHealth] / max : 1f;
+                SetAbsolute(structure, Stats.MaximumHealth, baseHealth * multiplier);
+                structure.Attributes[Stats.CurrentHealth] = Math.Max(1f, structure.Attributes[Stats.MaximumHealth] * ratio);
+            }
+        }
+    }
+
     /// <summary>Whether turrets are currently spawned on the map.</summary>
     /// <param name="mapId">The map id.</param>
     /// <returns><see langword="true"/> if turrets exist.</returns>
@@ -171,7 +201,7 @@ public static class MobaStructureSpawner
 
     private static void ForceTurretStats(Monster turret)
     {
-        SetAbsolute(turret, Stats.MaximumHealth, TurretHealth);
+        SetAbsolute(turret, Stats.MaximumHealth, TurretHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
         SetAbsolute(turret, Stats.MinimumPhysBaseDmg, TurretMinDamage);
         SetAbsolute(turret, Stats.MaximumPhysBaseDmg, TurretMaxDamage);
         SetAbsolute(turret, Stats.DefenseBase, TurretDefense);
@@ -271,7 +301,7 @@ public static class MobaStructureSpawner
             gameContext.PathFinderPool);
 
         nexus.Initialize();
-        SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth);
+        SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
         SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
 
         // Losing team = this nexus's team.

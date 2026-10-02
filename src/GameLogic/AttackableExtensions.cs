@@ -336,14 +336,15 @@ public static class AttackableExtensions
             // AGI with its equipped Luck (see MobaCombatStats.FinalCritChanceOf).
             if (isMobaChampionAttacker && attacker is Player mobaAtk && defender is Player { IsMobaClone: true } mobaDefender)
             {
-                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0));
-
-                if ((attributes & DamageAttributes.Critical) == 0
-                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.FinalCritChanceOf(mobaAtk)))
+                var mobaCrit = (attributes & DamageAttributes.Critical) == 0
+                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.FinalCritChanceOf(mobaAtk));
+                if (mobaCrit)
                 {
-                    dmg = (int)(dmg * PlugIns.Moba.MobaCombatStats.CritMultiplier);
                     attributes |= DamageAttributes.Critical;
                 }
+
+                // The crit multiplies before the per-hit cap and the burst brake (it used to run after the cap).
+                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0), mobaCrit ? PlugIns.Moba.MobaCombatStats.CritMultiplier : 1.0);
             }
         }
 

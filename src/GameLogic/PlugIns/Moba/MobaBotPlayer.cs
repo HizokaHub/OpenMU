@@ -41,7 +41,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// ready" roughly one tick in three, standing there doing nothing ("brief hold") instead
     /// of throwing a weave - measured at 23-37% of ticks wasted idle in 1v1 bot testing.
     /// </summary>
-    private static readonly TimeSpan BasicCooldown = TimeSpan.FromMilliseconds(260);
+    /// <remarks>
+    /// 2026-10-02: 260 ms gave ~3.8 basics/s on top of the skills (4-5 hits/s per bot, far above a
+    /// human's animation-bound cadence) and fed the burst. 540 ms = exactly 2 brain ticks (280 ms),
+    /// so the dead-zone problem above doesn't come back, and the cadence drops to ~1.8 basics/s.
+    /// </remarks>
+    private static readonly TimeSpan BasicCooldown = TimeSpan.FromMilliseconds(540);
     private const int AcquireRangeTiles = 25;
     private const int PreferredRangeTiles = 2;
 

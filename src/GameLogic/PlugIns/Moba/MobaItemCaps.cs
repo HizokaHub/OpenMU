@@ -54,6 +54,13 @@ public static class MobaItemCaps
         var maxHealthCap = MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier;
         CapAttribute(attributes, Stats.MaximumHealth, maxHealthCap, ref state.HealthElement);
 
+        // SD is pinned to the level curve on level-up, but the native formula adds the invested stat
+        // points afterwards (a Lv3 clone had 7,300 SD on 7,200 HP): re-cap it every tick, leaving room
+        // for the temporary Aegis / skill barrier.
+        var maxShieldCap = (MobaProgression.ShieldAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier) + MobaCastEffects.TemporaryShieldOf(champion);
+        CapAttribute(attributes, Stats.MaximumShield, maxShieldCap, ref state.ShieldElement);
+        attributes[Stats.CurrentShield] = Math.Min(attributes[Stats.CurrentShield], attributes[Stats.MaximumShield]);
+
         var maxManaCap = MobaProgression.ManaAt(champion.MobaLevel) * MaxResourceMultiplier;
         CapAttribute(attributes, Stats.MaximumMana, maxManaCap, ref state.ManaElement);
     }
@@ -95,6 +102,8 @@ public static class MobaItemCaps
         public IElement? HealthElement;
 
         public IElement? ManaElement;
+
+        public IElement? ShieldElement;
 
         public IElement? ManaUsageElement;
     }

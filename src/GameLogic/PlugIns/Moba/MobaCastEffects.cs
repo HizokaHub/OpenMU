@@ -47,11 +47,36 @@ public static class MobaCastEffects
 
     private static readonly ConditionalWeakTable<Player, ShieldState> Shields = new();
 
+    private static readonly ConditionalWeakTable<Player, StrongBox<float>> AegisAmounts = new();
+
     private sealed class ShieldState
     {
         public SimpleElement? MaxElement;
 
         public DateTime ExpiresUtc;
+    }
+
+    /// <summary>
+    /// The temporary max-SD currently granted on top of the level curve (skill shields + the Aegis barrier),
+    /// so the permanent SD cap (<see cref="MobaItemCaps"/>) doesn't eat it.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The extra max SD, 0 if none.</returns>
+    public static float TemporaryShieldOf(Player champion)
+    {
+        var total = 0f;
+        if (Shields.TryGetValue(champion, out var state) && state.MaxElement is { } element)
+        {
+            total += element.Value;
+        }
+
+        if (AegisAmounts.TryGetValue(champion, out var aegis)
+            && champion.MagicEffectList.ActiveEffects.ContainsKey(AegisDefinition.Number))
+        {
+            total += aegis.Value;
+        }
+
+        return total;
     }
 
     /// <summary>Applies the cast effects for one skill cast.</summary>
@@ -117,6 +142,7 @@ public static class MobaCastEffects
             await previous.DisposeAsync().ConfigureAwait(false);
         }
 
+        AegisAmounts.GetOrCreateValue(champion).Value = amount;
         var effect = new MagicEffect(AegisDuration, AegisDefinition, new MagicEffect.ElementWithTarget(new SimpleElement(amount, AggregateType.AddRaw), Stats.MaximumShield));
         await champion.MagicEffectList.AddEffectAsync(effect).ConfigureAwait(false);
         a[Stats.CurrentShield] = Math.Min(a[Stats.MaximumShield], a[Stats.CurrentShield] + amount);

@@ -66,6 +66,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
         // Start from a clean arena so repeated runs don't pile up bots / creeps.
         await StopAsync(arena).ConfigureAwait(false);
+        MobaMatchPhase.Reset();
 
         var structures = 0;
         if (!MobaStructureSpawner.HasTurrets(arena.MapId))

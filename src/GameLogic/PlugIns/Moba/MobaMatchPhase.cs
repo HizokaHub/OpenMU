@@ -32,6 +32,7 @@ public static class MobaMatchPhase
     /// <param name="champions">Every MOBA champion currently in the match.</param>
     public static void Evaluate(IReadOnlyCollection<Player> champions)
     {
+        var before = _current;
         if (_current < MobaShopTier.T3 && BothTeamsReach(champions, T3LevelThreshold))
         {
             _current = MobaShopTier.T3;
@@ -40,10 +41,19 @@ public static class MobaMatchPhase
         {
             _current = MobaShopTier.T2;
         }
+
+        if (_current != before)
+        {
+            MobaStructureSpawner.ApplyPhaseHealth(_current);
+        }
     }
 
     /// <summary>Resets the phase to T1 (call when a new match starts on the arena).</summary>
-    public static void Reset() => _current = MobaShopTier.T1;
+    public static void Reset()
+    {
+        _current = MobaShopTier.T1;
+        MobaStructureSpawner.ApplyPhaseHealth(_current);
+    }
 
     private static bool BothTeamsReach(IReadOnlyCollection<Player> champions, int level)
         => CountAtLevel(champions, MobaTeam.Blue, level) >= ChampionsRequiredPerTeam
