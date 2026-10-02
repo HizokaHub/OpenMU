@@ -940,6 +940,8 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **SD:** causa del pozo inflado (Nv 3: 7.300 SD con 7.200 de vida): `ApplyLevelScaling` fija la SD a la curva solo al subir de nivel y la fórmula nativa suma después los puntos de stats invertidos. Ahora `MobaItemCaps.Apply` recorta cada tick la SD a `ShieldAt(nivel) × rol × 1,2` más la barrera temporal de Égida / skill (`MobaCastEffects.TemporaryShieldOf`).
 - Tests 855/855. **A verificar con un `/mobafight 2`:** ráfagas (`[MOBA-BURST]` máx. ~60 %), la partida dura más con estructuras más duras (`[MOBA-STRUCT]`), SD ≤ vida/3 × 1,2 en `[MOBA-DMG+]`.
 
+**Reporte de drops (2026-10-02, tarea 2):** `MobaDropReport.cs`. Un `[MOBA-DROP]` por muerte de creep (tirada nada/zen/item con el creep, el que mató, la fase y el Zen) y otro por ítem (nombre, categoría arma/escudo/set, variante, nivel, opción, luck, excelentes, skill). `MobaTelemetry.TickAsync` escribe cada periodo `[MOBA-DROP-SUM]` con los porcentajes acumulados contra 35/35/30 y 65/35, nivel/excelentes medios y Zen total; los contadores se reinician con `MobaMatchPhase.Reset()` (inicio de `/mobafight` y fin de partida).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

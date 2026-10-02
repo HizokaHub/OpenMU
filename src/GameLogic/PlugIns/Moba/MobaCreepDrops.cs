@@ -95,6 +95,7 @@ public static class MobaCreepDrops
         var hasSkill = definition.Skill is not null && (tier != MobaShopTier.T1 || entry.Category == MobaShopCategory.Offhand);
 
         var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill, entry.Variant);
+        MobaDropReport.NoteItem(lastHitter, item, entry.Category, entry.Variant);
         if (entry.Category == MobaShopCategory.Offhand && MobaItemTraits.AssignDropOptions(item, tier))
         {
             // A new kind of shield: tell every champion so the tooltip shows its options.
@@ -142,14 +143,18 @@ public sealed class MobaCreepDropGenerator : IDropGenerator
         var roll = Rand.NextDouble();
         if (roll < MobaCreepDrops.NothingChance)
         {
+            MobaDropReport.NoteRoll(player, monster.Designation, "nothing", 0);
             return (Enumerable.Empty<Item>(), null);
         }
 
         if (roll < MobaCreepDrops.NothingChance + MobaCreepDrops.ZenChance)
         {
-            return (Enumerable.Empty<Item>(), (uint)Math.Max(1, gainedExperience + BaseMoneyDrop));
+            var zen = (uint)Math.Max(1, gainedExperience + BaseMoneyDrop);
+            MobaDropReport.NoteRoll(player, monster.Designation, "zen", zen);
+            return (Enumerable.Empty<Item>(), zen);
         }
 
+        MobaDropReport.NoteRoll(player, monster.Designation, "item", 0);
         var item = await MobaCreepDrops.CreateItemAsync(player).ConfigureAwait(false);
         return (item is null ? Enumerable.Empty<Item>() : new[] { item }, null);
     }

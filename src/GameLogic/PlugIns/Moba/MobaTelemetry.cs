@@ -25,6 +25,7 @@ using MUnique.OpenMU.Persistence;
 /// <item><c>[MOBA-ECON]</c> - periodic per-team totals + the Blue/Red level gap (snowball curve).</item>
 /// <item><c>[MOBA-WAVE]</c> - periodic creep counts and lane frontier per team.</item>
 /// <item><c>[MOBA-STRUCT]</c> - periodic structure HP, plus destruction events.</item>
+/// <item><c>[MOBA-DROP]</c> / <c>[MOBA-DROP-SUM]</c> - every creep drop and the running percentages (see <see cref="MobaDropReport"/>).</item>
 /// </list>
 /// </summary>
 public static class MobaTelemetry
@@ -449,6 +450,7 @@ public static class MobaTelemetry
 
             var elapsed = (int)MobaMatchTickPlugIn.MatchElapsed.TotalSeconds;
             GameMap? map = null;
+            MobaDropReport.WriteSummary(champions[0].Logger);
 
             foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
             {
