@@ -348,6 +348,13 @@ public static class AttackableExtensions
             }
         }
 
+        if (isMobaChampionAttacker && attacker is Player mobaSieger && defender is NPC.Monster structure && PlugIns.Moba.MobaStructures.IsStructure(structure))
+        {
+            var before = dmg;
+            dmg = PlugIns.Moba.MobaStructures.NormalizeChampionDamage(mobaSieger, dmg);
+            PlugIns.Moba.MobaStructures.NoteChampionHit(structure, mobaSieger, before, dmg);
+        }
+
         return defender.GetHitInfo((uint)dmg, attributes, attacker, (uint)manaToll);
     }
 

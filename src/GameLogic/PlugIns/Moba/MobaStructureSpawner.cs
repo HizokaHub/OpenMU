@@ -19,7 +19,7 @@ public static class MobaStructureSpawner
 {
     private const short TurretMonsterNumber = 32; // Stone Golem - reads as a defensive structure.
 
-    private const float TurretHealth = 9000f;
+    private const float TurretHealth = 40000f;
     private const float TurretMinDamage = 170f;
     private const float TurretMaxDamage = 210f;
     private const float TurretDefense = 60f;
@@ -29,7 +29,7 @@ public static class MobaStructureSpawner
 
     private const short NexusMonsterNumber = 32; // Stone Golem too (bigger, doesn't shoot).
 
-    private const float NexusHealth = 16000f;
+    private const float NexusHealth = 80000f;
     private const float NexusDefense = 40f;
 
     /// <summary>Mid-lane turret positions: blue guards the north base, red the south base.</summary>

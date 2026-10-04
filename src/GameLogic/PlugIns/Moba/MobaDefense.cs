@@ -33,14 +33,14 @@ public static class MobaDefense
     /// <summary>Length of the sliding window of the burst brake.</summary>
     private static readonly TimeSpan BurstWindow = TimeSpan.FromSeconds(2);
 
-    private const double BurstFreeFraction = 0.45;
+    private const double BurstFreeFraction = 0.30;
 
     /// <summary>Between <see cref="BurstFreeFraction"/> and this fraction a hit counts <see cref="BurstMidShare"/>; beyond, <see cref="BurstTailShare"/>.</summary>
-    private const double BurstMidFraction = 0.70;
+    private const double BurstMidFraction = 0.50;
 
     private const double BurstMidShare = 0.50;
 
-    private const double BurstTailShare = 0.25;
+    private const double BurstTailShare = 0.20;
 
     private static readonly ConditionalWeakTable<Player, BurstState> Bursts = new();
 
@@ -127,8 +127,8 @@ public static class MobaDefense
     }
 
     /// <summary>
-    /// The burst brake (2026-10-02): the damage a champion takes inside a 2 s window counts in full up to
-    /// 45 % of its max HP, at 50 % up to 70 % and at 25 % beyond, so a focus-fire combo can no longer delete
+    /// The burst brake (2026-10-02, tightened 2026-10-04): the damage a champion takes inside a 2 s window counts in full up to
+    /// 30 % of its HP + SD pool, at 50 % up to 50 % of the pool and at 20 % beyond, so a focus-fire combo can no longer delete
     /// a champion from ~85 % in two seconds while sustained damage over longer windows is untouched.
     /// </summary>
     private static int ApplyBurstBrake(Player defender, int damage, float maxHp)
@@ -202,7 +202,7 @@ public static class MobaDefense
 
         if (defender.Attributes is { } ba)
         {
-            capped = ApplyBurstBrake(defender, capped, ba[Stats.MaximumHealth]);
+            capped = ApplyBurstBrake(defender, capped, ba[Stats.MaximumHealth] + ba[Stats.MaximumShield]);
         }
 
         var trace = LastMitigation.GetOrCreateValue(defender);

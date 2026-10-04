@@ -5,6 +5,8 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.GameLogic.NPC;
 
 /// <summary>
 /// The kind of a MOBA structure.
@@ -60,4 +62,75 @@ public static class MobaStructures
     /// <param name="monster">The monster.</param>
     /// <returns><see langword="true"/> if it is a turret or the nexus.</returns>
     public static bool IsStructure(object? monster) => GetStructureType(monster) != MobaStructureType.None;
+
+    private static readonly ConditionalWeakTable<object, HitWindow> Windows = new();
+
+    /// <summary>
+    /// Champion damage against a structure is divided by the champion's level scale (<see cref="MobaProgression.DamageScaleFor"/>,
+    /// 1x at level 1 to 15x at level 30): the structures' life is sized for level-1-scale hits, and what stays of the hit is
+    /// the build's own bonus (stats / tree / items), so a late champion no longer deletes a turret in one or two hits.
+    /// </summary>
+    /// <param name="champion">The attacking champion.</param>
+    /// <param name="damage">The hit before the normalisation.</param>
+    /// <returns>The damage the structure takes.</returns>
+    public static int NormalizeChampionDamage(Player champion, int damage)
+        => damage <= 1 ? damage : Math.Max(1, (int)(damage / Math.Max(1.0, MobaProgression.DamageScaleFor(champion))));
+
+    /// <summary>Accumulates the champion hits on a structure and writes a <c>[MOBA-STRUCT-DMG]</c> line every 10 s.</summary>
+    /// <param name="structure">The structure.</param>
+    /// <param name="champion">The attacker.</param>
+    /// <param name="before">The damage before the normalisation.</param>
+    /// <param name="after">The damage the structure takes.</param>
+    public static void NoteChampionHit(Monster structure, Player champion, int before, int after)
+    {
+        var window = Windows.GetOrCreateValue(structure);
+        lock (window)
+        {
+            window.Hits++;
+            window.Before += before;
+            window.After += after;
+            window.MaxLevel = Math.Max(window.MaxLevel, champion.MobaLevel);
+            var now = Environment.TickCount64;
+            if (window.Start == 0)
+            {
+                window.Start = now;
+            }
+
+            if (now - window.Start < 10_000)
+            {
+                return;
+            }
+
+            var seconds = Math.Max(1.0, (now - window.Start) / 1000.0);
+            champion.Logger.LogInformation(
+                "[MOBA-STRUCT-DMG] {Type} {Hits} champion hits in {Sec:F0}s: raw {Before} -> taken {After} ({Dps:F0} dps) up to Lv{Lvl} | HP {Hp:F0}/{Max:F0}",
+                GetStructureType(structure),
+                window.Hits,
+                seconds,
+                window.Before,
+                window.After,
+                window.After / seconds,
+                window.MaxLevel,
+                structure.Attributes[Attributes.Stats.CurrentHealth],
+                structure.Attributes[Attributes.Stats.MaximumHealth]);
+            window.Hits = 0;
+            window.Before = 0;
+            window.After = 0;
+            window.MaxLevel = 0;
+            window.Start = now;
+        }
+    }
+
+    private sealed class HitWindow
+    {
+        public int Hits;
+
+        public long Before;
+
+        public long After;
+
+        public int MaxLevel;
+
+        public long Start;
+    }
 }

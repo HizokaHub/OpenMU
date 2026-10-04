@@ -201,7 +201,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
 
                 ramp.Shots++;
                 ramp.LastShotUtc = now;
-                var rampMul = ramp.Shots <= 1 ? 1.0f : ramp.Shots == 2 ? 1.4f : Math.Min(2.4f, 1.4f + (0.5f * (ramp.Shots - 2)));
+                var rampMul = (float)Math.Pow(TurretRampBase, Math.Min(ramp.Shots, 12) - 1);
 
                 var bonus = (uint)Math.Max(1, a[Stats.MaximumHealth] * TurretChampionMaxHealthFraction * rampMul);
                 await champion.ApplyPoisonDamageAsync(monster, bonus).ConfigureAwait(false);
@@ -217,6 +217,9 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
             }
         }
     }
+
+    /// <summary>Each consecutive turret shot on the same champion multiplies the damage by this (exponential: 1, 1.7, 2.9, 4.9, 8.4 ...).</summary>
+    private const double TurretRampBase = 1.7;
 
     /// <summary>Fraction of a champion's MAX HP a single (first) turret shot deals (on top of the flat weapon hit).</summary>
     private const float TurretChampionMaxHealthFraction = 0.16f;
