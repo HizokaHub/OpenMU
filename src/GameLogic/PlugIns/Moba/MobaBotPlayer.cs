@@ -95,8 +95,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private const int FountainExclusionTiles = 18;
 
     /// <summary>Fixed structure anchors on the arena (must match <see cref="MobaStructureSpawner"/>).</summary>
-    private static readonly Point BlueTurretAnchor = new(116, 92);
-    private static readonly Point RedTurretAnchor = new(116, 173);
+    private static readonly Point BlueTurretAnchor = new(114, 90);
+    private static readonly Point RedTurretAnchor = new(114, 188);
     private static readonly Point BlueNexusAnchor = new(116, 44);
     private static readonly Point RedNexusAnchor = new(116, 224);
     private static readonly Point BlueSpawnAnchor = new(116, 60);
@@ -1521,7 +1521,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         // Front enemy turret = live enemy turret closest to mid (the nexus sits far behind, |Y-128| ~ 96).
         var frontTurret = enemyStructures
-            .Where(m => Math.Abs(m.Position.Y - 128) < 60)
+            .Where(m => Math.Abs(m.Position.Y - 128) < 80)
             .OrderBy(m => Math.Abs(m.Position.Y - 128))
             .FirstOrDefault();
 

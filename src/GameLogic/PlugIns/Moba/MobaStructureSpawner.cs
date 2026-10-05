@@ -19,7 +19,7 @@ public static class MobaStructureSpawner
 {
     private const short TurretMonsterNumber = 32; // Stone Golem - reads as a defensive structure.
 
-    private const float TurretHealth = 80000f;
+    private const float TurretHealth = 30000f;
     private const float TurretMinDamage = 170f;
     private const float TurretMaxDamage = 210f;
     private const float TurretDefense = 60f;
@@ -32,9 +32,9 @@ public static class MobaStructureSpawner
     private const float NexusHealth = 160000f;
     private const float NexusDefense = 40f;
 
-    /// <summary>Mid-lane turret positions: blue guards the north base, red the south base.</summary>
-    private static readonly (byte X, byte Y) BlueTurretPos = (116, 92);
-    private static readonly (byte X, byte Y) RedTurretPos = (116, 173);
+    /// <summary>Turret positions (outer pair first would be y=120 / y=160, inner pair y=90 / y=188): blue guards the north base, red the south base.</summary>
+    private static readonly (byte X, byte Y)[] BlueTurretPositions = { (117, 90), (111, 90), (122, 120), (116, 120) };
+    private static readonly (byte X, byte Y)[] RedTurretPositions = { (117, 188), (112, 188), (120, 160), (113, 160) };
 
     /// <summary>Nexus positions, behind each base (behind the creep spawn points).</summary>
     private static readonly (byte X, byte Y) BlueNexusPos = (116, 44);
@@ -84,7 +84,7 @@ public static class MobaStructureSpawner
     /// <returns><see langword="true"/> if nexuses exist.</returns>
     public static bool HasNexuses(ushort mapId) => NexusesByMap.TryGetValue(mapId, out var list) && list.Count > 0;
 
-    /// <summary>Spawns one lane turret per team on the map.</summary>
+    /// <summary>Spawns the lane turrets (four per team) on the map.</summary>
     /// <param name="map">The map.</param>
     /// <param name="gameContext">The game context.</param>
     /// <returns>The number of turrets spawned.</returns>
@@ -93,7 +93,7 @@ public static class MobaStructureSpawner
         var list = TurretsByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
         var count = 0;
 
-        foreach (var (team, position) in new[] { (MobaTeam.Blue, BlueTurretPos), (MobaTeam.Red, RedTurretPos) })
+        foreach (var (team, position) in BlueTurretPositions.Select(p => (MobaTeam.Blue, p)).Concat(RedTurretPositions.Select(p => (MobaTeam.Red, p))))
         {
             var turret = await SpawnTurretAsync(map, gameContext, team, position).ConfigureAwait(false);
             if (turret is not null)
