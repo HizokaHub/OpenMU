@@ -73,6 +73,14 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>Team death surplus over the enemy that also counts as dominance.</summary>
     private const int DominanceDeaths = 6;
 
+    /// <summary>
+    /// After this long both teams push the objective with the wave even when the game is even (2026-10-04): the 7th test game ran
+    /// 65 minutes with no structure down because bots only besieged when «dominant».
+    /// </summary>
+    private static readonly TimeSpan LatePushAfter = TimeSpan.FromMinutes(30);
+
+    private static bool IsLateGame => MobaMatchTickPlugIn.MatchElapsed >= LatePushAfter;
+
     /// <summary>An ally this close to (or farther than) a fight is worth walking to instead of fighting 1v2.</summary>
     private const double RegroupMaxTiles = 60;
 
@@ -391,7 +399,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         var ctx = this.BuildContext(map, pos, now);
         // Dominant by levels, or by a big death surplus (a team that keeps killing a respawning enemy without levelling past it).
-        this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels || ctx.DeathDeficit <= -DominanceDeaths;
+        this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels || ctx.DeathDeficit <= -DominanceDeaths || IsLateGame;
         if (await this.TickEconomyAsync(ctx).ConfigureAwait(false))
         {
             return;
@@ -704,7 +712,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         this._losingTeam = this._losingTeam
             ? c.DeathDeficit > 1
             : c.DeathDeficit >= 3 || (c.DeathDeficit >= 2 && levelDeficit >= 1);
-        if (levelDeficit >= DefendBehindLevels || this._losingTeam)
+        if (!IsLateGame && (levelDeficit >= DefendBehindLevels || this._losingTeam))
         {
             return forcedFight && c.HpPct > FightBailPct ? BotState.Fight : BotState.DefendBase;
         }

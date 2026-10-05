@@ -958,6 +958,8 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Creeps con vida/daño según el nivel:** vida = 1.000 × `DamageScale(nivel líder)` × (1 + (nivel−1)/29) (1× a nivel 1, ~25× a 30); daño = base × max(1, 0,5 × vida del campeón(nivel)/vida(1)) (`MobaWaveSpawner.CreepHealthMultiplierAt/CreepDamageMultiplierAt`, usando `MobaMatchPhase.LeaderLevel`, que se fija al spawnear la oleada).
 - **Reporte de drops recogidos/perdidos:** `[MOBA-DROP-END] picked|expired item=… price=… (killer …) after Ns | allies: nombre d=distancia upgrade=yes|no wears=pieza(precio) hp=…` por cada ítem de creep (`MobaDropReport.NotePickedUp/NoteExpired`, enganchado en `DroppedItem`), el resumen `[MOBA-DROP-SUM]` ahora trae «picked / expired (of which N were an upgrade for an ally) / pending», y `[MOBA-BOT-ECON] could not pick up …` si un bot intenta recoger y falla.
 
+**Empuje tardío y fases de estructuras (2026-10-04, aprobado por el usuario):** pasado el minuto 30 (`MobaBotPlayer.LatePushAfter`) ambos equipos cuentan como «dominantes» (`IsLateGame`) y empujan el objetivo con la oleada aunque la partida esté pareja, y el equipo que va perdiendo deja de turtlear en `DefendBase`. Multiplicadores de vida de estructuras por fase **×1 / ×1,8 / ×3** (T3: torreta 120.000, nexo 240.000). A calibrar con el próximo `/mobafight 2` (`[MOBA-STRUCT-DMG]`, `[MOBA-STRUCT]`, `[MOBA-DROP-END]`, `[MOBA-WAVE]`).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
