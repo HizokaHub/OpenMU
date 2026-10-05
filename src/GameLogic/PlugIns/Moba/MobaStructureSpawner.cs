@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
@@ -73,6 +74,41 @@ public static class MobaStructureSpawner
             }
         }
     }
+
+    /// <summary>The protection tier of a structure: 0 outer turret (and none), 1 inner turret, 2 nexus. A tier is invulnerable while a living structure of the same team has a lower tier.</summary>
+    private static readonly ConditionalWeakTable<Monster, object> TierByStructure = new();
+
+    /// <summary>
+    /// Whether the structure cannot be damaged yet (2026-10-05, requested by the user): the inner turret pair is invulnerable until the
+    /// outer pair has fallen, and the nexus until both turret pairs have fallen.
+    /// </summary>
+    /// <param name="structure">The structure being attacked.</param>
+    /// <returns><c>true</c> while a lower-tier structure of its team is alive.</returns>
+    public static bool IsShielded(Monster structure)
+    {
+        if (!TierByStructure.TryGetValue(structure, out var boxed) || boxed is not int tier || tier == 0)
+        {
+            return false;
+        }
+
+        var team = MobaTeams.GetTeam(structure);
+        var mapId = structure.CurrentMap?.MapId ?? 0;
+        var pool = new List<Monster>();
+        if (TurretsByMap.TryGetValue(mapId, out var turrets))
+        {
+            pool.AddRange(turrets);
+        }
+
+        if (NexusesByMap.TryGetValue(mapId, out var nexuses))
+        {
+            pool.AddRange(nexuses);
+        }
+
+        return pool.Any(m => m.IsAlive && !ReferenceEquals(m, structure) && MobaTeams.GetTeam(m) == team && TierByStructure.TryGetValue(m, out var other) && other is int otherTier && otherTier < tier);
+    }
+
+    private static int TierOfTurret(MobaTeam team, (byte X, byte Y) position)
+        => (team == MobaTeam.Blue ? position.Y == 120 : position.Y == 160) ? 0 : 1;
 
     /// <summary>Whether turrets are currently spawned on the map.</summary>
     /// <param name="mapId">The map id.</param>
@@ -177,6 +213,7 @@ public static class MobaStructureSpawner
 
         turret.Initialize();
         ForceTurretStats(turret);
+        TierByStructure.AddOrUpdate(turret, TierOfTurret(team, position));
 
         var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
         turret.Died += (_, _) => _ = SafeGrantTeamExpAsync(map, enemyTeam, MobaLevels.TurretKillExp, "turret");
@@ -301,6 +338,7 @@ public static class MobaStructureSpawner
             gameContext.PathFinderPool);
 
         nexus.Initialize();
+        TierByStructure.AddOrUpdate(nexus, 2);
         SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
         SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
 

@@ -72,6 +72,13 @@ public static class AttackableExtensions
             return new HitInfo(0, 0, DamageAttributes.Undefined);
         }
 
+        // MOBA: the inner turrets and the nexus are invulnerable until the structures in front of them have fallen.
+        if (defender is NPC.Monster shieldedStructure && PlugIns.Moba.MobaStructures.IsStructure(shieldedStructure)
+            && PlugIns.Moba.MobaStructureSpawner.IsShielded(shieldedStructure))
+        {
+            return new HitInfo(0, 0, DamageAttributes.Undefined);
+        }
+
         Player? attackerPlayer = attacker is AttackerSurrogate surrogate ? surrogate.Owner : (attacker is Player player ? player : null);
         bool isPvp = attackerPlayer is not null && defender is Player;
         bool isClassicPvp = isPvp && defender.Attributes[Stats.MaximumShield] == 0;
