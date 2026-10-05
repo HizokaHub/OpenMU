@@ -960,6 +960,12 @@ quedan). Cada ejecución limpia antes lo anterior.
 
 **Empuje tardío y fases de estructuras (2026-10-04, aprobado por el usuario):** pasado el minuto 30 (`MobaBotPlayer.LatePushAfter`) ambos equipos cuentan como «dominantes» (`IsLateGame`) y empujan el objetivo con la oleada aunque la partida esté pareja, y el equipo que va perdiendo deja de turtlear en `DefendBase`. Multiplicadores de vida de estructuras por fase **×1 / ×1,8 / ×3** (T3: torreta 120.000, nexo 240.000). A calibrar con el próximo `/mobafight 2` (`[MOBA-STRUCT-DMG]`, `[MOBA-STRUCT]`, `[MOBA-DROP-END]`, `[MOBA-WAVE]`).
 
+**Sesión 2026-10-04 (3ª parte) — 8º `/mobafight 2` (`openmu-server-mobafight2j.log`, ~11 min, estampida Rojo 18/3):**
+- Sin excepciones. **Ráfaga:** máx. entre campeones 64 % (antes 84 %); el 73 % que figuraba venía de la torreta (la subida exponencial, intencional). Los creeps ya no se quedan pegados (Rojo marchó hasta y=60 al caer la torreta azul).
+- **Bug: el nexo azul se movió de (116,44) a (122,50):** los skills de empuje (Earthshake, Pollution, Twisting Slash mastery → `MoveAsync`) desplazaban estructuras. Arreglo: `Monster.MoveAsync` ignora el movimiento de estructuras MOBA.
+- **Drops:** 25 de 27 expiraron y 21 eran mejora para un aliado (algunos con el slot vacío): el bot no recogía mientras peleaba. Ahora, sin pelea, va hasta un drop a ≤ 25 tiles (antes 12) y, en pelea, recoge lo que esté a ≤ 4 tiles (`MobaBotEconomy.LootRadius/FightLootRadius`).
+- **Estructuras:** en T1 dos bots hicieron ~340 dps al nexo (80.000 en 235 s) y la partida acabó en ~11 min. Vida base duplicada: **torreta 80.000, nexo 160.000** (× fase 1/1,8/3). Sigue pendiente ver una partida pareja con el empuje tardío (min 30).
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.

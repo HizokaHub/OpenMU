@@ -27,7 +27,10 @@ internal static class MobaBotEconomy
     public const int ShopRadius = 14;
 
     /// <summary>Distance (tiles) within which a bot walks to a dropped item.</summary>
-    public const int LootRadius = 12;
+    public const int LootRadius = 25;
+
+    /// <summary>Radius in which a bot still grabs a drop while an enemy champion is near or it is in combat.</summary>
+    public const int FightLootRadius = 4;
 
     /// <summary>A front-line minion must be at least this many tiles away for a teleport to be worth the channel.</summary>
     public const int TeleportMinDistance = 45;
@@ -128,7 +131,7 @@ internal static class MobaBotEconomy
     /// </summary>
     /// <param name="bot">The bot.</param>
     /// <returns>The loot, or <see langword="null"/>.</returns>
-    public static ILocateable? FindWantedDrop(Player bot)
+    public static ILocateable? FindWantedDrop(Player bot, int radius = LootRadius)
     {
         if (bot.CurrentMap is not { } map || bot.SelectedCharacter?.CharacterClass is not { } characterClass)
         {
@@ -136,7 +139,7 @@ internal static class MobaBotEconomy
         }
 
         var attempts = States.GetOrCreateValue(bot).LootAttempts;
-        return map.GetDropsInRange(bot.Position, LootRadius)
+        return map.GetDropsInRange(bot.Position, radius)
             .Where(d => attempts.GetValueOrDefault(d) < MaxLootAttempts)
             .Where(d => d is DroppedMoney
                         || d is DroppedItem item && IsUpgrade(bot, item.Item, characterClass) && (item.IsPlayerAnOwner(bot) || !item.IsOwnerPickupPriorityActive))

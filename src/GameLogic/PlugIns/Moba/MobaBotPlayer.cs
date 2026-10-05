@@ -913,12 +913,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
             }
         }
 
-        if (c.EnemyChampsNear.Count > 0 || c.InCombat || this._state is BotState.Recalling or BotState.Retreat)
+        if (this._state is BotState.Recalling or BotState.Retreat)
         {
             return false;
         }
 
-        if (MobaBotEconomy.FindWantedDrop(this) is not { } drop)
+        // 7th/8th test games: 25 of 27 expired drops were an upgrade for an ally (several wore nothing in that slot) because the
+        // bot never looted while a fight was on. In a fight it still grabs what lies within a few tiles; out of it it walks to the drop.
+        var inFight = c.EnemyChampsNear.Count > 0 || c.InCombat;
+        if (MobaBotEconomy.FindWantedDrop(this, inFight ? MobaBotEconomy.FightLootRadius : MobaBotEconomy.LootRadius) is not { } drop)
         {
             return false;
         }

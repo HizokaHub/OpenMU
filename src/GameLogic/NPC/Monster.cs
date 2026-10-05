@@ -302,6 +302,12 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
     /// <inheritdoc />
     protected override async ValueTask MoveAsync(Point target, MoveType type)
     {
+        if (PlugIns.Moba.MobaStructures.IsStructure(this))
+        {
+            // MOBA turrets / nexus never move: the push skills (Earthshake, Pollution, Twisting Slash mastery) shifted a nexus 7 tiles in a test game.
+            return;
+        }
+
         if (type == MoveType.Instant || type == MoveType.Teleport)
         {
             await this._walker.StopAsync().ConfigureAwait(false);
