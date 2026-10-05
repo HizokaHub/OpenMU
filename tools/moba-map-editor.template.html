@@ -20,7 +20,7 @@ label{display:block;margin:2px 0}
 <div style="color:var(--mut)">Mapa 200 · máscara 256×256 compartida por servidor y cliente</div>
 <h3>Herramienta</h3>
 <div id="tools"></div>
-<h3>Valor a pintar</h3>
+<h3>Qué pinto</h3>
 <div id="vals"></div>
 <h3>Pincel</h3>
 <label>Tamaño <input id="bs" type="range" min="1" max="15" value="3"> <span id="bsv">3</span></label>
@@ -40,7 +40,7 @@ label{display:block;margin:2px 0}
 <input id="file" type="file" hidden accept=".att,.bin">
 <div id="info"></div>
 <h3>Leyenda</h3>
-<div style="color:var(--mut)">gris oscuro = camina · rojo = pared · verde = zona segura · amarillo = cambiado<br>Click derecho/arrastre = borrar (camina) · Rueda = zoom</div>
+<div style="color:var(--mut)">gris oscuro = camina · rojo = pared · verde = zona segura · amarillo = cambiado<br>Click derecho = hacer camino (borra pared) · Rueda = zoom · Teclas: P pincel, L línea, R rectángulo, F relleno, C camino, M montaña, Z zona segura</div>
 </div>
 <div id="main"><canvas id="cv"></canvas></div>
 <script>
@@ -53,10 +53,10 @@ function b64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.lengt
 const ORIG=b64(ORIGINAL_B64).slice(3);
 let mask=new Uint8Array(ORIG), undo=[], redo=[];
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-let tool='brush', val=4, Z=3, drag=null, hover=null;
+let tool='brush', val=0, Z=3, drag=null, hover=null;
 const $=id=>document.getElementById(id);
 const TOOLS={brush:'Pincel',line:'Línea',rect:'Rectángulo (relleno)',rectO:'Rectángulo (borde)',fill:'Relleno'};
-const VALS={4:'Pared (4)',0:'Camina (0)',1:'Zona segura (1)'};
+const VALS={0:'Hacer camino / borrar pared (tecla C)',4:'Poner montaña / pared (tecla M)',1:'Zona segura (tecla Z)'};
 for(const k in TOOLS){const b=document.createElement('button');b.textContent=TOOLS[k];b.dataset.k=k;b.onclick=()=>{tool=k;mark()};$('tools').append(b)}
 for(const k in VALS){const b=document.createElement('button');b.textContent=VALS[k];b.dataset.k=k;b.onclick=()=>{val=+k;mark()};$('vals').append(b)}
 function mark(){document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.k===tool));
@@ -82,6 +82,7 @@ function draw(){
   STRUCT.blue.forEach(([x,y])=>dot(x,y,'#3b82f6',1.6));STRUCT.red.forEach(([x,y])=>dot(x,y,'#ef4444',1.6));
   STRUCT.nexus.forEach(([x,y,t])=>dot(x,y,t==='blue'?'#1d4ed8':'#b91c1c',3.5));
   STRUCT.shop.forEach(([x,y])=>{ctx.fillStyle='#facc15';ctx.fillRect((x+.5)*Z-3,(y+.5)*Z-3,6,6)});}
+ if(hover&&!drag){const s=+$('bs').value,h=s>>1;ctx.strokeStyle=val===0?'#6f6':val===4?'#f66':'#6f6';ctx.strokeRect((hover[0]-h)*Z,(hover[1]-h)*Z,s*Z,s*Z)}
  if(hover&&drag&&drag.shape){ctx.strokeStyle='#4da3ff';const a=drag.a,b=hover;
   if(tool==='line'){ctx.beginPath();ctx.moveTo((a[0]+.5)*Z,(a[1]+.5)*Z);ctx.lineTo((b[0]+.5)*Z,(b[1]+.5)*Z);ctx.stroke()}
   else ctx.strokeRect(Math.min(a[0],b[0])*Z,Math.min(a[1],b[1])*Z,(Math.abs(a[0]-b[0])+1)*Z,(Math.abs(a[1]-b[1])+1)*Z);}
@@ -113,7 +114,9 @@ $('bs').oninput=()=>{$('bsv').textContent=$('bs').value};
 ['zoom','oStruct','oLane','oGrid','oOrig'].forEach(i=>$(i).oninput=draw);
 $('undo').onclick=()=>{if(undo.length){redo.push(mask.slice());mask=undo.pop();draw()}};
 $('redo').onclick=()=>{if(redo.length){undo.push(mask.slice());mask=redo.pop();draw()}};
-onkeydown=e=>{if(e.ctrlKey&&e.key==='z'){e.preventDefault();$('undo').click()}if(e.ctrlKey&&e.key==='y'){e.preventDefault();$('redo').click()}};
+onkeydown=e=>{const K={p:['tool','brush'],l:['tool','line'],r:['tool','rect'],f:['tool','fill'],c:['val',0],m:['val',4],z:['val',1]};
+ if(!e.ctrlKey&&K[e.key]&&e.target.tagName!=='INPUT'){const k=K[e.key];if(k[0]==='tool')tool=k[1];else val=k[1];mark();draw()}
+ if(e.ctrlKey&&e.key==='z'){e.preventDefault();$('undo').click()}if(e.ctrlKey&&e.key==='y'){e.preventDefault();$('redo').click()}};
 $('reset').onclick=()=>{if(confirm('¿Descartar todos los cambios?')){pushUndo();mask=new Uint8Array(ORIG);draw()}};
 $('open').onclick=()=>$('file').click();
 $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;const a=new Uint8Array(await f.arrayBuffer());
