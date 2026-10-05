@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The MOBA arena walk mask: same file as the persistence seed and the client's Data\World200\MobaWalkMask.att. -->
+    <EmbeddedResource Include="..\Persistence\Initialization\Resources\Terrain201.att" LogicalName="MobaWalkMask.att" Link="MobaWalkMask.att" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="MathParser.org-mXparser" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />

@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic;
 
+using System.IO;
 using System.Runtime.CompilerServices;
 using MUnique.OpenMU.Pathfinding;
 
@@ -16,6 +17,10 @@ public class GameMapTerrain
     /// The size of the map in each dimension (byte range: 0–255).
     /// </summary>
     private const int MapSize = 256;
+
+    private const int MobaArenaMapNumber = 200;
+
+    private const string MobaWalkMaskResource = "MobaWalkMask.att";
 
     /// <summary>
     /// The default terrain where all coordinates are walkable and not a safezone.
@@ -33,7 +38,7 @@ public class GameMapTerrain
     /// </summary>
     /// <param name="definition">The game map definition.</param>
     public GameMapTerrain(GameMapDefinition definition)
-        : this(definition?.TerrainData)
+        : this(GetTerrainData(definition))
     {
     }
 
@@ -53,6 +58,29 @@ public class GameMapTerrain
         }
 
         this._spawnPoints = this.BuildSpawnPoints();
+    }
+
+    /// <summary>
+    /// Gets the terrain data of a map definition. The MOBA arena always uses the walk mask
+    /// embedded in this assembly (the same file the client loads), so editing the mask never
+    /// depends on a stale copy stored in the database.
+    /// </summary>
+    /// <param name="definition">The game map definition.</param>
+    /// <returns>The terrain data.</returns>
+    public static byte[]? GetTerrainData(GameMapDefinition? definition)
+    {
+        if (definition?.Number == MobaArenaMapNumber)
+        {
+            using var stream = typeof(GameMapTerrain).Assembly.GetManifestResourceStream(MobaWalkMaskResource);
+            if (stream is not null)
+            {
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                return buffer.ToArray();
+            }
+        }
+
+        return definition?.TerrainData;
     }
 
     /// <summary>
