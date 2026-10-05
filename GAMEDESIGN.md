@@ -1164,3 +1164,6 @@ programar.
   (pulido posterior). Los límites viven en config → ajustables sin recompilar.
   Consecuencia: se puede tallar un carril alargado dentro de *cualquier* mapa,
   así que la elección de mapa pesa más por ambiente/assets que por geometría.
+
+**Sesión 2026-10-05 (nueva conversación) — editor de terreno, etapa A1 (hecha):** el usuario confirmó la opción C (A1–A3, luego B). Investigación: `Terrain201.att` = 3 bytes (`00 FF FF`) + 256×256 (x = i&255, y = i>>8; 0 camina, 1 zona segura, 4 pared; hoy 19.269 paredes); el cliente deriva la máscara en `MapManager.cpp:1335` y usa el mismo orden/bits (`TW_SAFEZONE`=1, `TW_NOMOVE`=4), así que un solo archivo sirve a los dos. La `TerrainData` vive en la BD: para aplicar un archivo nuevo hay que forzar la recarga del mapa 200 o leer un archivo externo (A2). Estimación: A1 2–3 h, A2 1–2 h (+1 recompilación del cliente), A3 1–2 h con `/mobafight`; B1 (objetos 3D) y B2 (altura) 1–2 sesiones cada una.
+- **A1:** `tools/moba-map-editor.html` (autocontenido, con la máscara actual embebida; la plantilla es `moba-map-editor.template.html`, se regenera reemplazando `@@B64@@` por el base64 del `.att`). Pincel/línea/rectángulo/relleno, valores 0/1/4, espejo N-S y E-O con eje configurable, deshacer/rehacer, capas de estructuras, tiendas, carril y waypoints, diferencias vs. original, abrir/exportar `.att`.
