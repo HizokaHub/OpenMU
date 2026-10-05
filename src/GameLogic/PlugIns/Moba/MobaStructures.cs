@@ -74,7 +74,16 @@ public static class MobaStructures
     /// <param name="damage">The hit before the normalisation.</param>
     /// <returns>The damage the structure takes.</returns>
     public static int NormalizeChampionDamage(Player champion, int damage)
-        => damage <= 1 ? damage : Math.Max(1, (int)(damage / Math.Max(1.0, MobaProgression.DamageScaleFor(champion))));
+        => damage <= 1 ? damage : Math.Max(1, (int)(damage / (Math.Max(1.0, MobaProgression.DamageScaleFor(champion)) * LevelExtraDivisor(champion.MobaLevel))));
+
+    /// <summary>
+    /// Extra divisor beyond the level scale: dividing by the level scale alone left the damage to structures growing ~16x between
+    /// level 5 and 17 (140 -> 2,300 per hit, 340 -> 4,200 dps for two bots; basic attacks, skill ranks and the build bonus grow too),
+    /// so a nexus fell in about a minute at level 17. (level / 5)^1.8 from level 5 flattens it back to a mild growth.
+    /// </summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The divisor, 1 up to level 5.</returns>
+    public static double LevelExtraDivisor(int level) => Math.Pow(Math.Max(1.0, level / 5.0), 1.8);
 
     /// <summary>Accumulates the champion hits on a structure and writes a <c>[MOBA-STRUCT-DMG]</c> line every 10 s.</summary>
     /// <param name="structure">The structure.</param>

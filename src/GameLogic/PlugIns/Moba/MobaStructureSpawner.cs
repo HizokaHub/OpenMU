@@ -49,11 +49,11 @@ public static class MobaStructureSpawner
     /// 15x from level 1 to 30 while the structures were flat, so late hits took a turret in one or two hits.
     /// </summary>
     /// <param name="tier">The match phase.</param>
-    /// <returns>The multiplier (T1 x1, T2 x1.8, T3 x3).</returns>
+    /// <returns>The multiplier (T1 x1, T2 x1.4, T3 x2).</returns>
     public static float StructureHealthMultiplier(MobaShopTier tier) => tier switch
     {
-        MobaShopTier.T3 => 3f,
-        MobaShopTier.T2 => 1.8f,
+        MobaShopTier.T3 => 2f,
+        MobaShopTier.T2 => 1.4f,
         _ => 1f,
     };
 

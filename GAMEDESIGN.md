@@ -966,6 +966,12 @@ quedan). Cada ejecución limpia antes lo anterior.
 - **Drops:** 25 de 27 expiraron y 21 eran mejora para un aliado (algunos con el slot vacío): el bot no recogía mientras peleaba. Ahora, sin pelea, va hasta un drop a ≤ 25 tiles (antes 12) y, en pelea, recoge lo que esté a ≤ 4 tiles (`MobaBotEconomy.LootRadius/FightLootRadius`).
 - **Estructuras:** en T1 dos bots hicieron ~340 dps al nexo (80.000 en 235 s) y la partida acabó en ~11 min. Vida base duplicada: **torreta 80.000, nexo 160.000** (× fase 1/1,8/3). Sigue pendiente ver una partida pareja con el empuje tardío (min 30).
 
+**Sesión 2026-10-04 (4ª parte) — 9º `/mobafight 2` (`openmu-server-mobafight2k.log`, ~31 min, Azul 60/26 vs Rojo 26/60, niveles 17 vs 15,5):**
+- Sin excepciones; la partida pasó los 30 min (nexo rojo al 47 % a los 1.832 s, torreta roja caída), antes duraban 11. Los creeps no se pegan, el nexo no se mueve, `[MOBA-WAVE]` normal.
+- **Drops:** 381 creeps (31/35/34 % nada/Zen/ítem, 67/33 armas+escudos/sets), 124 ítems: **20 recogidos, 98 expirados, 0 de los expirados eran mejora para un aliado** (el bot ya recoge todo lo que le sirve).
+- **Ráfaga:** los picos de 84-136 % son todos de la torreta (inmersión de 3-4 disparos con la subida ×1,7, intencional); entre campeones el máximo fue ~64 %.
+- **Daño a estructuras vs nivel (`[MOBA-STRUCT-DMG]`):** pese a dividir por la escala de nivel, el daño por golpe crecía ~16× de Nv 5 a 17 (140 → 2.300; 340 → 4.200 dps con 2 bots; a Nv 17 un nexo de 288.000 caería en ~1 min). Se agregó un divisor extra `(nivel/5)^1,8` (`MobaStructures.LevelExtraDivisor`) para dejarlo en un crecimiento suave, y los multiplicadores de fase pasan a **×1 / ×1,4 / ×2** (T3: torreta 160.000, nexo 320.000). Estimado con 2 bots: ~340-500 dps → torreta T1 ~3 min, nexo T3 ~11 min de asedio continuo. A medir.
+
 **Pendiente de hacer:**
 - Cooldown visual del barredor en el slot 11; ítem de ward comprable en la tienda; marcador de wards en el minimapa.
 - Vision v2 (ocultar enemigos en el cliente, riesgo 40-50 % de bugs de viewport) — decidido dejarlo para después de validar v1.
