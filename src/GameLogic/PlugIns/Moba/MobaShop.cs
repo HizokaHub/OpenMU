@@ -69,8 +69,8 @@ public static class MobaShop
         [3] = 1_500, [6] = 1_500, [37] = 1_500, [40] = 1_500,
     };
 
-    private static readonly (byte X, byte Y) BlueVendorPos = (112, 57);
-    private static readonly (byte X, byte Y) RedVendorPos = (112, 208);
+    private static (byte X, byte Y) BlueVendorPos => (MobaLayout.ShopOf(MobaTeam.Blue).X, MobaLayout.ShopOf(MobaTeam.Blue).Y);
+    private static (byte X, byte Y) RedVendorPos => (MobaLayout.ShopOf(MobaTeam.Red).X, MobaLayout.ShopOf(MobaTeam.Red).Y);
 
     private static readonly ConcurrentDictionary<ushort, List<NonPlayerCharacter>> VendorsByMap = new();
     private static readonly ConditionalWeakTable<Player, ShopView> Views = new();

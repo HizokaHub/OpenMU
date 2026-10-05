@@ -1,4 +1,4 @@
-// <copyright file="MobaBotPlayer.cs" company="MUnique">
+﻿// <copyright file="MobaBotPlayer.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -61,6 +61,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <summary>How far (Y tiles) short of a live enemy front turret a bot must stop when it has no allied wave tanking that turret.</summary>
     private const int LaneLimitMargin = 8;
 
+    /// <summary>A destination within this many tiles of my lane counts as "on the lane" for the advance limit.</summary>
+    private const int LaneAffinityTiles = 14;
+
     /// <summary>With an allied wave, how far (Y tiles) PAST a live enemy front turret a bot may go - just enough to body it, never a free run to the base.</summary>
     private const int TurretBodyMargin = 3;
 
@@ -95,12 +98,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private const int FountainExclusionTiles = 18;
 
     /// <summary>Fixed structure anchors on the arena (must match <see cref="MobaStructureSpawner"/>).</summary>
-    private static readonly Point BlueTurretAnchor = new(114, 90);
-    private static readonly Point RedTurretAnchor = new(114, 188);
-    private static readonly Point BlueNexusAnchor = new(116, 44);
-    private static readonly Point RedNexusAnchor = new(116, 224);
-    private static readonly Point BlueSpawnAnchor = new(116, 60);
-    private static readonly Point RedSpawnAnchor = new(116, 205);
+    private static Point BlueNexusAnchor => MobaLayout.NexusOf(MobaTeam.Blue);
+
+    private static Point RedNexusAnchor => MobaLayout.NexusOf(MobaTeam.Red);
 
     /// <summary>After an enemy champion hits it, the bot stays "in combat" (hunts champions, ignores creeps) for this long.</summary>
     private static readonly TimeSpan CombatMemory = TimeSpan.FromSeconds(5);
@@ -161,6 +161,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private Point _homeSpawn;
     private IReadOnlyList<Point> _lane = Array.Empty<Point>();
     private int _laneIndex;
+    private int _laneNo = MobaLayout.MidLane;
     private int _laneOffset;
 
     // --- [MOBA-AI] observability heartbeat ---
@@ -202,7 +203,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <param name="clone">The clone character (built by <see cref="MobaCloneFactory.BuildForClassAsync"/>).</param>
     /// <param name="spawn">Where to place the bot.</param>
     /// <returns><c>true</c> on success.</returns>
-    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn, int laneOffset = 0)
+    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn, int laneOffset = 0, int lane = MobaLayout.MidLane)
     {
         try
         {
@@ -243,9 +244,10 @@ public sealed class MobaBotPlayer : OfflinePlayer
             MobaTeams.Set(this, this._team);
             this.HuntingOrigin = spawn;
             this._homeSpawn = spawn;
-            this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team);
+            this._laneNo = Math.Clamp(lane, 0, MobaLayout.LaneCount - 1);
+            this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team, this._laneNo);
             this._laneIndex = 0;
-            this._laneOffset = Math.Clamp(laneOffset, -7, 7);
+            this._laneOffset = Math.Clamp(laneOffset, -3, 3);
 
             // Bots skip SelectCharacterAction, so wire the champion-death handler here
             // (kill / assist EXP + K/D/A counters). RespawnAtAsync already snaps the bot
@@ -606,11 +608,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         // The FRONT enemy objective: the live enemy structure nearest to mid (turret before
         // nexus), not just whatever the bot is standing next to.
-        var frontEnemyStructure = map.GetAttackablesInRange(new Point(128, 128), 400)
-            .OfType<NPC.Monster>()
-            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
-            .OrderBy(m => Math.Abs(m.Position.Y - 128))
-            .FirstOrDefault();
+        var frontEnemyStructure = this.FrontEnemyObjective(map);
 
         var alliedCreepsAtPos = map.GetAttackablesInRange(pos, TurretDangerTiles + 2)
             .OfType<NPC.Monster>()
@@ -1147,8 +1145,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (behind)
         {
             // Hold near mid / our side of it.
-            var holdY = MobaTeams.GetTeam(this) == MobaTeam.Blue ? (byte)120 : (byte)136;
-            var hold = new Point((byte)Math.Clamp(116 + this._laneOffset, 5, 250), holdY);
+            var hold = this.AtProgress(this.OwnOuterTurretProgress() + 3, this._laneOffset);
             if (c.Pos.EuclideanDistanceTo(hold) > 4)
             {
                 await this.WalkTowardAsync(hold).ConfigureAwait(false);
@@ -1384,7 +1381,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         while (this._laneIndex < this._lane.Count - 1
-               && this._lane[this._laneIndex].EuclideanDistanceTo(pos) <= WaypointReachedTiles + 4)
+               && this._lane[this._laneIndex].EuclideanDistanceTo(pos) <= WaypointReachedTiles)
         {
             this._laneIndex++;
         }
@@ -1393,30 +1390,22 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         // Do not walk past a LIVE enemy turret without a friendly wave - hold just short of
         // it (this is what keeps a winning team from marching straight into the enemy base).
-        var frontTurret = map.GetAttackablesInRange(new Point(128, 128), 400)
-            .OfType<NPC.Monster>()
-            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
-            .OrderBy(m => Math.Abs(m.Position.Y - 128))
-            .FirstOrDefault();
+        var frontTurret = this.FrontEnemyTurret(map);
         if (frontTurret is not null)
         {
-            var goingSouth = MobaTeams.GetTeam(this) == MobaTeam.Blue;
-            var turretY = frontTurret.Position.Y;
-            var beyond = goingSouth ? wp.Y > turretY - (TurretDangerTiles - 1) : wp.Y < turretY + (TurretDangerTiles - 1);
-            var wave = map.GetAttackablesInRange(new Point(116, turretY), TurretDangerTiles + 3)
+            var turretProgress = this.Progress(frontTurret.Position.X, frontTurret.Position.Y);
+            var beyond = this.Progress(wp.X, wp.Y) > turretProgress - (TurretDangerTiles - 1);
+            var wave = map.GetAttackablesInRange(frontTurret.Position, TurretDangerTiles + 3)
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
             if (beyond && !wave)
             {
-                var holdY = (byte)(goingSouth ? turretY - (TurretDangerTiles + 1) : turretY + (TurretDangerTiles + 1));
-                wp = new Point(wp.X, holdY);
+                wp = this.AtProgress(turretProgress - (TurretDangerTiles + 1), 0);
             }
         }
 
-        // Spread the bots across the lane width instead of all stacking on the x=116 column.
-        var next = new Point(
-            (byte)Math.Clamp(wp.X + this._laneOffset, 5, 250),
-            wp.Y);
+        // Spread the bots across the lane width instead of all stacking on its centre line.
+        var next = this.OffsetFromLane(wp, this._laneOffset);
 
         if (next.EuclideanDistanceTo(pos) > 1.5)
         {
@@ -1509,23 +1498,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return target;
         }
 
-        var goingSouth = team == MobaTeam.Blue; // Blue advances toward higher Y, Red toward lower Y.
-        var enemyTurretAnchor = goingSouth ? RedTurretAnchor : BlueTurretAnchor;
-        var enemyNexus = goingSouth ? RedNexusAnchor : BlueNexusAnchor;
-        var enemySpawn = goingSouth ? RedSpawnAnchor : BlueSpawnAnchor;
+        var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
+        var enemyNexus = MobaLayout.NexusOf(enemyTeam);
+        var length = MobaLayout.LengthOf(this.BlueToRed);
 
         var enemyStructures = map.GetAttackablesInRange(new Point(128, 128), 400)
             .OfType<NPC.Monster>()
             .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
             .ToList();
 
-        // Front enemy turret = live enemy turret closest to mid (the nexus sits far behind, |Y-128| ~ 96).
-        var frontTurret = enemyStructures
-            .Where(m => Math.Abs(m.Position.Y - 128) < 80)
-            .OrderBy(m => Math.Abs(m.Position.Y - 128))
-            .FirstOrDefault();
+        // Front enemy turret = the live turret of MY lane closest to my own base.
+        var frontTurret = this.FrontEnemyTurret(map);
+        var nexusProgress = this.Progress(enemyNexus.X, enemyNexus.Y);
 
-        int limitY;
+        double limit;
         var siegingNexus = false;
         if (frontTurret is { } turret)
         {
@@ -1535,13 +1521,18 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
             var margin = waveTanking || this._isDominant ? TurretBodyMargin : -LaneLimitMargin;
-            limitY = goingSouth ? turret.Position.Y + margin : turret.Position.Y - margin;
+            limit = this.Progress(turret.Position.X, turret.Position.Y) + margin;
         }
         else
         {
-            // Front turret is down. Advance to just short of the enemy fountain, but only with
-            // a wave past the old turret line; the nexus siege itself isn't a bot job yet.
-            var wavePastRuin = map.GetAttackablesInRange(enemyTurretAnchor, TurretDangerTiles + 3)
+            // My lane's turrets are down. Advance to just short of the enemy fountain, but only with
+            // a wave past the old turret line.
+            var ruin = MobaLayout.Towers.Where(tw => tw.Team == enemyTeam && tw.Lane == this._laneNo)
+                .Select(tw => this.Progress(tw.Position.X, tw.Position.Y))
+                .DefaultIfEmpty(length / 2)
+                .Max();
+            var ruinPoint = this.AtProgress(ruin, 0);
+            var wavePastRuin = map.GetAttackablesInRange(ruinPoint, TurretDangerTiles + 3)
                 .OfType<NPC.Monster>()
                 .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
 
@@ -1551,47 +1542,110 @@ public sealed class MobaBotPlayer : OfflinePlayer
                     || map.GetAttackablesInRange(enemyNexus, NexusWaveSupportTiles)
                         .OfType<NPC.Monster>()
                         .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m)));
-            limitY = siegingNexus
-                ? (goingSouth ? enemyNexus.Y - NexusStandOffTiles : enemyNexus.Y + NexusStandOffTiles)
+            limit = siegingNexus
+                ? nexusProgress - NexusStandOffTiles
                 : wavePastRuin
-                    ? (goingSouth ? enemySpawn.Y - FountainExclusionTiles : enemySpawn.Y + FountainExclusionTiles)
-                    : (goingSouth ? enemyTurretAnchor.Y - LaneLimitMargin : enemyTurretAnchor.Y + LaneLimitMargin);
+                    ? length - FountainExclusionTiles
+                    : ruin - LaneLimitMargin;
         }
 
         // The enemy fountain (nexus + spawn) is ALWAYS off-limits - never dive it for respawn kills.
-        var nexusLimit = goingSouth ? enemyNexus.Y - FountainExclusionTiles : enemyNexus.Y + FountainExclusionTiles;
-        var spawnLimit = goingSouth ? enemySpawn.Y - FountainExclusionTiles : enemySpawn.Y + FountainExclusionTiles;
         if (!siegingNexus)
         {
-            limitY = goingSouth
-                ? Math.Min(limitY, Math.Min(nexusLimit, spawnLimit))
-                : Math.Max(limitY, Math.Max(nexusLimit, spawnLimit));
+            limit = Math.Min(limit, Math.Min(nexusProgress, length) - FountainExclusionTiles);
         }
 
-        var clampedY = goingSouth ? Math.Min(target.Y, limitY) : Math.Max(target.Y, limitY);
-        if (clampedY != target.Y)
+        var laneDistance = MobaLayout.DistanceToPolyline(this.BlueToRed, target.X, target.Y);
+        var targetProgress = this.Progress(target.X, target.Y);
+        var nearLane = laneDistance <= LaneAffinityTiles;
+        var nearFountain = !siegingNexus && target.EuclideanDistanceTo(enemyNexus) < FountainExclusionTiles;
+        if ((nearLane && targetProgress > limit) || nearFountain)
         {
+            var arc = MobaLayout.ArcOf(this.BlueToRed, target.X, target.Y);
+            var projected = MobaLayout.PointAtArc(this.BlueToRed, arc);
+            var lateralX = nearLane ? target.X - projected.X : 0;
+            var lateralY = nearLane ? target.Y - projected.Y : 0;
+            var anchor = this.AtProgress(Math.Min(limit, nearLane ? targetProgress : limit), 0);
+            var clamped = MobaLayout.NearestWalkable(anchor.X + lateralX, anchor.Y + lateralY);
             var reason = frontTurret is not null ? "front-turret" : "fountain/ruin";
-            var key = $"{reason}:{limitY}";
+            var key = $"{reason}:{(int)limit}";
             if (this._lastClampReason != key)
             {
                 this._lastClampReason = key;
                 this.Logger.LogInformation(
-                    "[MOBA-AI] {Name} movement clamped {Tx},{Ty} -> {Cx},{Cy} (limitY={Limit}, {Reason})",
+                    "[MOBA-AI] {Name} movement clamped {Tx},{Ty} -> {Cx},{Cy} (lane {Lane}, limit={Limit}, {Reason})",
                     this.Name,
                     target.X,
                     target.Y,
-                    target.X,
-                    clampedY,
-                    limitY,
+                    clamped.X,
+                    clamped.Y,
+                    this._laneNo,
+                    (int)limit,
                     reason);
             }
 
-            target = new Point(target.X, (byte)Math.Clamp(clampedY, 5, 250));
+            return clamped;
         }
 
         return target;
     }
+
+    private IReadOnlyList<Point> BlueToRed => MobaLayout.Lanes[this._laneNo].Waypoints;
+
+    private int Forward => MobaTeams.GetTeam(this) == MobaTeam.Red ? -1 : 1;
+
+    /// <summary>Distance walked along my lane in my marching direction (0 at my own base end).</summary>
+    private double Progress(double x, double y)
+    {
+        var arc = MobaLayout.ArcOf(this.BlueToRed, x, y);
+        return this.Forward > 0 ? arc : MobaLayout.LengthOf(this.BlueToRed) - arc;
+    }
+
+    /// <summary>The lane point at a progress, pushed sideways (across the lane) by an offset.</summary>
+    private Point AtProgress(double progress, int offset)
+    {
+        var length = MobaLayout.LengthOf(this.BlueToRed);
+        var arc = this.Forward > 0 ? progress : length - progress;
+        var p = MobaLayout.PointAtArc(this.BlueToRed, arc);
+        return MobaLayout.NearestWalkable(p.X - (p.Dy * offset), p.Y + (p.Dx * offset));
+    }
+
+    private Point OffsetFromLane(Point waypoint, int offset)
+    {
+        if (offset == 0)
+        {
+            return waypoint;
+        }
+
+        var arc = MobaLayout.ArcOf(this.BlueToRed, waypoint.X, waypoint.Y);
+        var p = MobaLayout.PointAtArc(this.BlueToRed, arc);
+        return MobaLayout.NearestWalkable(waypoint.X - (p.Dy * offset), waypoint.Y + (p.Dx * offset));
+    }
+
+    /// <summary>Progress of my own outer turrets in my lane (where a bot that must stay behind holds).</summary>
+    private double OwnOuterTurretProgress()
+    {
+        var team = MobaTeams.GetTeam(this);
+        var towers = MobaLayout.Towers.Where(tw => tw.Team == team && tw.Lane == this._laneNo && tw.Tier == 0).ToArray();
+        return towers.Length == 0 ? 20 : towers.Average(tw => this.Progress(tw.Position.X, tw.Position.Y));
+    }
+
+    /// <summary>The live enemy turret of my lane nearest to my own base (what I must beat next).</summary>
+    private NPC.Monster? FrontEnemyTurret(GameMap map)
+        => map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m)
+                && MobaStructures.GetStructureType(m) == MobaStructureType.Turret && MobaStructureSpawner.LaneOf(m) == this._laneNo)
+            .OrderBy(m => this.Progress(m.Position.X, m.Position.Y))
+            .FirstOrDefault();
+
+    /// <summary>The front enemy objective of my lane: its nearest live turret, else the enemy nexus.</summary>
+    private NPC.Monster? FrontEnemyObjective(GameMap map)
+        => this.FrontEnemyTurret(map)
+            ?? map.GetAttackablesInRange(new Point(128, 128), 400)
+                .OfType<NPC.Monster>()
+                .FirstOrDefault(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m)
+                    && MobaStructures.GetStructureType(m) == MobaStructureType.Nexus);
 
     /// <summary>
     /// Spends the bot's accrued champion skill points and stat points as it levels, so a

@@ -1,4 +1,4 @@
-// <copyright file="MobaBotChatCommandPlugIn.cs" company="MUnique">
+﻿// <copyright file="MobaBotChatCommandPlugIn.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -106,6 +106,8 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         await player.ShowBlueMessageAsync($"[mobabot] {spawned} bot(s) {team} en el spawn de creeps ~({origin.X},{origin.Y}); marchan por el carril. Mirá con: /move {player.SelectedCharacter?.Name} 200 116 128").ConfigureAwait(false);
     }
 
+    private static readonly int[] LaneOrder = { MobaLayout.MidLane, 0, 2 };
+
     /// <summary>Spawns the given classes as bots on a team, near the caller.</summary>
     /// <param name="caller">The GM running the command.</param>
     /// <param name="team">The team.</param>
@@ -118,11 +120,12 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         // Spawn at the team's own creep-spawn end of the lane; the bot brain then marches
         // the lane waypoints toward the enemy creep spawn, so the fight develops down the
         // lane like a real match.
-        var origin = MobaWaveSpawner.LaneWaypointsFor(team)[0];
-
         var spawned = 0;
         for (var i = 0; i < classNumbers.Count; i++)
         {
+            // Bots are spread over the lanes: mid, top, bot, mid, ...
+            var lane = LaneOrder[i % LaneOrder.Length];
+            var origin = MobaWaveSpawner.LaneWaypointsFor(team, lane)[0];
             var characterClass = config.CharacterClasses.FirstOrDefault(c => c.Number == classNumbers[i]);
             if (characterClass is null)
             {
@@ -144,13 +147,13 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
 
             // Spread the squad across the lane width (x = origin +/- 6) so they don't all
             // stack on one column; the bot keeps this offset while marching.
-            var laneOffset = ((i % classNumbers.Count) - (classNumbers.Count / 2)) * 2;
+            var laneOffset = (((i / LaneOrder.Length) % 3) - 1) * 2;
             var spawn = new Point(
                 (byte)Math.Clamp(origin.X + laneOffset, 5, 250),
                 (byte)Math.Clamp((int)origin.Y, 5, 250));
 
             var bot = new MobaBotPlayer(caller.GameContext, team);
-            if (await bot.StartMobaAsync(account, clone, spawn, laneOffset).ConfigureAwait(false))
+            if (await bot.StartMobaAsync(account, clone, spawn, laneOffset, lane).ConfigureAwait(false))
             {
                 spawned++;
             }

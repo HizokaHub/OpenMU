@@ -31,8 +31,8 @@ public static class MobaRecall
     private const int PollMs = 100;
     private const short TeleportSkillNumber = 6;
 
-    private static readonly (byte X, byte Y) BlueBase = (112, 57);
-    private static readonly (byte X, byte Y) RedBase = (112, 208);
+    private static (byte X, byte Y) BlueBase => (MobaLayout.ShopOf(MobaTeam.Blue).X, MobaLayout.ShopOf(MobaTeam.Blue).Y);
+    private static (byte X, byte Y) RedBase => (MobaLayout.ShopOf(MobaTeam.Red).X, MobaLayout.ShopOf(MobaTeam.Red).Y);
 
     private static readonly ConditionalWeakTable<Player, Channel> Channels = new();
 

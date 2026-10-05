@@ -1,4 +1,4 @@
-// <copyright file="MobaWalkMaskTests.cs" company="MUnique">
+﻿// <copyright file="MobaWalkMaskTests.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.Tests;
 using System.IO;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 /// <summary>
 /// Tests the MOBA arena walk mask shared by the server and the client.
@@ -14,11 +15,19 @@ using MUnique.OpenMU.GameLogic;
 [TestFixture]
 public class MobaWalkMaskTests
 {
-    private static readonly (int X, int Y)[] KeyPoints =
+    private static (int X, int Y)[] KeyPoints()
     {
-        (116, 44), (112, 57), (116, 60), (117, 90), (111, 90), (116, 110), (122, 120), (116, 120),
-        (120, 160), (113, 160), (116, 160), (117, 188), (112, 188), (116, 205), (112, 208), (116, 224),
-    };
+        var points = new List<(int, int)>();
+        foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
+        {
+            points.Add((MobaLayout.NexusOf(team).X, MobaLayout.NexusOf(team).Y));
+            points.Add((MobaLayout.ShopOf(team).X, MobaLayout.ShopOf(team).Y));
+        }
+
+        points.AddRange(MobaLayout.Lanes.SelectMany(l => l.Waypoints).Select(p => ((int)p.X, (int)p.Y)));
+        points.AddRange(MobaLayout.Towers.Select(tw => ((int)tw.Position.X, (int)tw.Position.Y)));
+        return points.ToArray();
+    }
 
     /// <summary>
     /// The arena always uses the embedded mask, whatever the database holds.
@@ -54,15 +63,16 @@ public class MobaWalkMaskTests
     public void KeyPointsAreWalkableAndConnected()
     {
         var terrain = new GameMapTerrain(new GameMapDefinition { Number = 200 });
-        foreach (var (x, y) in KeyPoints)
+        var keyPoints = KeyPoints();
+        foreach (var (x, y) in keyPoints)
         {
             Assert.That(terrain.WalkMap[x, y], Is.True, $"({x},{y}) must be walkable");
         }
 
         var seen = new bool[256, 256];
         var stack = new Stack<(int X, int Y)>();
-        stack.Push(KeyPoints[0]);
-        seen[KeyPoints[0].X, KeyPoints[0].Y] = true;
+        stack.Push(keyPoints[0]);
+        seen[keyPoints[0].X, keyPoints[0].Y] = true;
         while (stack.Count > 0)
         {
             var (cx, cy) = stack.Pop();
@@ -77,7 +87,7 @@ public class MobaWalkMaskTests
             }
         }
 
-        foreach (var (x, y) in KeyPoints)
+        foreach (var (x, y) in keyPoints)
         {
             Assert.That(seen[x, y], Is.True, $"({x},{y}) must be reachable from the blue nexus");
         }

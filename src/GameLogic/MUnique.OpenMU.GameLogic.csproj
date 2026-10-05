@@ -24,6 +24,8 @@
   <ItemGroup>
     <!-- The MOBA arena walk mask: same file as the persistence seed and the client's Data\World200\MobaWalkMask.att. -->
     <EmbeddedResource Include="..\Persistence\Initialization\Resources\Terrain201.att" LogicalName="MobaWalkMask.att" Link="MobaWalkMask.att" />
+    <!-- The MOBA arena layout (lanes, nexuses, shops) exported from tools/moba-map-editor.html. -->
+    <EmbeddedResource Include="PlugIns\Moba\MobaLayout.json" LogicalName="MobaLayout.json" />
   </ItemGroup>
 
   <ItemGroup>

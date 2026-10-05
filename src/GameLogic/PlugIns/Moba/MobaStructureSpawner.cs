@@ -1,4 +1,4 @@
-// <copyright file="MobaStructureSpawner.cs" company="MUnique">
+﻿// <copyright file="MobaStructureSpawner.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -28,18 +28,16 @@ public static class MobaStructureSpawner
     private const byte TurretAttackRange = 7;
     private static readonly TimeSpan TurretAttackDelay = TimeSpan.FromMilliseconds(1100);
 
-    private const short NexusMonsterNumber = 32; // Stone Golem too (bigger, doesn't shoot).
+    private const short NexusBaseMonsterNumber = 32; // Stone Golem definition: stats are overridden below.
+
+    /// <summary>The nexus is shown as the Crywolf statue (client NPC 204, model Object82), a crystal statue that never shoots.</summary>
+    private const short NexusMonsterNumber = 204;
 
     private const float NexusHealth = 160000f;
     private const float NexusDefense = 40f;
 
-    /// <summary>Turret positions (outer pair first would be y=120 / y=160, inner pair y=90 / y=188): blue guards the north base, red the south base.</summary>
-    private static readonly (byte X, byte Y)[] BlueTurretPositions = { (117, 90), (111, 90), (122, 120), (116, 120) };
-    private static readonly (byte X, byte Y)[] RedTurretPositions = { (117, 188), (112, 188), (120, 160), (113, 160) };
-
-    /// <summary>Nexus positions, behind each base (behind the creep spawn points).</summary>
-    private static readonly (byte X, byte Y) BlueNexusPos = (116, 44);
-    private static readonly (byte X, byte Y) RedNexusPos = (116, 224);
+    // Turret and nexus positions come from MobaLayout (tools/moba-map-editor.html): two pairs of turrets
+    // (outer, inner) per lane and team, and one nexus per team.
 
     // Structures spawned per map, so the toggle commands can remove them.
     private static readonly ConcurrentDictionary<ushort, List<Monster>> TurretsByMap = new();
@@ -75,8 +73,8 @@ public static class MobaStructureSpawner
         }
     }
 
-    /// <summary>The protection tier of a structure: 0 outer turret (and none), 1 inner turret, 2 nexus. A tier is invulnerable while a living structure of the same team has a lower tier.</summary>
-    private static readonly ConditionalWeakTable<Monster, object> TierByStructure = new();
+    /// <summary>The protection tier (0 outer turret, 1 inner turret, 2 nexus) and lane (-1 for the nexus) of a structure.</summary>
+    private static readonly ConditionalWeakTable<Monster, StructureInfo> InfoByStructure = new();
 
     /// <summary>
     /// Whether the structure cannot be damaged yet (2026-10-05, requested by the user): the inner turret pair is invulnerable until the
@@ -86,29 +84,39 @@ public static class MobaStructureSpawner
     /// <returns><c>true</c> while a lower-tier structure of its team is alive.</returns>
     public static bool IsShielded(Monster structure)
     {
-        if (!TierByStructure.TryGetValue(structure, out var boxed) || boxed is not int tier || tier == 0)
+        if (!InfoByStructure.TryGetValue(structure, out var info) || info.Tier == 0)
         {
             return false;
         }
 
         var team = MobaTeams.GetTeam(structure);
         var mapId = structure.CurrentMap?.MapId ?? 0;
-        var pool = new List<Monster>();
-        if (TurretsByMap.TryGetValue(mapId, out var turrets))
+        var turrets = TurretsByMap.TryGetValue(mapId, out var list) ? list.ToArray() : Array.Empty<Monster>();
+        bool IsTeamTurret(Monster m, out StructureInfo other)
+            => InfoByStructure.TryGetValue(m, out other!) && MobaTeams.GetTeam(m) == team;
+
+        if (info.Tier == 1)
         {
-            pool.AddRange(turrets);
+            // An inner turret is invulnerable while an outer turret of its own lane stands.
+            return turrets.Any(m => m.IsAlive && IsTeamTurret(m, out var other) && other.Lane == info.Lane && other.Tier == 0);
         }
 
-        if (NexusesByMap.TryGetValue(mapId, out var nexuses))
+        // The nexus is invulnerable until a whole lane of its team has fallen (all of that lane's turrets dead).
+        var teamTurrets = turrets.Where(m => IsTeamTurret(m, out _)).ToArray();
+        if (teamTurrets.Length == 0)
         {
-            pool.AddRange(nexuses);
+            return false;
         }
 
-        return pool.Any(m => m.IsAlive && !ReferenceEquals(m, structure) && MobaTeams.GetTeam(m) == team && TierByStructure.TryGetValue(m, out var other) && other is int otherTier && otherTier < tier);
+        return !teamTurrets.GroupBy(m => { InfoByStructure.TryGetValue(m, out var other); return other!.Lane; })
+            .Any(group => group.All(m => !m.IsAlive));
     }
 
-    private static int TierOfTurret(MobaTeam team, (byte X, byte Y) position)
-        => (team == MobaTeam.Blue ? position.Y == 120 : position.Y == 160) ? 0 : 1;
+    /// <summary>Gets the lane index of a turret (-1 for the nexus or anything that is not a lane turret).</summary>
+    /// <param name="structure">The structure.</param>
+    /// <returns>The lane index.</returns>
+    public static int LaneOf(Monster structure)
+        => InfoByStructure.TryGetValue(structure, out var info) ? info.Lane : -1;
 
     /// <summary>Whether turrets are currently spawned on the map.</summary>
     /// <param name="mapId">The map id.</param>
@@ -129,9 +137,9 @@ public static class MobaStructureSpawner
         var list = TurretsByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
         var count = 0;
 
-        foreach (var (team, position) in BlueTurretPositions.Select(p => (MobaTeam.Blue, p)).Concat(RedTurretPositions.Select(p => (MobaTeam.Red, p))))
+        foreach (var spec in MobaLayout.Towers)
         {
-            var turret = await SpawnTurretAsync(map, gameContext, team, position).ConfigureAwait(false);
+            var turret = await SpawnTurretAsync(map, gameContext, spec.Team, (spec.Position.X, spec.Position.Y), spec.Lane, spec.Tier).ConfigureAwait(false);
             if (turret is not null)
             {
                 list.Add(turret);
@@ -172,7 +180,7 @@ public static class MobaStructureSpawner
         return removed;
     }
 
-    private static async ValueTask<Monster?> SpawnTurretAsync(GameMap map, IGameContext gameContext, MobaTeam team, (byte X, byte Y) position)
+    private static async ValueTask<Monster?> SpawnTurretAsync(GameMap map, IGameContext gameContext, MobaTeam team, (byte X, byte Y) position, int lane, int tier)
     {
         var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == TurretMonsterNumber);
         if (baseDefinition is null)
@@ -213,7 +221,7 @@ public static class MobaStructureSpawner
 
         turret.Initialize();
         ForceTurretStats(turret);
-        TierByStructure.AddOrUpdate(turret, TierOfTurret(team, position));
+        InfoByStructure.AddOrUpdate(turret, new StructureInfo(tier, lane));
 
         var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
         turret.Died += (_, _) => _ = SafeGrantTeamExpAsync(map, enemyTeam, MobaLevels.TurretKillExp, "turret");
@@ -257,9 +265,10 @@ public static class MobaStructureSpawner
         var list = NexusesByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
         var count = 0;
 
-        foreach (var (team, position) in new[] { (MobaTeam.Blue, BlueNexusPos), (MobaTeam.Red, RedNexusPos) })
+        foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
         {
-            var nexus = await SpawnNexusAsync(map, gameContext, team, position).ConfigureAwait(false);
+            var nexusPosition = MobaLayout.NexusOf(team);
+            var nexus = await SpawnNexusAsync(map, gameContext, team, (nexusPosition.X, nexusPosition.Y)).ConfigureAwait(false);
             if (nexus is not null)
             {
                 list.Add(nexus);
@@ -302,13 +311,15 @@ public static class MobaStructureSpawner
 
     private static async ValueTask<Monster?> SpawnNexusAsync(GameMap map, IGameContext gameContext, MobaTeam team, (byte X, byte Y) position)
     {
-        var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == NexusMonsterNumber);
+        var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == NexusBaseMonsterNumber);
         if (baseDefinition is null)
         {
             return null;
         }
 
         var definition = baseDefinition.Clone(gameContext.Configuration);
+        definition.Number = NexusMonsterNumber;
+        definition.Designation = "Nexus";
         definition.AttackRange = 0;
         definition.ViewRange = 0;
         definition.MoveRange = 0;
@@ -338,7 +349,7 @@ public static class MobaStructureSpawner
             gameContext.PathFinderPool);
 
         nexus.Initialize();
-        TierByStructure.AddOrUpdate(nexus, 2);
+        InfoByStructure.AddOrUpdate(nexus, new StructureInfo(2, -1));
         SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
         SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
 
@@ -368,4 +379,6 @@ public static class MobaStructureSpawner
         var current = structure.Attributes[stat];
         structure.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
     }
+
+    private sealed record StructureInfo(int Tier, int Lane);
 }

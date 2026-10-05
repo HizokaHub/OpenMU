@@ -1,4 +1,4 @@
-// <copyright file="MobaWaveSpawner.cs" company="MUnique">
+﻿// <copyright file="MobaWaveSpawner.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -47,9 +47,52 @@ public static class MobaWaveSpawner
     /// scans); a healthy lane with waves flowing sits well under it. Past this the
     /// periodic spawner skips that team's wave until the jam clears.
     /// </summary>
-    public const int MaxLiveCreepsPerTeam = 54;
+    public const int MaxLiveCreepsPerTeam = 120;
 
     private static readonly IDropGenerator CreepDropGenerator = new MobaCreepDropGenerator();
+
+    /// <summary>The unit direction of the lane segment starting at waypoint <paramref name="index"/>.</summary>
+    private static (double X, double Y) SegmentDirection(IReadOnlyList<Point> lane, int index)
+    {
+        for (var i = Math.Clamp(index, 0, lane.Count - 2); i < lane.Count - 1; i++)
+        {
+            double dx = lane[i + 1].X - lane[i].X, dy = lane[i + 1].Y - lane[i].Y;
+            var length = Math.Sqrt((dx * dx) + (dy * dy));
+            if (length > 0)
+            {
+                return (dx / length, dy / length);
+            }
+        }
+
+        return (0, 1);
+    }
+
+    /// <summary>The walkable cell nearest to a position (creeps spread across a lane must not start inside a wall).</summary>
+    private static Point SnapToWalkable(GameMapTerrain terrain, double x, double y)
+    {
+        int cx = (int)Math.Clamp(Math.Round(x), 0, 255), cy = (int)Math.Clamp(Math.Round(y), 0, 255);
+        if (terrain.WalkMap[cx, cy])
+        {
+            return new Point((byte)cx, (byte)cy);
+        }
+
+        for (var radius = 1; radius <= 6; radius++)
+        {
+            for (var dy = -radius; dy <= radius; dy++)
+            {
+                for (var dx = -radius; dx <= radius; dx++)
+                {
+                    int nx = cx + dx, ny = cy + dy;
+                    if (nx is >= 0 and <= 255 && ny is >= 0 and <= 255 && Math.Max(Math.Abs(dx), Math.Abs(dy)) == radius && terrain.WalkMap[nx, ny])
+                    {
+                        return new Point((byte)nx, (byte)ny);
+                    }
+                }
+            }
+        }
+
+        return new Point((byte)cx, (byte)cy);
+    }
 
     private const float CreepMinDamage = 60f;
     private const float CreepMaxDamage = 85f;
@@ -80,26 +123,14 @@ public static class MobaWaveSpawner
     };
 
     /// <summary>
-    /// Ordered mid-lane waypoints for the BLUE team (south-bound), down column x=116
-    /// inside the carved mid-lane corridor (x108-124 forced walkable in Terrain201.att).
-    /// The RED team walks the same points reversed.
-    /// </summary>
-    private static readonly Point[] BlueLaneWaypoints =
-    {
-        new(116, 60),
-        new(116, 110),
-        new(116, 160),
-        new(116, 205),
-    };
-
-    /// <summary>
     /// The ordered lane waypoints a unit of <paramref name="team"/> follows, from its own
-    /// creep spawn to the enemy creep spawn. Blue marches south, Red the same points north.
+    /// creep spawn to the enemy creep spawn (lanes come from <see cref="MobaLayout"/>).
     /// </summary>
     /// <param name="team">The team.</param>
+    /// <param name="lane">The lane index (0 top, 1 mid, 2 bot).</param>
     /// <returns>The waypoints, start first.</returns>
-    public static IReadOnlyList<Point> LaneWaypointsFor(MobaTeam team)
-        => team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
+    public static IReadOnlyList<Point> LaneWaypointsFor(MobaTeam team, int lane = MobaLayout.MidLane)
+        => MobaLayout.WaypointsFor(team, lane);
 
     /// <summary>
     /// Spawns one lane wave for <paramref name="team"/> on <paramref name="map"/>.
@@ -109,6 +140,23 @@ public static class MobaWaveSpawner
     /// <param name="team">The team the wave belongs to.</param>
     /// <returns>The number of creeps spawned.</returns>
     public static async ValueTask<int> SpawnWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team)
+    {
+        var total = 0;
+        for (var lane = 0; lane < MobaLayout.LaneCount; lane++)
+        {
+            total += await SpawnLaneWaveAsync(map, gameContext, team, lane).ConfigureAwait(false);
+        }
+
+        return total;
+    }
+
+    /// <summary>Spawns one wave of <paramref name="team"/> in one lane.</summary>
+    /// <param name="map">The map to spawn on.</param>
+    /// <param name="gameContext">The game context.</param>
+    /// <param name="team">The team the wave belongs to.</param>
+    /// <param name="laneIndex">The lane index.</param>
+    /// <returns>The number of creeps spawned.</returns>
+    public static async ValueTask<int> SpawnLaneWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team, int laneIndex)
     {
         // Don't pour more creeps onto a jammed lane.
         var liveOwnCreeps = map.GetAttackablesInRange(new Point(128, 128), 400)
@@ -123,9 +171,10 @@ public static class MobaWaveSpawner
         var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
         var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
         var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
-        var lane = team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
+        var lane = MobaLayout.WaypointsFor(team, laneIndex);
+        var terrain = map.Terrain;
         var spawn = lane[0];
-        var behindStep = spawn.Y < lane[^1].Y ? -RankGapY : RankGapY;
+        var (dirX, dirY) = SegmentDirection(lane, 0);
 
         var rank = 0;
         var total = 0;
@@ -138,15 +187,22 @@ public static class MobaWaveSpawner
             }
 
             var definition = baseDefinition.Clone(gameContext.Configuration);
-            var rankY = (byte)Math.Clamp(spawn.Y + (rank * behindStep), 0, 255);
             var lineWidth = (count - 1) * RankSpacingX;
 
             for (var i = 0; i < count; i++)
             {
-                var offsetX = (i * RankSpacingX) - (lineWidth / 2);
-                var startPoint = new Point((byte)Math.Clamp(spawn.X + offsetX, 0, 255), rankY);
+                // Ranks line up behind the spawn along the lane, creeps of a rank side by side across it.
+                var offset = (i * RankSpacingX) - (lineWidth / 2.0);
+                var startPoint = SnapToWalkable(
+                    terrain,
+                    spawn.X - (dirX * rank * RankGapY) - (dirY * offset),
+                    spawn.Y - (dirY * rank * RankGapY) + (dirX * offset));
                 var creepWaypoints = lane
-                    .Select(w => new Point((byte)Math.Clamp(w.X + offsetX, 0, 255), w.Y))
+                    .Select((w, k) =>
+                    {
+                        var (sx, sy) = SegmentDirection(lane, Math.Min(k, lane.Count - 2));
+                        return SnapToWalkable(terrain, w.X - (sy * offset), w.Y + (sx * offset));
+                    })
                     .ToArray();
 
                 var area = new MonsterSpawnArea
