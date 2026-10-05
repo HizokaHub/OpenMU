@@ -27,6 +27,21 @@ public static class MobaWaveSpawner
     public const float CreepHealth = 1000f;
 
     /// <summary>
+    /// Creep life multiplier at a champion level (2026-10-04): champion hits grow ~15x (level scale) and more with the build, so a
+    /// flat 1,000 HP creep died to air by level 20+. Follows the damage scale with a build factor (1x at level 1, 25x at 30).
+    /// </summary>
+    /// <param name="level">The highest champion level of the match.</param>
+    /// <returns>The multiplier of <see cref="CreepHealth"/>.</returns>
+    public static float CreepHealthMultiplierAt(int level)
+        => (float)(MobaProgression.DamageScale(level) * (1.0 + ((Math.Clamp(level, 1, 30) - 1) / 29.0)));
+
+    /// <summary>Creep damage multiplier at a champion level: half the champion life curve, so late creeps still matter to a 50,000 HP champion.</summary>
+    /// <param name="level">The highest champion level of the match.</param>
+    /// <returns>The multiplier of the base creep damage (at least 1).</returns>
+    public static float CreepDamageMultiplierAt(int level)
+        => Math.Max(1f, 0.5f * MobaProgression.HealthAt(level) / MobaProgression.HealthAt(1));
+
+    /// <summary>
     /// Hard cap on living creeps per team on the map. Only a safety valve against the
     /// runaway pile-up that froze the server (each creep runs its own AI timer + range
     /// scans); a healthy lane with waves flowing sits well under it. Past this the
@@ -104,6 +119,9 @@ public static class MobaWaveSpawner
             return 0;
         }
 
+        var leaderLevel = MobaMatchPhase.LeaderLevel;
+        var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
+        var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
         var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
         var lane = team == MobaTeam.Red ? BlueLaneWaypoints.Reverse().ToArray() : BlueLaneWaypoints;
         var spawn = lane[0];
@@ -141,7 +159,7 @@ public static class MobaWaveSpawner
                     X2 = startPoint.X,
                     Y1 = startPoint.Y,
                     Y2 = startPoint.Y,
-                    MaximumHealthOverride = (int)CreepHealth,
+                    MaximumHealthOverride = (int)(CreepHealth * creepHealthMul),
                 };
 
                 var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
@@ -155,7 +173,7 @@ public static class MobaWaveSpawner
                     gameContext.PathFinderPool);
 
                 monster.Initialize();
-                ForceCreepStats(monster);
+                ForceCreepStats(monster, creepHealthMul, creepDamageMul);
                 monster.Died += (sender, death) => _ = OnCreepKilledAsync(map, sender as Monster, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
@@ -260,14 +278,14 @@ public static class MobaWaveSpawner
     /// teams' creeps fight identically no matter the base mob. Per-instance attribute
     /// element (AddRaw that cancels the base and sets the target); never the shared config.
     /// </summary>
-    private static void ForceCreepStats(Monster monster)
+    private static void ForceCreepStats(Monster monster, float healthMul, float damageMul)
     {
         // MaximumHealth must match the MaximumHealthOverride we start Health at, or the
         // health-percent the client bar shows is current / base-mob-max (~60) and stays
         // pinned at 100% until the creep is nearly dead.
-        SetAbsolute(monster, Stats.MaximumHealth, CreepHealth);
-        SetAbsolute(monster, Stats.MinimumPhysBaseDmg, CreepMinDamage);
-        SetAbsolute(monster, Stats.MaximumPhysBaseDmg, CreepMaxDamage);
+        SetAbsolute(monster, Stats.MaximumHealth, CreepHealth * healthMul);
+        SetAbsolute(monster, Stats.MinimumPhysBaseDmg, CreepMinDamage * damageMul);
+        SetAbsolute(monster, Stats.MaximumPhysBaseDmg, CreepMaxDamage * damageMul);
         SetAbsolute(monster, Stats.DefenseBase, CreepDefense);
         SetAbsolute(monster, Stats.AttackRatePvm, CreepAttackRate);
         SetAbsolute(monster, Stats.DefenseRatePvm, CreepDefenseRate);

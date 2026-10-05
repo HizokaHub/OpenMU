@@ -27,6 +27,13 @@ public static class MobaOccupancyGrid
 
     private static int Index(Point p) => (p.Y << 8) | p.X;
 
+    /// <summary>Whether the tile is part of a structure's permanent footprint (turret / nexus).</summary>
+    /// <param name="mapId">The map id.</param>
+    /// <param name="tile">The tile.</param>
+    /// <returns><see langword="true"/> if a structure holds the tile.</returns>
+    public static bool IsStructureTile(ushort mapId, Point tile)
+        => Owners.TryGetValue((mapId, Index(tile)), out var owner) && owner is MobaStructureIntelligence;
+
     /// <summary>Whether the tile is free or already owned by <paramref name="self"/>.</summary>
     /// <param name="mapId">The map id.</param>
     /// <param name="tile">The tile.</param>

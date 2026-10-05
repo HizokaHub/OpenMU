@@ -25,6 +25,11 @@ public static class MobaMatchPhase
 
     private static MobaShopTier _current = MobaShopTier.T1;
 
+    private static volatile int _leaderLevel = 1;
+
+    /// <summary>Gets the highest champion level in the match (at least 1); lane creeps are sized from it.</summary>
+    public static int LeaderLevel => _leaderLevel;
+
     /// <summary>Gets the current creep-drop phase (never regresses within a match).</summary>
     public static MobaShopTier Current => _current;
 
@@ -32,6 +37,7 @@ public static class MobaMatchPhase
     /// <param name="champions">Every MOBA champion currently in the match.</param>
     public static void Evaluate(IReadOnlyCollection<Player> champions)
     {
+        _leaderLevel = Math.Max(1, champions.Select(c => c.MobaLevel).DefaultIfEmpty(1).Max());
         var before = _current;
         if (_current < MobaShopTier.T3 && BothTeamsReach(champions, T3LevelThreshold))
         {
@@ -52,6 +58,7 @@ public static class MobaMatchPhase
     public static void Reset()
     {
         _current = MobaShopTier.T1;
+        _leaderLevel = 1;
         MobaDropReport.Reset();
         MobaStructureSpawner.ApplyPhaseHealth(_current);
     }

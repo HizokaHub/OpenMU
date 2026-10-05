@@ -179,6 +179,7 @@ internal static class MobaBotEconomy
         var owned = inventory.Items.FirstOrDefault(i => i.Definition == definition && i.ItemSlot >= InventoryConstants.EquippableSlotsCount);
         if (owned is null)
         {
+            bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" could not pick up {Item} (reserved for someone else, inventory full or taken).", bot.SelectedCharacter?.Name, definition.Name);
             return;
         }
 
@@ -445,6 +446,23 @@ internal static class MobaBotEconomy
 
     private static int RankOf(IReadOnlyList<Candidate> candidates, byte slot, long price)
         => candidates.Where(c => c.Slots.Contains(slot)).Select(c => c.Price).Distinct().Count(p => p <= price);
+
+    /// <summary>Describes, for the drop report, whether the item would be an upgrade for the champion and what it wears in that slot.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="item">The dropped item.</param>
+    /// <returns>(upgrade, worn item name, worn item price).</returns>
+    internal static (bool Upgrade, string Current, long CurrentPrice) DescribeUpgrade(Player champion, Item item)
+    {
+        if (champion.SelectedCharacter?.CharacterClass is not { } characterClass || item.Definition is not { } definition)
+        {
+            return (false, "-", 0);
+        }
+
+        var upgrade = IsUpgrade(champion, item, characterClass);
+        var slot = BestSlotFor(champion, definition);
+        var worn = slot is { } s ? champion.Inventory?.GetItem(s) : null;
+        return (upgrade, worn?.Definition?.Name ?? "-", worn is null ? 0 : MobaShop.PriceOf(worn));
+    }
 
     private static bool IsUpgrade(Player bot, Item item, CharacterClass characterClass)
     {

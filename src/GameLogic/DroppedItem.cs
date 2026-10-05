@@ -176,6 +176,11 @@ public sealed class DroppedItem : AsyncDisposable, ILocateable
         var player = this._dropper;
         try
         {
+            if (this._availableToPick)
+            {
+                PlugIns.Moba.MobaDropReport.NoteExpired(this);
+            }
+
             await this.DisposeAsync().ConfigureAwait(false);
             if (player != null)
             {
@@ -238,6 +243,7 @@ public sealed class DroppedItem : AsyncDisposable, ILocateable
         }
 
         player.Logger.LogDebug("Item '{0}' was picked up by player '{1}' and added to his inventory.", this, player);
+        PlugIns.Moba.MobaDropReport.NotePickedUp(this.Item, player);
         await this.DisposeAsync().ConfigureAwait(false);
 
         return true;

@@ -565,6 +565,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             waypoint = this._waypoints[this._currentWaypoint];
         }
 
+        waypoint = this.DetourAroundStructure(pos, waypoint);
+
         // Only re-feed once the current chunk is (almost) consumed, so the walk stays fluid.
         if (this._chunkStepCount > 0)
         {
@@ -584,6 +586,71 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <see cref="MobaOccupancyGrid"/>; champions move on client paths and are not in it,
     /// so a march / chase step still avoids their current tile with this cheap snapshot.
     /// </summary>
+    private Point? _detour;
+
+    private DateTime _detourUntilUtc;
+
+    /// <summary>
+    /// A turret / nexus holds a permanent 3x3 footprint on the lane axis: a creep walking straight at it has no step that
+    /// makes progress (the diagonals are inside the footprint too) and ping-pongs against its edge. Seen in the 6th game:
+    /// several creeps of each team piled up right before their own turret. The creep now walks to a point beside and beyond
+    /// the footprint first, then resumes the lane.
+    /// </summary>
+    private Point DetourAroundStructure(Point pos, Point waypoint)
+    {
+        var now = DateTime.UtcNow;
+        if (this._detour is { } active)
+        {
+            if (active.EuclideanDistanceTo(pos) <= WaypointReachedDistance || now > this._detourUntilUtc)
+            {
+                this._detour = null;
+            }
+            else
+            {
+                return active;
+            }
+        }
+
+        var stepX = Math.Sign(waypoint.X - pos.X);
+        var stepY = Math.Sign(waypoint.Y - pos.Y);
+        if (stepY == 0)
+        {
+            stepY = this._team == MobaTeam.Red ? -1 : 1;
+        }
+
+        for (var k = 1; k <= 2; k++)
+        {
+            var x = pos.X + (stepX * k);
+            var y = pos.Y + (stepY * k);
+            if (x < 0 || x > 255 || y < 0 || y > 255)
+            {
+                break;
+            }
+
+            var tile = new Point((byte)x, (byte)y);
+            if (!MobaOccupancyGrid.IsStructureTile(this.MapId, tile))
+            {
+                continue;
+            }
+
+            var side = Math.Sign(pos.X - tile.X);
+            if (side == 0)
+            {
+                side = (this.Monster.Id % 2) == 0 ? 1 : -1;
+            }
+
+            var detour = new Point(
+                (byte)Math.Clamp(tile.X + (side * 3), 0, 255),
+                (byte)Math.Clamp(tile.Y + (stepY * 4), 0, 255));
+            this._detour = detour;
+            this._detourUntilUtc = now + TimeSpan.FromSeconds(10);
+            this._chunkStepCount = 0;
+            return detour;
+        }
+
+        return waypoint;
+    }
+
     private HashSet<Point> ChampionTilesNear(Point around)
     {
         var tiles = new HashSet<Point>();
