@@ -452,20 +452,13 @@ public static class MobaLayout
         return path;
     }
 
+    /// <summary>One turret centred on the lane at the given fraction of its length (it used to be a pair, ±3 tiles apart).</summary>
     private static IEnumerable<Point> PlacePair(GameMapTerrain terrain, IReadOnlyList<Point> blueToRed, MobaTeam team, float fraction)
     {
         var total = LengthOf(blueToRed);
         var arc = (team == MobaTeam.Blue ? fraction : 1f - fraction) * total;
-        var (cx, cy, tx, ty) = PointAt(blueToRed, arc);
-        var nx = -ty;
-        var ny = tx;
-        var used = new HashSet<(int, int)>();
-        foreach (var side in new[] { -1, 1 })
-        {
-            var cell = FindClear(terrain, cx + (nx * PairHalfSpacing * side), cy + (ny * PairHalfSpacing * side), used);
-            used.Add((cell.X, cell.Y));
-            yield return cell;
-        }
+        var (cx, cy, _, _) = PointAt(blueToRed, arc);
+        yield return FindClear(terrain, cx, cy, new HashSet<(int, int)>());
     }
 
     private static (double X, double Y, double Tx, double Ty) PointAt(IReadOnlyList<Point> points, double arc)

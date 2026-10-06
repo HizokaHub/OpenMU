@@ -35,7 +35,7 @@ public class MobaLayoutTests
     /// Each lane gets two pairs of turrets per team (outer farther from the own base than inner).
     /// </summary>
     [Test]
-    public void EveryLaneHasFourTurretsPerTeam()
+    public void EveryLaneHasTwoTurretsPerTeam()
     {
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
         {
@@ -43,15 +43,15 @@ public class MobaLayoutTests
             for (var lane = 0; lane < MobaLayout.LaneCount; lane++)
             {
                 var towers = MobaLayout.Towers.Where(t => t.Team == team && t.Lane == lane).ToArray();
-                Assert.That(towers, Has.Length.EqualTo(4), $"{team} lane {lane}");
-                Assert.That(towers.Count(t => t.Tier == 0), Is.EqualTo(2));
-                Assert.That(towers.Count(t => t.Tier == 1), Is.EqualTo(2));
+                Assert.That(towers, Has.Length.EqualTo(2), $"{team} lane {lane}");
+                Assert.That(towers.Count(t => t.Tier == 0), Is.EqualTo(1));
+                Assert.That(towers.Count(t => t.Tier == 1), Is.EqualTo(1));
                 Assert.That(towers.Where(t => t.Tier == 0).Min(t => Dist(t.Position, nexus)),
                     Is.GreaterThan(towers.Where(t => t.Tier == 1).Max(t => Dist(t.Position, nexus)) - 1), $"{team} lane {lane}: outer turrets must be farther than the inner ones");
             }
         }
 
-        Assert.That(MobaLayout.Towers, Has.Count.EqualTo(24));
+        Assert.That(MobaLayout.Towers, Has.Count.EqualTo(12));
     }
 
     /// <summary>
