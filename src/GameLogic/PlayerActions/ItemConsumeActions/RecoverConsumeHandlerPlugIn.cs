@@ -40,6 +40,9 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
         return false;
     }
 
+    /// <summary>Fraction of the native health potion recovery that MOBA champions get.</summary>
+    public const double MobaHealthPotionScale = 0.36;
+
     /// <inheritdoc />
     public abstract object CreateDefaultConfig();
 
@@ -60,6 +63,14 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
         var recoverPercentage = configuration.TotalRecoverPercentage + (item.Level * configuration.RecoverPercentageIncreaseByPotionLevel);
         var additionalRecover = Math.Max(0, configuration.AdditionalRecoverMinusCharacterLevel - player.Attributes[Stats.Level]);
         var totalRecoverAmount = (player.Attributes[this.MaximumAttribute] * recoverPercentage / 100.0) + additionalRecover;
+
+        // MOBA: potions heal about a third of the native amount (a +8 medium potion went from ~28 % to ~10 % of the maximum life);
+        // bots drinking one per second were healing ~25 % of their life per second and were practically unkillable.
+        if (player.IsMobaClone && this.CurrentAttribute == Stats.CurrentHealth)
+        {
+            totalRecoverAmount *= MobaHealthPotionScale;
+        }
+
         var delayReduction = configuration.RecoverDelayReductionByPotionLevel * item.Level;
         if (configuration.RecoverSteps.Count == 0 || delayReduction >= 1)
         {

@@ -20,7 +20,7 @@ public static class MobaStructureSpawner
 {
     private const short TurretMonsterNumber = 32; // Stone Golem - reads as a defensive structure.
 
-    private const float TurretHealth = 30000f;
+    private const float TurretHealth = 15000f;
     private const float TurretMinDamage = 170f;
     private const float TurretMaxDamage = 210f;
     private const float TurretDefense = 60f;
