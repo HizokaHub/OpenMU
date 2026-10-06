@@ -11,15 +11,15 @@ using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// Dev command <c>/mobafight 1|2|3|stop</c>. <c>3</c>: three lanes - you (blue, mid) and two blue bots (top, bot) against three red bots (top, mid, bot), one champion per lane. <c>1</c>: the caller's champion goes to team
+/// Dev command <c>/mobafight 1|2|3|4|stop</c>. <c>4</c>: like 3 but blue also has a bot in mid (3 bots + you vs 3 bots). <c>3</c>: three lanes - you (blue, mid) and two blue bots (top, bot) against three red bots (top, mid, bot), one champion per lane. <c>1</c>: the caller's champion goes to team
 /// Blue against one random red bot. <c>2</c>: a 2v2 of bots only - two random blue bots against two random red bots, the caller just watches
 /// against two random red bots. Both start a lane wave for each team every 50 s.
 /// <c>stop</c> removes every bot and lane creep and stops the waves (structures stay).
 /// </summary>
 [Guid("9E4B7A12-3C58-4D96-B1F0-5A2D8C6E7F31")]
 [PlugIn]
-[Display(Name = "MOBA: quick fight", Description = "Dev command '/mobafight 1|2|3|stop' - quick 1v1 (you vs a bot) / 2v2 (bots only, you watch) / 3 lanes (you + 2 bots vs 3 bots) with lane waves every 50 s.")]
-[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2 bots vs 2 bots), /mobafight 3 (you + 2 bots vs 3 bots, one per lane), /mobafight stop (clear bots + creeps + waves)", null, CharacterStatus.GameMaster)]
+[Display(Name = "MOBA: quick fight", Description = "Dev command '/mobafight 1|2|3|4|stop' - quick 1v1 (you vs a bot) / 2v2 (bots only, you watch) / 3 lanes (you + 2 bots vs 3 bots) with lane waves every 50 s.")]
+[ChatCommandHelp(Command, "Quick fight against random bots with lane waves every 50 s: /mobafight 1 (1v1), /mobafight 2 (2 bots vs 2 bots), /mobafight 3 (you + 2 bots vs 3 bots, one per lane), /mobafight 4 (3 bots + you vs 3 bots, one per lane), /mobafight stop (clear bots + creeps + waves)", null, CharacterStatus.GameMaster)]
 public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobafight";
@@ -50,9 +50,9 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
             return;
         }
 
-        if (arg is not ("1" or "2" or "3"))
+        if (arg is not ("1" or "2" or "3" or "4"))
         {
-            await player.ShowBlueMessageAsync("[mobafight] Uso: /mobafight 1 (1v1) | /mobafight 2 (2v2) | /mobafight 3 (3 carriles) | /mobafight stop").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[mobafight] Uso: /mobafight 1 (1v1) | /mobafight 2 (2v2) | /mobafight 3 (3 carriles) | /mobafight 4 (3v3 + vos) | /mobafight stop").ConfigureAwait(false);
             return;
         }
 
@@ -63,7 +63,8 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         }
 
         var n = int.Parse(arg);
-        var threeLanes = n == 3;
+        var threeLanes = n is 3 or 4;
+        var withThirdBlueBot = n == 4;
 
         // Start from a clean arena so repeated runs don't pile up bots / creeps.
         await StopAsync(arena).ConfigureAwait(false);
@@ -98,7 +99,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
             ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, RandomFamilies(3), new[] { 0, 1, 2 }).ConfigureAwait(false)
             : await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, RandomFamilies(n)).ConfigureAwait(false);
         var blue = threeLanes
-            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(2), new[] { 0, 2 }).ConfigureAwait(false)
+            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(withThirdBlueBot ? 3 : 2), withThirdBlueBot ? new[] { 0, 1, 2 } : new[] { 0, 2 }).ConfigureAwait(false)
             : spectating
                 ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(n)).ConfigureAwait(false)
                 : 0;
@@ -126,7 +127,9 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         player.Logger.LogInformation("[MOBA-FIGHT] /mobafight {N}v{N}: {Blue} blue bot(s), {Red} red bot(s), {S} structures, waves every {Sec}s.", n, n, blue, red, structures, WaveIntervalSeconds);
         await player.ShowBlueMessageAsync(
             (threeLanes
-                ? $"[mobafight] 3 carriles: vos (azul, carril MID) + {blue} bots azules (TOP y BOT) vs {red} bots rojos (TOP, MID, BOT)."
+                ? (withThirdBlueBot
+                    ? $"[mobafight] 3v3 + vos: {blue} bots azules (TOP, MID, BOT) y vos (azul, empezás en MID) vs {red} bots rojos (TOP, MID, BOT)."
+                    : $"[mobafight] 3 carriles: vos (azul, carril MID) + {blue} bots azules (TOP y BOT) vs {red} bots rojos (TOP, MID, BOT).")
                 : spectating
                     ? $"[mobafight] {n}v{n} de bots: {blue} azules vs {red} rojos (vos solo mirás)."
                     : $"[mobafight] {n}v{n}: vos en equipo azul vs {red} bot rojo.") + $" Oleadas cada {WaveIntervalSeconds} s.{(scrolls > 0 ? $" {scrolls} pergamino(s) de teletransporte entregados." : string.Empty)} /mobafight stop para limpiar.").ConfigureAwait(false);
