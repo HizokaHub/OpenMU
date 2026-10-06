@@ -95,14 +95,14 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         }
 
         // 3 lanes: red has one bot per lane (top, mid, bot); blue has bots in top and bot, and the caller takes mid.
-        // /mobafight 4: both teams field the same four classes (blue = 3 bots + the caller's class, red = the same four) and mid
-        // is 2v2, so the fight is even (3 blue bots + the caller against 3 red bots was lopsided: 42 kills against 4).
+        // /mobafight 4: 3 blue bots + the caller (who roams freely to inspect) against 3 red bots; red mirrors the blue bots' classes
+        // so the bots themselves are even (random classes made the first games lopsided).
         var blueFamilies = RandomFamilies(withThirdBlueBot ? 3 : threeLanes ? 2 : n);
         var redFamilies = withThirdBlueBot
-            ? blueFamilies.Append(MobaBotChatCommandPlugIn.AllFamilies[(int)MobaPassives.FamilyOf(player)]).ToList()
+            ? blueFamilies.ToList()
             : RandomFamilies(threeLanes ? 3 : n);
         var red = threeLanes
-            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, redFamilies, withThirdBlueBot ? new[] { 0, 1, 2, 1 } : new[] { 0, 1, 2 }).ConfigureAwait(false)
+            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, redFamilies, new[] { 0, 1, 2 }).ConfigureAwait(false)
             : await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, redFamilies).ConfigureAwait(false);
         var blue = threeLanes
             ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, blueFamilies, withThirdBlueBot ? new[] { 0, 1, 2 } : new[] { 0, 2 }).ConfigureAwait(false)
@@ -134,7 +134,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         await player.ShowBlueMessageAsync(
             (threeLanes
                 ? (withThirdBlueBot
-                    ? $"[mobafight] 4v4 con las mismas clases: {blue} bots azules (TOP, MID, BOT) + vos (empezás en MID) vs {red} bots rojos (TOP, MID x2, BOT)."
+                    ? $"[mobafight] {blue} bots azules (TOP, MID, BOT, con las mismas clases que los rojos) + vos (azul, libre; empezás en MID) vs {red} bots rojos (TOP, MID, BOT)."
                     : $"[mobafight] 3 carriles: vos (azul, carril MID) + {blue} bots azules (TOP y BOT) vs {red} bots rojos (TOP, MID, BOT).")
                 : spectating
                     ? $"[mobafight] {n}v{n} de bots: {blue} azules vs {red} rojos (vos solo mirás)."
