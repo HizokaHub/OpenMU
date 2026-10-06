@@ -1,4 +1,4 @@
-// <copyright file="MobaTelemetry.cs" company="MUnique">
+﻿// <copyright file="MobaTelemetry.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -606,6 +606,10 @@ public static class MobaTelemetry
         }
     }
 
+    private sealed record CreepSample(Point Position, DateTime Utc);
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<NPC.Monster, CreepSample> CreepSamples = new();
+
     private static void LogWavesAndStructures(GameMap map, ILogger logger, int elapsed)
     {
         var monsters = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<NPC.Monster>().ToList();
@@ -629,6 +633,41 @@ public static class MobaTelemetry
                 creeps.Count,
                 frontier,
                 avgY);
+
+            // Per lane: creep count, how many stand on the very tile they held at the previous sample, and where along the
+            // lane (arc from the blue base, in tenths of the lane) they are. Blue creeps start at tenth 0, red at tenth 9.
+            var now = DateTime.UtcNow;
+            foreach (var lane in Enumerable.Range(0, MobaLayout.LaneCount))
+            {
+                var inLane = creeps.Where(m => MobaLayout.NearestLane(m.Position.X, m.Position.Y) == lane).ToList();
+                var waypoints = MobaLayout.Lanes[lane].Waypoints;
+                var length = MobaLayout.LengthOf(waypoints);
+                var histogram = new int[10];
+                var still = 0;
+                foreach (var creep in inLane)
+                {
+                    var tenth = (int)Math.Clamp(MobaLayout.ArcOf(waypoints, creep.Position.X, creep.Position.Y) / length * 10, 0, 9);
+                    histogram[tenth]++;
+                    if (CreepSamples.TryGetValue(creep, out var previous) && previous.Position == creep.Position && now - previous.Utc < TimeSpan.FromSeconds(40))
+                    {
+                        still++;
+                    }
+                    else
+                    {
+                        CreepSamples.Remove(creep);
+                        CreepSamples.Add(creep, new CreepSample(creep.Position, now));
+                    }
+                }
+
+                logger.LogInformation(
+                    "[MOBA-WAVE] t={T}s {Team} lane={Lane} creeps={Count} sameTile={Still} arcTenths=[{Histogram}]",
+                    elapsed,
+                    team,
+                    MobaLayout.Lanes[lane].Name,
+                    inLane.Count,
+                    still,
+                    string.Join(' ', histogram));
+            }
         }
 
         foreach (var s in monsters.Where(m => MobaStructures.IsStructure(m)))

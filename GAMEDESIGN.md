@@ -1202,3 +1202,9 @@ programar.
 - **Estructuras:** `[MOBA-STRUCT-DMG]` con ≤2 bots y Lv≤6: 1-8 dps normal, un pico de 249 dps en 10 s (torreta 30.000 HP → ~2 min con 2 bots a Lv5); la vida base no se calibra todavía porque nadie las ataca de forma sostenida.
 - **Drops:** 178 creeps = 34 % nada / 33 % Zen / 33 % ítem (esperado 35/35/30); 57 ítems: 63 % armas+escudos (21 armas, 15 escudos), 37 % sets (esperado 65/35), +10,8 de nivel medio, 1,9 excelentes; Zen 819 (14 medio); recogidos 16, expirados 41 (9 eran mejora para un aliado que estaba a ~100 tiles en otro carril).
 - **Cliente (`MuError.log`):** máscara de 22.408 paredes cargada, 1.608 árboles/379 rocas, sin errores; no hay línea de log del modelo de la estatua del nexo (nadie la tocó), hay que mirarla en pantalla.
+
+**Arreglos tras el análisis (2026-10-05, aprobados por el usuario: A\* de bots, telemetría y tope por carril; TP al minion más adelantado de SU carril):**
+- `MobaNavigation.FindPath` (A* de todo el mapa sobre la máscara, sin cortar esquinas, hasta 40.000 expansiones); `MobaBotPlayer.WalkTowardAsync` usa el camino A* cacheado cuando el destino está a > 6 tiles o la línea recta no avanza; si no, igual que antes. Test `MobaNavigationTests` (los casos donde se clavaron r24 y r12).
+- TP de bots: `MobaBotEconomy.TryTeleportAsync(bot, lane)` solo salta al minion aliado a ≤ 12 tiles de la polilínea de SU carril y el más avanzado por arco.
+- Creeps: tope de 50 vivos por carril y equipo (global subido a 150); `[MOBA-WAVE]` ahora también escribe por carril `lane=… creeps=… sameTile=… arcTenths=[10 cifras]` (arco desde la base azul en décimas; azules nacen en la décima 0, rojos en la 9; `sameTile` = en la misma casilla que hace ≥ 15 s).
+- Tests 867/867; servidor reiniciado 23:57 (log anterior en `openmu-server-mobafight3b-before.log`). **Falta un `/mobafight 3` de 10-15 min** para validar: bots sin `IDLE` largos ni TP cruzado, y dónde se acumulan los creeps (`arcTenths`).

@@ -1,4 +1,4 @@
-// <copyright file="MobaBotEconomy.cs" company="MUnique">
+﻿// <copyright file="MobaBotEconomy.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -202,12 +202,16 @@ internal static class MobaBotEconomy
         bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" looted and equipped {Item} (slot {Slot}).", bot.SelectedCharacter?.Name, owned.Definition?.Name, slot);
     }
 
+    /// <summary>Tiles from its lane a minion may be and still count as being on that lane.</summary>
+    private const double TeleportLaneTolerance = 12;
+
     /// <summary>
     /// Uses the teleport scroll to jump to the most advanced allied minion, when the bot is far behind the front line.
     /// </summary>
     /// <param name="bot">The bot.</param>
+    /// <param name="lane">The bot's lane: only minions on that lane are valid targets (-1 = any lane).</param>
     /// <returns>How long the bot has to stand still for the channel, or <see cref="TimeSpan.Zero"/> if nothing started.</returns>
-    public static async ValueTask<TimeSpan> TryTeleportAsync(Player bot)
+    public static async ValueTask<TimeSpan> TryTeleportAsync(Player bot, int lane = -1)
     {
         var state = States.GetOrCreateValue(bot);
         if (DateTime.UtcNow < state.NextTeleportTryUtc || bot.CurrentMap is not { } map || bot.Inventory is not { } inventory)
@@ -226,7 +230,10 @@ internal static class MobaBotEconomy
         var front = map.GetAttackablesInRange(new Point(128, 128), 400)
             .OfType<NPC.Monster>()
             .Where(m => m.IsAlive && !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(bot, m))
-            .OrderBy(m => team == MobaTeam.Blue ? -m.Position.Y : m.Position.Y)
+            .Where(m => lane < 0 || MobaLayout.DistanceToPolyline(MobaLayout.Lanes[lane].Waypoints, m.Position.X, m.Position.Y) <= TeleportLaneTolerance)
+            .OrderBy(m => lane < 0
+                ? (team == MobaTeam.Blue ? -m.Position.Y : m.Position.Y)
+                : (team == MobaTeam.Blue ? -1 : 1) * MobaLayout.ArcOf(MobaLayout.Lanes[lane].Waypoints, m.Position.X, m.Position.Y))
             .FirstOrDefault();
         if (front is null || front.GetDistanceTo(bot) < TeleportMinDistance)
         {

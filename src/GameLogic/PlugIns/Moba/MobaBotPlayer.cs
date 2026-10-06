@@ -903,7 +903,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         if (MobaBotEconomy.IsAtShop(this))
         {
             await MobaBotEconomy.ShopAsync(this).ConfigureAwait(false);
-            var channel = await MobaBotEconomy.TryTeleportAsync(this).ConfigureAwait(false);
+            var channel = await MobaBotEconomy.TryTeleportAsync(this, this._laneNo).ConfigureAwait(false);
             if (channel > TimeSpan.Zero)
             {
                 this._holdUntilUtc = c.Now + channel;
@@ -1413,6 +1413,78 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
     }
 
+    /// <summary>Distance (tiles) beyond which a bot walks along an A* path instead of a straight line.</summary>
+    private const int NavigationDistanceTiles = 6;
+
+    private List<Point>? _navPath;
+
+    private Point _navTarget;
+
+    /// <summary>Straight-line steps toward <paramref name="target"/> (the old behaviour); false if it cannot advance.</summary>
+    private bool TryGreedySteps(byte[,] grid, Point target, int maxSteps, List<WalkingStep> steps, ref Point cursor)
+    {
+        var pos = cursor;
+        for (var i = 0; i < maxSteps && pos != target; i++)
+        {
+            var dx = Math.Sign(target.X - pos.X);
+            var dy = Math.Sign(target.Y - pos.Y);
+            var here = pos;
+            Point? Try(int sx, int sy)
+            {
+                if (sx == 0 && sy == 0)
+                {
+                    return null;
+                }
+
+                var p = new Point((byte)(here.X + sx), (byte)(here.Y + sy));
+                return grid[p.X, p.Y] != 0 ? p : (Point?)null;
+            }
+
+            var next = Try(dx, dy)
+                ?? (dx != 0 && dy != 0 ? Try(dx, 0) ?? Try(0, dy) : null)
+                ?? (dx == 0 ? Try(1, dy) ?? Try(-1, dy) : null)
+                ?? (dy == 0 ? Try(dx, 1) ?? Try(dx, -1) : null);
+
+            if (next is not { } step)
+            {
+                break;
+            }
+
+            steps.Add(new WalkingStep(pos, step, pos.GetDirectionTo(step)));
+            pos = step;
+        }
+
+        cursor = pos;
+        return steps.Count > 0;
+    }
+
+    /// <summary>Follows (and caches) the A* path to <paramref name="target"/>, re-planning when the target moved or the bot left the path.</summary>
+    private void BuildPathSteps(byte[,] grid, Point target, int maxSteps, List<WalkingStep> steps, ref Point cursor)
+    {
+        var index = this._navPath?.IndexOf(this.Position) ?? -1;
+        if (this._navPath is null || index < 0 || this._navTarget.EuclideanDistanceTo(target) > 3)
+        {
+            this._navPath = MobaNavigation.FindPath(grid, this.Position, target);
+            this._navTarget = target;
+            index = this._navPath is null ? -1 : 0;
+        }
+
+        if (this._navPath is null || index < 0)
+        {
+            return;
+        }
+
+        var pos = this.Position;
+        for (var i = index + 1; i < this._navPath.Count && steps.Count < maxSteps; i++)
+        {
+            var step = this._navPath[i];
+            steps.Add(new WalkingStep(pos, step, pos.GetDirectionTo(step)));
+            pos = step;
+        }
+
+        cursor = pos;
+    }
+
     /// <summary>
     /// Starts an animated walk toward <paramref name="target"/> - a short chunk of 1-tile
     /// steps built straight toward it (same simple approach the lane creeps use, which is
@@ -1445,33 +1517,15 @@ public sealed class MobaBotPlayer : OfflinePlayer
         const int maxSteps = 8;
         var steps = new List<WalkingStep>(maxSteps);
         var cursor = this.Position;
-        for (var i = 0; i < maxSteps && cursor != target; i++)
+
+        // Far targets (and any target the straight line cannot reach) go through the A* path: walls between lanes
+        // trap a bot that walks in a straight line.
+        if (this.Position.EuclideanDistanceTo(target) > NavigationDistanceTiles
+            || !this.TryGreedySteps(grid, target, maxSteps, steps, ref cursor))
         {
-            var dx = Math.Sign(target.X - cursor.X);
-            var dy = Math.Sign(target.Y - cursor.Y);
-            Point? Try(int sx, int sy)
-            {
-                if (sx == 0 && sy == 0)
-                {
-                    return null;
-                }
-
-                var p = new Point((byte)(cursor.X + sx), (byte)(cursor.Y + sy));
-                return grid[p.X, p.Y] != 0 ? p : (Point?)null;
-            }
-
-            var next = Try(dx, dy)
-                ?? (dx != 0 && dy != 0 ? Try(dx, 0) ?? Try(0, dy) : null)
-                ?? (dx == 0 ? Try(1, dy) ?? Try(-1, dy) : null)
-                ?? (dy == 0 ? Try(dx, 1) ?? Try(dx, -1) : null);
-
-            if (next is not { } step)
-            {
-                break;
-            }
-
-            steps.Add(new WalkingStep(cursor, step, cursor.GetDirectionTo(step)));
-            cursor = step;
+            steps.Clear();
+            cursor = this.Position;
+            this.BuildPathSteps(grid, target, maxSteps, steps, ref cursor);
         }
 
         if (steps.Count == 0)

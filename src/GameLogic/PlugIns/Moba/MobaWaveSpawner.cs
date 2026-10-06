@@ -47,7 +47,10 @@ public static class MobaWaveSpawner
     /// scans); a healthy lane with waves flowing sits well under it. Past this the
     /// periodic spawner skips that team's wave until the jam clears.
     /// </summary>
-    public const int MaxLiveCreepsPerTeam = 120;
+    public const int MaxLiveCreepsPerTeam = 150;
+
+    /// <summary>Hard cap on living creeps of a team per lane, so one jammed lane never starves the others of their wave.</summary>
+    public const int MaxLiveCreepsPerLane = 50;
 
     private static readonly IDropGenerator CreepDropGenerator = new MobaCreepDropGenerator();
 
@@ -159,10 +162,12 @@ public static class MobaWaveSpawner
     public static async ValueTask<int> SpawnLaneWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team, int laneIndex)
     {
         // Don't pour more creeps onto a jammed lane.
-        var liveOwnCreeps = map.GetAttackablesInRange(new Point(128, 128), 400)
+        var liveOwn = map.GetAttackablesInRange(new Point(128, 128), 400)
             .OfType<Monster>()
-            .Count(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team);
-        if (liveOwnCreeps >= MaxLiveCreepsPerTeam)
+            .Where(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team)
+            .ToList();
+        if (liveOwn.Count >= MaxLiveCreepsPerTeam
+            || liveOwn.Count(mo => MobaLayout.NearestLane(mo.Position.X, mo.Position.Y) == laneIndex) >= MaxLiveCreepsPerLane)
         {
             return 0;
         }
