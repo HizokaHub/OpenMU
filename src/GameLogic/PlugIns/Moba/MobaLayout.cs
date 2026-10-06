@@ -21,7 +21,7 @@ public sealed record MobaLane(string Name, IReadOnlyList<Point> Waypoints);
 /// </summary>
 /// <param name="Team">The team the turret defends.</param>
 /// <param name="Lane">The lane index (0 top, 1 mid, 2 bot).</param>
-/// <param name="Tier">The tier: 0 outer (first to fall), 1 inner.</param>
+/// <param name="Tier">The tier: 0 outer (first to fall), 1 middle, 2 base turret (last).</param>
 /// <param name="Position">The position.</param>
 public sealed record MobaTowerSpec(MobaTeam Team, int Lane, int Tier, Point Position);
 
@@ -38,11 +38,14 @@ public static class MobaLayout
     /// <summary>The lane index of the middle lane.</summary>
     public const int MidLane = 1;
 
-    /// <summary>Distance of the inner turret pair from the own base, as a fraction of the lane length.</summary>
-    public const float InnerTowerFraction = 0.20f;
+    /// <summary>
+    /// Scale position of the middle turret of a lane. The scale runs from the base turret (1, placed by hand in the editor) to
+    /// the middle of the lane (100), measured along the lane.
+    /// </summary>
+    public const int MiddleTowerScale = 35;
 
-    /// <summary>Distance of the outer turret pair from the own base, as a fraction of the lane length.</summary>
-    public const float OuterTowerFraction = 0.40f;
+    /// <summary>Scale position of the outer turret of a lane (see <see cref="MiddleTowerScale"/>).</summary>
+    public const int OuterTowerScale = 75;
 
     /// <summary>Half the distance between the two turrets of a pair, in tiles.</summary>
     public const float PairHalfSpacing = 3f;
@@ -252,17 +255,51 @@ public static class MobaLayout
             lanes.Add(new MobaLane(LaneNames[i], Densify(terrain, wallDistance, points)));
         }
 
+        // Three turrets per lane and team: the base turret is the one drawn in the editor (the tower object of that team nearest
+        // to the lane); the middle and outer ones are placed at 35 and 75 on the scale from the base turret (1) to the lane middle (100).
+        var drawnTowers = new List<(string Team, Point Position)>();
+        foreach (var element in root.GetProperty("objects").EnumerateArray())
+        {
+            if (element.GetProperty("type").GetString() == "tower")
+            {
+                drawnTowers.Add((element.GetProperty("team").GetString() ?? string.Empty, new Point(element.GetProperty("x").GetByte(), element.GetProperty("y").GetByte())));
+            }
+        }
+
         var towers = new List<MobaTowerSpec>();
         for (var lane = 0; lane < LaneCount; lane++)
         {
+            var waypoints = lanes[lane].Waypoints;
+            var length = LengthOf(waypoints);
             foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
             {
-                foreach (var (tier, fraction) in new[] { (0, OuterTowerFraction), (1, InnerTowerFraction) })
+                var teamName = team == MobaTeam.Blue ? "blue" : "red";
+                var ownNexus = team == MobaTeam.Blue ? blueNexus : redNexus;
+                var candidates = drawnTowers.Where(t => t.Team == teamName)
+                    .Where(t => lanes.Select((l, i) => (l, i)).OrderBy(x => DistanceToPolyline(x.l.Waypoints, t.Position.X, t.Position.Y)).First().i == lane)
+                    .ToList();
+                Point baseTower;
+                if (candidates.Count > 0)
                 {
-                    foreach (var position in PlacePair(terrain, lanes[lane].Waypoints, team, fraction))
-                    {
-                        towers.Add(new MobaTowerSpec(team, lane, tier, position));
-                    }
+                    baseTower = candidates.OrderBy(t => Math.Pow(t.Position.X - ownNexus.X, 2) + Math.Pow(t.Position.Y - ownNexus.Y, 2)).First().Position;
+                }
+                else
+                {
+                    var (bx, by, _, _) = PointAt(waypoints, (team == MobaTeam.Blue ? 0.15 : 0.85) * length);
+                    baseTower = new Point((byte)bx, (byte)by);
+                }
+
+                // Distance walked from the own base, in the team's marching direction.
+                var baseArc = ArcOf(waypoints, baseTower.X, baseTower.Y);
+                var fromOwnBase = team == MobaTeam.Blue ? baseArc : length - baseArc;
+                var toMiddle = (length / 2) - fromOwnBase;
+                towers.Add(new MobaTowerSpec(team, lane, 2, FindClear(terrain, baseTower.X, baseTower.Y, new HashSet<(int, int)>())));
+                foreach (var (tier, scale) in new[] { (1, MiddleTowerScale), (0, OuterTowerScale) })
+                {
+                    var walked = fromOwnBase + (((scale - 1) / 99.0) * toMiddle);
+                    var arc = team == MobaTeam.Blue ? walked : length - walked;
+                    var (cx, cy, _, _) = PointAt(waypoints, arc);
+                    towers.Add(new MobaTowerSpec(team, lane, tier, FindClear(terrain, cx, cy, new HashSet<(int, int)>())));
                 }
             }
         }
@@ -450,15 +487,6 @@ public static class MobaLayout
 
         path.Reverse();
         return path;
-    }
-
-    /// <summary>One turret centred on the lane at the given fraction of its length (it used to be a pair, ±3 tiles apart).</summary>
-    private static IEnumerable<Point> PlacePair(GameMapTerrain terrain, IReadOnlyList<Point> blueToRed, MobaTeam team, float fraction)
-    {
-        var total = LengthOf(blueToRed);
-        var arc = (team == MobaTeam.Blue ? fraction : 1f - fraction) * total;
-        var (cx, cy, _, _) = PointAt(blueToRed, arc);
-        yield return FindClear(terrain, cx, cy, new HashSet<(int, int)>());
     }
 
     private static (double X, double Y, double Tx, double Ty) PointAt(IReadOnlyList<Point> points, double arc)

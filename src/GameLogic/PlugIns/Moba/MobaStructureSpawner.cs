@@ -73,7 +73,7 @@ public static class MobaStructureSpawner
         }
     }
 
-    /// <summary>The protection tier (0 outer turret, 1 inner turret, 2 nexus) and lane (-1 for the nexus) of a structure.</summary>
+    /// <summary>The protection tier (0 outer turret, 1 middle turret, 2 base turret, 3 nexus) and lane (-1 for the nexus) of a structure.</summary>
     private static readonly ConditionalWeakTable<Monster, StructureInfo> InfoByStructure = new();
 
     /// <summary>
@@ -95,10 +95,10 @@ public static class MobaStructureSpawner
         bool IsTeamTurret(Monster m, out StructureInfo other)
             => InfoByStructure.TryGetValue(m, out other!) && MobaTeams.GetTeam(m) == team;
 
-        if (info.Tier == 1)
+        if (info.Tier < 3)
         {
-            // An inner turret is invulnerable while an outer turret of its own lane stands.
-            return turrets.Any(m => m.IsAlive && IsTeamTurret(m, out var other) && other.Lane == info.Lane && other.Tier == 0);
+            // A turret is invulnerable while a turret of a lower tier (further out) of its own lane stands.
+            return turrets.Any(m => m.IsAlive && IsTeamTurret(m, out var other) && other.Lane == info.Lane && other.Tier < info.Tier);
         }
 
         // The nexus is invulnerable until a whole lane of its team has fallen (all of that lane's turrets dead).
@@ -349,7 +349,7 @@ public static class MobaStructureSpawner
             gameContext.PathFinderPool);
 
         nexus.Initialize();
-        InfoByStructure.AddOrUpdate(nexus, new StructureInfo(2, -1));
+        InfoByStructure.AddOrUpdate(nexus, new StructureInfo(3, -1));
         SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
         SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
 

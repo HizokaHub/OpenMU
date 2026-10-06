@@ -1427,6 +1427,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private List<Point>? _navPath;
 
+    /// <summary>Consecutive A* searches without a path: the bot is probably inside a walled-off pocket of the map.</summary>
+    private int _navFailures;
+
     private Point _navTarget;
 
     /// <summary>Straight-line steps toward <paramref name="target"/> (the old behaviour); false if it cannot advance.</summary>
@@ -1476,6 +1479,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this._navPath = MobaNavigation.FindPath(grid, this.Position, target);
             this._navTarget = target;
             index = this._navPath is null ? -1 : 0;
+            this._navFailures = this._navPath is null ? this._navFailures + 1 : 0;
         }
 
         if (this._navPath is null || index < 0)
@@ -1539,6 +1543,16 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
         if (steps.Count == 0)
         {
+            if (this._navFailures >= 3)
+            {
+                // Sealed pocket (a teleport or a knock-back can land a bot behind the walls): put it back on its lane.
+                this._navFailures = 0;
+                this._navPath = null;
+                var rescue = this.AtProgress(this.Progress(this.Position.X, this.Position.Y), 0);
+                this.Logger.LogWarning("[MOBA-AI] {Name} has no path from {From} (walled-off pocket?), moved back onto its lane at {To}.", this.Name, this.Position, rescue);
+                await this.MoveAsync(rescue).ConfigureAwait(false);
+            }
+
             return;
         }
 
