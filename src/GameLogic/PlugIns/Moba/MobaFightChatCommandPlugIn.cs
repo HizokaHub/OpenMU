@@ -95,13 +95,19 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         }
 
         // 3 lanes: red has one bot per lane (top, mid, bot); blue has bots in top and bot, and the caller takes mid.
+        // /mobafight 4: both teams field the same four classes (blue = 3 bots + the caller's class, red = the same four) and mid
+        // is 2v2, so the fight is even (3 blue bots + the caller against 3 red bots was lopsided: 42 kills against 4).
+        var blueFamilies = RandomFamilies(withThirdBlueBot ? 3 : threeLanes ? 2 : n);
+        var redFamilies = withThirdBlueBot
+            ? blueFamilies.Append(MobaBotChatCommandPlugIn.AllFamilies[(int)MobaPassives.FamilyOf(player)]).ToList()
+            : RandomFamilies(threeLanes ? 3 : n);
         var red = threeLanes
-            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, RandomFamilies(3), new[] { 0, 1, 2 }).ConfigureAwait(false)
-            : await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, RandomFamilies(n)).ConfigureAwait(false);
+            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, redFamilies, withThirdBlueBot ? new[] { 0, 1, 2, 1 } : new[] { 0, 1, 2 }).ConfigureAwait(false)
+            : await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Red, redFamilies).ConfigureAwait(false);
         var blue = threeLanes
-            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(withThirdBlueBot ? 3 : 2), withThirdBlueBot ? new[] { 0, 1, 2 } : new[] { 0, 2 }).ConfigureAwait(false)
+            ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, blueFamilies, withThirdBlueBot ? new[] { 0, 1, 2 } : new[] { 0, 2 }).ConfigureAwait(false)
             : spectating
-                ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, RandomFamilies(n)).ConfigureAwait(false)
+                ? await MobaBotChatCommandPlugIn.SpawnAsync(player, MobaTeam.Blue, blueFamilies).ConfigureAwait(false)
                 : 0;
 
         if (threeLanes)
@@ -128,7 +134,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         await player.ShowBlueMessageAsync(
             (threeLanes
                 ? (withThirdBlueBot
-                    ? $"[mobafight] 3v3 + vos: {blue} bots azules (TOP, MID, BOT) y vos (azul, empezás en MID) vs {red} bots rojos (TOP, MID, BOT)."
+                    ? $"[mobafight] 4v4 con las mismas clases: {blue} bots azules (TOP, MID, BOT) + vos (empezás en MID) vs {red} bots rojos (TOP, MID x2, BOT)."
                     : $"[mobafight] 3 carriles: vos (azul, carril MID) + {blue} bots azules (TOP y BOT) vs {red} bots rojos (TOP, MID, BOT).")
                 : spectating
                     ? $"[mobafight] {n}v{n} de bots: {blue} azules vs {red} rojos (vos solo mirás)."

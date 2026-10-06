@@ -1227,3 +1227,9 @@ programar.
 - **Log del `/mobafight 4` de 40 min (`openmu-server-fight4c.log`):** un bot azul quedó 1.201 s sin moverse en (43,152) (`IDLE`): esa zona es una bolsa cerrada por paredes de 285 celdas sin conexión con el resto del mapa (el mapa tiene decenas de bolsas así; un TP o un empujón puede dejar a un bot adentro). Arreglo: tras 3 búsquedas A* sin camino, el bot vuelve a su carril (`[MOBA-AI] ... has no path ...`).
 
 **Carril bot nuevo (2026-10-06 17:12):** el export de las 17:00 traía un carril bot nuevo de 10 puntos (y top vacío): se tomó solo el bot y se conserva el top/mid anterior en `MobaLayout.json`. Servidor reiniciado 17:17 con esto, la máscara de las 17:00 y las 3 torretas por carril; tienda roja se queda en (118,244).
+
+**Partida del 17:30 (`openmu-server-fight4e.log`, 25 min, 2026-10-06) y pedidos del usuario:**
+- **Creeps arreglados:** `arcTenths` fluye (4-12 creeps por carril y equipo, frente en el medio), sin `IDLE` largos (1 aviso). Ninguna torreta cayó pero las bases rojas estaban al 65-92 %.
+- **Dispareja:** 4 azules (3 bots + el GM) contra 3 rojos con clases al azar distintas: Azul 20/1, 9/2, 11/0 y GM 0/1/2 contra Rojo 2/9, 2/20, 0/11. `/mobafight 4` ahora es **4v4 espejo**: el azul son 3 bots + vos (empezás en MID) y el rojo tiene las MISMAS 4 clases (la tuya incluida) en TOP, MID x2 y BOT. (Sin desplegar.)
+- **Altares en el minimapa:** venían de los marcadores estáticos de Crywolf del archivo de minimapa (`Minimap_World35_*.bmd`); el cliente ya no los dibuja en el mapa 200 (`NewUIMiniMap.cpp`, sin recompilar todavía).
+- **Pendiente:** (a) el nexo: el usuario no ve la estatua de cristal (ni el altar `Object57` es lo esperado/visible): hace falta que describa qué ve; (b) la Égida no se ve al lanzar el skill de escudo: el efecto 0x22 (Spell of Protection) no parece tener burbuja en el cliente; proponer otro efecto visible.
