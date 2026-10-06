@@ -1314,10 +1314,19 @@ public sealed class MobaBotPlayer : OfflinePlayer
             .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.GetTeam(m) == myTeam)
             .ToList();
 
-        // "Front" = closest turret to mid (highest Y for Blue in the north, lowest for Red).
-        return myTeam == MobaTeam.Blue
-            ? turrets.OrderByDescending(t => t.Position.Y).FirstOrDefault()
-            : turrets.OrderBy(t => t.Position.Y).FirstOrDefault();
+        // "Front" = the turret of MY lane closest to the enemy (it used to be the one with the highest Y of ANY lane, which sent
+        // the top and bottom bots to defend under the mid turret). Without a turret left in my lane: any structure, nexus last.
+        var inLane = turrets.Where(t => MobaStructures.GetStructureType(t) == MobaStructureType.Turret && MobaStructureSpawner.LaneOf(t) == this._laneNo)
+            .OrderByDescending(t => this.Progress(t.Position.X, t.Position.Y))
+            .FirstOrDefault();
+        if (inLane is not null)
+        {
+            return inLane;
+        }
+
+        return turrets.OrderBy(t => MobaStructures.GetStructureType(t) == MobaStructureType.Nexus ? 1 : 0)
+            .ThenBy(t => t.GetDistanceTo(this.Position))
+            .FirstOrDefault();
     }
 
     private static Point StepAway(Point from, Point threat, int tiles)

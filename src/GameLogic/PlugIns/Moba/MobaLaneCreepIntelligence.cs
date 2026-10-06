@@ -1,4 +1,4 @@
-// <copyright file="MobaLaneCreepIntelligence.cs" company="MUnique">
+﻿// <copyright file="MobaLaneCreepIntelligence.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -552,6 +552,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             return;
         }
 
+        // A waypoint on (or right beside) a turret / nexus footprint can never be reached: the creep would circle it
+        // through the detour for ever (the nexus sits on the mid lane, turrets now sit on the lane centre). Skip it.
+        while (this._currentWaypoint < this._waypoints.Count - 1 && this.IsNearStructure(this._waypoints[this._currentWaypoint]))
+        {
+            this._currentWaypoint++;
+            this._chunkStepCount = 0;
+        }
+
         var waypoint = this._waypoints[this._currentWaypoint];
         if (waypoint.EuclideanDistanceTo(pos) <= WaypointReachedDistance)
         {
@@ -586,6 +594,24 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// <see cref="MobaOccupancyGrid"/>; champions move on client paths and are not in it,
     /// so a march / chase step still avoids their current tile with this cheap snapshot.
     /// </summary>
+    private bool IsNearStructure(Point waypoint)
+    {
+        for (var dy = -1; dy <= 1; dy++)
+        {
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var x = waypoint.X + dx;
+                var y = waypoint.Y + dy;
+                if (x is >= 0 and <= 255 && y is >= 0 and <= 255 && MobaOccupancyGrid.IsStructureTile(this.MapId, new Point((byte)x, (byte)y)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private Point? _detour;
 
     private DateTime _detourUntilUtc;
@@ -633,15 +659,29 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 continue;
             }
 
-            var side = Math.Sign(pos.X - tile.X);
+            // Pass beside the footprint and then beyond it along the direction of travel (the old offset assumed a lane running
+            // north-south; on a lane running east-west it put the detour point in front of the turret and the creep circled it).
+            double dirX = waypoint.X - pos.X, dirY = waypoint.Y - pos.Y;
+            var dirLength = Math.Sqrt((dirX * dirX) + (dirY * dirY));
+            if (dirLength < 0.001)
+            {
+                dirX = 0;
+                dirY = stepY;
+                dirLength = 1;
+            }
+
+            dirX /= dirLength;
+            dirY /= dirLength;
+            double perpX = -dirY, perpY = dirX;
+            var side = Math.Sign(((pos.X - tile.X) * perpX) + ((pos.Y - tile.Y) * perpY));
             if (side == 0)
             {
                 side = (this.Monster.Id % 2) == 0 ? 1 : -1;
             }
 
-            var detour = new Point(
-                (byte)Math.Clamp(tile.X + (side * 3), 0, 255),
-                (byte)Math.Clamp(tile.Y + (stepY * 4), 0, 255));
+            var detour = MobaLayout.NearestWalkable(
+                tile.X + (perpX * side * 3) + (dirX * 4),
+                tile.Y + (perpY * side * 3) + (dirY * 4));
             this._detour = detour;
             this._detourUntilUtc = now + TimeSpan.FromSeconds(10);
             this._chunkStepCount = 0;
