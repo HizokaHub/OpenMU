@@ -1,4 +1,4 @@
-// <copyright file="MobaMatchEnder.cs" company="MUnique">
+﻿// <copyright file="MobaMatchEnder.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -52,6 +52,7 @@ public static class MobaMatchEnder
         await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
+        await MobaJungle.StopAsync(map).ConfigureAwait(false);
         MobaMatchPhase.Reset();
 
         // Test bots (/mobafight, /mobabot) have no real owner to eject: remove them with the match, or they idle in the empty arena.

@@ -769,9 +769,9 @@ public static class AttackableExtensions
             return true;
         }
 
-        // Lane creeps / structures of a team never miss a champion either: against the clone's defense rate (AGI-based)
+        // Lane creeps / structures / jungle monsters never miss a champion either: against the clone's defense rate (AGI-based)
         // 94 % of creep swings missed in the first 3-lane game, so creeps were harmless.
-        if (attacker is NPC.Monster && defender is Player { IsMobaClone: true } && PlugIns.Moba.MobaTeams.GetTeam(attacker) != PlugIns.Moba.MobaTeam.None)
+        if (attacker is NPC.Monster && defender is Player { IsMobaClone: true })
         {
             return true;
         }
