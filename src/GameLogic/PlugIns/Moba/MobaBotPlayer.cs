@@ -459,6 +459,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 BotState.Fight => "fight-champion",
                 BotState.GroupPush => "push-objective",
                 BotState.DefendBase => "defend-base",
+                BotState.DefendNexus => "defend-nexus",
                 BotState.Retreat => "retreat",
                 BotState.Recalling => "recall",
                 BotState.Regroup => "regroup",
@@ -510,6 +511,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             case BotState.DefendBase:
                 await this.TickDefendAsync(ctx).ConfigureAwait(false);
                 return;
+            case BotState.DefendNexus:
+                await this.TickDefendNexusAsync(ctx).ConfigureAwait(false);
+                return;
             case BotState.Regroup:
                 await this.WalkTowardAsync(this._regroupPoint).ConfigureAwait(false);
                 return;
@@ -546,6 +550,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         Fight,
         GroupPush,
         DefendBase,
+        DefendNexus,
         Retreat,
         Recalling,
         Regroup,
@@ -701,6 +706,13 @@ public sealed class MobaBotPlayer : OfflinePlayer
         {
             this.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" recalls to shop with {Gold} gold.", this.Name, this.Money);
             return BotState.Recalling;
+        }
+
+        // An enemy champion is hitting our nexus: whoever can get there (respawned, recalled, or still near the base) goes
+        // and kills it instead of walking back to the lane. Losing the nexus loses the match, so this beats everything below.
+        if (c.HpPct > RecallHpPct && this.NexusAttacker(c) is not null)
+        {
+            return BotState.DefendNexus;
         }
 
         // Team is being run over: play defence at our own turret, never walk out to feed.
@@ -994,6 +1006,35 @@ public sealed class MobaBotPlayer : OfflinePlayer
         }
 
         await this.WalkTowardAsync(this._homeSpawn).ConfigureAwait(false);
+    }
+
+    /// <summary>Enemy champions within this many tiles of our own nexus count as attacking it.</summary>
+    private const double NexusThreatTiles = 22;
+
+    /// <summary>A bot further than this from its own nexus keeps laning instead of running back (the teleport scroll covers the rest).</summary>
+    private const double NexusDefendReachTiles = 70;
+
+    /// <summary>The enemy champion closest to our nexus when it is within <see cref="NexusThreatTiles"/> and we are close enough to answer.</summary>
+    private Player? NexusAttacker(BotContext c)
+    {
+        var nexus = MobaLayout.NexusOf(MobaTeams.GetTeam(this));
+        if (c.Pos.EuclideanDistanceTo(nexus) > NexusDefendReachTiles)
+        {
+            return null;
+        }
+
+        return c.AllEnemies
+            .Where(e => e.IsAlive && e.Position.EuclideanDistanceTo(nexus) <= NexusThreatTiles)
+            .OrderBy(e => e.Position.EuclideanDistanceTo(nexus))
+            .FirstOrDefault();
+    }
+
+    private async ValueTask TickDefendNexusAsync(BotContext c)
+    {
+        if (this.NexusAttacker(c) is { } attacker)
+        {
+            await this.EngageAsync(c, attacker).ConfigureAwait(false);
+        }
     }
 
     private async ValueTask TickDefendAsync(BotContext c)
