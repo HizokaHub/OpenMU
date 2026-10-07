@@ -101,6 +101,7 @@ public static class MobaWaveSpawner
     private const float CreepMaxDamage = 85f;
     private const float CreepDefense = 20f;
     private const float CreepAttackRate = 150f;
+    private static readonly TimeSpan CreepAttackDelay = TimeSpan.FromMilliseconds(1700);
     private const float CreepDefenseRate = 30f;
 
     /// <summary>Horizontal spacing (tiles) between creeps in a rank and between their parallel tracks.</summary>
@@ -192,6 +193,10 @@ public static class MobaWaveSpawner
             }
 
             var definition = baseDefinition.Clone(gameContext.Configuration);
+
+            // The four S6 mobs differ in attack delay (Spider 1800, Worm 1600, Goblin 1800, Rabbit 1500 ms), which would make one
+            // team's creeps hit harder than the other's; both teams share the same cadence.
+            definition.AttackDelay = CreepAttackDelay;
             var lineWidth = (count - 1) * RankSpacingX;
 
             for (var i = 0; i < count; i++)
