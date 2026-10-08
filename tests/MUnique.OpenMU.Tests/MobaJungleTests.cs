@@ -25,7 +25,7 @@ public class MobaJungleTests
         Assert.That(MobaJungle.Camps, Is.Not.Empty);
         foreach (var camp in MobaJungle.Camps)
         {
-            Assert.That(camp.Rank, Is.InRange(1, 3));
+            Assert.That(camp.Rank, Is.InRange(1, 4));
             var spot = MobaLayout.NearestWalkable(camp.X, camp.Y);
             Assert.That(Math.Max(Math.Abs(spot.X - camp.X), Math.Abs(spot.Y - camp.Y)), Is.LessThanOrEqualTo(2), $"camp {camp}");
         }

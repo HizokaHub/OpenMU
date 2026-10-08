@@ -28,29 +28,37 @@ public static class MobaJungle
     {
         new(58, 64, 1), new(53, 85, 2), new(56, 103, 3), new(93, 50, 1), new(87, 65, 1), new(95, 77, 2), new(95, 97, 3),
         new(59, 115, 3), new(45, 159, 3), new(36, 153, 2), new(64, 174, 1), new(70, 185, 2), new(76, 171, 3),
+        new(80, 138, 4),
     };
 
     /// <summary>Seconds a camp waits to respawn once all its monsters are dead, per rank.</summary>
-    public static readonly int[] RespawnSeconds = { 0, 60, 90, 120 };
+    public static readonly int[] RespawnSeconds = { 0, 60, 90, 120, 300 };
 
     /// <summary>Base life per rank (before the level scaling shared with the lane creeps).</summary>
-    private static readonly float[] BaseHealth = { 0, 2500f, 4000f, 6500f };
+    private static readonly float[] BaseHealth = { 0, 2500f, 4000f, 6500f, 20000f };
 
     /// <summary>Damage factor per rank over the creep damage.</summary>
-    private static readonly float[] DamageFactor = { 0, 1.0f, 1.4f, 1.9f };
+    private static readonly float[] DamageFactor = { 0, 1.0f, 1.4f, 1.9f, 2.6f };
 
     /// <summary>Experience for the last hit of one monster, per rank.</summary>
-    private static readonly int[] ExpPerMonster = { 0, 20, 35, 60 };
+    private static readonly int[] ExpPerMonster = { 0, 20, 35, 60, 150 };
 
     /// <summary>Gold for the last hit of one monster, per rank.</summary>
-    private static readonly int[] GoldPerMonster = { 0, 40, 70, 120 };
+    private static readonly int[] GoldPerMonster = { 0, 40, 70, 120, 300 };
 
     private static readonly Dictionary<int, (string Name, int Count)[]> Composition = new()
     {
         [1] = new[] { ("Mutant", 3) },
         [2] = new[] { ("Bloody Wolf", 3), ("Mutant", 2) },
         [3] = new[] { ("Bloody Wolf", 2), ("Tantallos", 3) },
+        [4] = new[] { (GodOfDarknessName, 1) },
     };
+
+    /// <summary>Designation of the imported test boss (model of the IGC season 21 client, Monster332).</summary>
+    public const string GodOfDarknessName = "God of Darkness";
+
+    /// <summary>Monster number the client maps to the God of Darkness model (<c>MONSTER_GOD_OF_DARKNESS</c> in _enum.h).</summary>
+    public const short GodOfDarknessNumber = 700;
 
     private static readonly IDropGenerator NoDrops = new NoDropGenerator();
 
@@ -115,7 +123,8 @@ public static class MobaJungle
         var wanted = Composition[camp.Rank].Sum(c => c.Count);
         foreach (var (name, count) in Composition[camp.Rank])
         {
-            var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => string.Equals(m.Designation, name, StringComparison.OrdinalIgnoreCase));
+            var isImported = name == GodOfDarknessName;
+            var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => string.Equals(m.Designation, isImported ? "Tantallos" : name, StringComparison.OrdinalIgnoreCase));
             if (baseDefinition is null)
             {
                 continue;
@@ -126,6 +135,12 @@ public static class MobaJungle
                 var angle = index * (2 * Math.PI / wanted);
                 var spot = MobaLayout.NearestWalkable(camp.X + (Math.Cos(angle) * 2), camp.Y + (Math.Sin(angle) * 2));
                 var definition = baseDefinition.Clone(gameContext.Configuration);
+                if (isImported)
+                {
+                    definition.Number = GodOfDarknessNumber;
+                    definition.Designation = name;
+                }
+
                 var area = new MonsterSpawnArea
                 {
                     GameMap = map.Definition,
