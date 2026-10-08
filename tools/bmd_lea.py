@@ -75,3 +75,28 @@ if __name__ == '__main__':
     c = encrypt_block(p, key_schedule(k))
     print('LEA-128 cifrado:', c.hex(), 'OK' if c.hex() == '9fc84e3528c6c6185532c7a704648bfd' else 'MAL')
     print('LEA-128 descifrado OK' if decrypt_block(c, key_schedule(k)) == p else 'descifrado MAL')
+
+
+def decrypt_ecb_fast(data, key):
+    """Igual que decrypt_ecb pero vectorizado con numpy (todas las bloques a la vez)."""
+    import numpy as np
+    rks = key_schedule(key)
+    n = len(data) // 16 * 16
+    x = np.frombuffer(data[:n], dtype='<u4').reshape(-1, 4).copy()
+    x0, x1, x2, x3 = x[:, 0].copy(), x[:, 1].copy(), x[:, 2].copy(), x[:, 3].copy()
+
+    def rl(v, k):
+        return (v << np.uint32(k)) | (v >> np.uint32(32 - k))
+
+    def rr(v, k):
+        return (v >> np.uint32(k)) | (v << np.uint32(32 - k))
+
+    for rk in reversed(rks):
+        rk = [np.uint32(r) for r in rk]
+        p0 = x3
+        p1 = (rr(x0, 9) - (p0 ^ rk[0])) ^ rk[1]
+        p2 = (rl(x1, 5) - (p1 ^ rk[2])) ^ rk[3]
+        p3 = (rl(x2, 3) - (p2 ^ rk[4])) ^ rk[5]
+        x0, x1, x2, x3 = p0, p1, p2, p3
+    out = np.stack([x0, x1, x2, x3], axis=1).astype('<u4')
+    return out.tobytes()
