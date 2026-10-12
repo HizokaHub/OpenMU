@@ -65,6 +65,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Dark Lords with an equipped Dark Raven: make it attack with its owner.
         await MobaPets.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Fountains: capture channels, ownership, allied healing.
+        await MobaFountains.TickAsync(gameContext).ConfigureAwait(false);
+
         // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
         await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
 

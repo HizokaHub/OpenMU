@@ -16,7 +16,7 @@ using MUnique.OpenMU.PlugIns;
 /// Spends one champion skill point on that skill and pushes the updated champion state.
 /// Also handles the option picked in a server-driven NPC menu (the MOBA shop categories):
 /// <code>C1 06 D5 07  menuId  optionIndex</code>, and the recall request (key B):
-/// <code>C1 04 D5 09</code>, and the minion picked for the teleport scroll:
+/// <code>C1 04 D5 09</code>, the fountain capture key (<code>C1 05 D5 0F on</code>), and the minion picked for the teleport scroll:
 /// <code>C1 06 D5 0B  targetId(u16 LE)</code>.
 /// </summary>
 [PlugIn]
@@ -53,6 +53,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             // C1 04 D5 0D: ward (HUD slot 10); C1 04 D5 0E: sweeper (HUD slot 11).
             var message = span[3] == 0x0D ? MobaVision.TryPlaceWard(player) : MobaVision.TrySweep(player);
             await player.ShowBlueMessageAsync(message).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 5 && span[3] == 0x0F)
+        {
+            // C1 05 D5 0F on: the capture key (F) of the fountains was pressed (1) or released (0); repeated while held.
+            await MobaFountains.SignalAsync(player, span[4] != 0).ConfigureAwait(false);
             return;
         }
 
