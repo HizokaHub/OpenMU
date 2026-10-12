@@ -3,7 +3,9 @@
 Primitives: lane_wall (wall alongside a lane, with entrances), ring (oval jungle pit with doors),
 pillars. Walls are only ever added on open ground, never near structures / waypoints / bases.
 
-usage: design_walls.py <in.att> <layout.json> <out.att> <preview.png> [doors.txt]
+usage: design_walls.py <in.att> <layout.json> <out.att> <preview.png> [doors.txt] [doors-only]
+
+"doors-only": skip the lane walls / pillars (lanes are guided with lights instead, see make_lights.py) and only open the jungle islands.
 """
 import json
 import sys
@@ -13,6 +15,7 @@ from PIL import Image, ImageDraw
 
 src, layout_path, dst, preview = sys.argv[1:5]
 doors_path = sys.argv[5] if len(sys.argv) > 5 else None
+DOORS_ONLY = len(sys.argv) > 6 and sys.argv[6] == 'doors-only'
 raw = open(src, 'rb').read()
 hdr = raw[:3]
 base = np.frombuffer(raw[3:], dtype=np.uint8).reshape(256, 256).copy()
@@ -81,6 +84,10 @@ def ring(cx, cy, rx, ry, doors_deg=(), door_w=6.5, thick=2.2, rot=0.0):
 def pillar(cx, cy, r=2.4):
     put((XX - cx) ** 2 + (YY - cy) ** 2 <= r * r)
 
+
+if DOORS_ONLY:
+    lane_wall = lambda *a, **k: None
+    pillar = lambda *a, **k: None
 
 # ---------------------------------------------------------------- zone 1: bot corner (blue half), x~183 y~57
 # the lane runs SW->NE through it; u = along the lane, n = to the map interior (NW)
