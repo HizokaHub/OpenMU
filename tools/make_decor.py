@@ -4,7 +4,10 @@ Replaces the solid lane-guide walls: every lane gets its own light style (so pla
 stretches get broken low walls with relics in the gaps, and every jungle entrance gets two torches.
 Writes Data/World200/MobaDecor.txt for the client (same format as MobaCity.txt, yawoffset 0, long axis = local X).
 
-usage: make_decor.py <mask.att> <layout.json> <doors.txt> <MobaCity.txt> <out.txt> <preview.png> [seed]
+usage: make_decor.py <mask.att> <layout.json> <doors.txt> <MobaCity.txt> <out.txt> <preview.png> [seed] [with-ruins]
+
+By default only the lights and the entrance torches are written; the ruin walls and relics (rejected by the user)
+return only with the "with-ruins" argument.
 """
 import json
 import sys
@@ -15,6 +18,7 @@ from PIL import Image, ImageDraw
 mask_path, layout_path, doors_path, city_path, out_txt, preview = sys.argv[1:7]
 seed = int(sys.argv[7]) if len(sys.argv) > 7 else 5
 rng = np.random.default_rng(seed)
+WITH_RUINS = len(sys.argv) > 8 and sys.argv[8] == 'with-ruins'
 
 m = np.frombuffer(open(mask_path, 'rb').read()[3:], dtype=np.uint8).reshape(256, 256)
 blocked = m == 4
@@ -101,7 +105,7 @@ for name, w in layout['lanes'].items():
         i = int(np.searchsorted(arc, s))
         cx, cy = pts[i]
         wide = dwall[int(round(cy)), int(round(cx))] >= 10.0
-        if wide:
+        if wide and WITH_RUINS:
             wname, wlen = WALLS[k % len(WALLS)]
             yaw = np.degrees(np.arctan2(tang[i, 1], tang[i, 0]))
             for sd in (-1, 1):          # both sides of the lane; the far side is staggered by half a piece
@@ -116,7 +120,7 @@ for name, w in layout['lanes'].items():
             side = -side
             s += wlen + float(rng.uniform(4, 7))
         else:
-            s += 6.0
+            s += 6.0   # (no ruins: just keep walking)
 
 # torches at both sides of every jungle entrance
 for dx, dy in doors:
