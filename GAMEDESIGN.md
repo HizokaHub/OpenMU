@@ -1354,7 +1354,9 @@ programar.
 - **La captura no avanzaba** (el log mostraba `blue=1.0s` fijo en cada tick aunque la tecla F sí llegaba: «starts channelling fountain 1»). Causa: el servidor tiene **3 servidores de juego (0, 1, 2) y la tarea periódica corre una vez por cada `GameContext`**; los contextos vacíos llamaban a `MobaFountains.Reset()` en cada tick. Ahora `MobaFountains` recuerda el contexto activo (`_activeContext`) y solo ese contexto puede reiniciarse, tras 60 s sin campeones. **Regla general: el estado estático de cualquier mecánica MOBA no debe reiniciarse desde un tick de un contexto sin campeones.**
 - **La fuente quedó sobre una montaña:** `ApplyMobaRelief` (cliente, `MapManager.cpp`) levanta una montaña bajo cada celda de pared de la máscara, y la decoración sólida contaba como pared. Ahora `LoadMobaDecorCells` (`MobaDecorCells.bin`) marca esas celdas y el relieve las trata como suelo; el minimapa tampoco las dibuja como paredes (`MobaLoadDecorCells`). Resultado esperado: fuente, postes y casas sobre el piso, sin colinas.
 
-## PLAN: rediseño profesional del mapa (estilo LoL) — propuesto 2026-10-13, pendiente de aprobación
+## PLAN: rediseño profesional del mapa (estilo LoL) — propuesto 2026-10-13, POSTERGADO hasta terminar el prototipo MVP
+
+> **Decisión del usuario (2026-10-13):** quiere hacer todo este plan, pero **después de terminar el prototipo MVP**. No empezar ninguna fase de esta sección hasta que el usuario lo pida; seguir con el MVP mientras tanto.
 
 **Diagnóstico.** Hoy el mapa sale de una máscara de 256×256 celdas dibujada a mano: paredes en cuadrados, relieve procedural por celda (`ApplyMobaRelief`), objetos originales de Crywolf sueltos, árboles/rocas puestos al azar en los bordes y decoración generada por scripts. No hay una dirección de arte: el suelo no distingue carril/jungla/base, los acantilados son «bultos» y el minimapa es la textura de Crywolf recortada.
 
