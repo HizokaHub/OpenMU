@@ -123,6 +123,10 @@ public static class MobaFountains
 
     private static DateTime _lastTickUtc = DateTime.MinValue;
 
+    private static GameContext? _activeContext;
+
+    private static DateTime _lastChampionUtc = DateTime.MinValue;
+
     /// <summary>Gets the number of fountains.</summary>
     public static int Count => Positions.Length;
 
@@ -208,14 +212,19 @@ public static class MobaFountains
         var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
         if (champions.Count == 0)
         {
-            if (_lastTickUtc != DateTime.MinValue)
+            // The server runs this task once per game context: only the context that hosted the match may end it,
+            // and only after a minute without champions (an empty context must never reset the other one's captures).
+            if (ReferenceEquals(_activeContext, gameContext) && (DateTime.UtcNow - _lastChampionUtc).TotalSeconds > 60)
             {
                 Reset();
+                _activeContext = null;
             }
 
             return;
         }
 
+        _activeContext = gameContext;
+        _lastChampionUtc = DateTime.UtcNow;
         var now = DateTime.UtcNow;
         var seconds = _lastTickUtc == DateTime.MinValue ? 1.0 : Math.Clamp((now - _lastTickUtc).TotalSeconds, 0.05, 2.5);
         _lastTickUtc = now;
