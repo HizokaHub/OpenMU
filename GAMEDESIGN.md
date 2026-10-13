@@ -1353,3 +1353,26 @@ programar.
 **Arreglos de la fuente tras la primera prueba (2026-10-13 00:05; servidor reiniciado, log previo `%TEMP%\openmu-server-prev-1013-0003.log`; cliente recompilado; 87/87 tests MOBA):**
 - **La captura no avanzaba** (el log mostraba `blue=1.0s` fijo en cada tick aunque la tecla F sí llegaba: «starts channelling fountain 1»). Causa: el servidor tiene **3 servidores de juego (0, 1, 2) y la tarea periódica corre una vez por cada `GameContext`**; los contextos vacíos llamaban a `MobaFountains.Reset()` en cada tick. Ahora `MobaFountains` recuerda el contexto activo (`_activeContext`) y solo ese contexto puede reiniciarse, tras 60 s sin campeones. **Regla general: el estado estático de cualquier mecánica MOBA no debe reiniciarse desde un tick de un contexto sin campeones.**
 - **La fuente quedó sobre una montaña:** `ApplyMobaRelief` (cliente, `MapManager.cpp`) levanta una montaña bajo cada celda de pared de la máscara, y la decoración sólida contaba como pared. Ahora `LoadMobaDecorCells` (`MobaDecorCells.bin`) marca esas celdas y el relieve las trata como suelo; el minimapa tampoco las dibuja como paredes (`MobaLoadDecorCells`). Resultado esperado: fuente, postes y casas sobre el piso, sin colinas.
+
+## PLAN: rediseño profesional del mapa (estilo LoL) — propuesto 2026-10-13, pendiente de aprobación
+
+**Diagnóstico.** Hoy el mapa sale de una máscara de 256×256 celdas dibujada a mano: paredes en cuadrados, relieve procedural por celda (`ApplyMobaRelief`), objetos originales de Crywolf sueltos, árboles/rocas puestos al azar en los bordes y decoración generada por scripts. No hay una dirección de arte: el suelo no distingue carril/jungla/base, los acantilados son «bultos» y el minimapa es la textura de Crywolf recortada.
+
+**Principios.** (1) Un plano maestro vectorial es la fuente de verdad (curvas con ancho, zonas, objetivos) y todo lo demás se compila de él: máscara, alturas, texturas, objetos, minimapa, spawns. (2) Dirección de arte única (paleta, materiales, familias de objetos por equipo). (3) Legibilidad primero (carril / jungla / río / base se distinguen a primera vista). (4) Todo local y gratis; no se descarga nada sin permiso.
+
+**Fases**
+0. *Dirección de arte (necesita fotos del usuario):* tema, paleta, iluminación, referencias por elemento (lista abajo). Salida: moodboard + decisiones.
+1. *Plano maestro:* herramienta/editor web para dibujar carriles, jungla, río (la línea horizontal), bases y objetivos como curvas con ancho; salida JSON. Reemplaza el lápiz de celdas; carriles de ancho constante y curvas suaves.
+2. *Compilador de terreno:* del plano maestro genera (a) máscara de colisión, (b) mapa de zonas, (c) alturas por campo de distancia (mesetas planas en carriles, taludes suaves en acantilados, río más bajo), (d) capas de textura por zona con mezcla suave, (e) luz horneada con sombra/oclusión. Sustituye `ApplyMobaRelief`.
+3. *Acantilados y bordes:* piezas modulares de roca/muro colocadas siguiendo el contorno (no al azar), con variantes, árboles detrás y escala coherente; borrar todos los objetos nativos de Crywolf.
+4. *Estructuras y bases:* ciudad/base por equipo con paleta propia, torretas rediseñadas (una familia de modelos por equipo), puertas/inhibidores de carril, nexo, fuente de base; fuentes del río y objetivos épicos (pozo del God of Darkness / Selupan) con arquitectura propia.
+5. *Jungla y visión:* campamentos con identidad (claro, pasto alto, ruinas), arbustos de visión (brush) integrados con `MobaVision` del servidor, atajos y entradas.
+6. *Atmósfera:* iluminación por zonas, niebla, partículas, sonido ambiente, cielo; luces de color por equipo.
+7. *Minimapa y HUD:* minimapa renderizado desde el plano maestro (mismo arte que el mundo), iconos estilo LoL, marcadores de objetivos.
+8. *Pulido y pruebas:* rendimiento (límite de objetos), pruebas automáticas de conectividad/ancho de carril, partidas de `/mobafight` y revisión visual.
+
+**Orden recomendado y esfuerzo (sesiones de trabajo):** 0 (1) → 1 (2) → 2 (3) → 3 (2) → 4 (3) → 5 (2) → 6 (1-2) → 7 (1) → 8 (continuo). Lo que más cambia la percepción con menos riesgo: 1+2+3.
+
+**Fotos/diseños que el usuario puede aportar:** mapa cenital de referencia (layout), primer plano de un carril, estilo de acantilado/muro, un campamento de jungla, el río/centro, la base y el nexo, torreta e inhibidor, arbustos, paleta y mood de iluminación, estilo de minimapa, foso de objetivo épico.
+
+**Riesgos:** resolución de 256×256 celdas (detalles finos limitados; lo visual puede ser más suave que la colisión), límites del motor de terreno (2 capas + alfa), cantidad de objetos, derechos de autor de modelos externos (usar los de S6/S14 ya presentes salvo aprobación), coste cero salvo que se decida contratar arte.
