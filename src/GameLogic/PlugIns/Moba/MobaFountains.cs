@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 
@@ -164,8 +165,10 @@ public static class MobaFountains
     /// <returns>A task.</returns>
     public static async ValueTask SignalAsync(Player player, bool on)
     {
+        var logger = player.GameContext.LoggerFactory.CreateLogger(typeof(MobaFountains));
         if (!player.IsMobaClone || MobaTeams.GetTeam(player) == MobaTeam.None)
         {
+            logger.LogInformation("[MOBA-FOUNTAIN] key {State} from {Name} ignored: not a champion of a match (clone={Clone}, team={Team}).", on ? "down" : "up", player.Name, player.IsMobaClone, MobaTeams.GetTeam(player));
             return;
         }
 
@@ -182,10 +185,16 @@ public static class MobaFountains
 
         if (!player.IsAlive || player.CurrentMap is null || FountainInReach(player) < 0)
         {
+            logger.LogInformation("[MOBA-FOUNTAIN] key down from {Name} ignored: alive={Alive}, map={Map}, position=({X},{Y}), no fountain within {Radius} tiles.", player.Name, player.IsAlive, player.CurrentMap?.Definition.Number, player.Position.X, player.Position.Y, CaptureRadius);
             return;
         }
 
         var signal = Signals.GetOrCreateValue(player);
+        if (!signal.Active)
+        {
+            logger.LogInformation("[MOBA-FOUNTAIN] {Name} ({Team}) starts channelling fountain {Index}.", player.Name, MobaTeams.GetTeam(player), FountainInReach(player));
+        }
+
         signal.Active = true;
         signal.LastUtc = DateTime.UtcNow;
     }
@@ -249,6 +258,18 @@ public static class MobaFountains
 
                 var ms = remaining;
                 await channeler.InvokeViewPlugInAsync<IMobaChannelPlugIn>(p => p.ShowChannelAsync(KindFountain, ms)).ConfigureAwait(false);
+            }
+
+            if (channelers.Count > 0)
+            {
+                gameContext.LoggerFactory.CreateLogger(typeof(MobaFountains)).LogInformation(
+                    "[MOBA-FOUNTAIN] fountain {Index}: owner={Owner} blue={Blue:F1}s red={Red:F1}s contested={Contested} channelers={Count}",
+                    i,
+                    state.Owner,
+                    state.BlueProgress,
+                    state.RedProgress,
+                    state.Contested,
+                    channelers.Count);
             }
 
             if (captured != MobaTeam.None)

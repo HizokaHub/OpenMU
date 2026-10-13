@@ -91,23 +91,36 @@ for name, w in layout['lanes'].items():
     tang /= np.maximum(np.hypot(tang[:, 0], tang[:, 1])[:, None], 1e-9)
     normal = np.stack([-tang[:, 1], tang[:, 0]], axis=1)
 
-    # lights in pairs every 16 cells
+    def side_spot(i, side, radius):
+        """A free spot on one side of the lane near arc index i: tries other margins and small shifts along the lane."""
+        for shift in (0, 2, -2, 4, -4, 6, -6):
+            j = int(np.clip(i + shift, 0, len(pts) - 1))
+            for off in (OFF, OFF - 1, OFF + 1, OFF - 2, OFF + 2, OFF - 3, OFF + 3, OFF - 4):
+                x, y = pts[j] + normal[j] * off * side
+                if free(x, y, radius):
+                    return x, y, j
+        return None
+
+    # lights in pairs every 16 cells: both sides of the road, or none at all for that step
     s = 30.0
     while s < arc[-1] - 30:
         i = int(np.searchsorted(arc, s))
-        for side in (-1, 1):
-            x, y = pts[i] + normal[i] * OFF * side
-            put(light, x, y, rng.uniform(0, 360), lscale, 0.8, 'light')
+        left = side_spot(i, -1, 0.8)
+        right = side_spot(i, 1, 0.8)
+        for spot in (left, right):
+            if spot is not None and left is not None and right is not None:
+                put(light, spot[0], spot[1], rng.uniform(0, 360), lscale, 0.8, 'light')
         s += 16.0
 
-    # team flags between the lights: a pole with a tinted cloth and a small coloured light (blue half = blue flags)
+    # team flags between the lights, also on both sides (blue half = blue flags)
     s = 38.0
     while s < arc[-1] - 30:
         i = int(np.searchsorted(arc, s))
-        for side in (-1, 1):
-            x, y = pts[i] + normal[i] * OFF * side
-            if free(x, y, 0.9):
-                yaw = float(np.degrees(np.arctan2(tang[i, 1], tang[i, 0])))
+        left = side_spot(i, -1, 0.9)
+        right = side_spot(i, 1, 0.9)
+        if left is not None and right is not None:
+            for x, y, j in (left, right):
+                yaw = float(np.degrees(np.arctan2(tang[j, 1], tang[j, 0])))
                 sub = 1010 if y < 127.5 else 1011
                 entries.append(('Fence01', x, y, yaw, 1.8, 'flag', 0, 0))
                 entries.append(('FlagCloth', x, y, yaw, 1.6, 'flag', 152, sub))

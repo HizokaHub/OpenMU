@@ -81,7 +81,7 @@ public class MobaFountainTests
     }
 
     /// <summary>
-    /// The fountains sit on the horizontal road, turned 180 degrees about the arena centre of each other, on open ground.
+    /// The fountains sit on the horizontal road, turned 180 degrees about the arena centre of each other; they are solid but can be reached.
     /// </summary>
     [Test]
     public void FountainsAreSymmetricAndOnOpenGround()
@@ -94,12 +94,12 @@ public class MobaFountainTests
         var terrain = new GameMapTerrain(new GameMapDefinition { Number = 200 });
         foreach (var (x, y) in MobaFountains.Positions)
         {
-            for (var dy = -3; dy <= 3; dy++)
+            Assert.That(terrain.WalkMap[x, y], Is.False, $"the fountain at ({x},{y}) is solid");
+
+            // ... but a champion can stand on every side of it, inside the capture radius.
+            foreach (var (dx, dy) in new[] { (4, 0), (-4, 0), (0, 4), (0, -4), (3, 3), (-3, -3) })
             {
-                for (var dx = -3; dx <= 3; dx++)
-                {
-                    Assert.That(terrain.WalkMap[x + dx, y + dy], Is.True, $"({x + dx},{y + dy}) next to the fountain at ({x},{y})");
-                }
+                Assert.That(terrain.WalkMap[x + dx, y + dy], Is.True, $"({x + dx},{y + dy}) next to the fountain at ({x},{y})");
             }
         }
     }
