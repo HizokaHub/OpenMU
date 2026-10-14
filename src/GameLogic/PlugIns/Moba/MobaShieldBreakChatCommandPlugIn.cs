@@ -6,18 +6,22 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
+using MUnique.OpenMU.GameLogic.Views.Character;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
 /// Dev command <c>/mobasd sound [animation]</c>: plays the shield-break (SD to zero) effect candidates on the caller's client.
+/// <c>/mobasd 0</c> really drops the caller's shield (SD) to 0: the observers see the crystal shatter (ShowEffect ShieldLost)
+/// and then the white sphere that stays until the SD recharges.
 /// It reuses the channel packet (<c>C1 D5 09</c>) with kind 4 and the duration field carrying <c>sound | animation &lt;&lt; 4</c>.
 /// </summary>
 [Guid("3D8F5B21-7C94-4E60-A1B2-9F0E6D4C8A53")]
 [PlugIn]
 [Display(Name = "MOBA: shield break effect test", Description = "Dev command '/mobasd sound [animation]' - plays the SD-break sphere with sound 1-8 and animation 1-5.")]
-[ChatCommandHelp(Command, "Plays the shield-break effect: /mobasd <sound 1-8> [animation 1-5]", null, CharacterStatus.GameMaster)]
+[ChatCommandHelp(Command, "Shield break: /mobasd 0 drops your SD to 0; /mobasd <sound 1-8> [animation 1-5] plays a test effect", null, CharacterStatus.GameMaster)]
 public class MobaShieldBreakChatCommandPlugIn : IChatCommandPlugIn
 {
     /// <summary>The channel kind that tells the client to play the SD-break effect.</summary>
@@ -35,11 +39,25 @@ public class MobaShieldBreakChatCommandPlugIn : IChatCommandPlugIn
     public async ValueTask HandleCommandAsync(Player player, string command)
     {
         var args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
+        if (args.Length == 1 && args[0] == "0")
+        {
+            if (player.Attributes is not { } attributes || attributes[Stats.MaximumShield] <= 0)
+            {
+                await player.ShowBlueMessageAsync("[mobasd] Este personaje no tiene SD.").ConfigureAwait(false);
+                return;
+            }
+
+            attributes[Stats.CurrentShield] = 0;
+            await player.ForEachWorldObserverAsync<IShowEffectPlugIn>(p => p.ShowEffectAsync(player, IShowEffectPlugIn.EffectType.ShieldLost), true).ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[mobasd] SD en 0: estallido y esfera blanca hasta que el SD se recargue.").ConfigureAwait(false);
+            return;
+        }
+
         if (args.Length is < 1 or > 2
             || !int.TryParse(args[0], out var sound) || sound is < 1 or > 8
             || (args.Length == 2 && (!int.TryParse(args[1], out var parsed) || parsed is < 1 or > 5)))
         {
-            await player.ShowBlueMessageAsync("[mobasd] Uso: /mobasd <sonido 1-8> [animación 1-5]").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[mobasd] Uso: /mobasd 0 (SD a 0) o /mobasd <sonido 1-8> [animación 1-5]").ConfigureAwait(false);
             return;
         }
 
