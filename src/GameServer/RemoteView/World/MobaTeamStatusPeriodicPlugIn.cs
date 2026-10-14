@@ -23,7 +23,9 @@ using MUnique.OpenMU.PlugIns;
 /// <code>
 /// C1 len D5 01 count  [ idHi idLo team hpPercent ] * count
 /// </code>
-/// team: 1 = blue, 2 = red. hpPercent: 0..100. The first entry whose id matches the
+/// team: 1 = blue, 2 = red, plus bit 7 (<see cref="ShieldBrokenFlag"/>) while a champion's shield (SD)
+/// is at 0 - the client keeps a white sphere around it until the shield recharges (the break itself is the
+/// ShowEffect ShieldLost sent by <c>Player.HitAsync</c>). hpPercent: 0..100. The first entry whose id matches the
 /// receiving hero tells the client its own team.
 /// </summary>
 [PlugIn]
@@ -33,6 +35,9 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
 {
     private const byte PacketCode = 0xD5;
     private const byte PacketSubCode = 0x01;
+
+    /// <summary>Bit of the team byte set while a champion's shield is broken (SD at 0).</summary>
+    public const byte ShieldBrokenFlag = 0x80;
 
     /// <summary>Tiles around the player whose MOBA participants are reported.</summary>
     private const int BroadcastRange = 30;
@@ -62,7 +67,7 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
             var entries = map.GetAttackablesInRange(player.Position, BroadcastRange)
                 .Where(a => a.IsAlive && MobaTeams.GetTeam(a) != MobaTeam.None)
                 .Take(MaxEntries)
-                .Select(a => ((ushort Id, byte Team, byte Hp))(a.GetId(player), (byte)MobaTeams.GetTeam(a), HealthPercent(a)))
+                .Select(a => ((ushort Id, byte Team, byte Hp))(a.GetId(player), TeamByte(a), HealthPercent(a)))
                 .ToList();
 
             if (entries.Count == 0)
@@ -95,6 +100,23 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
 
             await connection.SendAsync(Write).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The team, with <see cref="ShieldBrokenFlag"/> while a champion has a shield whose SD is at 0.</summary>
+    /// <param name="attackable">The participant.</param>
+    /// <returns>The team byte.</returns>
+    internal static byte TeamByte(IAttackable attackable)
+    {
+        var team = (byte)MobaTeams.GetTeam(attackable);
+        if (attackable is Player { IsMobaClone: true } champion
+            && champion.Attributes is { } attributes
+            && attributes[Stats.MaximumShield] > 0
+            && attributes[Stats.CurrentShield] <= 0)
+        {
+            team |= ShieldBrokenFlag;
+        }
+
+        return team;
     }
 
     private static byte HealthPercent(IAttackable attackable)
