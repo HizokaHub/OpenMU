@@ -1515,7 +1515,8 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     {
         this._summon.RegisterHit(attacker);
         var healthDamage = hitInfo.HealthDamage;
-        int oversd = (int)(this.Attributes![Stats.CurrentShield] - hitInfo.ShieldDamage);
+        var shieldBefore = this.Attributes![Stats.CurrentShield];
+        int oversd = (int)(shieldBefore - hitInfo.ShieldDamage);
         if (oversd < 0)
         {
             this.Attributes[Stats.CurrentShield] = 0;
@@ -1524,6 +1525,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         else
         {
             this.Attributes[Stats.CurrentShield] = oversd;
+        }
+
+        if (shieldBefore > 0 && this.Attributes[Stats.CurrentShield] <= 0)
+        {
+            // The shield (SD) just broke: the client plays the crystal-sphere shatter (atshild) and its sound.
+            await this.ForEachWorldObserverAsync<IShowEffectPlugIn>(p => p.ShowEffectAsync(this, IShowEffectPlugIn.EffectType.ShieldLost), true).ConfigureAwait(false);
         }
 
         this.Attributes[Stats.CurrentHealth] -= healthDamage;

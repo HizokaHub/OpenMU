@@ -20,9 +20,14 @@ using MUnique.OpenMU.PlugIns;
 /// <code>
 /// C1 len D5 10 count  [ kind team x y hp% ] * count
 /// </code>
-/// kind: 1 champion, 2 turret, 3 nexus, 4 ward. team: 1 blue, 2 red. Allied champions, structures
-/// of both teams (static knowledge) and allied wards are always sent; enemy champions only while the
-/// player's team sees them (<see cref="MobaVision.IsVisibleTo"/>). The receiving player is left out.
+/// kind is packed (<see cref="MobaMinimapKind"/>): bits 0-3 = 1 champion, 2 turret, 3 nexus, 4 ward;
+/// bits 4-6 = base class index 0..6 (champions only: DW, DK, Elf, MG, DL, Summoner, RF);
+/// bit 7 = the champion is channelling the recall. Turret/nexus/ward entries keep bits 4-7 at 0.
+/// team: 1 blue, 2 red. Allied champions (dead ones too, with hp 0 at the spot where they died),
+/// structures of both teams (static knowledge) and allied wards are always sent; enemy champions only
+/// while alive and seen by the player's team (<see cref="MobaVision.IsVisibleTo"/>). The receiving
+/// player is left out. At most <see cref="MaxEntries"/> entries; champions come first so a trim only
+/// ever drops wards and structures.
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: minimap broadcast", Description = "Pushes allied champions, structures, wards and the enemies the team sees to the MOBA minimap.")]
@@ -56,18 +61,21 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
                 continue;
             }
 
+            // Champions first: the trim below cuts from the end, so they are never dropped in favour of wards.
             var entries = new List<(byte Kind, byte Team, byte X, byte Y, byte Hp)>();
             foreach (var champion in players)
             {
                 var championTeam = MobaTeams.GetTeam(champion);
-                if (champion == player || !champion.IsMobaClone || !champion.IsAlive || championTeam == MobaTeam.None
+                if (champion == player || !champion.IsMobaClone || championTeam == MobaTeam.None
                     || !ReferenceEquals(champion.CurrentMap, map)
-                    || (championTeam != team && !MobaVision.IsVisibleTo(team, champion)))
+                    || (championTeam != team && (!champion.IsAlive || !MobaVision.IsVisibleTo(team, champion))))
                 {
                     continue;
                 }
 
-                entries.Add((1, (byte)championTeam, (byte)champion.Position.X, (byte)champion.Position.Y, HealthPercent(champion)));
+                // A dead ally stays where it died (until it respawns) with 0 hp, so the client can mark it.
+                var hp = champion.IsAlive ? HealthPercent(champion) : (byte)0;
+                entries.Add((MobaMinimapKind.PackChampion(champion), (byte)championTeam, (byte)champion.Position.X, (byte)champion.Position.Y, hp));
             }
 
             foreach (var attackable in map.GetAttackablesInRange(player.Position, 255))
@@ -79,8 +87,8 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
 
                 var kind = MobaStructures.GetStructureType(attackable) switch
                 {
-                    MobaStructureType.Turret => (byte)2,
-                    MobaStructureType.Nexus => (byte)3,
+                    MobaStructureType.Turret => MobaMinimapKind.Turret,
+                    MobaStructureType.Nexus => MobaMinimapKind.Nexus,
                     _ => (byte)0,
                 };
 
@@ -92,7 +100,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
 
             foreach (var ward in MobaVision.WardsOf(team, map))
             {
-                entries.Add((4, (byte)team, (byte)ward.X, (byte)ward.Y, 100));
+                entries.Add((MobaMinimapKind.Ward, (byte)team, (byte)ward.X, (byte)ward.Y, 100));
             }
 
             if (entries.Count > MaxEntries)
