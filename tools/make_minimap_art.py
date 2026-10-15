@@ -72,20 +72,99 @@ def tracks_from_axis():
     dist = ndi.distance_transform_edt(walk)
     sk = skeletonize(walk)
     sk &= dist > 2.5
-    im = ndi.binary_dilation(up(sk), iterations=int(2.2 * S))
-    return im
+    return ndi.binary_dilation(up(sk), iterations=int(2.2 * S))
+
+# ---- C family: roads only, never into a jungle camp nor through its entrances -------------------------------
+from skimage.graph import route_through_array
+doors = []
+dp = os.path.join(data_dir, 'World200', 'MobaJungleDoors.txt')
+if os.path.exists(dp):
+    for line in open(dp):
+        if line.strip() and not line.startswith('#'):
+            a = line.split()
+            doors.append((int(a[0]), int(a[1])))
+yy, xx = np.mgrid[0:N, 0:N]
+door_zone = np.zeros((N, N), bool)
+for dx_, dy_ in doors:
+    door_zone |= (xx - dx_) ** 2 + (yy - dy_) ** 2 <= 4.5 ** 2
+cand = ~blocked & ~door_zone
+cl, cn = ndi.label(cand)
+csz = ndi.sum(cand, cl, range(1, cn + 1))
+field = cl == (1 + int(np.argmax(csz)))            # the open field: no camp interiors, no entrances
+wall_dist = ndi.distance_transform_edt(~blocked)
+COST = np.where(field, 1.0 + 9.0 / (1.0 + wall_dist) ** 1.5, 1e6)
+
+def snap(pt):
+    x, y = pt
+    if field[y, x]:
+        return (y, x)
+    ys, xs = np.nonzero(field)
+    i = np.argmin((xs - x) ** 2 + (ys - y) ** 2)
+    return (int(ys[i]), int(xs[i]))
+
+def route(points):
+    out = []
+    for a, b in zip(points, points[1:]):
+        path, _ = route_through_array(COST, snap(a), snap(b), fully_connected=True, geometric=True)
+        out.extend(path)
+    return out
+
+def smooth(path, sigma=2.0):
+    a = np.array(path, np.float32)
+    a[:, 0] = ndi.gaussian_filter1d(a[:, 0], sigma, mode='nearest')
+    a[:, 1] = ndi.gaussian_filter1d(a[:, 1], sigma, mode='nearest')
+    return a
+
+def draw_paths(paths, width_tiles, extra=None):
+    im = Image.new('L', (N * S, N * S), 0)
+    dr = ImageDraw.Draw(im)
+    for path in paths:
+        pts = [(float(x) * S + S / 2, float(y) * S + S / 2) for y, x in path]
+        dr.line(pts, fill=255, width=max(1, int(width_tiles * S)), joint='curve')
+    return np.asarray(im) > 0
+
+def lane_routes():
+    return [smooth(route([tuple(p) for p in layout['lanes'][n]])) for n in ('top', 'mid', 'bot')]
+
+def river_route():
+    mid = N // 2
+    xs = np.nonzero(field[mid])[0]
+    return smooth(route([(int(xs.min()), mid), (52, 128), (116, mid), (184, 127), (int(xs.max()), mid)]))
+
+def base_routes():
+    objs = layout['objects']
+    out = []
+    for team in ('blue', 'red'):
+        nexus = next(o for o in objs if o['type'] == 'nexus' and o['team'] == team)
+        for t in [o for o in objs if o['type'] == 'tower' and o['team'] == team]:
+            out.append(smooth(route([(nexus['x'], nexus['y']), (t['x'], t['y'])])))
+    return out
+
+def mid_links():
+    # fountains <-> the lanes next to them
+    return [smooth(route([(25, 128), (52, 128)])), smooth(route([(184, 127), (218, 128)]))]
+
+def paint(img, mask, color, strength, sigma=1.6):
+    a = soften(mask & up(~blocked), sigma)[..., None] * strength
+    return img * (1 - a) + np.array(color, np.float32) * a
 
 for v in variants:
     img = base_image()
-    walk_px = up(~blocked)
     if v == 'A':
-        t = tracks_from_lanes()
-    else:
-        t = tracks_from_axis()
-    t &= walk_px
-    a = soften(t, 2.2)[..., None]
-    track_col = np.array((158, 140, 108), np.float32)
-    img = img * (1 - a * 0.85) + track_col * a * 0.85
+        img = paint(img, tracks_from_lanes(), (158, 140, 108), 0.85, 2.2)
+    elif v == 'B':
+        img = paint(img, tracks_from_axis(), (158, 140, 108), 0.85, 2.2)
+    elif v == 'C1':     # thin: lanes + river, nothing else
+        img = paint(img, draw_paths(lane_routes() + [river_route()], 2.2), (170, 150, 112), 0.9, 1.4)
+    elif v == 'C2':     # medium: lanes + river + base spurs + fountain links, with a dark edge
+        paths = lane_routes() + [river_route()] + base_routes() + mid_links()
+        edge = draw_paths(paths, 4.6)
+        img = paint(img, edge, (84, 70, 50), 0.8, 1.2)
+        img = paint(img, draw_paths(paths, 3.0), (172, 152, 114), 0.95, 1.2)
+    elif v == 'C3':     # wide worn roads: the whole corridor around the route, soft edge, grain
+        paths = lane_routes() + [river_route()] + base_routes() + mid_links()
+        img = paint(img, draw_paths(paths, 8.0), (128, 110, 82), 0.75, 3.0)
+        img = paint(img, draw_paths(paths, 4.0), (176, 156, 118), 0.9, 2.0)
     out = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f'minimap_art_{v}.png')
