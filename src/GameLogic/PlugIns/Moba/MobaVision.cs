@@ -35,6 +35,9 @@ public static class MobaVision
     /// <summary>Vision radius of a ward, in tiles.</summary>
     public const int WardRadius = 8;
 
+    /// <summary>Sight radius, in tiles, of a fountain around it while a team owns it (same as the healing radius).</summary>
+    public const int FountainRadius = 12;
+
     /// <summary>Radius in which the sweeper destroys enemy wards, in tiles.</summary>
     public const int SweepRadius = 6;
 
@@ -89,7 +92,25 @@ public static class MobaVision
             return true;
         }
 
-        return IsWardedBy(team, map, position);
+        return IsWardedBy(team, map, position) || IsInFountainSight(team, position);
+    }
+
+    /// <summary>Whether a fountain the team owns (see <see cref="MobaFountains"/>) sees the position: an owned fountain gives its team vision around it.</summary>
+    /// <param name="team">The watching team.</param>
+    /// <param name="position">The position.</param>
+    /// <returns><c>true</c> if the position is within <see cref="FountainRadius"/> tiles of a fountain the team owns.</returns>
+    public static bool IsInFountainSight(MobaTeam team, Point position)
+    {
+        for (var i = 0; i < MobaFountains.Count; i++)
+        {
+            if (MobaFountains.StateOf(i).Owner == team
+                && position.EuclideanDistanceTo(new Point(MobaFountains.Positions[i].X, MobaFountains.Positions[i].Y)) <= FountainRadius)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Gets the positions of the standing wards of a team on a map (for the minimap).</summary>

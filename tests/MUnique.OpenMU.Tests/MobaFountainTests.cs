@@ -103,4 +103,30 @@ public class MobaFountainTests
             }
         }
     }
+
+    /// <summary>
+    /// An owned fountain gives its team vision around it; a neutral one gives nobody vision.
+    /// </summary>
+    [Test]
+    public void OwnedFountainGivesVisionToItsTeam()
+    {
+        MobaFountains.Reset();
+        var centre = new MUnique.OpenMU.Pathfinding.Point(MobaFountains.Positions[0].X, MobaFountains.Positions[0].Y);
+        var nearby = new MUnique.OpenMU.Pathfinding.Point((byte)(centre.X + 8), centre.Y);
+        var far = new MUnique.OpenMU.Pathfinding.Point((byte)(centre.X + 20), centre.Y);
+        Assert.That(MobaVision.IsInFountainSight(MobaTeam.Blue, nearby), Is.False, "neutral fountain");
+
+        var state = MobaFountains.StateOf(0);
+        state.Advance(MobaFountainState.CaptureSeconds, true, false);
+        try
+        {
+            Assert.That(MobaVision.IsInFountainSight(MobaTeam.Blue, nearby), Is.True);
+            Assert.That(MobaVision.IsInFountainSight(MobaTeam.Blue, far), Is.False, "outside the radius");
+            Assert.That(MobaVision.IsInFountainSight(MobaTeam.Red, nearby), Is.False, "the other team does not see");
+        }
+        finally
+        {
+            MobaFountains.Reset();
+        }
+    }
 }
