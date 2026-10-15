@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
@@ -86,6 +87,17 @@ public static class MobaCastEffects
     {
         var number = (short)skill.Number;
 
+        if (champion is not MobaBotPlayer)
+        {
+            champion.Logger.LogInformation(
+                "[MOBA-CAST] {Name} cast skill {Number} ({Skill}); shield skill: {IsShield}, equipped off-hand skill: {IsOffhand}.",
+                champion.SelectedCharacter?.Name,
+                number,
+                skill.Name,
+                MobaShieldSkills.IsShieldSkill(number),
+                MobaShieldSkills.IsEquippedOffhandSkill(champion, skill));
+        }
+
         if (RecoveryLockMs.TryGetValue(number, out var lockMs))
         {
             // A short self-stun AFTER the cast reads as wind-up / recovery frames.
@@ -145,6 +157,7 @@ public static class MobaCastEffects
         AegisAmounts.GetOrCreateValue(champion).Value = amount;
         var effect = new MagicEffect(AegisDuration, AegisDefinition, new MagicEffect.ElementWithTarget(new SimpleElement(amount, AggregateType.AddRaw), Stats.MaximumShield));
         await champion.MagicEffectList.AddEffectAsync(effect).ConfigureAwait(false);
+        champion.Logger.LogInformation("[MOBA-AEGIS] {Name} raised the Aegis barrier: {Amount} SD, effect number {Number}.", champion.SelectedCharacter?.Name, amount, AegisDefinition.Number);
         a[Stats.CurrentShield] = Math.Min(a[Stats.MaximumShield], a[Stats.CurrentShield] + amount);
 
         // Registered after the list's own handler, so the barrier is already gone from MaximumShield here.
