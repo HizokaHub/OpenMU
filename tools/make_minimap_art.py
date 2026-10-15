@@ -144,6 +144,24 @@ def mid_links():
     # fountains <-> the lanes next to them
     return [smooth(route([(25, 128), (52, 128)])), smooth(route([(184, 127), (218, 128)]))]
 
+def field_roads(min_wall, prune, min_len=40):
+    """Roads in the gaps between the jungle camps: the skeleton of the open field away from walls, spurs pruned."""
+    from skimage.morphology import skeletonize
+    sk = skeletonize(field & (wall_dist >= min_wall))
+    k = np.ones((3, 3), int)
+    for _ in range(prune):
+        nb = ndi.convolve(sk.astype(int), k, mode='constant') - sk
+        sk = sk & ~(sk & (nb <= 1))
+    lab, n = ndi.label(sk, structure=np.ones((3, 3)))
+    if n:
+        sizes = ndi.sum(sk, lab, range(1, n + 1))
+        keep = np.isin(lab, [i + 1 for i, v in enumerate(sizes) if v >= min_len])
+        sk = sk & keep
+    return sk
+
+def draw_mask(mask, width_tiles):
+    return ndi.binary_dilation(up(mask), iterations=max(1, int(width_tiles * S / 2)))
+
 def paint(img, mask, color, strength, sigma=1.6):
     a = soften(mask & up(~blocked), sigma)[..., None] * strength
     return img * (1 - a) + np.array(color, np.float32) * a
@@ -165,6 +183,15 @@ for v in variants:
         paths = lane_routes() + [river_route()] + base_routes() + mid_links()
         img = paint(img, draw_paths(paths, 8.0), (128, 110, 82), 0.75, 3.0)
         img = paint(img, draw_paths(paths, 4.0), (176, 156, 118), 0.9, 2.0)
+    elif v in ('D1', 'D2', 'D3'):   # C2 + roads between the jungle camps
+        cfg = {'D1': (3.0, 20), 'D2': (2.5, 10), 'D3': (3.5, 6)}[v]
+        paths = lane_routes() + [river_route()] + base_routes() + mid_links()
+        gap = draw_mask(field_roads(*cfg), 2.6)
+        img = paint(img, gap, (84, 70, 50), 0.7, 1.2)
+        img = paint(img, draw_mask(field_roads(*cfg), 1.6), (150, 132, 98), 0.9, 1.0)
+        edge = draw_paths(paths, 4.6)
+        img = paint(img, edge, (84, 70, 50), 0.8, 1.2)
+        img = paint(img, draw_paths(paths, 3.0), (172, 152, 114), 0.95, 1.2)
     out = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f'minimap_art_{v}.png')
