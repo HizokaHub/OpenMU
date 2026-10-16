@@ -16,8 +16,18 @@ using MUnique.OpenMU.GameLogic.Views.Moba;
 /// </summary>
 public sealed class MobaFountainState
 {
-    /// <summary>Seconds of channelling a team needs to take the fountain.</summary>
+    /// <summary>Seconds of channelling a team needs to take a fountain (a totem takes <see cref="MobaFountains.TotemCaptureSeconds"/>).</summary>
     public const double CaptureSeconds = 15;
+
+    /// <summary>Initializes a new instance of the <see cref="MobaFountainState"/> class.</summary>
+    /// <param name="required">The seconds of channelling a team needs to take this point.</param>
+    public MobaFountainState(double required = CaptureSeconds)
+    {
+        this.Required = required;
+    }
+
+    /// <summary>Gets the seconds of channelling a team needs to take this point.</summary>
+    public double Required { get; }
 
     /// <summary>Gets the team that owns the fountain (<see cref="MobaTeam.None"/> = neutral).</summary>
     public MobaTeam Owner { get; private set; }
@@ -56,7 +66,7 @@ public sealed class MobaFountainState
         }
 
         var progress = this.ProgressOf(team) + seconds;
-        if (progress >= CaptureSeconds)
+        if (progress >= this.Required)
         {
             this.Owner = team;
             this.BlueProgress = 0;
@@ -104,6 +114,12 @@ public static class MobaFountains
     /// <summary>Tiles around an owned fountain in which allies are healed (and the light reaches).</summary>
     public const double HealRadius = 12;
 
+    /// <summary>Seconds of channelling a team needs to take a jungle totem (it gives vision only, no healing).</summary>
+    public const double TotemCaptureSeconds = 5;
+
+    /// <summary>Tiles around an owned totem that its team sees.</summary>
+    public const int TotemRadius = 14;
+
     /// <summary>The fraction of the maximum health healed per second.</summary>
     public const double HealFraction = 0.10;
 
@@ -113,13 +129,17 @@ public static class MobaFountains
     /// <summary>The fountain centres (tile x, tile y): 20 % and 80 % of the horizontal road, a 180 degree turn of each other.</summary>
     public static readonly (byte X, byte Y)[] Positions = { (52, 128), (184, 127) };
 
-    private static readonly string[] Names = { "oeste", "este" };
+    /// <summary>The jungle totem centres (tile x, tile y): blue, green, red, yellow. The client mirrors them (<c>g_MobaTotems</c> in <c>MapManager.cpp</c>).</summary>
+    public static readonly (byte X, byte Y)[] TotemPositions = { (86, 93), (158, 105), (150, 162), (78, 150) };
+
+    private static readonly string[] Names = { "la fuente oeste", "la fuente este", "el tótem azul", "el tótem verde", "el tótem rojo", "el tótem amarillo" };
 
     private static readonly ConditionalWeakTable<Player, Signal> Signals = new();
 
-    private static MobaFountainState[] _states = Enumerable.Range(0, Positions.Length).Select(_ => new MobaFountainState()).ToArray();
+    private static MobaFountainState[] _states = Enumerable.Range(0, Positions.Length + TotemPositions.Length)
+        .Select(i => new MobaFountainState(i < Positions.Length ? MobaFountainState.CaptureSeconds : TotemCaptureSeconds)).ToArray();
 
-    private static double[] _healClock = new double[Positions.Length];
+    private static double[] _healClock = new double[Positions.Length + TotemPositions.Length];
 
     private static DateTime _lastTickUtc = DateTime.MinValue;
 
@@ -129,6 +149,19 @@ public static class MobaFountains
 
     /// <summary>Gets the number of fountains.</summary>
     public static int Count => Positions.Length;
+
+    /// <summary>Gets the number of capture points: the fountains first, then the jungle totems.</summary>
+    public static int PointCount => Positions.Length + TotemPositions.Length;
+
+    /// <summary>Gets the centre of a capture point (fountains first, then totems).</summary>
+    /// <param name="index">The point index.</param>
+    /// <returns>The tile.</returns>
+    public static (byte X, byte Y) PositionOf(int index) => index < Positions.Length ? Positions[index] : TotemPositions[index - Positions.Length];
+
+    /// <summary>Gets the sight radius an owned capture point gives its team.</summary>
+    /// <param name="index">The point index.</param>
+    /// <returns>The radius in tiles.</returns>
+    public static int SightRadiusOf(int index) => index < Positions.Length ? MobaVision.FountainRadius : TotemRadius;
 
     /// <summary>Gets the state of a fountain.</summary>
     /// <param name="index">The fountain index.</param>
@@ -152,9 +185,9 @@ public static class MobaFountains
     /// <returns>The fountain index or -1.</returns>
     public static int FountainInReach(Player player)
     {
-        for (var i = 0; i < Positions.Length; i++)
+        for (var i = 0; i < PointCount; i++)
         {
-            if (Distance(player.Position.X, player.Position.Y, Positions[i]) <= CaptureRadius)
+            if (Distance(player.Position.X, player.Position.Y, PositionOf(i)) <= CaptureRadius)
             {
                 return i;
             }
@@ -229,7 +262,7 @@ public static class MobaFountains
         var seconds = _lastTickUtc == DateTime.MinValue ? 1.0 : Math.Clamp((now - _lastTickUtc).TotalSeconds, 0.05, 2.5);
         _lastTickUtc = now;
 
-        for (var i = 0; i < Positions.Length; i++)
+        for (var i = 0; i < PointCount; i++)
         {
             var channelers = new List<Player>();
             foreach (var champion in champions)
@@ -259,7 +292,7 @@ public static class MobaFountains
                 var team = MobaTeams.GetTeam(channeler);
                 var remaining = state.Contested || team == state.Owner
                     ? 0
-                    : (int)Math.Round((MobaFountainState.CaptureSeconds - state.ProgressOf(team)) * 1000);
+                    : (int)Math.Round((state.Required - state.ProgressOf(team)) * 1000);
                 if (captured != MobaTeam.None)
                 {
                     remaining = 0;
@@ -283,14 +316,14 @@ public static class MobaFountains
 
             if (captured != MobaTeam.None)
             {
-                var message = $"[MOBA] ¡El equipo {(captured == MobaTeam.Blue ? "azul" : "rojo")} capturó la fuente {Names[i]}!";
+                var message = $"[MOBA] ¡El equipo {(captured == MobaTeam.Blue ? "azul" : "rojo")} capturó {Names[i]}!";
                 foreach (var champion in champions)
                 {
                     await champion.ShowBlueMessageAsync(message).ConfigureAwait(false);
                 }
             }
 
-            if (state.Owner != MobaTeam.None)
+            if (state.Owner != MobaTeam.None && i < Positions.Length)
             {
                 _healClock[i] += seconds;
                 while (_healClock[i] >= 1.0)
@@ -313,7 +346,7 @@ public static class MobaFountains
             if (MobaTeams.GetTeam(champion) != owner
                 || !champion.IsAlive
                 || champion.Attributes is not { } attributes
-                || Distance(champion.Position.X, champion.Position.Y, Positions[index]) > HealRadius)
+                || Distance(champion.Position.X, champion.Position.Y, PositionOf(index)) > HealRadius)
             {
                 continue;
             }

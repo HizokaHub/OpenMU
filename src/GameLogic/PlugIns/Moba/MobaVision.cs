@@ -32,6 +32,9 @@ public static class MobaVision
     /// <summary>Vision radius of turrets and the nexus, in tiles.</summary>
     public const int StructureRadius = 17;
 
+    /// <summary>Vision radius of the nexus, in tiles: 200 % more than a turret (so everything inside the arc of the base turrets is seen).</summary>
+    public const int NexusRadius = StructureRadius * 3;
+
     /// <summary>Vision radius of a ward, in tiles.</summary>
     public const int WardRadius = 12;
 
@@ -85,9 +88,9 @@ public static class MobaVision
         }
 
         var position = target.Position;
-        if (map.GetAttackablesInRange(position, StructureRadius).Any(a => a.IsActive()
+        if (map.GetAttackablesInRange(position, NexusRadius).Any(a => a.IsActive()
             && MobaTeams.GetTeam(a) == team
-            && a.GetDistanceTo(position) <= (MobaStructures.IsStructure(a) ? StructureRadius : UnitRadius)))
+            && a.GetDistanceTo(position) <= SightRadiusOf(a)))
         {
             return true;
         }
@@ -95,16 +98,23 @@ public static class MobaVision
         return IsWardedBy(team, map, position) || IsInFountainSight(team, position);
     }
 
+    private static int SightRadiusOf(IAttackable a) => MobaStructures.GetStructureType(a) switch
+    {
+        MobaStructureType.Nexus => NexusRadius,
+        MobaStructureType.None => UnitRadius,
+        _ => StructureRadius,
+    };
+
     /// <summary>Whether a fountain the team owns (see <see cref="MobaFountains"/>) sees the position: an owned fountain gives its team vision around it.</summary>
     /// <param name="team">The watching team.</param>
     /// <param name="position">The position.</param>
     /// <returns><c>true</c> if the position is within <see cref="FountainRadius"/> tiles of a fountain the team owns.</returns>
     public static bool IsInFountainSight(MobaTeam team, Point position)
     {
-        for (var i = 0; i < MobaFountains.Count; i++)
+        for (var i = 0; i < MobaFountains.PointCount; i++)
         {
             if (MobaFountains.StateOf(i).Owner == team
-                && position.EuclideanDistanceTo(new Point(MobaFountains.Positions[i].X, MobaFountains.Positions[i].Y)) <= FountainRadius)
+                && position.EuclideanDistanceTo(new Point(MobaFountains.PositionOf(i).X, MobaFountains.PositionOf(i).Y)) <= MobaFountains.SightRadiusOf(i))
             {
                 return true;
             }

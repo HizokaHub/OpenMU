@@ -18,7 +18,7 @@ using MUnique.OpenMU.PlugIns;
 /// C1 len D5 11 count  [ owner blue% red% flags ] * count
 /// </code>
 /// owner: 0 neutral, 1 blue, 2 red. blue% / red%: capture progress 0-100. flags: bit 0 = contested.
-/// The fountain positions are fixed and known by the client.
+/// The positions are fixed and known by the client: the two fountains first, then the four jungle totems.
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: fountain state broadcast", Description = "Pushes the owner and capture progress of the two MOBA fountains to every player in the match.")]
@@ -39,7 +39,7 @@ public class MobaFountainPeriodicPlugIn : IPeriodicTaskPlugIn
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-        var count = MobaFountains.Count;
+        var count = MobaFountains.PointCount;
         var length = 5 + (count * EntrySize);
 
         foreach (var player in players)
@@ -62,8 +62,8 @@ public class MobaFountainPeriodicPlugIn : IPeriodicTaskPlugIn
                     var state = MobaFountains.StateOf(i);
                     var offset = 5 + (i * EntrySize);
                     span[offset] = (byte)state.Owner;
-                    span[offset + 1] = Percent(state.BlueProgress);
-                    span[offset + 2] = Percent(state.RedProgress);
+                    span[offset + 1] = Percent(state.BlueProgress, state.Required);
+                    span[offset + 2] = Percent(state.RedProgress, state.Required);
                     span[offset + 3] = (byte)(state.Contested ? 1 : 0);
                 }
 
@@ -74,6 +74,6 @@ public class MobaFountainPeriodicPlugIn : IPeriodicTaskPlugIn
         }
     }
 
-    private static byte Percent(double seconds)
-        => (byte)Math.Clamp((int)Math.Round(seconds / MobaFountainState.CaptureSeconds * 100), 0, 100);
+    private static byte Percent(double seconds, double required)
+        => (byte)Math.Clamp((int)Math.Round(seconds / required * 100), 0, 100);
 }

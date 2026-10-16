@@ -255,56 +255,62 @@ public static class MobaLayout
             lanes.Add(new MobaLane(LaneNames[i], Densify(terrain, wallDistance, points)));
         }
 
-        // Three turrets per lane and team: the base turret is the one drawn in the editor (the tower object of that team nearest
-        // to the lane); the middle and outer ones are placed at 35 and 75 on the scale from the base turret (1) to the lane middle (100).
-        var drawnTowers = new List<(string Team, Point Position)>();
-        foreach (var element in root.GetProperty("objects").EnumerateArray())
+        // Three turrets per lane and team at fixed spots chosen by the user (2026-10-17). Tier 0 = outer (first met from the
+        // river), 1 = middle, 2 = base. Blue positions are given; the red ones are the same spots turned 180 degrees about the
+        // arena centre (x -> 236 - x, y -> 255 - y), which puts them on the other end of the lane they belong to, and each
+        // turret takes the lane whose road is nearest to it. The outer turret of the side lanes sits on the road itself, at
+        // the same distance from the river road (y = 127.5) as the outer mid turret (10.5 tiles): blue at y 117, red at y 138.
+        const int OuterBlueY = 117;
+        const int OuterRedY = 138;
+        var spots = new List<(MobaTeam Team, int Tier, Point Position)>();
+        var midOuter = new Point(117, OuterBlueY);
+        var midMiddle = new Point(117, 86);
+        var midBase = new Point(118, 47);
+        var topOuter = LaneCentreAtY(lanes[0].Waypoints, OuterBlueY);
+        var topMiddle = new Point(48, 55);
+        var topBase = new Point(77, 38);   // the mirror image of the bottom lane's base turret across the middle
+        var botOuter = LaneCentreAtY(lanes[2].Waypoints, OuterBlueY);
+        var botMiddle = new Point(182, 55);
+        var botBase = new Point(159, 38);
+        foreach (var (tier, point) in new[] { (0, midOuter), (1, midMiddle), (2, midBase), (0, topOuter), (1, topMiddle), (2, topBase), (0, botOuter), (1, botMiddle), (2, botBase) })
         {
-            if (element.GetProperty("type").GetString() == "tower")
-            {
-                drawnTowers.Add((element.GetProperty("team").GetString() ?? string.Empty, new Point(element.GetProperty("x").GetByte(), element.GetProperty("y").GetByte())));
-            }
+            spots.Add((MobaTeam.Blue, tier, point));
         }
 
-        var towers = new List<MobaTowerSpec>();
-        for (var lane = 0; lane < LaneCount; lane++)
+        // Red: the turned copy of every blue spot, except the outer side-lane ones, which are centred on the road at y 138.
+        foreach (var (tier, point) in new[] { (0, midOuter), (1, midMiddle), (2, midBase), (1, topMiddle), (2, topBase), (1, botMiddle), (2, botBase) })
         {
-            var waypoints = lanes[lane].Waypoints;
-            var length = LengthOf(waypoints);
-            foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
-            {
-                var teamName = team == MobaTeam.Blue ? "blue" : "red";
-                var ownNexus = team == MobaTeam.Blue ? blueNexus : redNexus;
-                var candidates = drawnTowers.Where(t => t.Team == teamName)
-                    .Where(t => lanes.Select((l, i) => (l, i)).OrderBy(x => DistanceToPolyline(x.l.Waypoints, t.Position.X, t.Position.Y)).First().i == lane)
-                    .ToList();
-                Point baseTower;
-                if (candidates.Count > 0)
-                {
-                    baseTower = candidates.OrderBy(t => Math.Pow(t.Position.X - ownNexus.X, 2) + Math.Pow(t.Position.Y - ownNexus.Y, 2)).First().Position;
-                }
-                else
-                {
-                    var (bx, by, _, _) = PointAt(waypoints, (team == MobaTeam.Blue ? 0.15 : 0.85) * length);
-                    baseTower = new Point((byte)bx, (byte)by);
-                }
+            spots.Add((MobaTeam.Red, tier, new Point((byte)(236 - point.X), (byte)(255 - point.Y))));
+        }
 
-                // Distance walked from the own base, in the team's marching direction.
-                var baseArc = ArcOf(waypoints, baseTower.X, baseTower.Y);
-                var fromOwnBase = team == MobaTeam.Blue ? baseArc : length - baseArc;
-                var toMiddle = (length / 2) - fromOwnBase;
-                towers.Add(new MobaTowerSpec(team, lane, 2, FindClear(terrain, baseTower.X, baseTower.Y, new HashSet<(int, int)>())));
-                foreach (var (tier, scale) in new[] { (1, MiddleTowerScale), (0, OuterTowerScale) })
-                {
-                    var walked = fromOwnBase + (((scale - 1) / 99.0) * toMiddle);
-                    var arc = team == MobaTeam.Blue ? walked : length - walked;
-                    var (cx, cy, _, _) = PointAt(waypoints, arc);
-                    towers.Add(new MobaTowerSpec(team, lane, tier, FindClear(terrain, cx, cy, new HashSet<(int, int)>())));
-                }
-            }
+        spots.Add((MobaTeam.Red, 0, LaneCentreAtY(lanes[0].Waypoints, OuterRedY)));
+        spots.Add((MobaTeam.Red, 0, LaneCentreAtY(lanes[2].Waypoints, OuterRedY)));
+
+        var towers = new List<MobaTowerSpec>();
+        foreach (var (team, tier, point) in spots)
+        {
+            var lane = lanes.Select((l, i) => (l, i)).OrderBy(x => DistanceToPolyline(x.l.Waypoints, point.X, point.Y)).First().i;
+            towers.Add(new MobaTowerSpec(team, lane, tier, FindClear(terrain, point.X, point.Y, new HashSet<(int, int)>())));
         }
 
         return new Data(lanes, towers, blueNexus, redNexus, blueShop, redShop, terrain);
+    }
+
+    /// <summary>The point of a lane's road at a given row: the road is crossed at that y (first crossing).</summary>
+    private static Point LaneCentreAtY(IReadOnlyList<Point> waypoints, int y)
+    {
+        for (var i = 1; i < waypoints.Count; i++)
+        {
+            var a = waypoints[i - 1];
+            var b = waypoints[i];
+            if ((a.Y <= y && b.Y >= y) || (a.Y >= y && b.Y <= y))
+            {
+                var t = a.Y == b.Y ? 0.0 : (y - a.Y) / (double)(b.Y - a.Y);
+                return new Point((byte)Math.Round(a.X + (t * (b.X - a.X))), (byte)y);
+            }
+        }
+
+        return waypoints[waypoints.Count / 2];
     }
 
     /// <summary>Distance in cells from every cell to the nearest wall (capped at 8), by multi-source BFS.</summary>
