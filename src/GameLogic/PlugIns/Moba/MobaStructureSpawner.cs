@@ -128,6 +128,44 @@ public static class MobaStructureSpawner
     /// <returns><see langword="true"/> if nexuses exist.</returns>
     public static bool HasNexuses(ushort mapId) => NexusesByMap.TryGetValue(mapId, out var list) && list.Count > 0;
 
+    private static readonly System.Threading.SemaphoreSlim EnsureLock = new(1, 1);
+
+    /// <summary>
+    /// Spawns the turrets and the nexuses of the arena when they are not there yet, so a match needs no test command:
+    /// called when a champion enters the arena.
+    /// </summary>
+    /// <param name="gameContext">The game context.</param>
+    /// <returns>The number of structures spawned.</returns>
+    public static async ValueTask<int> EnsureStructuresAsync(IGameContext gameContext)
+    {
+        var map = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
+        if (map is null)
+        {
+            return 0;
+        }
+
+        await EnsureLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var spawned = 0;
+            if (!HasTurrets(map.MapId))
+            {
+                spawned += await SpawnTurretsAsync(map, gameContext).ConfigureAwait(false);
+            }
+
+            if (!HasNexuses(map.MapId))
+            {
+                spawned += await SpawnNexusesAsync(map, gameContext).ConfigureAwait(false);
+            }
+
+            return spawned;
+        }
+        finally
+        {
+            EnsureLock.Release();
+        }
+    }
+
     /// <summary>Spawns the lane turrets (four per team) on the map.</summary>
     /// <param name="map">The map.</param>
     /// <param name="gameContext">The game context.</param>

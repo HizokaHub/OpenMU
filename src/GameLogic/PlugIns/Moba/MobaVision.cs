@@ -27,16 +27,16 @@ public static class MobaVision
     public const int MaxWardsPerChampion = 3;
 
     /// <summary>Vision radius of champions and creeps, in tiles.</summary>
-    public const int UnitRadius = 9;
+    public const int UnitRadius = 14;
 
     /// <summary>Vision radius of turrets and the nexus, in tiles.</summary>
-    public const int StructureRadius = 11;
+    public const int StructureRadius = 17;
 
     /// <summary>Vision radius of a ward, in tiles.</summary>
-    public const int WardRadius = 8;
+    public const int WardRadius = 12;
 
     /// <summary>Sight radius, in tiles, of a fountain around it while a team owns it (same as the healing radius).</summary>
-    public const int FountainRadius = 12;
+    public const int FountainRadius = 18;
 
     /// <summary>Radius in which the sweeper destroys enemy wards, in tiles.</summary>
     public const int SweepRadius = 6;
