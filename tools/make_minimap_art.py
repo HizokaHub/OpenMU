@@ -183,6 +183,12 @@ for v in variants:
         paths = lane_routes() + [river_route()] + base_routes() + mid_links()
         img = paint(img, draw_paths(paths, 8.0), (128, 110, 82), 0.75, 3.0)
         img = paint(img, draw_paths(paths, 4.0), (176, 156, 118), 0.9, 2.0)
+    elif v == 'F':      # final: D3 network, every road (lanes, river, base spurs, camp gaps) with the same size and look
+        paths = lane_routes() + [river_route()] + base_routes() + mid_links()
+        roads = draw_paths(paths, 3.0) | draw_mask(field_roads(3.5, 6), 3.0)
+        edge = draw_paths(paths, 4.6) | draw_mask(field_roads(3.5, 6), 4.6)
+        img = paint(img, edge, (84, 70, 50), 0.8, 1.2)
+        img = paint(img, roads, (172, 152, 114), 0.95, 1.2)
     elif v in ('D1', 'D2', 'D3'):   # C2 + roads between the jungle camps
         cfg = {'D1': (3.0, 20), 'D2': (2.5, 10), 'D3': (3.5, 6)}[v]
         paths = lane_routes() + [river_route()] + base_routes() + mid_links()
@@ -197,3 +203,10 @@ for v in variants:
     path = os.path.join(out_dir, f'minimap_art_{v}.png')
     out.save(path)
     print(path)
+    if v == 'F' and os.environ.get('MOBA_ART_OZT'):
+        # The client samples the art with rows = tile x and columns = tile y (see UpdateBlockedTexture).
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import make_minimap_atlases as atl
+        rgba = np.concatenate([np.asarray(out), np.full((N * S, N * S, 1), 255, np.uint8)], axis=2)
+        atl.write_ozt(os.environ['MOBA_ART_OZT'], np.ascontiguousarray(rgba.transpose(1, 0, 2)))
+        print(os.environ['MOBA_ART_OZT'])
