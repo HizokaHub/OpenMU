@@ -203,6 +203,15 @@ for v in variants:
     path = os.path.join(out_dir, f'minimap_art_{v}.png')
     out.save(path)
     print(path)
+    if v == 'F' and os.environ.get('MOBA_ROADS_BIN'):
+        # Road coverage per terrain tile (0..255, index y * 256 + x) for the real ground: the same roads, a bit wider, soft edge.
+        wide = draw_paths(paths, 4.5) | draw_mask(field_roads(3.5, 6), 4.5)
+        cov = ndi.gaussian_filter(wide.astype(np.float32), S * 0.7)
+        cov = cov.reshape(N, S, N, S).mean(axis=(1, 3))
+        cov = np.clip(cov * 1.6, 0, 1)
+        cov[blocked] = 0
+        open(os.environ['MOBA_ROADS_BIN'], 'wb').write((cov * 255).astype(np.uint8).tobytes())
+        print(os.environ['MOBA_ROADS_BIN'], 'coverage>50%:', int((cov > 0.5).sum()), 'tiles')
     if v == 'F' and os.environ.get('MOBA_ART_OZT'):
         # The client samples the art with rows = tile x and columns = tile y (see UpdateBlockedTexture).
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
