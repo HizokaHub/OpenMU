@@ -204,8 +204,8 @@ for v in variants:
     out.save(path)
     print(path)
     if v == 'F' and os.environ.get('MOBA_ROADS_BIN'):
-        # Road coverage per terrain tile (0..255, index y * 256 + x) for the real ground: the same roads, a bit wider, soft edge.
-        wide = draw_paths(paths, 4.5) | draw_mask(field_roads(3.5, 6), 4.5)
+        # Road coverage per terrain tile (0..255, index y * 256 + x) for the real ground: the same roads, half the width of the first try, soft edge.
+        wide = draw_paths(paths, 2.25) | draw_mask(field_roads(3.5, 6), 2.25)
         cov = ndi.gaussian_filter(wide.astype(np.float32), S * 0.7)
         cov = cov.reshape(N, S, N, S).mean(axis=(1, 3))
         cov = np.clip(cov * 1.6, 0, 1)
