@@ -166,7 +166,7 @@ public static class MobaJungle
         new("B-59,114 (Kundun)", 59, 114, new Group((Kind.Kundun, 1))),
         new("B-62,65 (Medusa)", 62, 65, new Group((Kind.Medusa, 1))),
         new("B-65,85", 65, 85, Orcs2Rider),
-        new("B-24,107 (Dark Phoenix)", 24, 107, new Group((Kind.DarkPhoenix, 1))),
+        new("B-41,107 (Dark Phoenix)", 41, 107, new Group((Kind.DarkPhoenix, 1))),
         new("B-94,109", 94, 109, Orcs3),
         new("B-103,116", 103, 116, Orcs2),
         new("B-165,87", 165, 87, Orcs3Rider),

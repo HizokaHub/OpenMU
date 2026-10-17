@@ -158,6 +158,7 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
                 primary.Designation,
                 invested,
                 MobaProgression.DamageScaleFor(c));
+            c.Logger.LogInformation("[MOBA-INCOME] t={Elapsed}s {Team} {Name} Lv{Level} | {Income}", elapsed, MobaTeams.GetTeam(c), c.SelectedCharacter?.Name, c.MobaLevel, MobaIncome.Describe(c));
         }
     }
 

@@ -103,6 +103,7 @@ public static class MobaGold
         var phase = scaleByPhase ? PhaseMultiplierOf(MobaMatchPhase.Current) : 1.0;
         var final = (int)Math.Round(amount * phase * Math.Max(1f, itemBonus));
         champion.Money += final;
+        MobaIncome.Add(champion, gold: true, reason, final);
 
         champion.Logger.LogDebug(
             "[MOBA-GOLD] {Name} +{Amount} ({Reason}), total={Total}",

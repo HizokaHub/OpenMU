@@ -71,6 +71,7 @@ public static class MobaExperience
         }
 
         champion.MobaExperience += amount;
+        MobaIncome.Add(champion, gold: false, reason, amount);
 
         var leveledUp = false;
         while (champion.MobaLevel < MobaLevels.MaxLevel
