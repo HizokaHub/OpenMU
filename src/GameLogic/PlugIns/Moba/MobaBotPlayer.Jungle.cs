@@ -29,10 +29,14 @@ public sealed partial class MobaBotPlayer
 
     private static readonly TimeSpan GankCooldown = TimeSpan.FromSeconds(45);
 
-    /// <summary>The jungler keeps the monster it is hitting while it lives, is not walking home and stays within this many tiles.</summary>
-    private const double JungleKeepTargetTiles = 22;
-
     private Monster? _jungleTarget;
+
+    private MobaJungleGroup? _jungleGroup;
+
+    /// <summary>Camp life (sum of the maximum life of its monsters) a level 0 jungler can take; every level adds <see cref="CampLifePerLevel"/>.</summary>
+    private const double CampLifeAllowance = 2800;
+
+    private const double CampLifePerLevel = 2500;
 
     private readonly Dictionary<BotState, double> _jungleStateSeconds = new();
 
@@ -92,17 +96,16 @@ public sealed partial class MobaBotPlayer
     }
 
     /// <summary>
-    /// The jungler's day: clear the camps of its own half (the nearest first; when none is left, the enemy's), never wandering into a
-    /// champion fight by itself. When the lanes need help it gangs (see <c>TryRegroup</c>) and when the team calls an objective it goes.
+    /// The jungler's day: it picks a camp (the nearest one that its level can take, own half first) and stays on it until every monster of the
+    /// camp is dead, then picks the next; when none is left it waits in the middle of its jungle. It never wanders into a champion fight by itself.
+    /// When the lanes need help it gangs (see <c>TryRegroup</c>) and when the team calls an objective it goes.
     /// </summary>
     private async ValueTask TickJungleAsync(BotContext c)
     {
         var team = MobaTeams.GetTeam(this);
         var live = MobaJungle.LiveMonsters(c.Map.MapId);
 
-        // Keep hitting the monster it started on.
-        var target = this._jungleTarget;
-        var previous = target;
+        var previous = this._jungleTarget;
         if (previous is not null && !previous.IsAlive)
         {
             this._jungleKills++;
@@ -117,29 +120,61 @@ public sealed partial class MobaBotPlayer
                 c.HpPct);
         }
 
-        if (target is null || !target.IsAlive || target.GetDistanceTo(c.Pos) > JungleKeepTargetTiles
-            || live.Any(l => ReferenceEquals(l.Monster, target) && l.Ai.IsReturning))
+        var camp = live.Where(l => !IsObjectiveKind(l.Ai.Kind)).ToList();
+
+        // Stay on the camp until every monster of it is dead (a monster that walks home to heal is left alone).
+        Monster? target = null;
+        if (this._jungleGroup is { } group)
         {
-            target = live
-                .Where(l => !IsObjectiveKind(l.Ai.Kind) && !l.Ai.IsReturning)
-                .OrderBy(l => l.Monster.GetDistanceTo(c.Pos) + (OwnHalf(team, l.Ai.Home) ? 0 : 40))
+            target = camp.Where(l => ReferenceEquals(l.Ai.Group, group) && !l.Ai.IsReturning)
+                .OrderBy(l => l.Monster.GetDistanceTo(c.Pos))
                 .Select(l => l.Monster)
                 .FirstOrDefault();
-            this._jungleTarget = target;
-            if (target is not null)
+        }
+
+        if (target is null)
+        {
+            // New camp: the nearest of those that the level can take (own half first); when all are too hard, the weakest.
+            var allowedLife = CampLifeAllowance + (CampLifePerLevel * this.MobaLevel);
+            var candidates = camp.Where(l => !l.Ai.IsReturning)
+                .GroupBy(l => l.Ai.Group)
+                .Select(g => new
+                {
+                    Group = g.Key,
+                    Life = g.Sum(l => (double)l.Monster.Attributes[GameLogic.Attributes.Stats.MaximumHealth]),
+                    Distance = g.Min(l => l.Monster.GetDistanceTo(c.Pos)) + (OwnHalf(team, g.First().Ai.Home) ? 0 : 40),
+                    Own = OwnHalf(team, g.First().Ai.Home),
+                    Count = g.Count(),
+                    Nearest = g.OrderBy(l => l.Monster.GetDistanceTo(c.Pos)).First().Monster,
+                })
+                .ToList();
+            var pick = candidates.Where(x => x.Life <= allowedLife).OrderBy(x => x.Distance).FirstOrDefault()
+                       ?? candidates.OrderBy(x => x.Life).FirstOrDefault();
+            if (pick is not null)
             {
+                this._jungleGroup = pick.Group;
+                target = pick.Nearest;
                 this.Logger.LogInformation(
-                    "[MOBA-JGL] {Name} target {Monster} @ {X},{Y} ({Dist:F0} tiles{Far}); {Alive} camp monster(s) alive on the map.",
+                    "[MOBA-JGL] {Name} new camp: {Monster} x{Count} @ {X},{Y} ({Dist:F0} tiles{Far}), camp life {Life:F0} vs allowance {Allow:F0} (Lv{Lv}); {Alive} camp monster(s) alive on the map.",
                     this.Name,
-                    target.Definition.Designation,
-                    target.Position.X,
-                    target.Position.Y,
-                    target.GetDistanceTo(c.Pos),
-                    live.Any(l => ReferenceEquals(l.Monster, target) && !OwnHalf(team, l.Ai.Home)) ? ", ENEMY half" : string.Empty,
-                    live.Count(l => !IsObjectiveKind(l.Ai.Kind)));
+                    pick.Nearest.Definition.Designation,
+                    pick.Count,
+                    pick.Nearest.Position.X,
+                    pick.Nearest.Position.Y,
+                    pick.Nearest.GetDistanceTo(c.Pos),
+                    pick.Own ? string.Empty : ", ENEMY half",
+                    pick.Life,
+                    allowedLife,
+                    this.MobaLevel,
+                    camp.Count);
+            }
+            else
+            {
+                this._jungleGroup = null;
             }
         }
 
+        this._jungleTarget = target;
         if (target is null)
         {
             if (this._jungleWaitSinceUtc == default)
@@ -166,6 +201,10 @@ public sealed partial class MobaBotPlayer
 
         await this.EngageAsync(c, target).ConfigureAwait(false);
     }
+
+    /// <summary>Whether a jungle monster is fighting this bot right now (it must not stand still channelling a recall then).</summary>
+    private bool IsHuntedByJungle(BotContext c)
+        => c.Map is { } map && MobaJungle.LiveMonsters(map.MapId).Any(l => l.Ai.IsFighting && ReferenceEquals(l.Ai.Target, this) && l.Monster.GetDistanceTo(c.Pos) <= 16);
 
     /// <summary>Time per state and a summary every 30 s: what the jungler did, what it earned and how it stands.</summary>
     private void JungleTelemetry(BotContext c, BotState previousState)

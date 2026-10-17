@@ -679,7 +679,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         // (cancel -> retreat) or it is done.
         if (this._state == BotState.Recalling)
         {
-            if (c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallCancelTiles))
+            if (c.EnemyChampsNear.Any(e => e.GetDistanceTo(c.Pos) <= RecallCancelTiles) || this.IsHuntedByJungle(c))
             {
                 this.Logger.LogInformation(
                     "[MOBA-AI] {Name} recall INTERRUPTED @ {X},{Y} - enemy within {Tiles}t, retreating",
@@ -712,13 +712,13 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         // Critically low and able to break away -> get out. If already safe, recall.
         if (c.HpPct <= RecallHpPct && !committed)
         {
-            return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
+            return this.IsSafeSpot(c) && !this.IsHuntedByJungle(c) ? BotState.Recalling : BotState.Retreat;
         }
 
         // A jungler hurt by the camps goes home to heal before it dies to a monster (nobody is hunting it).
         if (this._role == MobaBotRole.Jungle && c.HpPct <= JungleRecallHpPct && !committed && !c.EnemyChampsNear.Any())
         {
-            return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
+            return this.IsSafeSpot(c) && !this.IsHuntedByJungle(c) ? BotState.Recalling : BotState.Retreat;
         }
 
         // Enough gold for the next upgrade and nobody around: recall to the shop.
@@ -1051,7 +1051,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
 
         // Reached a safe spot while still hurt -> recall.
-        if (c.HpPct < RecallHpPct * 2 && this.IsSafeSpot(c))
+        if (c.HpPct < RecallHpPct * 2 && this.IsSafeSpot(c) && !this.IsHuntedByJungle(c))
         {
             this._state = BotState.Recalling;
             this._recallStartUtc = c.Now;

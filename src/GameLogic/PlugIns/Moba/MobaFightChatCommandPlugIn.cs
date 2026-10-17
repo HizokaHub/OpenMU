@@ -88,7 +88,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
 
         // 1v1: the caller plays blue. 2v2: bots only, the caller is a neutral spectator (no team, so nobody targets them).
-        var spectating = n == 2 || (sixVsSix && !callerJungles);
+        var spectating = n == 2;
         if (spectating)
         {
             MobaTeams.Clear(player);
@@ -128,7 +128,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         if (sixVsSix)
         {
             // 6: the caller watches from the middle of the map, or starts at the blue shop as the blue jungler.
-            var spot = callerJungles ? MobaLayout.NearestWalkable(MobaLayout.ShopOf(MobaTeam.Blue).X + 3, MobaLayout.ShopOf(MobaTeam.Blue).Y + 3) : MobaLayout.NearestWalkable(118, 128);
+            var spot = callerJungles ? MobaLayout.NearestWalkable(MobaLayout.ShopOf(MobaTeam.Blue).X + 3, MobaLayout.ShopOf(MobaTeam.Blue).Y + 3) : MobaLayout.NearestWalkable(MobaLayout.ShopOf(MobaTeam.Blue).X + 3, MobaLayout.ShopOf(MobaTeam.Blue).Y + 3);
             await player.MoveAsync(spot).ConfigureAwait(false);
         }
         else if (threeLanes)
@@ -154,7 +154,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         player.Logger.LogInformation("[MOBA-FIGHT] /mobafight {N}v{N}: {Blue} blue bot(s), {Red} red bot(s), {S} structures, {J} jungle monsters, waves every {Sec}s.", n, n, blue, red, structures, jungle, WaveIntervalSeconds);
         await player.ShowBlueMessageAsync(
             (sixVsSix
-                ? $"[mobafight] 6: {blue} bots azules vs {red} bots rojos (1 TOP, 1 MID, 2 BOT y 1 JUNGLA por equipo; {(callerJungles ? "vos sos la jungla azul" : "vos solo mirás")}). {jungle} monstruos de jungla ya; Medusa y Fénix a los 3:00, huevos a los 4:00, God of Darkness a los 5:00 y Kundun a los 6:00. Los bots se coordinan para los objetivos: busca [MOBA-OBJ] en el log."
+                ? $"[mobafight] 6: {blue} bots azules vs {red} bots rojos (1 TOP, 1 MID, 2 BOT y 1 JUNGLA por equipo; {(callerJungles ? "vos sos la jungla azul" : "vos jugás en el equipo azul como un campeón más, sin rol")}). {jungle} monstruos de jungla ya; Medusa y Fénix a los 3:00, huevos a los 4:00, God of Darkness a los 5:00 y Kundun a los 6:00. Los bots se coordinan para los objetivos: busca [MOBA-OBJ] en el log."
                 : fiveVsFive
                 ? $"[mobafight] 5v5: {blue} bots azules vs {red} bots rojos (clases al azar, las mismas en ambos equipos; 1 TOP, 2 MID, 2 BOT por equipo) + vos libre en azul. {jungle} monstruos de jungla."
                 : threeLanes
