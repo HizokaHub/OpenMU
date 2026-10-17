@@ -418,6 +418,11 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         var prevState = this._state;
         this._state = this.DecideState(ctx);
 
+        if (this._role == MobaBotRole.Jungle)
+        {
+            this.JungleTelemetry(ctx, prevState);
+        }
+
         if (this._state != prevState)
         {
             var heldFor = this._stateEnteredUtc == default ? 0.0 : (now - this._stateEnteredUtc).TotalSeconds;
@@ -864,6 +869,20 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         if (this._state != BotState.Regroup)
         {
             this._regroupStartUtc = now;
+            if (this._role == MobaBotRole.Jungle)
+            {
+                var near = c.AllAllies.Where(a => !ReferenceEquals(a, this)).OrderBy(a => a.GetDistanceTo(target.Value)).FirstOrDefault();
+                this.Logger.LogInformation(
+                    "[MOBA-JGL] {Name} GANK start Lv{Lv} hp={Hp:P0}: to {X},{Y} ({Dist:F0} tiles), ally {Ally}, enemies there {En}.",
+                    this.Name,
+                    this.MobaLevel,
+                    c.HpPct,
+                    target.Value.X,
+                    target.Value.Y,
+                    c.Pos.EuclideanDistanceTo(target.Value),
+                    near?.Name,
+                    c.AllEnemies.Count(e => e.GetDistanceTo(target.Value) <= 18));
+            }
         }
         else if (now - this._regroupStartUtc > budget)
         {
@@ -1458,6 +1477,20 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
 
     private void OnBotChampionDied(object? sender, DeathInformation death)
     {
+        if (this._role == MobaBotRole.Jungle)
+        {
+            var killers = MobaCombatLog.RecentAttackersOf(this, TimeSpan.FromSeconds(8)).Select(k => (k as Player)?.Name ?? (k as NPC.Monster)?.Definition.Designation.ToString() ?? "?");
+            this.Logger.LogInformation(
+                "[MOBA-JGL] {Name} DIED Lv{Lv} state={State} @ {X},{Y} after {Secs:F0}s in that state; killers: {Killers}.",
+                this.Name,
+                this.MobaLevel,
+                this._state,
+                this.Position.X,
+                this.Position.Y,
+                this._stateEnteredUtc == default ? 0 : (DateTime.UtcNow - this._stateEnteredUtc).TotalSeconds,
+                string.Join(", ", killers));
+        }
+
         _ = MobaXp.HandleChampionDeathAsync(this, death);
     }
 
