@@ -61,6 +61,7 @@ public class SelectCharacterAction
 
             await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
             await PlugIns.Moba.MobaStructureSpawner.EnsureStructuresAsync(player.GameContext).ConfigureAwait(false);
+            await PlugIns.Moba.MobaJungle.EnsureStartedAsync(player.GameContext).ConfigureAwait(false);
 
             player.Logger.LogInformation("Account {0} entered the MOBA match as a clone of '{1}'.", account.LoginName, characterName);
             return;

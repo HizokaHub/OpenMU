@@ -91,6 +91,12 @@ public static class MobaLayout
         return new Point((byte)cx, (byte)cy);
     }
 
+    /// <summary>Gets whether an arena cell can be walked on (walls, solid decoration and the outside are not).</summary>
+    /// <param name="x">The x coordinate.</param>
+    /// <param name="y">The y coordinate.</param>
+    /// <returns><see langword="true"/> if the cell is walkable.</returns>
+    public static bool IsWalkable(int x, int y) => x is >= 0 and <= 255 && y is >= 0 and <= 255 && Loaded.Value.Terrain.WalkMap[x, y];
+
     /// <summary>Gets the shop (vendor and recall) position of a team.</summary>
     /// <param name="team">The team.</param>
     /// <returns>The position.</returns>

@@ -11,28 +11,63 @@ using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
 using MUnique.OpenMU.Persistence.InMemory;
 
 /// <summary>
-/// Tests the jungle camp layout.
+/// Tests the jungle layout.
 /// </summary>
 [TestFixture]
 public class MobaJungleTests
 {
     /// <summary>
-    /// Every camp has a valid rank and lies on or right next to walkable terrain.
+    /// The jungle has the 15 spots of the blue half and their turn for the red half (Kundun is not copied), all of them on walkable ground.
     /// </summary>
     [Test]
-    public void CampsAreOnWalkableGround()
+    public void SpotsAreOnWalkableGround()
     {
-        Assert.That(MobaJungle.Camps, Is.Not.Empty);
-        foreach (var camp in MobaJungle.Camps)
+        Assert.That(MobaJungle.BlueSpots, Has.Count.EqualTo(15));
+        Assert.That(MobaJungle.Spots, Has.Count.EqualTo(29));
+        foreach (var spot in MobaJungle.BlueSpots)
         {
-            Assert.That(camp.Rank, Is.InRange(1, 4));
-            var spot = MobaLayout.NearestWalkable(camp.X, camp.Y);
-            Assert.That(Math.Max(Math.Abs(spot.X - camp.X), Math.Abs(spot.Y - camp.Y)), Is.LessThanOrEqualTo(2), $"camp {camp}");
+            Assert.That(MobaLayout.IsWalkable(spot.X, spot.Y), Is.True, $"spot {spot.Name} ({spot.X},{spot.Y})");
+        }
+
+        // The mask is not a perfect 180 degree turn any more (walls were closed by hand on one side): the red spot may sit on a wall cell, but next to open ground.
+        foreach (var spot in MobaJungle.Spots)
+        {
+            var near = MobaLayout.NearestWalkable(spot.X, spot.Y);
+            Assert.That(Math.Max(Math.Abs(near.X - spot.X), Math.Abs(near.Y - spot.Y)), Is.LessThanOrEqualTo(2), $"spot {spot.Name} ({spot.X},{spot.Y})");
+        }
+
+        foreach (var blue in MobaJungle.BlueSpots.Where(s => !s.Name.Contains("Kundun")))
+        {
+            var red = MobaJungle.Spots.Single(s => s.Name == "R" + blue.Name[1..]);
+            Assert.That((red.X, red.Y), Is.EqualTo((236 - blue.X, 255 - blue.Y)), blue.Name);
         }
     }
 
     /// <summary>
-    /// The monsters of the camps exist in the Season 6 configuration.
+    /// The monsters of every spot stand on different walkable cells close to their spot, small ones in front of the big ones.
+    /// </summary>
+    [Test]
+    public void FormationsAreWalkableDistinctAndSmallFirst()
+    {
+        foreach (var spot in MobaJungle.Spots)
+        {
+            var members = MobaJungle.MembersOf(spot);
+            Assert.That(members, Is.Not.Empty, spot.Name);
+            Assert.That(members.Select(m => (m.Slot.X, m.Slot.Y)).Distinct().Count(), Is.EqualTo(members.Count), $"{spot.Name}: two monsters on one cell");
+            foreach (var (kind, _, slot) in members)
+            {
+                Assert.That(MobaLayout.IsWalkable(slot.X, slot.Y), Is.True, $"{spot.Name} {kind} at ({slot.X},{slot.Y})");
+                Assert.That(Math.Max(Math.Abs(slot.X - spot.X), Math.Abs(slot.Y - spot.Y)), Is.LessThanOrEqualTo(10), $"{spot.Name} {kind}");
+            }
+
+            // The front row has the smallest monsters: rows never get a smaller size class than the row before.
+            var rows = members.GroupBy(m => m.Slot.Row).OrderBy(g => g.Key).Select(g => g.Max(m => MobaJungle.Info[m.Kind].Size)).ToList();
+            Assert.That(rows, Is.Ordered, spot.Name);
+        }
+    }
+
+    /// <summary>
+    /// The monsters of the jungle exist in the Season 6 configuration (or the one they are cloned from does).
     /// </summary>
     /// <returns>A task.</returns>
     [Test]
@@ -41,8 +76,9 @@ public class MobaJungleTests
         var contextProvider = new InMemoryPersistenceContextProvider();
         await new DataInitialization(contextProvider, new NullLoggerFactory()).CreateInitialDataAsync(3, true).ConfigureAwait(false);
         var configuration = (await contextProvider.CreateNewConfigurationContext().GetAsync<GameConfiguration>().ConfigureAwait(false)).First();
-        foreach (var name in new[] { "Mutant", "Bloody Wolf", "Tantallos" })
+        foreach (var info in MobaJungle.Info.Values)
         {
+            var name = info.ClonedFrom ?? info.Name;
             Assert.That(configuration.Monsters.Any(m => m.Designation == name), Is.True, name);
         }
     }
