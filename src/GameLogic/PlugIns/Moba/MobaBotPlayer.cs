@@ -746,7 +746,18 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             : c.DeathDeficit >= 3 || (c.DeathDeficit >= 2 && levelDeficit >= 1);
         if (!IsLateGame && (levelDeficit >= DefendBehindLevels || this._losingTeam))
         {
-            return forcedFight && c.HpPct > FightBailPct ? BotState.Fight : BotState.DefendBase;
+            // 2026-10-17: a losing team no longer waits under its turret all game (it spent 76 % of a 30 minute game there). It only falls back
+            // to the turret when the enemy is coming (and fights if it is not outgunned there); with nobody around it keeps farming and
+            // pushing its lane like any other team - the lane limit already keeps it short of a live enemy turret without a wave.
+            if (forcedFight && c.HpPct > FightBailPct && c.EnemyPower <= c.AllyPower * 1.3)
+            {
+                return BotState.Fight;
+            }
+
+            if (this.EnemyComing(c))
+            {
+                return BotState.DefendBase;
+            }
         }
 
         // Two-plus allies dead -> don't START anything new; but if we're already committed,
@@ -894,6 +905,18 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
 
         return target;
+    }
+
+    /// <summary>An enemy champion is near me, or near the front turret of my lane that I would fall back to.</summary>
+    private bool EnemyComing(BotContext c)
+    {
+        if (c.EnemyChampsNear.Count > 0)
+        {
+            return true;
+        }
+
+        var turret = this.OwnFrontTurret(c.Map);
+        return turret is not null && c.AllEnemies.Any(e => e.GetDistanceTo(turret.Position) <= TurretDangerTiles + 12);
     }
 
     /// <summary>A spot is safe to start / continue a recall: our own half of the lane and no enemy champion nearby.</summary>
@@ -1245,18 +1268,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             return;
         }
 
-        if (behind)
-        {
-            // Hold near mid / our side of it.
-            var hold = this.AtProgress(this.OwnOuterTurretProgress() + 3, this._laneOffset);
-            if (c.Pos.EuclideanDistanceTo(hold) > 4)
-            {
-                await this.WalkTowardAsync(hold).ConfigureAwait(false);
-            }
-
-            return;
-        }
-
+        // (Behind on levels the bot used to hold at its outer turret here; it now keeps marching and farming, see DecideState.)
         await this.MarchLaneAsync(c.Pos).ConfigureAwait(false);
     }
 

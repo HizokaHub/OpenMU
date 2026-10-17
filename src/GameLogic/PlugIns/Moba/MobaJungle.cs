@@ -138,17 +138,17 @@ public static class MobaJungle
         [Kind.BloodyDeathRider] = new("Bloody Death Rider", 0, null, 3000f, 2.5f, 105, 170, 3, false, 0, 110),
 
         // Mini-bosses (2-3 champions): they take the level of the match when the fight starts.
-        [Kind.Medusa] = new("Medusa", MedusaNumber, "Tantallos", 4500f, 3.2f, 300, 500, 4, false, 5, 240, 180, true),
-        [Kind.DarkPhoenix] = new("Dark Phoenix", 0, null, 4500f, 3.2f, 300, 500, 4, false, 6, 240, 180, true),
+        [Kind.Medusa] = new("Medusa", MedusaNumber, "Tantallos", 27000f, 3.2f, 300, 500, 4, false, 5, 240, 180, true),
+        [Kind.DarkPhoenix] = new("Dark Phoenix", 0, null, 27000f, 3.2f, 300, 500, 4, false, 6, 240, 180, true),
 
         // Epic bosses (a whole team): the kill also pays the teammates.
-        [Kind.GodOfDarkness] = new(GodOfDarknessName, GodOfDarknessNumber, "Tantallos", 12000f, 3.2f, 450, 750, 4, true, 3, 300, 300, true),
-        [Kind.Kundun] = new("Illusion of Kundun 7", 0, null, 15000f, 3.6f, 750, 1200, 4, true, 8, 360, 360, true),
+        [Kind.GodOfDarkness] = new(GodOfDarknessName, GodOfDarknessNumber, "Tantallos", 70000f, 3.2f, 450, 750, 4, true, 3, 300, 300, true),
+        [Kind.Kundun] = new("Illusion of Kundun 7", 0, null, 90000f, 3.6f, 750, 1200, 4, true, 8, 360, 360, true),
         [Kind.SpiderEgg1] = new("Spider Eggs 1", 0, null, 1200f, 0f, 15, 30, 1, false, 0, 300, 240),
         [Kind.SpiderEgg2] = new("Spider Eggs 2", 0, null, 2000f, 0f, 25, 50, 1, false, 0, 300, 240),
         [Kind.SpiderEgg3] = new("Spider Eggs 3", 0, null, 3200f, 0f, 40, 80, 1, false, 0, 300, 240),
         [Kind.Spider] = new("Coolutin", 0, null, 1500f, 1.3f, 20, 40, 1, false, 0, 0),
-        [Kind.Selupan] = new("Selupan", 0, null, 22000f, 3.8f, 1100, 1600, 4, true, 6, 0, 0, true),
+        [Kind.Selupan] = new("Selupan", 0, null, 130000f, 3.8f, 1100, 1600, 4, true, 6, 0, 0, true),
     };
 
 
