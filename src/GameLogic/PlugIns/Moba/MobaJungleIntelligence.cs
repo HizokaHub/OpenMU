@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
@@ -15,10 +16,21 @@ public sealed class MobaJungleGroup
     /// <summary>Gets the monsters of the group.</summary>
     public List<MobaJungleIntelligence> Members { get; } = new();
 
+    /// <summary>Gets or sets when the first monster of the group was hit (telemetry).</summary>
+    public DateTime FirstAggroUtc { get; set; }
+
+    /// <summary>Gets or sets the sum of the maximum life of the monsters at spawn (telemetry).</summary>
+    public float MaxHealthSum { get; set; }
+
     /// <summary>Makes every idle monster of the group fight the attacker.</summary>
     /// <param name="attacker">The champion that hit a monster of the group.</param>
     public void Aggro(IAttackable attacker)
     {
+        if (this.FirstAggroUtc == default)
+        {
+            this.FirstAggroUtc = DateTime.UtcNow;
+        }
+
         foreach (var member in Members.ToArray())
         {
             member.Provoke(attacker);
@@ -62,6 +74,8 @@ public sealed class MobaJungleIntelligence : BasicMonsterIntelligence
     private DateTime _returnStartedUtc;
 
     private int _pathFailures;
+
+    private bool _scaled;
 
     /// <summary>Initializes a new instance of the <see cref="MobaJungleIntelligence"/> class.</summary>
     /// <param name="group">The group (spot) of the monster.</param>
@@ -138,6 +152,16 @@ public sealed class MobaJungleIntelligence : BasicMonsterIntelligence
         if (this._target is null || !this._target.IsActive())
         {
             this._target = attacker;
+        }
+
+        if (this._state == State.Idle && !this._scaled && MobaJungle.Info[this.Kind].ScaleOnEngage)
+        {
+            this._scaled = true;
+            var level = MobaJungle.RescaleOnEngage(this.Monster, this.Kind);
+            if (attacker is Player champion)
+            {
+                champion.Logger.LogInformation("[MOBA-JUNGLE] {Kind} takes the stats of Lv{Level}: HP {Hp:F0}.", this.Kind, level, this.Monster.Attributes[Stats.MaximumHealth]);
+            }
         }
 
         this._state = State.Fight;

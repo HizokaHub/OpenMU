@@ -91,7 +91,9 @@ public static class MobaJungle
     /// <param name="Epic">Whether the kill also pays the whole team (<see cref="EpicTeamShare"/>).</param>
     /// <param name="AttackRange">Attack range override in tiles (0 = keep).</param>
     /// <param name="Respawn">Seconds the group takes to respawn once all its monsters are dead.</param>
-    public sealed record KindInfo(string Name, short Number, string? ClonedFrom, float BaseHealth, float DamageFactor, int Exp, int Gold, int Size, bool Epic, int AttackRange, int Respawn);
+    /// <param name="FirstSpawn">Seconds after the match starts before the monster appears for the first time (0 = at once).</param>
+    /// <param name="ScaleOnEngage">Whether the monster takes the stats of the match level when the fight starts (bosses), not only when it is spawned.</param>
+    public sealed record KindInfo(string Name, short Number, string? ClonedFrom, float BaseHealth, float DamageFactor, int Exp, int Gold, int Size, bool Epic, int AttackRange, int Respawn, int FirstSpawn = 0, bool ScaleOnEngage = false);
 
     /// <summary>One group of the monsters of a spot, with its own respawn.</summary>
     /// <param name="Members">What it holds.</param>
@@ -99,6 +101,9 @@ public static class MobaJungle
     {
         /// <summary>Gets the seconds the group takes to respawn: the slowest of its members.</summary>
         public int RespawnSeconds => this.Members.Max(m => Info[m.Kind].Respawn);
+
+        /// <summary>Gets the seconds after the match starts before the group appears for the first time: the latest of its members.</summary>
+        public int FirstSpawnSeconds => this.Members.Max(m => Info[m.Kind].FirstSpawn);
     }
 
     /// <summary>One spot of the jungle.</summary>
@@ -125,21 +130,27 @@ public static class MobaJungle
     /// <summary>Gets the kinds of monsters.</summary>
     public static IReadOnlyDictionary<Kind, KindInfo> Info { get; } = new Dictionary<Kind, KindInfo>
     {
-        [Kind.Mutant] = new("Mutant", 0, null, 2500f, 1.0f, 25, 50, 2, false, 0, 60),
-        [Kind.BloodyWolf] = new("Bloody Wolf", 0, null, 4000f, 1.4f, 35, 70, 1, false, 0, 90),
-        [Kind.Tantallos] = new("Tantallos", 0, null, 6500f, 1.9f, 60, 120, 3, false, 0, 120),
-        [Kind.BloodyOrc] = new("Bloody Orc", 0, null, 4500f, 1.5f, 40, 80, 2, false, 0, 75),
-        [Kind.BloodyDeathRider] = new("Bloody Death Rider", 0, null, 7500f, 2.0f, 70, 140, 3, false, 0, 110),
-        [Kind.Medusa] = new("Medusa", MedusaNumber, "Tantallos", 16000f, 2.4f, 250, 450, 4, false, 5, 240),
-        [Kind.DarkPhoenix] = new("Dark Phoenix", 0, null, 16000f, 2.4f, 250, 450, 4, false, 6, 240),
-        [Kind.GodOfDarkness] = new(GodOfDarknessName, GodOfDarknessNumber, "Tantallos", 20000f, 2.6f, 400, 700, 4, true, 3, 300),
-        [Kind.Kundun] = new("Illusion of Kundun 7", 0, null, 32000f, 3.0f, 700, 1100, 4, true, 8, 360),
-        [Kind.SpiderEgg1] = new("Spider Eggs 1", 0, null, 1500f, 0f, 15, 30, 1, false, 0, 300),
-        [Kind.SpiderEgg2] = new("Spider Eggs 2", 0, null, 2500f, 0f, 25, 50, 1, false, 0, 300),
-        [Kind.SpiderEgg3] = new("Spider Eggs 3", 0, null, 4000f, 0f, 40, 80, 1, false, 0, 300),
-        [Kind.Spider] = new("Hell Spider", 0, null, 2200f, 1.1f, 20, 40, 1, false, 0, 0),
-        [Kind.Selupan] = new("Selupan", 0, null, 45000f, 3.4f, 1000, 1500, 4, true, 6, 0),
+        // Camps (first pass 2026-10-17 tarde, after the first real game: HP 2.5x lower, EXP 1.5x higher, bite harder). Bosses are for groups.
+        [Kind.Mutant] = new("Mutant", 0, null, 1000f, 1.3f, 38, 60, 2, false, 0, 60),
+        [Kind.BloodyWolf] = new("Bloody Wolf", 0, null, 1600f, 1.8f, 52, 85, 1, false, 0, 90),
+        [Kind.Tantallos] = new("Tantallos", 0, null, 2600f, 2.4f, 90, 145, 3, false, 0, 120),
+        [Kind.BloodyOrc] = new("Bloody Orc", 0, null, 1800f, 1.9f, 60, 95, 2, false, 0, 75),
+        [Kind.BloodyDeathRider] = new("Bloody Death Rider", 0, null, 3000f, 2.5f, 105, 170, 3, false, 0, 110),
+
+        // Mini-bosses (2-3 champions): they take the level of the match when the fight starts.
+        [Kind.Medusa] = new("Medusa", MedusaNumber, "Tantallos", 4500f, 3.2f, 300, 500, 4, false, 5, 240, 180, true),
+        [Kind.DarkPhoenix] = new("Dark Phoenix", 0, null, 4500f, 3.2f, 300, 500, 4, false, 6, 240, 180, true),
+
+        // Epic bosses (a whole team): the kill also pays the teammates.
+        [Kind.GodOfDarkness] = new(GodOfDarknessName, GodOfDarknessNumber, "Tantallos", 12000f, 3.2f, 450, 750, 4, true, 3, 300, 300, true),
+        [Kind.Kundun] = new("Illusion of Kundun 7", 0, null, 15000f, 3.6f, 750, 1200, 4, true, 8, 360, 360, true),
+        [Kind.SpiderEgg1] = new("Spider Eggs 1", 0, null, 1200f, 0f, 15, 30, 1, false, 0, 300, 240),
+        [Kind.SpiderEgg2] = new("Spider Eggs 2", 0, null, 2000f, 0f, 25, 50, 1, false, 0, 300, 240),
+        [Kind.SpiderEgg3] = new("Spider Eggs 3", 0, null, 3200f, 0f, 40, 80, 1, false, 0, 300, 240),
+        [Kind.Spider] = new("Coolutin", 0, null, 1500f, 1.3f, 20, 40, 1, false, 0, 0),
+        [Kind.Selupan] = new("Selupan", 0, null, 22000f, 3.8f, 1100, 1600, 4, true, 6, 0, 0, true),
     };
+
 
     /// <summary>
     /// Gets the spots of the blue half, as drawn by the user (the "mobs 1/2/3" are the ranks <see cref="Rank1"/>, <see cref="Rank2"/>, <see cref="Rank3"/>).
@@ -203,8 +214,9 @@ public static class MobaJungle
     /// <summary>Spawns the whole jungle (replacing the one already there) and the Selupan event.</summary>
     /// <param name="map">The arena map.</param>
     /// <param name="gameContext">The game context.</param>
-    /// <returns>The number of monsters spawned.</returns>
-    public static async ValueTask<int> StartAsync(GameMap map, IGameContext gameContext)
+    /// <param name="delayed">Whether the bosses appear at their first-spawn time (a real match) instead of at once (tests, <c>/mobajungle reset</c>).</param>
+    /// <returns>The number of monsters spawned at once.</returns>
+    public static async ValueTask<int> StartAsync(GameMap map, IGameContext gameContext, bool delayed = false)
     {
         await StopAsync(map).ConfigureAwait(false);
         var state = new JungleState();
@@ -214,11 +226,19 @@ public static class MobaJungle
         {
             for (var g = 0; g < spot.Groups.Length; g++)
             {
-                total += await SpawnGroupAsync(map, gameContext, state, spot, g).ConfigureAwait(false);
+                var wait = delayed ? spot.Groups[g].FirstSpawnSeconds : 0;
+                if (wait > 0)
+                {
+                    _ = SpawnLaterAsync(map, gameContext, state, spot, g, wait);
+                }
+                else
+                {
+                    total += await SpawnGroupAsync(map, gameContext, state, spot, g).ConfigureAwait(false);
+                }
             }
         }
 
-        total += await MobaSelupanEvent.StartAsync(map, gameContext).ConfigureAwait(false);
+        total += await MobaSelupanEvent.StartAsync(map, gameContext, delayed).ConfigureAwait(false);
         return total;
     }
 
@@ -236,7 +256,7 @@ public static class MobaJungle
         await EnsureLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            return States.ContainsKey(map.MapId) ? 0 : await StartAsync(map, gameContext).ConfigureAwait(false);
+            return States.ContainsKey(map.MapId) ? 0 : await StartAsync(map, gameContext, delayed: true).ConfigureAwait(false);
         }
         finally
         {
@@ -368,6 +388,19 @@ public static class MobaJungle
         return definition;
     }
 
+    private static async Task SpawnLaterAsync(GameMap map, IGameContext gameContext, JungleState state, Spot spot, int groupIndex, int seconds)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(seconds), state.Cancel.Token).ConfigureAwait(false);
+            await SpawnGroupAsync(map, gameContext, state, spot, groupIndex).ConfigureAwait(false);
+        }
+        catch
+        {
+            // the match ended
+        }
+    }
+
     private static async ValueTask<int> SpawnGroupAsync(GameMap map, IGameContext gameContext, JungleState state, Spot spot, int groupIndex)
     {
         var group = new MobaJungleGroup();
@@ -382,10 +415,11 @@ public static class MobaJungle
                 slot,
                 group,
                 new Point(slot.X, slot.Y),
-                (dead, _) => OnMemberDiedAsync(map, gameContext, state, spot, groupIndex, group, dead)).ConfigureAwait(false);
+                (dead, death) => OnMemberDiedAsync(map, gameContext, state, spot, groupIndex, group, dead, death)).ConfigureAwait(false);
             if (monster is not null)
             {
                 alive++;
+                group.MaxHealthSum += monster.Attributes[Stats.MaximumHealth];
             }
         }
 
@@ -393,7 +427,7 @@ public static class MobaJungle
         return alive;
     }
 
-    private static async Task OnMemberDiedAsync(GameMap map, IGameContext gameContext, JungleState state, Spot spot, int groupIndex, MobaJungleGroup group, Monster dead)
+    private static async Task OnMemberDiedAsync(GameMap map, IGameContext gameContext, JungleState state, Spot spot, int groupIndex, MobaJungleGroup group, Monster dead, DeathInformation death)
     {
         try
         {
@@ -408,6 +442,7 @@ public static class MobaJungle
             if (state.Alive.TryGetValue(key, out var left) && --left <= 0)
             {
                 state.Alive[key] = 0;
+                LogClear(map, spot, groupIndex, group, death);
                 await Task.Delay(TimeSpan.FromSeconds(spot.Groups[groupIndex].RespawnSeconds), state.Cancel.Token).ConfigureAwait(false);
                 await SpawnGroupAsync(map, gameContext, state, spot, groupIndex).ConfigureAwait(false);
             }
@@ -476,6 +511,53 @@ public static class MobaJungle
         }
 
         killer.Logger.LogInformation("[MOBA-JUNGLE] {Kind} killed by {Champ}: {Exp} EXP / {Gold} gold, share for {Mates} teammate(s).", kind, killer.Name, info.Exp, info.Gold, mates.Count);
+    }
+
+    /// <summary>Telemetry of a cleared spot: how long the fight took and what that means as damage per second of the killer, to tune the jungle with real games.</summary>
+    private static void LogClear(GameMap map, Spot spot, int groupIndex, MobaJungleGroup group, DeathInformation death)
+    {
+        if (map.GetObject(death.KillerId) is not Player { IsMobaClone: true } killer)
+        {
+            return;
+        }
+
+        var seconds = group.FirstAggroUtc == default ? 0 : (DateTime.UtcNow - group.FirstAggroUtc).TotalSeconds;
+        var exp = spot.Groups[groupIndex].Members.Sum(m => Info[m.Kind].Exp * m.Count);
+        killer.Logger.LogInformation(
+            "[MOBA-JUNGLE] cleared {Spot}#{Group} in {Secs:F0}s: group HP {Hp:F0} (~{Dps:F0} dps), killer {Name} Lv{Level} HP {Cur:F0}/{Max:F0}, worth {Exp} EXP.",
+            spot.Name,
+            groupIndex,
+            seconds,
+            group.MaxHealthSum,
+            seconds > 0 ? group.MaxHealthSum / seconds : 0,
+            killer.Name,
+            killer.MobaLevel,
+            killer.Attributes![Stats.CurrentHealth],
+            killer.Attributes[Stats.MaximumHealth],
+            exp);
+    }
+
+    /// <summary>The level whose stats the bosses take when a fight starts: the match leader, but never less than what the time played says (a boss that waited at level 1 would be a free kill).</summary>
+    /// <returns>The level.</returns>
+    public static int BossLevel() => Math.Clamp(Math.Max(MobaMatchPhase.LeaderLevel, 1 + (int)(MobaMatchTickPlugIn.MatchElapsed.TotalMinutes * 0.35)), 1, 30);
+
+    /// <summary>Gives a boss the stats of <see cref="BossLevel"/> (life keeps its fraction), like Baron and Dragon in LoL which grow with the game and not with the player.</summary>
+    /// <param name="monster">The boss.</param>
+    /// <param name="kind">Its kind.</param>
+    /// <returns>The level used.</returns>
+    internal static int RescaleOnEngage(Monster monster, Kind kind)
+    {
+        var info = Info[kind];
+        var level = BossLevel();
+        var attributes = monster.Attributes;
+        var fraction = attributes[Stats.MaximumHealth] > 0 ? attributes[Stats.CurrentHealth] / attributes[Stats.MaximumHealth] : 1f;
+        var health = info.BaseHealth * MobaWaveSpawner.CreepHealthMultiplierAt(level);
+        var damageMultiplier = MobaWaveSpawner.CreepDamageMultiplierAt(level) * info.DamageFactor;
+        SetAbsolute(monster, Stats.MaximumHealth, health);
+        attributes[Stats.CurrentHealth] = health * fraction;
+        SetAbsolute(monster, Stats.MinimumPhysBaseDmg, 60f * damageMultiplier);
+        SetAbsolute(monster, Stats.MaximumPhysBaseDmg, 85f * damageMultiplier);
+        return level;
     }
 
     private static void SetAbsolute(Monster monster, AttributeDefinition stat, float value)

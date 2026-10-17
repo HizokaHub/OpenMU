@@ -59,6 +59,13 @@ public static class MobaJungleSkills
 
     private const int SelupanSuperman = 42;
 
+    // God of Darkness monster skills (free numbers of the client's ATMON_SKILL range): darkness = ATTACK3, flame = ATTACK4, fury = APEAR.
+    private const int GodDarkness = 29;
+
+    private const int GodFlame = 30;
+
+    private const int GodFury = 31;
+
     private const int MaxMinions = 4;
 
     private const int MaxSelupanMinions = 6;
@@ -77,6 +84,7 @@ public static class MobaJungleSkills
                 MobaJungle.Kind.Kundun => await KundunAsync(owner, target).ConfigureAwait(false),
                 MobaJungle.Kind.DarkPhoenix => await PhoenixAsync(owner, target).ConfigureAwait(false),
                 MobaJungle.Kind.Selupan => await SelupanAsync(owner, target).ConfigureAwait(false),
+                MobaJungle.Kind.GodOfDarkness => await GodAsync(owner, target).ConfigureAwait(false),
                 _ => false,
             };
         }
@@ -244,6 +252,76 @@ public static class MobaJungleSkills
         return false;
     }
 
+    private static async ValueTask<bool> GodAsync(MobaJungleIntelligence owner, IAttackable target)
+    {
+        var monster = owner.Monster;
+
+        // Fury (once, below 40 % life): the god roars, hits the ones around and hits harder for a while.
+        if (HealthFraction(monster) < 0.4 && !owner.Enraged)
+        {
+            owner.Enraged = true;
+            await ShowMonsterSkillAsync(monster, target, GodFury).ConfigureAwait(false);
+            Enrage(monster, 0.4f, 12);
+            foreach (var victim in Victims(monster, monster.Position, 4))
+            {
+                await HitAsync(monster, victim, 1.2).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+
+        // Darkness: a wave of darkness around the god, stuns for a moment.
+        if (Ready(owner, "darkness", 10))
+        {
+            await ShowMonsterSkillAsync(monster, target, GodDarkness).ConfigureAwait(false);
+            foreach (var victim in Victims(monster, monster.Position, 5))
+            {
+                await HitAsync(monster, victim, 1.5).ConfigureAwait(false);
+                await MobaCc.StunAsync(victim, victim, TimeSpan.FromSeconds(0.8)).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+
+        // Flame: fire on the target and around it, burns.
+        if (Ready(owner, "flame", 7))
+        {
+            await ShowMonsterSkillAsync(monster, target, GodFlame).ConfigureAwait(false);
+            foreach (var victim in Victims(monster, target.Position, 4))
+            {
+                await HitAsync(monster, victim, 1.4).ConfigureAwait(false);
+                StartDamageOverTime(monster, victim, 0.03, 4);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Raises the damage of a monster by <paramref name="fraction"/> for <paramref name="seconds"/> seconds.</summary>
+    private static void Enrage(Monster monster, float fraction, int seconds)
+    {
+        var minimum = new SimpleElement(monster.Attributes[Stats.MinimumPhysBaseDmg] * fraction, AggregateType.AddRaw);
+        var maximum = new SimpleElement(monster.Attributes[Stats.MaximumPhysBaseDmg] * fraction, AggregateType.AddRaw);
+        monster.Attributes.AddElement(minimum, Stats.MinimumPhysBaseDmg);
+        monster.Attributes.AddElement(maximum, Stats.MaximumPhysBaseDmg);
+        var token = MobaJungle.TokenOf(monster.CurrentMap!.MapId);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(seconds), token).ConfigureAwait(false);
+                monster.Attributes.RemoveElement(minimum, Stats.MinimumPhysBaseDmg);
+                monster.Attributes.RemoveElement(maximum, Stats.MaximumPhysBaseDmg);
+            }
+            catch
+            {
+                // the match ended
+            }
+        });
+    }
+
     private static async ValueTask<bool> SelupanAsync(MobaJungleIntelligence owner, IAttackable target)
     {
         var monster = owner.Monster;
@@ -254,23 +332,7 @@ public static class MobaJungleSkills
         {
             owner.Enraged = true;
             await ShowMonsterSkillAsync(monster, target, SelupanSuperman).ConfigureAwait(false);
-            var minimum = new SimpleElement(monster.Attributes[Stats.MinimumPhysBaseDmg] * 0.5f, AggregateType.AddRaw);
-            var maximum = new SimpleElement(monster.Attributes[Stats.MaximumPhysBaseDmg] * 0.5f, AggregateType.AddRaw);
-            monster.Attributes.AddElement(minimum, Stats.MinimumPhysBaseDmg);
-            monster.Attributes.AddElement(maximum, Stats.MaximumPhysBaseDmg);
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(15), MobaJungle.TokenOf(monster.CurrentMap.MapId)).ConfigureAwait(false);
-                    monster.Attributes.RemoveElement(minimum, Stats.MinimumPhysBaseDmg);
-                    monster.Attributes.RemoveElement(maximum, Stats.MaximumPhysBaseDmg);
-                }
-                catch
-                {
-                    // the match ended
-                }
-            });
+            Enrage(monster, 0.5f, 15);
             return true;
         }
 

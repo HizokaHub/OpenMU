@@ -21,7 +21,7 @@ public static class MobaSelupanEvent
     public const int EggRegenSeconds = 300;
 
     /// <summary>The positions of the seven eggs, as drawn by the user.</summary>
-    public static readonly IReadOnlyList<(int X, int Y)> EggSpots = new[] { (170, 132), (171, 139), (177, 134), (183, 142), (188, 135), (182, 138), (176, 134) };
+    public static readonly IReadOnlyList<(int X, int Y)> EggSpots = new[] { (170, 132), (171, 139), (177, 134), (183, 142), (188, 135), (182, 138), (176, 134), (177, 43) };
 
     /// <summary>Where Selupan appears.</summary>
     public static readonly (int X, int Y) SelupanSpot = (175, 140);
@@ -29,7 +29,7 @@ public static class MobaSelupanEvent
     private static readonly MobaJungle.Kind[] EggKinds =
     {
         MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2, MobaJungle.Kind.SpiderEgg3,
-        MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2, MobaJungle.Kind.SpiderEgg3, MobaJungle.Kind.SpiderEgg1,
+        MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2, MobaJungle.Kind.SpiderEgg3, MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2,
     };
 
     private static readonly Dictionary<ushort, EventState> States = new();
@@ -42,12 +42,20 @@ public static class MobaSelupanEvent
     /// <summary>Spawns the seven eggs.</summary>
     /// <param name="map">The map.</param>
     /// <param name="gameContext">The game context.</param>
-    /// <returns>The number of monsters spawned.</returns>
-    public static async ValueTask<int> StartAsync(GameMap map, IGameContext gameContext)
+    /// <param name="delayed">Whether the eggs appear at their first-spawn time instead of at once.</param>
+    /// <returns>The number of monsters spawned at once.</returns>
+    public static async ValueTask<int> StartAsync(GameMap map, IGameContext gameContext, bool delayed = false)
     {
         await StopAsync(map).ConfigureAwait(false);
         var state = new EventState(CancellationTokenSource.CreateLinkedTokenSource(MobaJungle.TokenOf(map.MapId)));
         States[map.MapId] = state;
+        var wait = delayed ? MobaJungle.Info[MobaJungle.Kind.SpiderEgg1].FirstSpawn : 0;
+        if (wait > 0)
+        {
+            _ = SpawnEggsLaterAsync(map, gameContext, state, wait);
+            return 0;
+        }
+
         var spawned = 0;
         for (var i = 0; i < EggSpots.Count; i++)
         {
@@ -65,6 +73,22 @@ public static class MobaSelupanEvent
         if (States.Remove(map.MapId, out var state))
         {
             await state.Cancel.CancelAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task SpawnEggsLaterAsync(GameMap map, IGameContext gameContext, EventState state, int seconds)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(seconds), state.Cancel.Token).ConfigureAwait(false);
+            for (var i = 0; i < EggSpots.Count; i++)
+            {
+                await SpawnEggAsync(map, gameContext, state, i).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // the match ended
         }
     }
 
@@ -255,7 +279,7 @@ public static class MobaSelupanEvent
 
         public CancellationTokenSource Cancel { get; }
 
-        public Monster?[] Eggs { get; } = new Monster?[7];
+        public Monster?[] Eggs { get; } = new Monster?[EggSpots.Count];
 
         public List<Monster> Spiders { get; } = new();
 
