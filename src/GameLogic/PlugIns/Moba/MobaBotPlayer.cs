@@ -164,6 +164,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     private int _laneNo = MobaLayout.MidLane;
     private int _laneOffset;
     private MobaBotRole _role = MobaBotRole.Lane;
+    private DateTime _lastGankLogUtc;
     private MobaObjectiveCall? _objective;
 
     // --- [MOBA-AI] observability heartbeat ---
@@ -777,7 +778,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
 
         // Far ahead: keep the pressure on the objective instead of trading with enemies that respawn right in front of it.
-        if (this._isDominant && c.FrontEnemyStructure is not null && c.HpPct >= DominantPushHpPct)
+        if (this._isDominant && c.FrontEnemyStructure is not null && c.HpPct >= DominantPushHpPct && this._role != MobaBotRole.Jungle)
         {
             return BotState.GroupPush;
         }
@@ -805,6 +806,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         // me at my own spawn" - that sent bots marching across the map at match start), and
         // we are close enough to it to be part of that push, and not badly behind.
         if (c.FrontEnemyStructure is { } push
+            && this._role != MobaBotRole.Jungle
             && c.WaveAtFront
             && push.GetDistanceTo(c.Pos) <= 28
             && c.AllyAvgLevel >= c.EnemyAvgLevel - 3
@@ -869,8 +871,9 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         if (this._state != BotState.Regroup)
         {
             this._regroupStartUtc = now;
-            if (this._role == MobaBotRole.Jungle)
+            if (this._role == MobaBotRole.Jungle && now - this._lastGankLogUtc > TimeSpan.FromSeconds(10))
             {
+                this._lastGankLogUtc = now;
                 var near = c.AllAllies.Where(a => !ReferenceEquals(a, this)).OrderBy(a => a.GetDistanceTo(target.Value)).FirstOrDefault();
                 this.Logger.LogInformation(
                     "[MOBA-JGL] {Name} GANK start Lv{Lv} hp={Hp:P0}: to {X},{Y} ({Dist:F0} tiles), ally {Ally}, enemies there {En}.",

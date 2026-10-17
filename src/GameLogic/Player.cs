@@ -549,7 +549,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public IList<Bucket<ILocateable>> ObservingBuckets => this._observerToWorldViewAdapter.ObservingBuckets;
 
     /// <inheritdoc/>
-    public int InfoRange => this.GameContext.Configuration.InfoRange;
+    public int InfoRange => this.IsMobaClone && this is not PlugIns.Moba.MobaBotPlayer ? MobaInfoRange : this.GameContext.Configuration.InfoRange;
+
+    /// <summary>
+    /// The scope (in tiles) of a MOBA champion: the whole arena, so the camera can look at what the allies see (the client hides what the
+    /// team does not see, <c>MobaFog</c>). The bots do not need it.
+    /// </summary>
+    private const int MobaInfoRange = 255;
 
     /// <inheritdoc/>
     IAttributeSystem IAttackable.Attributes => this.Attributes!;
