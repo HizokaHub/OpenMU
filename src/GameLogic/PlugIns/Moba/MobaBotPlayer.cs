@@ -26,7 +26,7 @@ using MUnique.OpenMU.Pathfinding;
 /// cycle the loadout" brain, so real champion combat (damage, cooldowns, passives,
 /// visual effects) can be observed in the <c>[MOBA-DMG]</c> log.
 /// </summary>
-public sealed class MobaBotPlayer : OfflinePlayer
+public sealed partial class MobaBotPlayer : OfflinePlayer
 {
     // The bot "brain" re-evaluates this often. It must be clearly SHORTER than ActionCooldown
     // so the bot actually observes the window between a skill and its next action and can
@@ -163,6 +163,8 @@ public sealed class MobaBotPlayer : OfflinePlayer
     private int _laneIndex;
     private int _laneNo = MobaLayout.MidLane;
     private int _laneOffset;
+    private MobaBotRole _role = MobaBotRole.Lane;
+    private MobaObjectiveCall? _objective;
 
     // --- [MOBA-AI] observability heartbeat ---
     private DateTime _nextAiHeartbeatUtc;
@@ -203,7 +205,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
     /// <param name="clone">The clone character (built by <see cref="MobaCloneFactory.BuildForClassAsync"/>).</param>
     /// <param name="spawn">Where to place the bot.</param>
     /// <returns><c>true</c> on success.</returns>
-    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn, int laneOffset = 0, int lane = MobaLayout.MidLane)
+    public async ValueTask<bool> StartMobaAsync(Account account, Character clone, Point spawn, int laneOffset = 0, int lane = MobaLayout.MidLane, MobaBotRole role = MobaBotRole.Lane)
     {
         try
         {
@@ -245,6 +247,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             this.HuntingOrigin = spawn;
             this._homeSpawn = spawn;
             this._laneNo = Math.Clamp(lane, 0, MobaLayout.LaneCount - 1);
+            this._role = role;
             this._lane = MobaWaveSpawner.LaneWaypointsFor(this._team, this._laneNo);
             this._laneIndex = 0;
             this._laneOffset = Math.Clamp(laneOffset, -3, 3);
@@ -319,6 +322,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             // instead of flip-flopping Fight<->Lane chasing a ghost from its last life.
             this._combatUntilUtc = default;
             this._aggressor = null;
+            this._objective = null;
             this._state = BotState.Lane;
             this._recallStartUtc = default;
             this._comboStep = 0;
@@ -399,6 +403,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        MobaBotObjectives.Tick(map);
         var ctx = this.BuildContext(map, pos, now);
         // Dominant by levels, or by a big death surplus (a team that keeps killing a respawning enemy without levelling past it).
         this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels || ctx.DeathDeficit <= -DominanceDeaths || IsLateGame;
@@ -463,6 +468,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
                 BotState.Retreat => "retreat",
                 BotState.Recalling => "recall",
                 BotState.Regroup => "regroup",
+                BotState.Objective => this._objective is { Engaged: false } ? "objective-gather" : "objective-fight",
                 _ => "?",
             };
 
@@ -517,6 +523,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
             case BotState.Regroup:
                 await this.WalkTowardAsync(this._regroupPoint).ConfigureAwait(false);
                 return;
+            case BotState.Objective:
+                await this.TickObjectiveAsync(ctx).ConfigureAwait(false);
+                return;
             case BotState.Fight:
                 await this.TickFightAsync(ctx).ConfigureAwait(false);
                 return;
@@ -546,6 +555,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private enum BotState
     {
+        Objective,
         Lane,
         Fight,
         GroupPush,
@@ -700,6 +710,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
         }
 
+        // A jungler hurt by the camps goes home to heal before it dies to a monster (nobody is hunting it).
+        if (this._role == MobaBotRole.Jungle && c.HpPct <= JungleRecallHpPct && !committed && !c.EnemyChampsNear.Any())
+        {
+            return this.IsSafeSpot(c) ? BotState.Recalling : BotState.Retreat;
+        }
+
         // Enough gold for the next upgrade and nobody around: recall to the shop.
         if (!committed && !c.InCombat && c.EnemyChampsNear.Count == 0 && !MobaBotEconomy.IsAtShop(this)
             && this.IsSafeSpot(c) && MobaBotEconomy.WantsShopTrip(this))
@@ -745,6 +761,14 @@ public sealed class MobaBotPlayer : OfflinePlayer
             }
 
             return BotState.Fight;
+        }
+
+        // The team called a jungle objective (Kundun, Selupan, ...) and I am one of the bots that go. A fight with enemy champions
+        // (forcedFight) comes first, like everything above.
+        if (!forcedFight && c.HpPct >= ObjectiveMinHp && MobaBotObjectives.AssignmentOf(this) is { } call)
+        {
+            this._objective = call;
+            return BotState.Objective;
         }
 
         // Far ahead: keep the pressure on the objective instead of trading with enemies that respawn right in front of it.
@@ -801,10 +825,20 @@ public sealed class MobaBotPlayer : OfflinePlayer
             return null;
         }
 
+        // The jungler is the one that ganks: it comes from farther away and keeps walking longer (from level 3 on).
+        var gank = this._role == MobaBotRole.Jungle && this.MobaLevel >= GankMinLevel;
+        var maxTiles = gank ? GankMaxTiles : RegroupMaxTiles;
+        var budget = gank ? GankBudget : RegroupBudget;
+        var cooldown = gank ? GankCooldown : RegroupCooldown;
+        if (this._role == MobaBotRole.Jungle && !gank)
+        {
+            return null;
+        }
+
         Point? target = null;
         var joinable = c.AllAllies
             .Where(a => !ReferenceEquals(a, this) && !c.AllyChampsNear.Contains(a)
-                        && a.GetDistanceTo(c.Pos) <= RegroupMaxTiles
+                        && a.GetDistanceTo(c.Pos) <= maxTiles
                         && MobaCombatLog.InCombat(a, TimeSpan.FromSeconds(2))
                         && c.AllEnemies.Any(e => e.GetDistanceTo(a.Position) <= 18))
             .OrderBy(a => a.GetDistanceTo(c.Pos))
@@ -816,7 +850,7 @@ public sealed class MobaBotPlayer : OfflinePlayer
         else if (forcedFight && !c.InCombat && c.EnemyChampsNear.Count > c.AllyChampsNear.Count)
         {
             var ally = c.AllAllies
-                .Where(a => !ReferenceEquals(a, this) && !c.AllyChampsNear.Contains(a) && a.GetDistanceTo(c.Pos) <= RegroupMaxTiles)
+                .Where(a => !ReferenceEquals(a, this) && !c.AllyChampsNear.Contains(a) && a.GetDistanceTo(c.Pos) <= maxTiles)
                 .OrderBy(a => a.GetDistanceTo(c.Pos))
                 .FirstOrDefault();
             target = ally?.Position;
@@ -831,9 +865,9 @@ public sealed class MobaBotPlayer : OfflinePlayer
         {
             this._regroupStartUtc = now;
         }
-        else if (now - this._regroupStartUtc > RegroupBudget)
+        else if (now - this._regroupStartUtc > budget)
         {
-            this._regroupCooldownUtc = now + RegroupCooldown;
+            this._regroupCooldownUtc = now + cooldown;
             return null;
         }
 
@@ -1141,6 +1175,12 @@ public sealed class MobaBotPlayer : OfflinePlayer
 
     private async ValueTask TickLaneAsync(BotContext c)
     {
+        if (this._role == MobaBotRole.Jungle)
+        {
+            await this.TickJungleAsync(c).ConfigureAwait(false);
+            return;
+        }
+
         // Behind on levels -> hold at mid, don't push into the enemy half.
         var behind = c.AllyAvgLevel < c.EnemyAvgLevel - 3;
 

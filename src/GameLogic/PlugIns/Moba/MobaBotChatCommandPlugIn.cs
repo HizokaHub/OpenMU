@@ -108,6 +108,9 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
 
     private static readonly int[] LaneOrder = { MobaLayout.MidLane, 0, 2 };
 
+    /// <summary>The "lane" number that makes a bot the jungler of its team (<see cref="MobaBotRole.Jungle"/>).</summary>
+    internal const int JungleLane = 3;
+
     /// <summary>Spawns the given classes as bots on a team, near the caller.</summary>
     /// <param name="caller">The GM running the command.</param>
     /// <param name="team">The team.</param>
@@ -125,8 +128,10 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         for (var i = 0; i < classNumbers.Count; i++)
         {
             // Bots are spread over the lanes: mid, top, bot, mid, ...
-            var lane = lanes is not null && i < lanes.Count ? lanes[i] : LaneOrder[i % LaneOrder.Length];
-            var origin = MobaWaveSpawner.LaneWaypointsFor(team, lane)[0];
+            var requested = lanes is not null && i < lanes.Count ? lanes[i] : LaneOrder[i % LaneOrder.Length];
+            var role = requested == JungleLane ? MobaBotRole.Jungle : MobaBotRole.Lane;
+            var lane = role == MobaBotRole.Jungle ? MobaLayout.MidLane : requested;
+            var origin = role == MobaBotRole.Jungle ? MobaLayout.ShopOf(team) : MobaWaveSpawner.LaneWaypointsFor(team, lane)[0];
             var characterClass = config.CharacterClasses.FirstOrDefault(c => c.Number == classNumbers[i]);
             if (characterClass is null)
             {
@@ -154,7 +159,7 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
                 (byte)Math.Clamp((int)origin.Y, 5, 250));
 
             var bot = new MobaBotPlayer(caller.GameContext, team);
-            if (await bot.StartMobaAsync(account, clone, spawn, laneOffset, lane).ConfigureAwait(false))
+            if (await bot.StartMobaAsync(account, clone, spawn, laneOffset, lane, role).ConfigureAwait(false))
             {
                 spawned++;
             }

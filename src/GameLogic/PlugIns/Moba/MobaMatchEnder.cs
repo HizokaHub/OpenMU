@@ -53,6 +53,7 @@ public static class MobaMatchEnder
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
         await MobaJungle.StopAsync(map).ConfigureAwait(false);
+        MobaBotObjectives.Reset();
         MobaMatchPhase.Reset();
 
         // Test bots (/mobafight, /mobabot) have no real owner to eject: remove them with the match, or they idle in the empty arena.

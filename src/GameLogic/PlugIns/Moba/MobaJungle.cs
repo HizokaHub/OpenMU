@@ -188,6 +188,8 @@ public static class MobaJungle
 
     private static readonly SemaphoreSlim EnsureLock = new(1, 1);
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Monster, MobaJungleIntelligence> AiByMonster = new();
+
     private static readonly Dictionary<Spot, IReadOnlyList<MobaJungleFormation.Slot>> Layouts = new();
 
     /// <summary>Gets the position of every monster of a spot, in the order of its groups and members.</summary>
@@ -261,6 +263,30 @@ public static class MobaJungle
         finally
         {
             EnsureLock.Release();
+        }
+    }
+
+    /// <summary>Gets the living jungle monsters of a map with their AI (the bots look for camps and objectives here).</summary>
+    /// <param name="mapId">The map id.</param>
+    /// <returns>The monsters; empty when the jungle is not running.</returns>
+    public static IReadOnlyList<(Monster Monster, MobaJungleIntelligence Ai)> LiveMonsters(ushort mapId)
+    {
+        if (!States.TryGetValue(mapId, out var state))
+        {
+            return Array.Empty<(Monster, MobaJungleIntelligence)>();
+        }
+
+        try
+        {
+            return state.Monsters.ToArray()
+                .Where(m => m.IsAlive && AiByMonster.TryGetValue(m, out _))
+                .Select(m => (m, AiByMonster.TryGetValue(m, out var ai) ? ai : null!))
+                .ToList();
+        }
+        catch
+        {
+            // the list changed while it was copied: the next call gets it
+            return Array.Empty<(Monster, MobaJungleIntelligence)>();
         }
     }
 
@@ -359,6 +385,7 @@ public static class MobaJungle
             state.Monsters.Add(monster);
         }
 
+        AiByMonster.AddOrUpdate(monster, intelligence);
         intelligence.Arm();
         return monster;
     }
