@@ -105,6 +105,65 @@ public static class MobaNavigation
         return null;
     }
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[,], int[]> Regions = new();
+
+    /// <summary>The connected region of a cell of the walk grid (same moves as <see cref="FindPath"/>); 0 for a wall. Two cells can be walked between only when they share the region.</summary>
+    /// <param name="grid">The AI grid of the map.</param>
+    /// <param name="x">The x coordinate.</param>
+    /// <param name="y">The y coordinate.</param>
+    /// <returns>The region number.</returns>
+    public static int RegionOf(byte[,] grid, int x, int y)
+    {
+        if (x < 0 || y < 0 || x > 255 || y > 255)
+        {
+            return 0;
+        }
+
+        return Regions.GetValue(grid, BuildRegions)[(y * 256) + x];
+    }
+
+    private static int[] BuildRegions(byte[,] grid)
+    {
+        const int size = 256;
+        var labels = new int[size * size];
+        var next = 0;
+        var queue = new Queue<int>();
+        for (var start = 0; start < size * size; start++)
+        {
+            if (labels[start] != 0 || grid[start % size, start / size] == 0)
+            {
+                continue;
+            }
+
+            next++;
+            labels[start] = next;
+            queue.Enqueue(start);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                int cx = current % size, cy = current / size;
+                foreach (var (dx, dy) in Neighbours)
+                {
+                    int nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || ny < 0 || nx >= size || ny >= size || grid[nx, ny] == 0 || labels[(ny * size) + nx] != 0)
+                    {
+                        continue;
+                    }
+
+                    if (dx != 0 && dy != 0 && (grid[cx + dx, cy] == 0 || grid[cx, cy + dy] == 0))
+                    {
+                        continue;
+                    }
+
+                    labels[(ny * size) + nx] = next;
+                    queue.Enqueue((ny * size) + nx);
+                }
+            }
+        }
+
+        return labels;
+    }
+
     private static float Heuristic(int x, int y, int tx, int ty)
     {
         float dx = Math.Abs(x - tx), dy = Math.Abs(y - ty);

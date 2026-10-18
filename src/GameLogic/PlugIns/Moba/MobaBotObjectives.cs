@@ -379,6 +379,11 @@ public static class MobaBotObjectives
             endReason = "timeout";
             Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(60);
         }
+        else if (!call.Engaged && (now - call.Started).TotalSeconds > 35 && call.ArrivedCount == 0)
+        {
+            endReason = "nobody could reach the rally point";
+            Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(120);
+        }
         else if (call.Participants.Count < Math.Min(2, call.Objective.Required))
         {
             endReason = "not enough bots left";
@@ -439,6 +444,11 @@ public static class MobaBotObjectives
                 continue;
             }
 
+            if (map.Terrain?.AIgrid is { } grid && MobaNavigation.RegionOf(grid, objective.Position.X, objective.Position.Y) != MobaNavigation.RegionOf(grid, 118, 128) && MobaLayout.IsWalkable(118, 128))
+            {
+                continue;
+            }
+
             var candidates = mine.Select((b, i) => new Candidate(i, b.Position.EuclideanDistanceTo(objective.Position), HpOf(b), b.Role == MobaBotRole.Jungle)).ToList();
             var need = contest ? Math.Min(2, objective.Required) : objective.Required;
             var ids = ChooseParticipants(candidates, need, objective.Required + 1, contest ? MaxContestTiles : MaxTravelTiles, MinHealth);
@@ -465,7 +475,7 @@ public static class MobaBotObjectives
         }
 
         var participants = bestIds.Select(i => mine[i]).ToList();
-        var rally = bestContest ? best.Position : RallyPoint(best.Position, ownNexus, 9);
+        var rally = bestContest ? ReachableNear(map, best.Position) : RallyPoint(map, best.Position, ownNexus, 9);
         Calls[team] = new MobaObjectiveCall(team, best, rally, participants, bestContest);
         Log(
             bots,
@@ -484,13 +494,52 @@ public static class MobaBotObjectives
     private static float HpOf(Player player)
         => player.Attributes is { } a ? Math.Clamp(a[GameLogic.Attributes.Stats.CurrentHealth] / Math.Max(1f, a[GameLogic.Attributes.Stats.MaximumHealth]), 0f, 1f) : 1f;
 
-    /// <summary>A walkable point <paramref name="tiles"/> short of the objective on the side of the team's base.</summary>
-    private static Point RallyPoint(Point objective, Point ownNexus, int tiles)
+    /// <summary>
+    /// A point <paramref name="tiles"/> short of the objective on the side of the team's base that the bots can really walk to. The first
+    /// version took the nearest walkable cell, which twice fell into a closed pocket of the map (Kundun and Selupan): the bots stood in their
+    /// base for 200 s waiting for a gathering that nobody could reach (18,000 «no path» warnings in one game).
+    /// </summary>
+    private static Point RallyPoint(GameMap map, Point objective, Point ownNexus, int tiles)
     {
         var dx = ownNexus.X - objective.X;
         var dy = ownNexus.Y - objective.Y;
         var length = Math.Max(1.0, Math.Sqrt((dx * dx) + (dy * dy)));
-        return MobaLayout.NearestWalkable(objective.X + (dx / length * tiles), objective.Y + (dy / length * tiles));
+        return ReachableNear(map, new Point((byte)Math.Clamp((int)Math.Round(objective.X + (dx / length * tiles)), 0, 255), (byte)Math.Clamp((int)Math.Round(objective.Y + (dy / length * tiles)), 0, 255)));
+    }
+
+    /// <summary>The cell nearest to <paramref name="ideal"/> that is in the main region of the arena (the one the lanes and the bases are in).</summary>
+    private static Point ReachableNear(GameMap map, Point ideal)
+    {
+        var grid = map.Terrain?.AIgrid;
+        if (grid is null)
+        {
+            return MobaLayout.NearestWalkable(ideal.X, ideal.Y);
+        }
+
+        var mid = MobaLayout.NearestWalkable(118, 128);
+        var main = MobaNavigation.RegionOf(grid, mid.X, mid.Y);
+        Point? best = null;
+        var bestDistance = double.MaxValue;
+        for (var dy = -16; dy <= 16; dy++)
+        {
+            for (var dx = -16; dx <= 16; dx++)
+            {
+                int x = ideal.X + dx, y = ideal.Y + dy;
+                if (x < 0 || y < 0 || x > 255 || y > 255 || !MobaLayout.IsWalkable(x, y) || MobaNavigation.RegionOf(grid, x, y) != main)
+                {
+                    continue;
+                }
+
+                var d = (dx * dx) + (dy * dy);
+                if (d < bestDistance)
+                {
+                    bestDistance = d;
+                    best = new Point((byte)x, (byte)y);
+                }
+            }
+        }
+
+        return best ?? MobaLayout.NearestWalkable(ideal.X, ideal.Y);
     }
 
     private static void Log(IReadOnlyList<MobaBotPlayer> bots, string message, params object?[] args)

@@ -1226,6 +1226,12 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        // A totem or fountain the bot passes next to is captured (vision and healing for the team).
+        if (await this.TryCaptureAsync(c).ConfigureAwait(false))
+        {
+            return;
+        }
+
         // Behind on levels -> hold at mid, don't push into the enemy half.
         var behind = c.AllyAvgLevel < c.EnemyAvgLevel - 3;
 
@@ -1678,7 +1684,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
                 this._navFailures = 0;
                 this._navPath = null;
                 var rescue = this.AtProgress(this.Progress(this.Position.X, this.Position.Y), 0);
-                this.Logger.LogWarning("[MOBA-AI] {Name} has no path from {From} (walled-off pocket?), moved back onto its lane at {To}.", this.Name, this.Position, rescue);
+                this.Logger.LogWarning("[MOBA-AI] {Name} has no path from {From} to {Target} (state {State}; walled-off pocket?), moved back onto its lane at {To}.", this.Name, this.Position, target, this._state, rescue);
                 await this.MoveAsync(rescue).ConfigureAwait(false);
             }
 

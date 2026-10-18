@@ -83,7 +83,14 @@ public static class MobaStructures
     /// </summary>
     /// <param name="level">The champion level.</param>
     /// <returns>The divisor, 1 up to level 5.</returns>
-    public static double LevelExtraDivisor(int level) => Math.Pow(Math.Max(1.0, level / 5.0), 1.8);
+    public static double LevelExtraDivisor(int level) => Math.Pow(Math.Max(1.0, level / 5.0), LevelExtraExponent);
+
+    /// <summary>
+    /// Exponent of <see cref="LevelExtraDivisor"/>. It was 1.8 (2026-10-05); in a 74 minute game of bots at level 28-30 five champions did ~150 dps to a
+    /// 320,000 HP nexus (a turret of 30,000 HP took minutes) and nothing ever fell. 0.4 aims at ~20 s per turret and ~2-3 minutes per nexus for five champions
+    /// from level 12 on.
+    /// </summary>
+    public const double LevelExtraExponent = 0.4;
 
     /// <summary>Accumulates the champion hits on a structure and writes a <c>[MOBA-STRUCT-DMG]</c> line every 10 s.</summary>
     /// <param name="structure">The structure.</param>

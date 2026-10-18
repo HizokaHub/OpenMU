@@ -74,4 +74,48 @@ public class MobaBotObjectivesTests
         Assert.That(MobaSelupanEvent.SpidersFor(0.85), Is.EqualTo(3));
         Assert.That(MobaSelupanEvent.EggSpots, Has.Count.EqualTo(8));
     }
+
+    /// <summary>
+    /// A closed pocket of the walk grid is another region than the open field, so a rally point inside it is recognised as unreachable.
+    /// </summary>
+    [Test]
+    public void ClosedPocketIsAnotherRegion()
+    {
+        var grid = new byte[256, 256];
+        for (var x = 0; x < 256; x++)
+        {
+            for (var y = 0; y < 256; y++)
+            {
+                grid[x, y] = 1;
+            }
+        }
+
+        // A 5x5 room walled in at (100..104, 100..104) with a 1-cell wall around it.
+        for (var x = 99; x <= 105; x++)
+        {
+            for (var y = 99; y <= 105; y++)
+            {
+                grid[x, y] = (x is 99 or 105 || y is 99 or 105) ? (byte)0 : (byte)1;
+            }
+        }
+
+        var open = MobaNavigation.RegionOf(grid, 10, 10);
+        var room = MobaNavigation.RegionOf(grid, 102, 102);
+        Assert.That(open, Is.GreaterThan(0));
+        Assert.That(room, Is.GreaterThan(0));
+        Assert.That(room, Is.Not.EqualTo(open));
+        Assert.That(MobaNavigation.RegionOf(grid, 99, 99), Is.EqualTo(0));
+        Assert.That(MobaNavigation.RegionOf(grid, 200, 200), Is.EqualTo(open));
+    }
+
+    /// <summary>
+    /// Against a structure the champion damage no longer collapses at high levels: from level 12 on it only drops slowly.
+    /// </summary>
+    [Test]
+    public void StructureDamageDivisorGrowsSlowly()
+    {
+        Assert.That(MobaStructures.LevelExtraDivisor(5), Is.EqualTo(1.0).Within(0.001));
+        Assert.That(MobaStructures.LevelExtraDivisor(30), Is.LessThan(2.5));
+        Assert.That(MobaStructures.LevelExtraDivisor(30), Is.GreaterThan(MobaStructures.LevelExtraDivisor(12)));
+    }
 }

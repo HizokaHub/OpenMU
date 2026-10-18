@@ -103,6 +103,11 @@ public sealed partial class MobaBotPlayer
     private async ValueTask TickJungleAsync(BotContext c)
     {
         var team = MobaTeams.GetTeam(this);
+        if (await this.TryCaptureAsync(c).ConfigureAwait(false))
+        {
+            return;
+        }
+
         var live = MobaJungle.LiveMonsters(c.Map.MapId);
 
         var previous = this._jungleTarget;
@@ -239,6 +244,71 @@ public sealed partial class MobaBotPlayer
             this._state,
             string.Join(", ", this._jungleStateSeconds.OrderByDescending(p => p.Value).Select(p => $"{p.Key} {p.Value:F0}s")),
             MobaIncome.Describe(this));
+    }
+
+    /// <summary>The jungler walks up to this many tiles out of its way to capture a totem or fountain; the other bots only the ones they pass.</summary>
+    private const double CaptureDetourJungler = 45;
+
+    private const double CaptureDetourLaner = 14;
+
+    private int _captureIndex = -1;
+
+    /// <summary>
+    /// Captures a fountain or a jungle totem that the team does not own (vision for the whole team, healing at the fountains): walks to it and
+    /// holds the capture key like a player holds F. Only when no enemy is around.
+    /// </summary>
+    /// <returns><see langword="true"/> when it used the turn (walking to the point or channelling).</returns>
+    private async ValueTask<bool> TryCaptureAsync(BotContext c)
+    {
+        var team = MobaTeams.GetTeam(this);
+        if (team == MobaTeam.None || c.EnemyChampsNear.Count > 0 || c.InCombat || c.HpPct < 0.5f)
+        {
+            this._captureIndex = -1;
+            return false;
+        }
+
+        var detour = this._role == MobaBotRole.Jungle ? CaptureDetourJungler : CaptureDetourLaner;
+        var best = -1;
+        var bestDistance = detour;
+        for (var i = 0; i < MobaFountains.PointCount; i++)
+        {
+            if (MobaFountains.StateOf(i).Owner == team)
+            {
+                continue;
+            }
+
+            var (px, py) = MobaFountains.PositionOf(i);
+            var distance = c.Pos.EuclideanDistanceTo(new Point(px, py));
+            if (distance < bestDistance || (i == this._captureIndex && distance <= detour))
+            {
+                best = i;
+                bestDistance = distance;
+            }
+        }
+
+        if (best < 0)
+        {
+            this._captureIndex = -1;
+            return false;
+        }
+
+        var (x, y) = MobaFountains.PositionOf(best);
+        var spot = MobaLayout.NearestWalkable(x, y);
+        if (c.Pos.EuclideanDistanceTo(spot) > MobaFountains.CaptureRadius - 2)
+        {
+            if (this._captureIndex != best)
+            {
+                this.Logger.LogInformation("[MOBA-BOT] {Name} goes to capture point {Index} @ {X},{Y} ({Dist:F0} tiles).", this.Name, best, x, y, bestDistance);
+            }
+
+            this._captureIndex = best;
+            await this.WalkTowardAsync(spot).ConfigureAwait(false);
+            return true;
+        }
+
+        this._captureIndex = best;
+        await MobaFountains.SignalAsync(this, true).ConfigureAwait(false);
+        return true;
     }
 
     private static bool OwnHalf(MobaTeam team, Point home) => team == MobaTeam.Blue ? home.Y < 128 : home.Y >= 128;
