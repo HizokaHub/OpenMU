@@ -35,6 +35,9 @@ public static class MobaWaveSpawner
     public static float CreepHealthMultiplierAt(int level)
         => (float)(MobaProgression.DamageScale(level) * (1.0 + ((Math.Clamp(level, 1, 30) - 1) / 29.0)));
 
+    /// <summary>Factor on the damage a lane creep does to an enemy lane creep (and they never miss): the waves used to pile up in the middle of the map.</summary>
+    public const double CreepVsCreepDamageFactor = 3.0;
+
     /// <summary>Creep damage multiplier at a champion level: half the champion life curve, so late creeps still matter to a 50,000 HP champion.</summary>
     /// <param name="level">The highest champion level of the match.</param>
     /// <returns>The multiplier of the base creep damage (at least 1).</returns>

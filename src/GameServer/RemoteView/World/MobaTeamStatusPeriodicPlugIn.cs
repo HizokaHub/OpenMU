@@ -40,10 +40,13 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
     public const byte ShieldBrokenFlag = 0x80;
 
     /// <summary>Tiles around the player whose MOBA participants are reported.</summary>
-    private const int BroadcastRange = 30;
+    private const int BroadcastRange = 45;
 
     /// <summary>Cap so the C1 length byte never overflows (5 + n*4 &lt;= 255).</summary>
     private const int MaxEntries = 60;
+
+    /// <summary>Packets of <see cref="MaxEntries"/> sent per player and tick (a crowd of 50-100 creeps used to cut the list at 60 in an arbitrary order and the creeps next to the champion got no bar).</summary>
+    private const int MaxPackets = 3;
 
     /// <inheritdoc />
     public void ForceStart()
@@ -64,41 +67,43 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
                 continue;
             }
 
-            var entries = map.GetAttackablesInRange(player.Position, BroadcastRange)
+            // Champions first, then structures, then the creeps nearest to the player.
+            var ordered = map.GetAttackablesInRange(player.Position, BroadcastRange)
                 .Where(a => a.IsAlive && MobaTeams.GetTeam(a) != MobaTeam.None)
-                .Take(MaxEntries)
+                .OrderBy(a => a is Player ? 0 : MobaStructures.IsStructure(a) ? 1 : 2)
+                .ThenBy(a => a.GetDistanceTo(player.Position))
+                .Take(MaxEntries * MaxPackets)
                 .Select(a => ((ushort Id, byte Team, byte Hp))(a.GetId(player), TeamByte(a), HealthPercent(a)))
                 .ToList();
 
-            if (entries.Count == 0)
+            foreach (var chunk in ordered.Chunk(MaxEntries).Take(MaxPackets))
             {
-                continue;
-            }
+                var entries = chunk;
+                var length = 5 + (entries.Length * 4);
 
-            var length = 5 + (entries.Count * 4);
-
-            int Write()
-            {
-                var span = connection.Output.GetSpan(length)[..length];
-                span[0] = 0xC1;
-                span[1] = (byte)length;
-                span[2] = PacketCode;
-                span[3] = PacketSubCode;
-                span[4] = (byte)entries.Count;
-                var offset = 5;
-                foreach (var (id, team, hp) in entries)
+                int Write()
                 {
-                    span[offset] = (byte)(id >> 8);
-                    span[offset + 1] = (byte)id;
-                    span[offset + 2] = team;
-                    span[offset + 3] = hp;
-                    offset += 4;
+                    var span = connection.Output.GetSpan(length)[..length];
+                    span[0] = 0xC1;
+                    span[1] = (byte)length;
+                    span[2] = PacketCode;
+                    span[3] = PacketSubCode;
+                    span[4] = (byte)entries.Length;
+                    var offset = 5;
+                    foreach (var (id, team, hp) in entries)
+                    {
+                        span[offset] = (byte)(id >> 8);
+                        span[offset + 1] = (byte)id;
+                        span[offset + 2] = team;
+                        span[offset + 3] = hp;
+                        offset += 4;
+                    }
+
+                    return length;
                 }
 
-                return length;
+                await connection.SendAsync(Write).ConfigureAwait(false);
             }
-
-            await connection.SendAsync(Write).ConfigureAwait(false);
         }
     }
 

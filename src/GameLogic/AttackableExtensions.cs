@@ -355,6 +355,15 @@ public static class AttackableExtensions
             }
         }
 
+        // MOBA: lane creeps against lane creeps hit several times harder (2026-10-17): the waves piled up in the middle of the map (51 red creeps in one lane)
+        // because the minions hardly hurt each other. Jungle monsters and structures are not lane creeps (they have no team / are structures).
+        if (attacker is NPC.Monster creepAttacker && defender is NPC.Monster creepDefender
+            && PlugIns.Moba.MobaTeams.GetTeam(creepAttacker) != PlugIns.Moba.MobaTeam.None && PlugIns.Moba.MobaTeams.GetTeam(creepDefender) != PlugIns.Moba.MobaTeam.None
+            && !PlugIns.Moba.MobaStructures.IsStructure(creepAttacker) && !PlugIns.Moba.MobaStructures.IsStructure(creepDefender))
+        {
+            dmg = (int)Math.Min(int.MaxValue, dmg * (long)PlugIns.Moba.MobaWaveSpawner.CreepVsCreepDamageFactor);
+        }
+
         if (isMobaChampionAttacker && attacker is Player mobaSieger && defender is NPC.Monster structure && PlugIns.Moba.MobaStructures.IsStructure(structure))
         {
             var before = dmg;
@@ -772,6 +781,14 @@ public static class AttackableExtensions
         // Lane creeps / structures / jungle monsters never miss a champion either: against the clone's defense rate (AGI-based)
         // 94 % of creep swings missed in the first 3-lane game, so creeps were harmless.
         if (attacker is NPC.Monster && defender is Player { IsMobaClone: true })
+        {
+            return true;
+        }
+
+        // Lane creeps never miss each other either (see the damage factor in CalculateDamage).
+        if (attacker is NPC.Monster lane && defender is NPC.Monster otherLane
+            && PlugIns.Moba.MobaTeams.GetTeam(lane) != PlugIns.Moba.MobaTeam.None && PlugIns.Moba.MobaTeams.GetTeam(otherLane) != PlugIns.Moba.MobaTeam.None
+            && !PlugIns.Moba.MobaStructures.IsStructure(lane) && !PlugIns.Moba.MobaStructures.IsStructure(otherLane))
         {
             return true;
         }
