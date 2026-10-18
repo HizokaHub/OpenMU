@@ -53,6 +53,12 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
     /// </summary>
     public event EventHandler<DeathInformation>? Died;
 
+    /// <summary>
+    /// Occurs when the attackable lost life: who hit it and how much life it really lost (never more than it had left). The MOBA bosses
+    /// use it to split their drops by the damage each champion did.
+    /// </summary>
+    public event Action<IAttacker, uint>? DamageReceived;
+
     /// <inheritdoc />
     public IAttributeSystem Attributes { get; }
 
@@ -416,6 +422,7 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
         if (damage > 0)
         {
             this.RegisterHit(attacker);
+            this.DamageReceived?.Invoke(attacker, (uint)Math.Min((long)damage, Math.Max(0L, (long)this.Health)));
         }
 
         if (damage >= this.Health)

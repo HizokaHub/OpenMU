@@ -26,8 +26,11 @@ public static class MobaVision
     /// <summary>Wards one champion can have standing at once (the oldest is replaced).</summary>
     public const int MaxWardsPerChampion = 3;
 
-    /// <summary>Vision radius of champions and creeps, in tiles.</summary>
+    /// <summary>Vision radius of champions, in tiles.</summary>
     public const int UnitRadius = 14;
+
+    /// <summary>Vision radius of the allied creeps (lane minions), in tiles (2026-10-17, requested by the user: half of a champion).</summary>
+    public const int CreepRadius = 7;
 
     /// <summary>Vision radius of turrets and the nexus, in tiles.</summary>
     public const int StructureRadius = 17;
@@ -101,7 +104,7 @@ public static class MobaVision
     private static int SightRadiusOf(IAttackable a) => MobaStructures.GetStructureType(a) switch
     {
         MobaStructureType.Nexus => NexusRadius,
-        MobaStructureType.None => UnitRadius,
+        MobaStructureType.None => a is Player ? UnitRadius : CreepRadius,
         _ => StructureRadius,
     };
 

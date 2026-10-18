@@ -76,6 +76,9 @@ public static class MobaJungle
     /// <summary>Monster number of Medusa (client <c>MONSTER_MEDUSA</c>); the server configuration has no Medusa, it is cloned from a Tantallos.</summary>
     public const short MedusaNumber = 561;
 
+    /// <summary>Jungle EXP boost over the table (2026-10-17, requested by the user): the camps weigh more in the level of a jungler.</summary>
+    public const double ExpBoost = 1.6;
+
     /// <summary>Fraction of the EXP and gold of an epic monster (boss) every other living champion of the killing team gets.</summary>
     public const double EpicTeamShare = 0.4;
 
@@ -94,6 +97,16 @@ public static class MobaJungle
     /// <param name="FirstSpawn">Seconds after the match starts before the monster appears for the first time (0 = at once).</param>
     /// <param name="ScaleOnEngage">Whether the monster takes the stats of the match level when the fight starts (bosses), not only when it is spawned.</param>
     public sealed record KindInfo(string Name, short Number, string? ClonedFrom, float BaseHealth, float DamageFactor, int Exp, int Gold, int Size, bool Epic, int AttackRange, int Respawn, int FirstSpawn = 0, bool ScaleOnEngage = false);
+
+    /// <summary>
+    /// The EXP a monster of a kind pays to a champion of a level: the table value times <see cref="ExpBoost"/>, scaled like the EXP a level costs
+    /// (<see cref="MobaLevels.ExpToNext"/>), so the camps keep their weight as the champion grows.
+    /// </summary>
+    /// <param name="baseExp">The EXP of the table.</param>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The EXP.</returns>
+    public static long ScaledExp(int baseExp, int level)
+        => (long)Math.Round(baseExp * ExpBoost * MobaLevels.ExpToNext(Math.Clamp(level, 1, MobaLevels.MaxLevel - 1)) / MobaLevels.BaseExpToNext);
 
     /// <summary>One group of the monsters of a spot, with its own respawn.</summary>
     /// <param name="Members">What it holds.</param>
@@ -369,7 +382,20 @@ public static class MobaJungle
         };
 
         var intelligence = new MobaJungleIntelligence(group, home, kind, passive) { GameContext = gameContext };
-        var monster = new Monster(area, definition, map, NoDrops, intelligence, gameContext.PlugInManager, gameContext.PathFinderPool);
+        var drops = rewards && !MobaJungleDrops.SplitsByDamage(kind) ? MobaJungleDrops.GeneratorOf(kind) : NoDrops;
+        var monster = new Monster(area, definition, map, drops, intelligence, gameContext.PlugInManager, gameContext.PathFinderPool);
+        var damage = new System.Collections.Concurrent.ConcurrentDictionary<Player, double>();
+        if (rewards && MobaJungleDrops.SplitsByDamage(kind))
+        {
+            monster.DamageReceived += (attacker, amount) =>
+            {
+                if (attacker is Player { IsMobaClone: true } champion && amount > 0)
+                {
+                    damage.AddOrUpdate(champion, amount, (_, current) => current + amount);
+                }
+            };
+        }
+
         monster.Initialize();
         SetAbsolute(monster, Stats.MaximumHealth, health);
         SetAbsolute(monster, Stats.MinimumPhysBaseDmg, 60f * damageMultiplier);
@@ -377,7 +403,7 @@ public static class MobaJungle
         SetAbsolute(monster, Stats.DefenseBase, 20f);
         SetAbsolute(monster, Stats.AttackRatePvm, 150f);
         SetAbsolute(monster, Stats.DefenseRatePvm, 30f);
-        monster.Died += (_, death) => _ = OnDiedAsync(map, gameContext, monster, kind, death, onDied, rewards);
+        monster.Died += (_, death) => _ = OnDiedAsync(map, gameContext, monster, kind, death, onDied, rewards, damage);
         await map.AddAsync(monster).ConfigureAwait(false);
         monster.OnSpawn();
         if (States.TryGetValue(map.MapId, out var state))
@@ -484,13 +510,17 @@ public static class MobaJungle
         }
     }
 
-    private static async Task OnDiedAsync(GameMap map, IGameContext gameContext, Monster monster, Kind kind, DeathInformation death, Func<Monster, DeathInformation, Task>? onDied, bool rewards)
+    private static async Task OnDiedAsync(GameMap map, IGameContext gameContext, Monster monster, Kind kind, DeathInformation death, Func<Monster, DeathInformation, Task>? onDied, bool rewards, IReadOnlyDictionary<Player, double> damage)
     {
         try
         {
             if (rewards)
             {
                 await RewardAsync(map, gameContext, kind, death).ConfigureAwait(false);
+                if (MobaJungleDrops.SplitsByDamage(kind))
+                {
+                    await MobaJungleDrops.DropBossItemsAsync(map, kind, monster, death, damage).ConfigureAwait(false);
+                }
             }
 
             if (onDied is not null)
@@ -518,7 +548,7 @@ public static class MobaJungle
         }
 
         var info = Info[kind];
-        await MobaExperience.GrantAsync(killer, info.Exp, "jungle").ConfigureAwait(false);
+        await MobaExperience.GrantAsync(killer, ScaledExp(info.Exp, killer.MobaLevel), "jungle").ConfigureAwait(false);
         await MobaGold.GrantAsync(killer, info.Gold, "jungle").ConfigureAwait(false);
         if (!info.Epic)
         {
@@ -533,7 +563,7 @@ public static class MobaJungle
             .ToList();
         foreach (var mate in mates)
         {
-            await MobaExperience.GrantAsync(mate, (long)(info.Exp * EpicTeamShare), "jungle-team").ConfigureAwait(false);
+            await MobaExperience.GrantAsync(mate, (long)(ScaledExp(info.Exp, mate.MobaLevel) * EpicTeamShare), "jungle-team").ConfigureAwait(false);
             await MobaGold.GrantAsync(mate, (int)(info.Gold * EpicTeamShare), "jungle-team").ConfigureAwait(false);
         }
 
@@ -549,7 +579,7 @@ public static class MobaJungle
         }
 
         var seconds = group.FirstAggroUtc == default ? 0 : (DateTime.UtcNow - group.FirstAggroUtc).TotalSeconds;
-        var exp = spot.Groups[groupIndex].Members.Sum(m => Info[m.Kind].Exp * m.Count);
+        var exp = spot.Groups[groupIndex].Members.Sum(m => ScaledExp(Info[m.Kind].Exp, killer.MobaLevel) * m.Count);
         killer.Logger.LogInformation(
             "[MOBA-JUNGLE] cleared {Spot}#{Group} in {Secs:F0}s: group HP {Hp:F0} (~{Dps:F0} dps), killer {Name} Lv{Level} HP {Cur:F0}/{Max:F0}, worth {Exp} EXP.",
             spot.Name,

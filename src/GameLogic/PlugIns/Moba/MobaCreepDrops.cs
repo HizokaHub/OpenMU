@@ -37,15 +37,18 @@ public static class MobaCreepDrops
         (0, 0.15),
     };
 
-    /// <summary>Item-level roll, independent of the excellent-option roll, as an offset from the phase tier's guaranteed level.</summary>
-    private static readonly (int Offset, double Weight)[] LevelOffsetRoll =
+    /// <summary>Item-level roll of the creeps and the camps (2026-10-17, requested by the user: +6 to +9 instead of the tier's +9..+15), independent of the excellent-option roll.</summary>
+    private static readonly (int Level, double Weight)[] CreepLevelRoll =
     {
-        (0, 0.10),
-        (-1, 0.20),
-        (-2, 0.30),
-        (-3, 0.25),
-        (-4, 0.15),
+        (6, 0.35),
+        (7, 0.30),
+        (8, 0.20),
+        (9, 0.15),
     };
+
+    /// <summary>Rolls the level of an item that drops from a creep or a jungle camp.</summary>
+    /// <returns>The item level (+6 to +9).</returns>
+    public static int RollCreepLevel() => WeightedPick(CreepLevelRoll);
 
     /// <summary>
     /// Builds the item a dead creep drops for <paramref name="lastHitter"/> (its class filters the items): weapons and
@@ -54,7 +57,9 @@ public static class MobaCreepDrops
     /// </summary>
     /// <param name="lastHitter">The champion that last-hit the creep.</param>
     /// <returns>The item, or <see langword="null"/> if there is nothing to drop for that champion and phase.</returns>
-    public static async ValueTask<Item?> CreateItemAsync(Player lastHitter)
+    /// <param name="forcedLevel">The item level (bosses, eggs, spiders); <see langword="null"/> rolls the creep level (+6 to +9).</param>
+    /// <param name="forcedExcellent">The number of excellent options (at most the tier's); <see langword="null"/> rolls it.</param>
+    public static async ValueTask<Item?> CreateItemAsync(Player lastHitter, int? forcedLevel = null, int? forcedExcellent = null)
     {
         if (!lastHitter.IsMobaClone)
         {
@@ -89,9 +94,9 @@ public static class MobaCreepDrops
             return null;
         }
 
-        var (tierLevel, optionLevel, luck, tierExcellent) = MobaShop.TierStatsOf(tier);
-        var excellent = Math.Min(RollExcellentCount() ?? tierExcellent, tierExcellent);
-        var level = tierLevel + RollLevelOffset();
+        var (_, optionLevel, luck, tierExcellent) = MobaShop.TierStatsOf(tier);
+        var excellent = Math.Min(forcedExcellent ?? RollExcellentCount() ?? tierExcellent, tierExcellent);
+        var level = forcedLevel ?? RollCreepLevel();
         var hasSkill = definition.Skill is not null && (tier != MobaShopTier.T1 || entry.Category == MobaShopCategory.Offhand);
 
         var item = MobaShop.CreateRolledItem(definition, level, optionLevel, luck, excellent, hasSkill, entry.Variant);
@@ -110,9 +115,11 @@ public static class MobaCreepDrops
 
     private static int? RollExcellentCount() => WeightedPick(ExcellentCountRoll);
 
-    private static int RollLevelOffset() => WeightedPick(LevelOffsetRoll);
-
-    private static T WeightedPick<T>((T Value, double Weight)[] options)
+    /// <summary>Rolls a value from weighted options.</summary>
+    /// <typeparam name="T">The type of the values.</typeparam>
+    /// <param name="options">The values and their weights.</param>
+    /// <returns>The picked value.</returns>
+    internal static T WeightedPick<T>((T Value, double Weight)[] options)
     {
         var roll = Rand.NextDouble() * options.Sum(o => o.Weight);
         var acc = 0.0;
