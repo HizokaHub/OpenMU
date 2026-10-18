@@ -38,6 +38,12 @@ public static class MobaWaveSpawner
     /// <summary>Factor on the damage a lane creep does to an enemy lane creep (and they never miss): the waves used to pile up in the middle of the map.</summary>
     public const double CreepVsCreepDamageFactor = 3.0;
 
+    /// <summary>Share of a turret's maximum life that one hit of a lane creep takes (0.15 %): an unopposed wave of ~8 creeps takes a turret down in about four minutes.</summary>
+    public const double CreepVsTurretHealthFraction = 0.0015;
+
+    /// <summary>Share of the nexus's maximum life that one hit of a lane creep takes.</summary>
+    public const double CreepVsNexusHealthFraction = 0.0006;
+
     /// <summary>Creep damage multiplier at a champion level: half the champion life curve, so late creeps still matter to a 50,000 HP champion.</summary>
     /// <param name="level">The highest champion level of the match.</param>
     /// <returns>The multiplier of the base creep damage (at least 1).</returns>

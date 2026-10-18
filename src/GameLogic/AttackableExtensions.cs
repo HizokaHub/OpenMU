@@ -364,6 +364,18 @@ public static class AttackableExtensions
             dmg = (int)Math.Min(int.MaxValue, dmg * (long)PlugIns.Moba.MobaWaveSpawner.CreepVsCreepDamageFactor);
         }
 
+        // MOBA: a lane creep hits a turret or the nexus for a fixed share of its life (2026-10-18, the creeps hardly scratched the turrets): a
+        // whole wave that nobody stops takes a turret down in about four minutes. The nexus is shielded until a lane has fallen anyway.
+        if (attacker is NPC.Monster siegeCreep && defender is NPC.Monster siegeTarget
+            && PlugIns.Moba.MobaTeams.GetTeam(siegeCreep) != PlugIns.Moba.MobaTeam.None && !PlugIns.Moba.MobaStructures.IsStructure(siegeCreep)
+            && PlugIns.Moba.MobaStructures.IsStructure(siegeTarget))
+        {
+            var siegeFraction = PlugIns.Moba.MobaStructures.GetStructureType(siegeTarget) == PlugIns.Moba.MobaStructureType.Nexus
+                ? PlugIns.Moba.MobaWaveSpawner.CreepVsNexusHealthFraction
+                : PlugIns.Moba.MobaWaveSpawner.CreepVsTurretHealthFraction;
+            dmg = Math.Max(dmg, (int)(siegeTarget.Attributes[Stats.MaximumHealth] * siegeFraction));
+        }
+
         if (isMobaChampionAttacker && attacker is Player mobaSieger && defender is NPC.Monster structure && PlugIns.Moba.MobaStructures.IsStructure(structure))
         {
             var before = dmg;
@@ -781,6 +793,14 @@ public static class AttackableExtensions
         // Lane creeps / structures / jungle monsters never miss a champion either: against the clone's defense rate (AGI-based)
         // 94 % of creep swings missed in the first 3-lane game, so creeps were harmless.
         if (attacker is NPC.Monster && defender is Player { IsMobaClone: true })
+        {
+            return true;
+        }
+
+        // Lane creeps never miss a turret or the nexus either (see the damage share in CalculateDamage).
+        if (attacker is NPC.Monster siegeLane && defender is NPC.Monster siegeStructure
+            && PlugIns.Moba.MobaTeams.GetTeam(siegeLane) != PlugIns.Moba.MobaTeam.None && !PlugIns.Moba.MobaStructures.IsStructure(siegeLane)
+            && PlugIns.Moba.MobaStructures.IsStructure(siegeStructure))
         {
             return true;
         }
