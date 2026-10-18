@@ -279,6 +279,11 @@ public static class MobaJungle
         }
     }
 
+    /// <summary>Whether a monster is one of the jungle (camp, boss, egg or spider); they have no team.</summary>
+    /// <param name="monster">The monster.</param>
+    /// <returns><see langword="true"/> for jungle monsters.</returns>
+    public static bool IsJungleMonster(object? monster) => monster is Monster m && AiByMonster.TryGetValue(m, out _);
+
     /// <summary>Gets the living jungle monsters of a map with their AI (the bots look for camps and objectives here).</summary>
     /// <param name="mapId">The map id.</param>
     /// <returns>The monsters; empty when the jungle is not running.</returns>

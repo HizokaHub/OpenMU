@@ -512,6 +512,13 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             this._lastHeartbeatPos = pos;
         }
 
+        // Every bot captures a totem or fountain it passes close to while it walks to a push, a gathering or an ally (not while it fights a boss).
+        if ((this._state is BotState.GroupPush or BotState.Regroup || (this._state == BotState.Objective && this._objective is { Engaged: false }))
+            && await this.TryCaptureAsync(ctx, CaptureDetourPassing).ConfigureAwait(false))
+        {
+            return;
+        }
+
         switch (this._state)
         {
             case BotState.Recalling:

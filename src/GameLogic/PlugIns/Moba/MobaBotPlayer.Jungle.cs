@@ -249,7 +249,10 @@ public sealed partial class MobaBotPlayer
     /// <summary>The jungler walks up to this many tiles out of its way to capture a totem or fountain; the other bots only the ones they pass.</summary>
     private const double CaptureDetourJungler = 45;
 
-    private const double CaptureDetourLaner = 14;
+    private const double CaptureDetourLaner = 18;
+
+    /// <summary>A bot walking to a push, a gathering or an ally captures what is this close to it (tiles).</summary>
+    private const double CaptureDetourPassing = 14;
 
     private int _captureIndex = -1;
 
@@ -258,7 +261,7 @@ public sealed partial class MobaBotPlayer
     /// holds the capture key like a player holds F. Only when no enemy is around.
     /// </summary>
     /// <returns><see langword="true"/> when it used the turn (walking to the point or channelling).</returns>
-    private async ValueTask<bool> TryCaptureAsync(BotContext c)
+    private async ValueTask<bool> TryCaptureAsync(BotContext c, double? detourOverride = null)
     {
         var team = MobaTeams.GetTeam(this);
         if (team == MobaTeam.None || c.EnemyChampsNear.Count > 0 || c.InCombat || c.HpPct < 0.5f)
@@ -267,7 +270,7 @@ public sealed partial class MobaBotPlayer
             return false;
         }
 
-        var detour = this._role == MobaBotRole.Jungle ? CaptureDetourJungler : CaptureDetourLaner;
+        var detour = detourOverride ?? (this._role == MobaBotRole.Jungle ? CaptureDetourJungler : CaptureDetourLaner);
         var best = -1;
         var bestDistance = detour;
         for (var i = 0; i < MobaFountains.PointCount; i++)

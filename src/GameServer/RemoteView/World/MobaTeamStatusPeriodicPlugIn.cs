@@ -39,14 +39,17 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
     /// <summary>Bit of the team byte set while a champion's shield is broken (SD at 0).</summary>
     public const byte ShieldBrokenFlag = 0x80;
 
+    /// <summary>The team byte of a jungle monster (neutral).</summary>
+    public const byte NeutralTeam = 3;
+
     /// <summary>Tiles around the player whose MOBA participants are reported.</summary>
-    private const int BroadcastRange = 45;
+    private const int BroadcastRange = 255;
 
     /// <summary>Cap so the C1 length byte never overflows (5 + n*4 &lt;= 255).</summary>
     private const int MaxEntries = 60;
 
     /// <summary>Packets of <see cref="MaxEntries"/> sent per player and tick (a crowd of 50-100 creeps used to cut the list at 60 in an arbitrary order and the creeps next to the champion got no bar).</summary>
-    private const int MaxPackets = 3;
+    private const int MaxPackets = 6;
 
     /// <inheritdoc />
     public void ForceStart()
@@ -69,8 +72,8 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
 
             // Champions first, then structures, then the creeps nearest to the player.
             var ordered = map.GetAttackablesInRange(player.Position, BroadcastRange)
-                .Where(a => a.IsAlive && MobaTeams.GetTeam(a) != MobaTeam.None)
-                .OrderBy(a => a is Player ? 0 : MobaStructures.IsStructure(a) ? 1 : 2)
+                .Where(a => a.IsAlive && (MobaTeams.GetTeam(a) != MobaTeam.None || MobaJungle.IsJungleMonster(a)))
+                .OrderBy(a => a is Player ? 0 : MobaStructures.IsStructure(a) ? 1 : MobaTeams.GetTeam(a) != MobaTeam.None ? 2 : 3)
                 .ThenBy(a => a.GetDistanceTo(player.Position))
                 .Take(MaxEntries * MaxPackets)
                 .Select(a => ((ushort Id, byte Team, byte Hp))(a.GetId(player), TeamByte(a), HealthPercent(a)))
@@ -113,6 +116,12 @@ public class MobaTeamStatusPeriodicPlugIn : IPeriodicTaskPlugIn
     internal static byte TeamByte(IAttackable attackable)
     {
         var team = (byte)MobaTeams.GetTeam(attackable);
+        if (team == 0 && MobaJungle.IsJungleMonster(attackable))
+        {
+            // Jungle monsters have no team: the client draws their bar in the neutral colour.
+            team = NeutralTeam;
+        }
+
         if (attackable is Player { IsMobaClone: true } champion
             && champion.Attributes is { } attributes
             && attributes[Stats.MaximumShield] > 0
