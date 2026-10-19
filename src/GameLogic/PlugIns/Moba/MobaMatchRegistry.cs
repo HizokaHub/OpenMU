@@ -8,14 +8,15 @@ using System.Collections.Concurrent;
 using MUnique.OpenMU.DataModel.Entities;
 
 /// <summary>
-/// Process-wide, RAM-only registry of the accounts that are currently in a MOBA match
-/// and the ephemeral clone character each one is playing.
+/// Process-wide, RAM-only registry of the accounts that are currently in a MOBA match,
+/// the ephemeral clone character each one is playing and the champion's match progress.
 /// </summary>
 /// <remarks>
 /// The clone object is kept here (not on the <see cref="Player"/> or its persistence
 /// context), so it survives the player's disconnect with its current state - position,
 /// inventory, master level. On reconnect <c>SelectCharacterAction</c> looks the clone
-/// up and drops the session straight back into it.
+/// up and drops the session straight back into it. The champion's progress (level, EXP,
+/// K/D/A, team, cooldowns) lives in a <see cref="MobaChampionState"/> held next to it.
 ///
 /// This still holds a single clone per account and never persists it. A proper
 /// match-scoped context that owns all of a match's clones (and their lifetime) is a
@@ -23,21 +24,36 @@ using MUnique.OpenMU.DataModel.Entities;
 /// </remarks>
 public static class MobaMatchRegistry
 {
-    private static readonly ConcurrentDictionary<Guid, Character> ClonesByAccount = new();
+    private static readonly ConcurrentDictionary<Guid, Entry> EntriesByAccount = new();
 
     /// <summary>
-    /// Registers the clone the account is playing in its MOBA match.
+    /// Registers the clone the account is playing in its MOBA match, with fresh progress.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <param name="clone">The ephemeral clone character.</param>
-    public static void Enter(Guid accountId, Character clone) => ClonesByAccount[accountId] = clone;
+    public static void Enter(Guid accountId, Character clone) => EntriesByAccount[accountId] = new Entry(clone, new MobaChampionState());
 
     /// <summary>
     /// Clears the account's MOBA match membership and returns its clone, if any.
+    /// A ghost standing in for a disconnected champion is removed from the arena.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <returns>The clone that was registered, or <see langword="null"/>.</returns>
-    public static Character? Leave(Guid accountId) => ClonesByAccount.TryRemove(accountId, out var clone) ? clone : null;
+    public static Character? Leave(Guid accountId)
+    {
+        if (!EntriesByAccount.TryRemove(accountId, out var entry))
+        {
+            return null;
+        }
+
+        if (entry.State.Ghost is { } ghost)
+        {
+            entry.State.Ghost = null;
+            _ = ghost.DisconnectAsync().AsTask();
+        }
+
+        return entry.CloneCharacter;
+    }
 
     /// <summary>
     /// Gets the clone the account is currently playing, if it is in a match.
@@ -45,12 +61,32 @@ public static class MobaMatchRegistry
     /// <param name="accountId">The account identifier.</param>
     /// <param name="clone">The registered clone.</param>
     /// <returns><see langword="true"/> if the account is in a match.</returns>
-    public static bool TryGetClone(Guid accountId, out Character? clone) => ClonesByAccount.TryGetValue(accountId, out clone);
+    public static bool TryGetClone(Guid accountId, out Character? clone)
+    {
+        var found = EntriesByAccount.TryGetValue(accountId, out var entry);
+        clone = entry?.CloneCharacter;
+        return found;
+    }
+
+    /// <summary>
+    /// Gets the champion's match progress, if the account is in a match.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="state">The progress.</param>
+    /// <returns><see langword="true"/> if the account is in a match.</returns>
+    public static bool TryGetState(Guid accountId, out MobaChampionState? state)
+    {
+        var found = EntriesByAccount.TryGetValue(accountId, out var entry);
+        state = entry?.State;
+        return found;
+    }
 
     /// <summary>
     /// Determines whether the account is currently in a MOBA match.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>
     /// <returns><see langword="true"/> if the account is in a match.</returns>
-    public static bool IsInMatch(Guid accountId) => ClonesByAccount.ContainsKey(accountId);
+    public static bool IsInMatch(Guid accountId) => EntriesByAccount.ContainsKey(accountId);
+
+    private sealed record Entry(Character CloneCharacter, MobaChampionState State);
 }

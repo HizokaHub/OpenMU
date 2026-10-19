@@ -24,7 +24,15 @@ public static class MobaTeams
     /// </summary>
     /// <param name="participant">The participant (a <see cref="Player"/> clone, a creep <see cref="NPC.Monster"/>, etc.).</param>
     /// <param name="team">The team.</param>
-    public static void Set(object participant, MobaTeam team) => TeamByParticipant.AddOrUpdate(participant, team);
+    public static void Set(object participant, MobaTeam team)
+    {
+        TeamByParticipant.AddOrUpdate(participant, team);
+        if (participant is Player player)
+        {
+            // The champion's state outlives the session, so a reconnect keeps the team.
+            player.MobaState.Team = team;
+        }
+    }
 
     /// <summary>
     /// Clears a participant's team assignment.

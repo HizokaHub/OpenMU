@@ -32,32 +32,34 @@ public class SelectCharacterAction
         if (realCharacter is not null
             && player.Account is { } account
             && MobaMatchRegistry.TryGetClone(account.GetId(), out var clone)
-            && clone is not null)
+            && clone is not null
+            && MobaMatchRegistry.TryGetState(account.GetId(), out var championState)
+            && championState is not null)
         {
             // The account is in a MOBA match: enter the world as the ephemeral clone
-            // held by the registry (keeps its state across reconnects), not the real
-            // character.
+            // held by the registry, not the real character. Level, EXP, points, K/D/A,
+            // team and cooldowns are the champion's own state object (it survives
+            // reconnects); the body (health, position) comes from the ghost which stood
+            // in for the disconnected player, if there is one.
+            var ghostBody = await MobaGhostPlayer.TakeOverAsync(championState).ConfigureAwait(false);
+            if (ghostBody is { } body)
+            {
+                clone.PositionX = (byte)body.Position.X;
+                clone.PositionY = (byte)body.Position.Y;
+            }
+
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;
             player.IsMobaClone = true;
-            player.MobaLevel = 1;
-            player.MobaExperience = 0;
-            player.MobaSkillPoints = 0;
-            player.MobaSkillCooldowns.Clear();
-            player.MobaSkillGraceEnds.Clear();
-            player.MobaKills = 0;
-            player.MobaDeaths = 0;
-            player.MobaAssists = 0;
-            player.Died -= MobaChampionDiedHandler;
-            player.Died += MobaChampionDiedHandler;
+            player.MobaState = championState;
+            player.Died -= OnMobaChampionDied;
+            player.Died += OnMobaChampionDied;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
             MobaCloneFactory.OnCloneAttached(player);
+            ghostBody?.Vitals?.ApplyTo(player);
 
             // Default team until real matchmaking assigns one; overridable with /mobateam.
-            if (MobaTeams.GetTeam(player) == MobaTeam.None)
-            {
-                MobaTeams.Set(player, MobaTeam.Blue);
-            }
+            MobaTeams.Set(player, championState.Team == MobaTeam.None ? MobaTeam.Blue : championState.Team);
 
             await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
             await PlugIns.Moba.MobaStructureSpawner.EnsureStructuresAsync(player.GameContext).ConfigureAwait(false);
@@ -75,7 +77,12 @@ public class SelectCharacterAction
         }
     }
 
-    private static void MobaChampionDiedHandler(object? sender, DeathInformation death)
+    /// <summary>
+    /// Handles the death of a human MOBA champion (or its ghost): EXP / K-D-A bookkeeping and the respawn notice.
+    /// </summary>
+    /// <param name="sender">The champion.</param>
+    /// <param name="death">The death information.</param>
+    public static void OnMobaChampionDied(object? sender, DeathInformation death)
     {
         if (sender is Player victim)
         {

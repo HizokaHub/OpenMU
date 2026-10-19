@@ -197,29 +197,53 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// from the MU character level; grows from match EXP and grants a skill point per
     /// level. Runtime only.
     /// </summary>
-    public int MobaLevel { get; set; } = 1;
+    public int MobaLevel
+    {
+        get => this.MobaState.Level;
+        set => this.MobaState.Level = value;
+    }
 
     /// <summary>Gets or sets the accumulated MOBA-match experience toward the next champion level.</summary>
-    public long MobaExperience { get; set; }
+    public long MobaExperience
+    {
+        get => this.MobaState.Experience;
+        set => this.MobaState.Experience = value;
+    }
 
     /// <summary>Gets or sets the unspent MOBA champion skill points (one earned per champion level).</summary>
-    public int MobaSkillPoints { get; set; }
+    public int MobaSkillPoints
+    {
+        get => this.MobaState.SkillPoints;
+        set => this.MobaState.SkillPoints = value;
+    }
 
     /// <summary>
     /// Gets the per-match skill cooldowns for a MOBA clone: skill number mapped to the
     /// UTC instant the skill becomes usable again. S6 skills have no innate cooldown, so
     /// the MOBA mode maintains its own. Runtime only; cleared when a match is entered.
     /// </summary>
-    public Dictionary<short, DateTime> MobaSkillCooldowns { get; } = new();
+    public Dictionary<short, DateTime> MobaSkillCooldowns => this.MobaState.SkillCooldowns;
 
     /// <summary>Gets or sets this MOBA champion's kills this match (runtime only).</summary>
-    public int MobaKills { get; set; }
+    public int MobaKills
+    {
+        get => this.MobaState.Kills;
+        set => this.MobaState.Kills = value;
+    }
 
     /// <summary>Gets or sets this MOBA champion's deaths this match (runtime only).</summary>
-    public int MobaDeaths { get; set; }
+    public int MobaDeaths
+    {
+        get => this.MobaState.Deaths;
+        set => this.MobaState.Deaths = value;
+    }
 
     /// <summary>Gets or sets this MOBA champion's assists this match (runtime only).</summary>
-    public int MobaAssists { get; set; }
+    public int MobaAssists
+    {
+        get => this.MobaState.Assists;
+        set => this.MobaState.Assists = value;
+    }
 
     /// <summary>
     /// Gets the per-match cast-grace window ends for a MOBA clone: skill number mapped to
@@ -227,7 +251,14 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// first cast, before its cooldown starts) closes. Lets a champion keep firing a skill
     /// for a few seconds - enough to land a combo - before it goes on cooldown.
     /// </summary>
-    public Dictionary<short, DateTime> MobaSkillGraceEnds { get; } = new();
+    public Dictionary<short, DateTime> MobaSkillGraceEnds => this.MobaState.SkillGraceEnds;
+
+    /// <summary>
+    /// Gets or sets the progress of this champion in the current MOBA match. It outlives the
+    /// session: after a disconnect the ghost and then the reconnected session take over the same
+    /// object (see <see cref="PlugIns.Moba.MobaChampionState"/>).
+    /// </summary>
+    internal PlugIns.Moba.MobaChampionState MobaState { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the player's real character while the session is temporarily
@@ -1445,7 +1476,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// </summary>
     protected virtual async ValueTask InternalDisconnectAsync()
     {
+        // A human MOBA champion leaves a ghost in the arena (captured while it still has its character).
+        var ghostHandover = PlugIns.Moba.MobaGhostPlayer.Capture(this);
         await this.RemoveFromGameAsync().ConfigureAwait(false);
+        if (ghostHandover is not null)
+        {
+            _ = PlugIns.Moba.MobaGhostPlayer.SpawnAsync(this.GameContext, ghostHandover);
+        }
     }
 
     /// <summary>
