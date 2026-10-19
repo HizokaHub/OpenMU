@@ -442,145 +442,144 @@ public static class MobaTelemetry
             _lastPeriodicUtc = now;
 
             var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-            var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
-            if (champions.Count == 0)
+            // One report per arena: each match is read on its own.
+            foreach (var arenaGroup in players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).GroupBy(p => MobaArena.Of(p)))
             {
-                return;
-            }
+                var champions = arenaGroup.ToList();
+                var elapsed = (int)MobaArena.Of(champions[0]).Elapsed.TotalSeconds;
+                GameMap? map = null;
+                MobaDropReport.WriteSummary(champions[0].Logger);
 
-            var elapsed = (int)MobaArena.Of(champions[0]).Elapsed.TotalSeconds;
-            GameMap? map = null;
-            MobaDropReport.WriteSummary(champions[0].Logger);
-
-            foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
-            {
-                map ??= c.CurrentMap;
-                var a = c.Attributes;
-                if (a is null)
+                foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
                 {
-                    continue;
-                }
-
-                // Close out any engagement that has gone quiet (writes [MOBA-TRADE]).
-                if (Engagements.TryGetValue(c, out var quietEng) && DateTime.UtcNow - quietEng.LastHitUtc > EngagementIdle)
-                {
-                    FlushEngagement(c, quietEng, "disengage");
-                }
-
-                var family = MobaPassives.FamilyOf(c);
-                var hp = Math.Max(0f, a[Stats.CurrentHealth]);
-                var maxHp = a[Stats.MaximumHealth];
-                var sd = Math.Max(0f, a[Stats.CurrentShield]);
-                var mit = MobaDefense.MitigationOf(c);
-                var ehp = (hp + sd) / Math.Max(0.05, 1.0 - mit);
-                var crit = MobaCombatStats.CritChanceOf(c);
-                var ms = a[Stats.MovementSpeed];
-                var range = MobaCombatStats.AttackRangeOf(family);
-
-                var s = StatsTable.GetOrCreateValue(c);
-                var alive = Math.Max(1.0, (now - s.FirstSeenUtc).TotalSeconds);
-                var dps = s.DamageDealt / alive;
-                var critRate = s.Hits > 0 ? s.Crits / (double)s.Hits : 0.0;
-                var topSkills = string.Join(", ", s.PerSkillDealt.OrderByDescending(kv => kv.Value).Take(3).Select(kv => $"{kv.Key}:{kv.Value}"));
-
-                c.Logger.LogInformation(
-                    "[MOBA-CHAMP] t={T}s {Team} {Class} {Name} Lv{Lvl} | HP {Hp:F0}/{MaxHp:F0} +{Sd:F0}sd EHP~{Ehp:F0} | mana {Mana:F0}/{MaxMana:F0} | mit {Mit:P0} crit {Crit:P0}(obs {CritObs:P0}) rng {Rng} ms {Ms:F0} | dealt {Dealt} (basic {B} skill {Sk} crit {Cr} dot {Dt}) taken {Taken} healed {Healed} ccEaten {Cc:F0}s DPS {Dps:F0} burst{Burst} noTgtCasts{NoTgt} | top[{Top}]",
-                    elapsed,
-                    MobaTeams.GetTeam(c),
-                    c.SelectedCharacter?.CharacterClass?.Name,
-                    c.Name,
-                    c.MobaLevel,
-                    hp,
-                    maxHp,
-                    sd,
-                    ehp,
-                    Math.Max(0f, a[Stats.CurrentMana]),
-                    a[Stats.MaximumMana],
-                    mit,
-                    crit,
-                    critRate,
-                    range,
-                    ms,
-                    s.DamageDealt,
-                    s.DmgBasic,
-                    s.DmgSkill,
-                    s.DmgCrit,
-                    s.DmgDot,
-                    s.DamageTaken,
-                    s.Healed,
-                    s.CcSecondsTotal,
-                    dps,
-                    s.BurstEvents,
-                    s.SkillsCastNoTarget,
-                    topSkills);
-            }
-
-            // --- per-team economy + snowball gap ---
-            foreach (var teamGroup in champions.GroupBy(c => MobaTeams.GetTeam(c)))
-            {
-                var list = teamGroup.ToList();
-                var sumLvl = list.Sum(c => c.MobaLevel);
-                var k = list.Sum(c => c.MobaKills);
-                var d = list.Sum(c => c.MobaDeaths);
-                var assist = list.Sum(c => c.MobaAssists);
-                var avgEhp = list.Average(c =>
-                {
+                    map ??= c.CurrentMap;
                     var a = c.Attributes;
                     if (a is null)
                     {
-                        return 0.0;
+                        continue;
                     }
 
-                    var mit = MobaDefense.MitigationOf(c);
-                    return (Math.Max(0f, a[Stats.CurrentHealth]) + Math.Max(0f, a[Stats.CurrentShield])) / Math.Max(0.05, 1.0 - mit);
-                });
-                var aliveCount = list.Count(c => c.IsAlive);
-
-                list[0].Logger.LogInformation(
-                    "[MOBA-ECON] t={T}s {Team} sumLv={SumLv} avgLv={AvgLv:F1} KDA={K}/{D}/{A} alive={Alive}/{Total} avgEHP~{AvgEhp:F0}",
-                    elapsed,
-                    teamGroup.Key,
-                    sumLvl,
-                    list.Average(c => c.MobaLevel),
-                    k,
-                    d,
-                    assist,
-                    aliveCount,
-                    list.Count,
-                    avgEhp);
-            }
-
-            var blue = champions.Where(c => MobaTeams.GetTeam(c) == MobaTeam.Blue).ToList();
-            var red = champions.Where(c => MobaTeams.GetTeam(c) == MobaTeam.Red).ToList();
-            if (blue.Count > 0 && red.Count > 0)
-            {
-                var gap = blue.Average(c => c.MobaLevel) - red.Average(c => c.MobaLevel);
-                var absGap = Math.Abs(gap);
-                champions[0].Logger.LogInformation(
-                    "[MOBA-ECON] t={T}s LEVEL-GAP Blue-Red = {Gap:+0.0;-0.0;0.0} (Blue avg {B:F1}, Red avg {R:F1})",
-                    elapsed,
-                    gap,
-                    blue.Average(c => c.MobaLevel),
-                    red.Average(c => c.MobaLevel));
-
-                foreach (var threshold in new[] { 2.0, 3.5, 5.0 })
-                {
-                    if (absGap >= threshold && _snowballCrossed < threshold)
+                    // Close out any engagement that has gone quiet (writes [MOBA-TRADE]).
+                    if (Engagements.TryGetValue(c, out var quietEng) && DateTime.UtcNow - quietEng.LastHitUtc > EngagementIdle)
                     {
-                        _snowballCrossed = threshold;
-                        champions[0].Logger.LogWarning(
-                            "[MOBA-ECON] t={T}s SNOWBALL: level gap first crossed {Th:F1} ({Ahead} ahead by {Gap:F1})",
-                            elapsed,
-                            threshold,
-                            gap > 0 ? "Blue" : "Red",
-                            absGap);
+                        FlushEngagement(c, quietEng, "disengage");
+                    }
+
+                    var family = MobaPassives.FamilyOf(c);
+                    var hp = Math.Max(0f, a[Stats.CurrentHealth]);
+                    var maxHp = a[Stats.MaximumHealth];
+                    var sd = Math.Max(0f, a[Stats.CurrentShield]);
+                    var mit = MobaDefense.MitigationOf(c);
+                    var ehp = (hp + sd) / Math.Max(0.05, 1.0 - mit);
+                    var crit = MobaCombatStats.CritChanceOf(c);
+                    var ms = a[Stats.MovementSpeed];
+                    var range = MobaCombatStats.AttackRangeOf(family);
+
+                    var s = StatsTable.GetOrCreateValue(c);
+                    var alive = Math.Max(1.0, (now - s.FirstSeenUtc).TotalSeconds);
+                    var dps = s.DamageDealt / alive;
+                    var critRate = s.Hits > 0 ? s.Crits / (double)s.Hits : 0.0;
+                    var topSkills = string.Join(", ", s.PerSkillDealt.OrderByDescending(kv => kv.Value).Take(3).Select(kv => $"{kv.Key}:{kv.Value}"));
+
+                    c.Logger.LogInformation(
+                        "[MOBA-CHAMP] t={T}s {Team} {Class} {Name} Lv{Lvl} | HP {Hp:F0}/{MaxHp:F0} +{Sd:F0}sd EHP~{Ehp:F0} | mana {Mana:F0}/{MaxMana:F0} | mit {Mit:P0} crit {Crit:P0}(obs {CritObs:P0}) rng {Rng} ms {Ms:F0} | dealt {Dealt} (basic {B} skill {Sk} crit {Cr} dot {Dt}) taken {Taken} healed {Healed} ccEaten {Cc:F0}s DPS {Dps:F0} burst{Burst} noTgtCasts{NoTgt} | top[{Top}]",
+                        elapsed,
+                        MobaTeams.GetTeam(c),
+                        c.SelectedCharacter?.CharacterClass?.Name,
+                        c.Name,
+                        c.MobaLevel,
+                        hp,
+                        maxHp,
+                        sd,
+                        ehp,
+                        Math.Max(0f, a[Stats.CurrentMana]),
+                        a[Stats.MaximumMana],
+                        mit,
+                        crit,
+                        critRate,
+                        range,
+                        ms,
+                        s.DamageDealt,
+                        s.DmgBasic,
+                        s.DmgSkill,
+                        s.DmgCrit,
+                        s.DmgDot,
+                        s.DamageTaken,
+                        s.Healed,
+                        s.CcSecondsTotal,
+                        dps,
+                        s.BurstEvents,
+                        s.SkillsCastNoTarget,
+                        topSkills);
+                }
+
+                // --- per-team economy + snowball gap ---
+                foreach (var teamGroup in champions.GroupBy(c => MobaTeams.GetTeam(c)))
+                {
+                    var list = teamGroup.ToList();
+                    var sumLvl = list.Sum(c => c.MobaLevel);
+                    var k = list.Sum(c => c.MobaKills);
+                    var d = list.Sum(c => c.MobaDeaths);
+                    var assist = list.Sum(c => c.MobaAssists);
+                    var avgEhp = list.Average(c =>
+                    {
+                        var a = c.Attributes;
+                        if (a is null)
+                        {
+                            return 0.0;
+                        }
+
+                        var mit = MobaDefense.MitigationOf(c);
+                        return (Math.Max(0f, a[Stats.CurrentHealth]) + Math.Max(0f, a[Stats.CurrentShield])) / Math.Max(0.05, 1.0 - mit);
+                    });
+                    var aliveCount = list.Count(c => c.IsAlive);
+
+                    list[0].Logger.LogInformation(
+                        "[MOBA-ECON] t={T}s {Team} sumLv={SumLv} avgLv={AvgLv:F1} KDA={K}/{D}/{A} alive={Alive}/{Total} avgEHP~{AvgEhp:F0}",
+                        elapsed,
+                        teamGroup.Key,
+                        sumLvl,
+                        list.Average(c => c.MobaLevel),
+                        k,
+                        d,
+                        assist,
+                        aliveCount,
+                        list.Count,
+                        avgEhp);
+                }
+
+                var blue = champions.Where(c => MobaTeams.GetTeam(c) == MobaTeam.Blue).ToList();
+                var red = champions.Where(c => MobaTeams.GetTeam(c) == MobaTeam.Red).ToList();
+                if (blue.Count > 0 && red.Count > 0)
+                {
+                    var gap = blue.Average(c => c.MobaLevel) - red.Average(c => c.MobaLevel);
+                    var absGap = Math.Abs(gap);
+                    champions[0].Logger.LogInformation(
+                        "[MOBA-ECON] t={T}s LEVEL-GAP Blue-Red = {Gap:+0.0;-0.0;0.0} (Blue avg {B:F1}, Red avg {R:F1})",
+                        elapsed,
+                        gap,
+                        blue.Average(c => c.MobaLevel),
+                        red.Average(c => c.MobaLevel));
+
+                    foreach (var threshold in new[] { 2.0, 3.5, 5.0 })
+                    {
+                        if (absGap >= threshold && _snowballCrossed < threshold)
+                        {
+                            _snowballCrossed = threshold;
+                            champions[0].Logger.LogWarning(
+                                "[MOBA-ECON] t={T}s SNOWBALL: level gap first crossed {Th:F1} ({Ahead} ahead by {Gap:F1})",
+                                elapsed,
+                                threshold,
+                                gap > 0 ? "Blue" : "Red",
+                                absGap);
+                        }
                     }
                 }
-            }
 
-            if (map is not null)
-            {
-                LogWavesAndStructures(map, champions[0].Logger, elapsed);
+                if (map is not null)
+                {
+                    LogWavesAndStructures(map, champions[0].Logger, elapsed);
+                }
             }
         }
         catch

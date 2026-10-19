@@ -233,12 +233,16 @@ public static class MobaFountains
     public static async ValueTask TickAsync(GameContext gameContext)
     {
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-        var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
+        foreach (var arenaMap in (await gameContext.GetMapsAsync().ConfigureAwait(false)).Where(m => m.MapId == MobaCloneFactory.ArenaMapNumber).ToList())
+        {
+            var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None && ReferenceEquals(p.CurrentMap, arenaMap)).ToList();
+            await TickArenaAsync(gameContext, MobaArena.Of(arenaMap), champions).ConfigureAwait(false);
+        }
+    }
 
-        // The server runs this task once per game context, and every context has its own arena: an empty
-        // context only ever touches its own captures, and only after a minute without champions.
-        var arenaMap = (await gameContext.GetMapsAsync().ConfigureAwait(false)).FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
-        var arena = MobaArena.Of(arenaMap);
+    /// <summary>One step of the capture points of one arena. An arena without champions only resets its captures after a minute.</summary>
+    private static async ValueTask TickArenaAsync(GameContext gameContext, MobaArena arena, List<Player> champions)
+    {
         if (champions.Count == 0)
         {
             if (arena.FountainLastChampionUtc != DateTime.MinValue && (DateTime.UtcNow - arena.FountainLastChampionUtc).TotalSeconds > 60)

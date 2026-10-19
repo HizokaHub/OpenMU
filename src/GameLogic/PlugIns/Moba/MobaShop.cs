@@ -82,11 +82,9 @@ public static class MobaShop
     /// Spawns the vendors on the arena map, if they aren't there yet.
     /// </summary>
     /// <param name="gameContext">The game context.</param>
-    public static async ValueTask EnsureVendorsAsync(IGameContext gameContext)
+    public static async ValueTask EnsureVendorsAsync(GameMap map, IGameContext gameContext)
     {
-        var map = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
-        if (map is null
-            || gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == VendorNumber) is not { } definition)
+        if (gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == VendorNumber) is not { } definition)
         {
             return;
         }
@@ -118,6 +116,33 @@ public static class MobaShop
             npc.OnSpawn();
             vendors.Add(npc);
         }
+    }
+
+    /// <summary>
+    /// Removes the vendors of an arena map (the match is over).
+    /// </summary>
+    /// <param name="map">The arena map.</param>
+    /// <returns>The number of vendors removed.</returns>
+    public static async ValueTask<int> RemoveVendorsAsync(GameMap map)
+    {
+        if (!VendorsByMap.TryRemove(map, out var vendors))
+        {
+            return 0;
+        }
+
+        foreach (var vendor in vendors)
+        {
+            try
+            {
+                await map.RemoveAsync(vendor).ConfigureAwait(false);
+            }
+            catch
+            {
+                // already gone
+            }
+        }
+
+        return vendors.Count;
     }
 
     /// <summary>

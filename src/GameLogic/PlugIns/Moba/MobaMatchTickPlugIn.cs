@@ -21,8 +21,6 @@ using MUnique.OpenMU.PlugIns;
 [Guid("6A1F8C34-9D27-4B50-8E63-2C7A0B4F1D95")]
 public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
 {
-    private static bool _arenaSafezoneCleared;
-
     /// <summary>Seconds between the [MOBA-SCORE] match-state log lines (for offline balance analysis).</summary>
     private const double ScoreLogSeconds = 20;
 
@@ -32,6 +30,8 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     // (see the static _arenaSafezoneCleared above). The match timeline itself lives in MobaArena.
     private static readonly TimeSpan EmptyArenaResetAfter = TimeSpan.FromSeconds(120);
 
+    private static readonly TimeSpan AbandonedInstanceAfter = TimeSpan.FromMinutes(5);
+
     /// <inheritdoc />
     public void ForceStart() => this._lastDripUtc = DateTime.MinValue;
 
@@ -40,8 +40,12 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     {
         // The arena terrain is a copy of Crywolf, which carries a big safezone; on
         // safezone tiles PvP is blocked (champions can't damage each other). A MOBA
-        // arena has no safe tiles - strip the flag once the map is live.
-        await EnsureArenaHasNoSafezoneAsync(gameContext).ConfigureAwait(false);
+        // arena has no safe tiles - strip the flag from every arena map (copies included) once it is live.
+        var arenaMaps = (await gameContext.GetMapsAsync().ConfigureAwait(false)).Where(m => m.MapId == MobaCloneFactory.ArenaMapNumber).ToList();
+        foreach (var arenaMap in arenaMaps)
+        {
+            MobaArenaBoot.ClearSafezone(arenaMap);
+        }
 
         // Runs every tick (~1s): expire stacking passive buffs, tick passive DoTs, refresh the DL aura.
         await MobaPassives.TickAsync(gameContext).ConfigureAwait(false);
@@ -76,13 +80,21 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         this._lastDripUtc = now;
 
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-        var mobaChampions = players.Where(p => p.IsMobaClone).ToList();
-        var leaderLevel = mobaChampions.Select(p => p.MobaLevel).DefaultIfEmpty(0).Max();
+        foreach (var arenaMap in arenaMaps)
+        {
+            var mobaChampions = players.Where(p => p.IsMobaClone && ReferenceEquals(p.CurrentMap, arenaMap)).ToList();
+            await this.TickArenaAsync(gameContext, arenaMap, mobaChampions, now).ConfigureAwait(false);
+        }
+    }
 
-        var arenaMap = (await gameContext.GetMapsAsync().ConfigureAwait(false)).FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
+    /// <summary>One passive step of one arena: its phase, its empty-arena bookkeeping, the passive EXP and gold, the score log.</summary>
+    private async ValueTask TickArenaAsync(IGameContext gameContext, GameMap arenaMap, List<Player> mobaChampions, DateTime now)
+    {
+        var leaderLevel = mobaChampions.Select(p => p.MobaLevel).DefaultIfEmpty(0).Max();
         var arena = MobaArena.Of(arenaMap);
         MobaMatchPhase.Evaluate(arena, mobaChampions);
         TrackEmptiness(arena, mobaChampions.Count, now);
+        await this.ReapIfAbandonedAsync(gameContext, arenaMap, arena, mobaChampions.Count, now).ConfigureAwait(false);
 
         foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel))
         {
@@ -95,7 +107,25 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
             await MobaGold.GrantAsync(champion, goldAmount, "passive").ConfigureAwait(false);
         }
 
-        this.LogMatchState(arena, players, now);
+        this.LogMatchState(arena, mobaChampions, now);
+    }
+
+    /// <summary>
+    /// An extra arena instance nobody plays on any more (no champion in it, none registered for it) for a good while is
+    /// taken down, so abandoned matches do not pile up.
+    /// </summary>
+    private async ValueTask ReapIfAbandonedAsync(IGameContext gameContext, GameMap arenaMap, MobaArena arena, int champions, DateTime now)
+    {
+        if (!arenaMap.IsInstance
+            || champions > 0
+            || arena.EmptySinceUtc == DateTime.MinValue
+            || now - arena.EmptySinceUtc < AbandonedInstanceAfter
+            || MobaMatchRegistry.UsesArena(arenaMap))
+        {
+            return;
+        }
+
+        await MobaArenaBoot.TearDownAsync(arenaMap, gameContext).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -181,30 +211,5 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         {
             MobaMatchPhase.Reset(arena);
         }
-    }
-
-    private static async ValueTask EnsureArenaHasNoSafezoneAsync(IGameContext gameContext)
-    {
-        if (_arenaSafezoneCleared)
-        {
-            return;
-        }
-
-        var maps = await gameContext.GetMapsAsync().ConfigureAwait(false);
-        var arena = maps.FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
-        if (arena?.Terrain?.SafezoneMap is not { } safezone)
-        {
-            return;
-        }
-
-        for (var x = 0; x < safezone.GetLength(0); x++)
-        {
-            for (var y = 0; y < safezone.GetLength(1); y++)
-            {
-                safezone[x, y] = false;
-            }
-        }
-
-        _arenaSafezoneCleared = true;
     }
 }

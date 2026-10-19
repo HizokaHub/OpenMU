@@ -53,6 +53,9 @@ public sealed class MobaArena
     /// <summary>Gets the map the match is played on (<see langword="null"/> for the detached stand-in).</summary>
     public GameMap? Map { get; }
 
+    /// <summary>Gets or sets a value indicating whether the Crywolf safezone flags of this map were stripped (a MOBA arena has no safe tiles).</summary>
+    public bool SafezoneCleared { get; set; }
+
     /// <summary>Gets or sets the creep-drop / structure phase of the match (never regresses within a match).</summary>
     public MobaShopTier Phase { get; set; } = MobaShopTier.T1;
 

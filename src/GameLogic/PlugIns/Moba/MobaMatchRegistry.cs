@@ -82,6 +82,13 @@ public static class MobaMatchRegistry
     }
 
     /// <summary>
+    /// Determines whether any champion is registered for a match on the given map instance.
+    /// </summary>
+    /// <param name="arena">The map instance.</param>
+    /// <returns><see langword="true"/> if some account plays there.</returns>
+    public static bool UsesArena(GameMap arena) => EntriesByAccount.Values.Any(e => ReferenceEquals(e.State.Arena, arena));
+
+    /// <summary>
     /// Determines whether the account is currently in a MOBA match.
     /// </summary>
     /// <param name="accountId">The account identifier.</param>

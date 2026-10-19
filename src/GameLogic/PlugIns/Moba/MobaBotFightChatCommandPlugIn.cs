@@ -43,7 +43,7 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
         // ARENA map (not wherever the caller happens to stand) if it doesn't have them,
         // otherwise the bots just brawl their way to the enemy spawn.
         var structures = 0;
-        var arena = await player.GameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
+        var arena = await MobaArenaBoot.ArenaOfAsync(player).ConfigureAwait(false);
         if (arena is not null)
         {
             if (!MobaStructureSpawner.HasTurrets(arena))
@@ -56,7 +56,7 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
                 structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
             }
 
-            await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
+            await MobaShop.EnsureVendorsAsync(arena, player.GameContext).ConfigureAwait(false);
         }
 
         player.Logger.LogInformation("[MOBA-BOT] /mobabotfight {N}v{N2}: spawned {S} structures on arena.", n, n, structures);

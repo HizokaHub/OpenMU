@@ -260,14 +260,8 @@ public static class MobaJungle
     /// <summary>Starts the jungle when it is not running yet (called when a champion enters the arena, like the structures).</summary>
     /// <param name="gameContext">The game context.</param>
     /// <returns>The number of monsters spawned.</returns>
-    public static async ValueTask<int> EnsureStartedAsync(IGameContext gameContext)
+    public static async ValueTask<int> EnsureStartedAsync(GameMap map, IGameContext gameContext)
     {
-        var map = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
-        if (map is null)
-        {
-            return 0;
-        }
-
         await EnsureLock.WaitAsync().ConfigureAwait(false);
         try
         {

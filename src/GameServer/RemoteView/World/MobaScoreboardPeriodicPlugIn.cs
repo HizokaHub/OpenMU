@@ -44,18 +44,20 @@ public class MobaScoreboardPeriodicPlugIn : IPeriodicTaskPlugIn
     {
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
 
-        var champions = players
-            .Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None)
-            .OrderBy(p => (int)MobaTeams.GetTeam(p))
-            .ThenByDescending(p => p.MobaLevel)
-            .Take(MaxRows)
-            .ToList();
-
-        if (champions.Count == 0)
+        // One scoreboard per match: a champion only sees the champions of its own arena.
+        foreach (var arenaGroup in players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).GroupBy(p => p.CurrentMap))
         {
-            return;
+            var champions = arenaGroup
+                .OrderBy(p => (int)MobaTeams.GetTeam(p))
+                .ThenByDescending(p => p.MobaLevel)
+                .Take(MaxRows)
+                .ToList();
+            await SendScoreboardAsync(champions).ConfigureAwait(false);
         }
+    }
 
+    private static async ValueTask SendScoreboardAsync(List<Player> champions)
+    {
         var rows = champions.Select(c => new
         {
             Name = c.SelectedCharacter?.Name ?? "?",

@@ -38,7 +38,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         var words = command.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Select(w => w.ToLowerInvariant()).ToList();
         var arg = words.FirstOrDefault();
         var callerJungles = words.Skip(1).Any(w => w is "jungla" or "jungle" or "yo");
-        var arena = await player.GameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
+        var arena = await MobaArenaBoot.ArenaOfAsync(player).ConfigureAwait(false);
         if (arena is null)
         {
             await player.ShowBlueMessageAsync("[mobafight] No se encontró el mapa de la arena.").ConfigureAwait(false);
@@ -85,7 +85,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
             structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
         }
 
-        await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
+        await MobaShop.EnsureVendorsAsync(arena, player.GameContext).ConfigureAwait(false);
 
         // 1v1: the caller plays blue. 2v2: bots only, the caller is a neutral spectator (no team, so nobody targets them).
         var spectating = n == 2;

@@ -39,7 +39,11 @@ public sealed class MobaGhostPlayer : OfflinePlayer
     /// <param name="State">The champion's match progress.</param>
     /// <param name="Vitals">The body at the time of the disconnect.</param>
     /// <param name="WasAlive">Whether the champion was alive.</param>
-    public sealed record Handover(Account Account, Character CloneCharacter, Character? Real, MobaChampionState State, MobaVitals? Vitals, bool WasAlive);
+    public sealed record Handover(Account Account, Character CloneCharacter, Character? Real, MobaChampionState State, MobaVitals? Vitals, bool WasAlive)
+    {
+        /// <summary>Gets the map instance the match is played on (<see langword="null"/> for the shared arena).</summary>
+        public GameMap? Arena => this.State.Arena;
+    }
 
     /// <summary>
     /// Captures what a disconnecting session has to hand over, if it is a human champion in a match.
@@ -79,7 +83,7 @@ public sealed class MobaGhostPlayer : OfflinePlayer
             if (!handover.WasAlive)
             {
                 // Disconnecting does not skip the respawn wait: the ghost shows up when it would have.
-                var arenaMap = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber, false).ConfigureAwait(false);
+                var arenaMap = handover.Arena ?? await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber, false).ConfigureAwait(false);
                 await Task.Delay(MobaRespawn.FullDelayOf(handover.State, MobaArena.Of(arenaMap))).ConfigureAwait(false);
             }
 
@@ -146,6 +150,7 @@ public sealed class MobaGhostPlayer : OfflinePlayer
             this.IsMobaClone = true;
             this.MobaState = handover.State;
             this.MobaRealCharacter = handover.Real;
+            this.BoundMap = handover.Arena;
 
             await this.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.LoginScreen).ConfigureAwait(false);
             await this.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.Authenticated).ConfigureAwait(false);

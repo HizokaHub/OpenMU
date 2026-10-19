@@ -48,6 +48,8 @@ public static class MobaMatchEnder
 
         var winner = losingTeam == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
 
+        // Everything the match left on the map goes now (bots included: they have no owner to eject, or they would idle
+        // in the empty arena); the map itself waits for the players to be sent away (see EjectParticipantsAsync).
         MobaWavePeriodicSpawner.Stop(map);
         await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
@@ -55,8 +57,6 @@ public static class MobaMatchEnder
         await MobaJungle.StopAsync(map).ConfigureAwait(false);
         MobaBotObjectives.Reset(MobaArena.Of(map));
         MobaMatchPhase.Reset(MobaArena.Of(map));
-
-        // Test bots (/mobafight, /mobabot) have no real owner to eject: remove them with the match, or they idle in the empty arena.
         await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
 
         foreach (var player in await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false))
@@ -112,6 +112,12 @@ public static class MobaMatchEnder
         }
         finally
         {
+            if (map.IsInstance)
+            {
+                // The copy of the arena was made for this match only.
+                await MobaArenaBoot.TearDownAsync(map, gameContext).ConfigureAwait(false);
+            }
+
             if (EjectTimers.TryRemove(map, out var timer))
             {
                 await timer.DisposeAsync().ConfigureAwait(false);

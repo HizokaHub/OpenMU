@@ -141,14 +141,8 @@ public static class MobaStructureSpawner
     /// </summary>
     /// <param name="gameContext">The game context.</param>
     /// <returns>The number of structures spawned.</returns>
-    public static async ValueTask<int> EnsureStructuresAsync(IGameContext gameContext)
+    public static async ValueTask<int> EnsureStructuresAsync(GameMap map, IGameContext gameContext)
     {
-        var map = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
-        if (map is null)
-        {
-            return 0;
-        }
-
         await EnsureLock.WaitAsync().ConfigureAwait(false);
         try
         {

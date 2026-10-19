@@ -67,6 +67,9 @@ public class SelectCharacterAction
             player.SuppressPersistence = true;
             player.IsMobaClone = true;
             player.MobaState = championState;
+
+            // The match is played on its own map instance, or on the shared arena for the /moba shortcut.
+            player.BoundMap = championState.Arena;
             player.Died -= OnMobaChampionDied;
             player.Died += OnMobaChampionDied;
             await player.SetSelectedCharacterAsync(clone).ConfigureAwait(false);
@@ -76,9 +79,11 @@ public class SelectCharacterAction
             // Default team until real matchmaking assigns one; overridable with /mobateam.
             MobaTeams.Set(player, championState.Team == MobaTeam.None ? MobaTeam.Blue : championState.Team);
 
-            await MobaShop.EnsureVendorsAsync(player.GameContext).ConfigureAwait(false);
-            await PlugIns.Moba.MobaStructureSpawner.EnsureStructuresAsync(player.GameContext).ConfigureAwait(false);
-            await PlugIns.Moba.MobaJungle.EnsureStartedAsync(player.GameContext).ConfigureAwait(false);
+            var arenaMap = championState.Arena ?? await player.GameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
+            if (arenaMap is not null)
+            {
+                await MobaArenaBoot.EnsureAsync(arenaMap, player.GameContext).ConfigureAwait(false);
+            }
 
             player.Logger.LogInformation("Account {0} entered the MOBA match as a clone of '{1}'.", account.LoginName, characterName);
             return;

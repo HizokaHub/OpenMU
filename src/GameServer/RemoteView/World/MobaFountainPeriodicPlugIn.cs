@@ -59,7 +59,7 @@ public class MobaFountainPeriodicPlugIn : IPeriodicTaskPlugIn
                 span[4] = (byte)count;
                 for (var i = 0; i < count; i++)
                 {
-                    var state = MobaFountains.StateOf(i);
+                    var state = MobaFountains.StateOf(MobaArena.Of(player), i);
                     var offset = 5 + (i * EntrySize);
                     span[offset] = (byte)state.Owner;
                     span[offset + 1] = Percent(state.BlueProgress, state.Required);

@@ -81,6 +81,7 @@ public class MobaArenaTestChatCommandPlugIn : ChatCommandPlugInBase<MobaArenaTes
         }
 
         player.BoundMap = map;
+        await MobaArenaBoot.EnsureAsync(map, player.GameContext).ConfigureAwait(false);
         await player.ShowBlueMessageAsync($"[MOBA] Te muevo a la copia {map.Id.ToString()[..8]} de la arena...").ConfigureAwait(false);
         await player.TeleportToMapAsync(map, current.MapId == map.MapId ? player.Position : MobaLayout.NearestWalkable(116, 20)).ConfigureAwait(false);
     }
@@ -130,9 +131,8 @@ public class MobaArenaTestChatCommandPlugIn : ChatCommandPlugInBase<MobaArenaTes
                 continue;
             }
 
-            await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
-            await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
-            removed += await player.GameContext.RemoveInstanceMapAsync(map).ConfigureAwait(false) ? 1 : 0;
+            await MobaArenaBoot.TearDownAsync(map, player.GameContext).ConfigureAwait(false);
+            removed++;
         }
 
         await player.ShowBlueMessageAsync($"[MOBA] {removed} copia(s) vacia(s) eliminadas.").ConfigureAwait(false);

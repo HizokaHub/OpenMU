@@ -36,6 +36,12 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the champion's team.</summary>
     public MobaTeam Team { get; set; } = MobaTeam.None;
 
+    /// <summary>
+    /// Gets or sets the map instance this champion's match is played on, or <see langword="null"/> for the arena
+    /// the game server hosts for everybody (the <c>/moba</c> test shortcut).
+    /// </summary>
+    public GameMap? Arena { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the champion was already placed at its base when the match was entered.</summary>
     public bool Placed { get; set; }
 
