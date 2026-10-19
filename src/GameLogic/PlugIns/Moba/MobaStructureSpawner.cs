@@ -40,8 +40,8 @@ public static class MobaStructureSpawner
     // (outer, inner) per lane and team, and one nexus per team.
 
     // Structures spawned per map, so the toggle commands can remove them.
-    private static readonly ConcurrentDictionary<ushort, List<Monster>> TurretsByMap = new();
-    private static readonly ConcurrentDictionary<ushort, List<Monster>> NexusesByMap = new();
+    private static readonly ConcurrentDictionary<GameMap, List<Monster>> TurretsByMap = new();
+    private static readonly ConcurrentDictionary<GameMap, List<Monster>> NexusesByMap = new();
 
     /// <summary>
     /// Structure max-HP multiplier of a match phase (2026-10-02, requested by the user): champion damage grows
@@ -56,12 +56,18 @@ public static class MobaStructureSpawner
         _ => 1f,
     };
 
-    /// <summary>Re-scales the max HP of every living turret / nexus to the phase, keeping each one's HP percentage.</summary>
+    /// <summary>Re-scales the max HP of every living turret / nexus of the map to the phase, keeping each one's HP percentage.</summary>
+    /// <param name="map">The arena map.</param>
     /// <param name="tier">The new match phase.</param>
-    public static void ApplyPhaseHealth(MobaShopTier tier)
+    public static void ApplyPhaseHealth(GameMap? map, MobaShopTier tier)
     {
+        if (map is null)
+        {
+            return;
+        }
+
         var multiplier = StructureHealthMultiplier(tier);
-        foreach (var (monsters, baseHealth) in new[] { (TurretsByMap.Values, TurretHealth), (NexusesByMap.Values, NexusHealth) })
+        foreach (var (monsters, baseHealth) in new[] { (TurretsByMap.TryGetValue(map, out var turretList) ? new[] { turretList } : Array.Empty<List<Monster>>(), TurretHealth), (NexusesByMap.TryGetValue(map, out var nexusList) ? new[] { nexusList } : Array.Empty<List<Monster>>(), NexusHealth) })
         {
             foreach (var structure in monsters.SelectMany(list => list.ToArray()).Where(m => m.IsAlive))
             {
@@ -90,8 +96,7 @@ public static class MobaStructureSpawner
         }
 
         var team = MobaTeams.GetTeam(structure);
-        var mapId = structure.CurrentMap?.MapId ?? 0;
-        var turrets = TurretsByMap.TryGetValue(mapId, out var list) ? list.ToArray() : Array.Empty<Monster>();
+        var turrets = structure.CurrentMap is { } structureMap && TurretsByMap.TryGetValue(structureMap, out var list) ? list.ToArray() : Array.Empty<Monster>();
         bool IsTeamTurret(Monster m, out StructureInfo other)
             => InfoByStructure.TryGetValue(m, out other!) && MobaTeams.GetTeam(m) == team;
 
@@ -119,14 +124,14 @@ public static class MobaStructureSpawner
         => InfoByStructure.TryGetValue(structure, out var info) ? info.Lane : -1;
 
     /// <summary>Whether turrets are currently spawned on the map.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if turrets exist.</returns>
-    public static bool HasTurrets(ushort mapId) => TurretsByMap.TryGetValue(mapId, out var list) && list.Count > 0;
+    public static bool HasTurrets(GameMap map) => TurretsByMap.TryGetValue(map, out var list) && list.Count > 0;
 
     /// <summary>Whether nexuses are currently spawned on the map.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if nexuses exist.</returns>
-    public static bool HasNexuses(ushort mapId) => NexusesByMap.TryGetValue(mapId, out var list) && list.Count > 0;
+    public static bool HasNexuses(GameMap map) => NexusesByMap.TryGetValue(map, out var list) && list.Count > 0;
 
     private static readonly System.Threading.SemaphoreSlim EnsureLock = new(1, 1);
 
@@ -148,12 +153,12 @@ public static class MobaStructureSpawner
         try
         {
             var spawned = 0;
-            if (!HasTurrets(map.MapId))
+            if (!HasTurrets(map))
             {
                 spawned += await SpawnTurretsAsync(map, gameContext).ConfigureAwait(false);
             }
 
-            if (!HasNexuses(map.MapId))
+            if (!HasNexuses(map))
             {
                 spawned += await SpawnNexusesAsync(map, gameContext).ConfigureAwait(false);
             }
@@ -172,7 +177,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of turrets spawned.</returns>
     public static async ValueTask<int> SpawnTurretsAsync(GameMap map, IGameContext gameContext)
     {
-        var list = TurretsByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
+        var list = TurretsByMap.GetOrAdd(map, _ => new List<Monster>());
         var count = 0;
 
         foreach (var spec in MobaLayout.Towers)
@@ -193,7 +198,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of turrets removed.</returns>
     public static async ValueTask<int> RemoveTurretsAsync(GameMap map)
     {
-        if (!TurretsByMap.TryRemove(map.MapId, out var list))
+        if (!TurretsByMap.TryRemove(map, out var list))
         {
             return 0;
         }
@@ -258,7 +263,7 @@ public static class MobaStructureSpawner
             gameContext.PathFinderPool);
 
         turret.Initialize();
-        ForceTurretStats(turret);
+        ForceTurretStats(turret, map);
         InfoByStructure.AddOrUpdate(turret, new StructureInfo(tier, lane));
 
         var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
@@ -282,9 +287,9 @@ public static class MobaStructureSpawner
         }
     }
 
-    private static void ForceTurretStats(Monster turret)
+    private static void ForceTurretStats(Monster turret, GameMap map)
     {
-        SetAbsolute(turret, Stats.MaximumHealth, TurretHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
+        SetAbsolute(turret, Stats.MaximumHealth, TurretHealth * StructureHealthMultiplier(MobaArena.Of(map).Phase));
         SetAbsolute(turret, Stats.MinimumPhysBaseDmg, TurretMinDamage);
         SetAbsolute(turret, Stats.MaximumPhysBaseDmg, TurretMaxDamage);
         SetAbsolute(turret, Stats.DefenseBase, TurretDefense);
@@ -300,7 +305,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of nexuses spawned.</returns>
     public static async ValueTask<int> SpawnNexusesAsync(GameMap map, IGameContext gameContext)
     {
-        var list = NexusesByMap.GetOrAdd(map.MapId, _ => new List<Monster>());
+        var list = NexusesByMap.GetOrAdd(map, _ => new List<Monster>());
         var count = 0;
 
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
@@ -322,7 +327,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of nexuses removed.</returns>
     public static async ValueTask<int> RemoveNexusesAsync(GameMap map)
     {
-        if (!NexusesByMap.TryRemove(map.MapId, out var list))
+        if (!NexusesByMap.TryRemove(map, out var list))
         {
             return 0;
         }
@@ -388,7 +393,7 @@ public static class MobaStructureSpawner
 
         nexus.Initialize();
         InfoByStructure.AddOrUpdate(nexus, new StructureInfo(3, -1));
-        SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaMatchPhase.Current));
+        SetAbsolute(nexus, Stats.MaximumHealth, NexusHealth * StructureHealthMultiplier(MobaArena.Of(map).Phase));
         SetAbsolute(nexus, Stats.DefenseBase, NexusDefense);
 
         // Losing team = this nexus's team.

@@ -32,7 +32,7 @@ public static class MobaSelupanEvent
         MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2, MobaJungle.Kind.SpiderEgg3, MobaJungle.Kind.SpiderEgg1, MobaJungle.Kind.SpiderEgg2,
     };
 
-    private static readonly Dictionary<ushort, EventState> States = new();
+    private static readonly Dictionary<GameMap, EventState> States = new();
 
     /// <summary>Gets the number of spiders an egg hatches: 1 (45 %), 2 (35 %) or 3 (20 %).</summary>
     /// <param name="roll">A random number in [0, 1).</param>
@@ -47,8 +47,8 @@ public static class MobaSelupanEvent
     public static async ValueTask<int> StartAsync(GameMap map, IGameContext gameContext, bool delayed = false)
     {
         await StopAsync(map).ConfigureAwait(false);
-        var state = new EventState(CancellationTokenSource.CreateLinkedTokenSource(MobaJungle.TokenOf(map.MapId)));
-        States[map.MapId] = state;
+        var state = new EventState(CancellationTokenSource.CreateLinkedTokenSource(MobaJungle.TokenOf(map)));
+        States[map] = state;
         var wait = delayed ? MobaJungle.Info[MobaJungle.Kind.SpiderEgg1].FirstSpawn : 0;
         if (wait > 0)
         {
@@ -70,7 +70,7 @@ public static class MobaSelupanEvent
     /// <returns>A task.</returns>
     public static async ValueTask StopAsync(GameMap map)
     {
-        if (States.Remove(map.MapId, out var state))
+        if (States.Remove(map, out var state))
         {
             await state.Cancel.CancelAsync().ConfigureAwait(false);
         }

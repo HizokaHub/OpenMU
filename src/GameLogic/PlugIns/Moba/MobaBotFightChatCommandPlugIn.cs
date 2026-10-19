@@ -46,12 +46,12 @@ public class MobaBotFightChatCommandPlugIn : IChatCommandPlugIn
         var arena = await player.GameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber).ConfigureAwait(false);
         if (arena is not null)
         {
-            if (!MobaStructureSpawner.HasTurrets(arena.MapId))
+            if (!MobaStructureSpawner.HasTurrets(arena))
             {
                 structures += await MobaStructureSpawner.SpawnTurretsAsync(arena, player.GameContext).ConfigureAwait(false);
             }
 
-            if (!MobaStructureSpawner.HasNexuses(arena.MapId))
+            if (!MobaStructureSpawner.HasNexuses(arena))
             {
                 structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
             }

@@ -448,7 +448,7 @@ public static class MobaTelemetry
                 return;
             }
 
-            var elapsed = (int)MobaMatchTickPlugIn.MatchElapsed.TotalSeconds;
+            var elapsed = (int)MobaArena.Of(champions[0]).Elapsed.TotalSeconds;
             GameMap? map = null;
             MobaDropReport.WriteSummary(champions[0].Logger);
 

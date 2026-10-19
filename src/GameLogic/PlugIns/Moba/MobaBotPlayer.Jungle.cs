@@ -108,7 +108,7 @@ public sealed partial class MobaBotPlayer
             return;
         }
 
-        var live = MobaJungle.LiveMonsters(c.Map.MapId);
+        var live = MobaJungle.LiveMonsters(c.Map);
 
         var previous = this._jungleTarget;
         if (previous is not null && !previous.IsAlive)
@@ -209,7 +209,7 @@ public sealed partial class MobaBotPlayer
 
     /// <summary>Whether a jungle monster is fighting this bot right now (it must not stand still channelling a recall then).</summary>
     private bool IsHuntedByJungle(BotContext c)
-        => c.Map is { } map && MobaJungle.LiveMonsters(map.MapId).Any(l => l.Ai.IsFighting && ReferenceEquals(l.Ai.Target, this) && l.Monster.GetDistanceTo(c.Pos) <= 16);
+        => c.Map is { } map && MobaJungle.LiveMonsters(map).Any(l => l.Ai.IsFighting && ReferenceEquals(l.Ai.Target, this) && l.Monster.GetDistanceTo(c.Pos) <= 16);
 
     /// <summary>Time per state and a summary every 30 s: what the jungler did, what it earned and how it stands.</summary>
     private void JungleTelemetry(BotContext c, BotState previousState)
@@ -235,7 +235,7 @@ public sealed partial class MobaBotPlayer
         this.Logger.LogInformation(
             "[MOBA-JGL] {Name} SUMMARY t={T}s Lv{Lv} hp={Hp:P0} kills={Kills} pos={X},{Y} state={State} | time per state: {States} | {Income}",
             this.Name,
-            (int)MobaMatchTickPlugIn.MatchElapsed.TotalSeconds,
+            (int)MobaArena.Of(this).Elapsed.TotalSeconds,
             this.MobaLevel,
             c.HpPct,
             this._jungleKills,
@@ -275,7 +275,7 @@ public sealed partial class MobaBotPlayer
         var bestDistance = detour;
         for (var i = 0; i < MobaFountains.PointCount; i++)
         {
-            if (MobaFountains.StateOf(i).Owner == team)
+            if (MobaFountains.StateOf(MobaArena.Of(this), i).Owner == team)
             {
                 continue;
             }

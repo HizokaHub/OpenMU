@@ -21,16 +21,16 @@ public static class MobaMatchEnder
     /// <summary>Seconds between the victory announcement and reconnecting the players.</summary>
     private const int EjectDelaySeconds = 8;
 
-    private static readonly ConcurrentDictionary<ushort, byte> Ending = new();
+    private static readonly ConcurrentDictionary<GameMap, byte> Ending = new();
 
     // Keeps the one-shot eject timers alive until they fire (a discarded Timer can be
     // collected before its callback runs).
-    private static readonly ConcurrentDictionary<ushort, Timer> EjectTimers = new();
+    private static readonly ConcurrentDictionary<GameMap, Timer> EjectTimers = new();
 
     /// <summary>Whether a match on the given map is already ending (guards a double nexus death).</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if end is in progress.</returns>
-    public static bool IsEnding(ushort mapId) => Ending.ContainsKey(mapId);
+    public static bool IsEnding(GameMap map) => Ending.ContainsKey(map);
 
     /// <summary>
     /// Ends the match on <paramref name="map"/>. <paramref name="losingTeam"/> is the team
@@ -41,23 +41,23 @@ public static class MobaMatchEnder
     /// <param name="losingTeam">The team that lost its nexus.</param>
     public static async ValueTask EndMatchAsync(GameMap map, IGameContext gameContext, MobaTeam losingTeam)
     {
-        if (!Ending.TryAdd(map.MapId, 0))
+        if (!Ending.TryAdd(map, 0))
         {
             return;
         }
 
         var winner = losingTeam == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
 
-        MobaWavePeriodicSpawner.Stop(map.MapId);
+        MobaWavePeriodicSpawner.Stop(map);
         await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
         await MobaJungle.StopAsync(map).ConfigureAwait(false);
-        MobaBotObjectives.Reset();
-        MobaMatchPhase.Reset();
+        MobaBotObjectives.Reset(MobaArena.Of(map));
+        MobaMatchPhase.Reset(MobaArena.Of(map));
 
         // Test bots (/mobafight, /mobabot) have no real owner to eject: remove them with the match, or they idle in the empty arena.
-        await MobaBotPlayer.ClearAllAsync().ConfigureAwait(false);
+        await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
 
         foreach (var player in await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false))
         {
@@ -77,13 +77,13 @@ public static class MobaMatchEnder
             null,
             TimeSpan.FromSeconds(EjectDelaySeconds),
             Timeout.InfiniteTimeSpan);
-        EjectTimers[map.MapId] = timer;
+        EjectTimers[map] = timer;
     }
 
     private static async Task<IReadOnlyList<Player>> GetArenaPlayersAsync(GameMap map, IGameContext gameContext)
     {
         var all = await gameContext.GetPlayersAsync().ConfigureAwait(false);
-        return all.Where(p => p.CurrentMap?.MapId == map.MapId).ToList();
+        return all.Where(p => ReferenceEquals(p.CurrentMap, map)).ToList();
     }
 
     private static async Task EjectParticipantsAsync(GameMap map, IGameContext gameContext)
@@ -112,12 +112,12 @@ public static class MobaMatchEnder
         }
         finally
         {
-            if (EjectTimers.TryRemove(map.MapId, out var timer))
+            if (EjectTimers.TryRemove(map, out var timer))
             {
                 await timer.DisposeAsync().ConfigureAwait(false);
             }
 
-            Ending.TryRemove(map.MapId, out _);
+            Ending.TryRemove(map, out _);
         }
     }
 }

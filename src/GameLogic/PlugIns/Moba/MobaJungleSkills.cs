@@ -306,7 +306,7 @@ public static class MobaJungleSkills
         var maximum = new SimpleElement(monster.Attributes[Stats.MaximumPhysBaseDmg] * fraction, AggregateType.AddRaw);
         monster.Attributes.AddElement(minimum, Stats.MinimumPhysBaseDmg);
         monster.Attributes.AddElement(maximum, Stats.MaximumPhysBaseDmg);
-        var token = MobaJungle.TokenOf(monster.CurrentMap!.MapId);
+        var token = MobaJungle.TokenOf(monster.CurrentMap!);
         _ = Task.Run(async () =>
         {
             try
@@ -459,7 +459,7 @@ public static class MobaJungleSkills
     /// <summary>Burns / poisons a champion: <paramref name="fractionOfMaxHealth"/> of its maximum life every second for <paramref name="seconds"/> seconds (true damage).</summary>
     private static void StartDamageOverTime(Monster monster, Player victim, double fractionOfMaxHealth, int seconds)
     {
-        var token = MobaJungle.TokenOf(monster.CurrentMap!.MapId);
+        var token = MobaJungle.TokenOf(monster.CurrentMap!);
         _ = Task.Run(async () =>
         {
             try

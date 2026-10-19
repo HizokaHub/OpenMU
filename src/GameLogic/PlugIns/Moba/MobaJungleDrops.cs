@@ -113,7 +113,7 @@ public static class MobaJungleDrops
         }
 
         var top = winners.Max(w => w.Value);
-        var (_, _, _, tierExcellent) = MobaShop.TierStatsOf(MobaMatchPhase.Current);
+        var (_, _, _, tierExcellent) = MobaShop.TierStatsOf(MobaArena.Of(killer).Phase);
         var dropped = new List<string>();
         foreach (var (champion, dealt) in winners)
         {

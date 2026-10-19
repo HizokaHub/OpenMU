@@ -17,12 +17,12 @@ public static class MobaWavePeriodicSpawner
     /// <summary>Default seconds between waves when <c>/mobawaves</c> is started without an interval.</summary>
     public const int DefaultIntervalSeconds = 48;
 
-    private static readonly ConcurrentDictionary<ushort, Timer> Running = new();
+    private static readonly ConcurrentDictionary<GameMap, Timer> Running = new();
 
     /// <summary>Whether a periodic spawner is running for the given map.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if running.</returns>
-    public static bool IsRunning(ushort mapId) => Running.ContainsKey(mapId);
+    public static bool IsRunning(GameMap map) => Running.ContainsKey(map);
 
     /// <summary>
     /// (Re)starts the periodic spawner for a map: a blue and a red wave now and every
@@ -33,17 +33,17 @@ public static class MobaWavePeriodicSpawner
     /// <param name="interval">Time between wave sets.</param>
     public static void Start(GameMap map, IGameContext gameContext, TimeSpan interval)
     {
-        Stop(map.MapId);
+        Stop(map);
         var timer = new Timer(_ => _ = TickAsync(map, gameContext), null, TimeSpan.Zero, interval);
-        Running[map.MapId] = timer;
+        Running[map] = timer;
     }
 
     /// <summary>Stops and disposes the periodic spawner for a map, if any.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if one was running.</returns>
-    public static bool Stop(ushort mapId)
+    public static bool Stop(GameMap map)
     {
-        if (Running.TryRemove(mapId, out var timer))
+        if (Running.TryRemove(map, out var timer))
         {
             timer.Dispose();
             return true;

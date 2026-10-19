@@ -72,15 +72,15 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
         // Start from a clean arena so repeated runs don't pile up bots / creeps.
         await StopAsync(arena).ConfigureAwait(false);
-        MobaMatchPhase.Reset();
+        MobaMatchPhase.Reset(MobaArena.Of(arena));
 
         var structures = 0;
-        if (!MobaStructureSpawner.HasTurrets(arena.MapId))
+        if (!MobaStructureSpawner.HasTurrets(arena))
         {
             structures += await MobaStructureSpawner.SpawnTurretsAsync(arena, player.GameContext).ConfigureAwait(false);
         }
 
-        if (!MobaStructureSpawner.HasNexuses(arena.MapId))
+        if (!MobaStructureSpawner.HasNexuses(arena))
         {
             structures += await MobaStructureSpawner.SpawnNexusesAsync(arena, player.GameContext).ConfigureAwait(false);
         }
@@ -110,7 +110,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
         // 6: 1 top, 1 mid, 2 bot and the jungler per team (the jungler is the last of the list); the caller only watches, or is the blue jungler.
         var sixLanes = new[] { 0, MobaLayout.MidLane, 2, 2, MobaBotChatCommandPlugIn.JungleLane };
-        MobaBotObjectives.Reset();
+        MobaBotObjectives.Reset(MobaArena.Of(arena));
 
         // 5v5: 1 top, 2 mid, 2 bot per team; the caller (blue) just roams.
         var fiveLanes = new[] { 0, 1, 1, 2, 2 };
@@ -143,7 +143,7 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
         var scrolls = 0;
         if (spectating || threeLanes)
         {
-            foreach (var bot in MobaBotPlayer.All)
+            foreach (var bot in MobaBotPlayer.All.Where(b => ReferenceEquals(b.CurrentMap, arena)))
             {
                 scrolls += await MobaShop.GiveTeleportScrollAsync(bot).ConfigureAwait(false) ? 1 : 0;
             }
@@ -168,10 +168,10 @@ public class MobaFightChatCommandPlugIn : IChatCommandPlugIn
 
     private static async ValueTask<(int Bots, int Creeps)> StopAsync(GameMap arena)
     {
-        MobaWavePeriodicSpawner.Stop(arena.MapId);
-        MobaBotObjectives.Reset();
+        MobaWavePeriodicSpawner.Stop(arena);
+        MobaBotObjectives.Reset(MobaArena.Of(arena));
         await MobaJungle.StopAsync(arena).ConfigureAwait(false);
-        var bots = await MobaBotPlayer.ClearAllAsync().ConfigureAwait(false);
+        var bots = await MobaBotPlayer.ClearAllAsync(arena).ConfigureAwait(false);
         var creeps = await MobaWaveSpawner.DespawnAllCreepsAsync(arena).ConfigureAwait(false);
         return (bots, creeps);
     }

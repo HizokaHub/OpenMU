@@ -174,15 +174,6 @@ public static class MobaBotObjectives
     /// <summary>Tiles around the objective in which an enemy champion counts as "attacking it".</summary>
     public const double ScoutTiles = 25;
 
-    private static readonly object Gate = new();
-
-    private static readonly Dictionary<MobaTeam, MobaObjectiveCall> Calls = new();
-
-    private static readonly Dictionary<string, DateTime> Cooldowns = new();
-
-    private static DateTime _nextTickUtc;
-
-    private static IReadOnlyList<MobaObjective> _objectives = Array.Empty<MobaObjective>();
 
     /// <summary>The data of a bot that could be called.</summary>
     /// <param name="Id">An identifier of the bot.</param>
@@ -190,9 +181,6 @@ public static class MobaBotObjectives
     /// <param name="HpPct">Life fraction.</param>
     /// <param name="IsJungler">Whether it is the jungler (always first).</param>
     public readonly record struct Candidate(int Id, double Distance, float HpPct, bool IsJungler);
-
-    /// <summary>Gets the objectives that were up at the last look.</summary>
-    public static IReadOnlyList<MobaObjective> Objectives => _objectives;
 
     /// <summary>Chooses the bots of a call: the jungler first, then the nearest; none when fewer than <paramref name="need"/> qualify.</summary>
     /// <param name="candidates">The bots of the team.</param>
@@ -227,9 +215,10 @@ public static class MobaBotObjectives
     /// <returns>The call.</returns>
     public static MobaObjectiveCall? AssignmentOf(MobaBotPlayer bot)
     {
-        lock (Gate)
+        var board = MobaArena.Of(bot).ObjectiveBoard;
+        lock (board.Gate)
         {
-            return Calls.Values.FirstOrDefault(c => c.Participants.Contains(bot));
+            return board.Calls.Values.FirstOrDefault(c => c.Participants.Contains(bot));
         }
     }
 
@@ -244,14 +233,16 @@ public static class MobaBotObjectives
                ?? objective.Extra.Where(m => m.IsAlive).OrderBy(m => m.GetDistanceTo(from)).FirstOrDefault();
     }
 
-    /// <summary>Forgets every call (the match ended or the bots were removed).</summary>
-    public static void Reset()
+    /// <summary>Forgets every call of the arena (the match ended or the bots were removed).</summary>
+    /// <param name="arena">The arena.</param>
+    public static void Reset(MobaArena arena)
     {
-        lock (Gate)
+        var board = arena.ObjectiveBoard;
+        lock (board.Gate)
         {
-            Calls.Clear();
-            Cooldowns.Clear();
-            _objectives = Array.Empty<MobaObjective>();
+            board.Calls.Clear();
+            board.Cooldowns.Clear();
+            board.Objectives = Array.Empty<MobaObjective>();
         }
     }
 
@@ -259,26 +250,27 @@ public static class MobaBotObjectives
     /// <param name="map">The arena map.</param>
     public static void Tick(GameMap map)
     {
-        lock (Gate)
+        var board = MobaArena.Of(map).ObjectiveBoard;
+        lock (board.Gate)
         {
             var now = DateTime.UtcNow;
-            if (now < _nextTickUtc)
+            if (now < board.NextTickUtc)
             {
                 return;
             }
 
-            _nextTickUtc = now + TimeSpan.FromSeconds(TickSeconds);
+            board.NextTickUtc = now + TimeSpan.FromSeconds(TickSeconds);
             try
             {
-                var objectives = BuildObjectives(MobaJungle.LiveMonsters(map.MapId));
-                _objectives = objectives;
+                var objectives = BuildObjectives(MobaJungle.LiveMonsters(map));
+                board.Objectives = objectives;
                 var bots = MobaBotPlayer.All.Where(b => !b.IsDummy && b.IsMobaClone && b.IsAlive && b.CurrentMap == map).ToList();
                 foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
                 {
-                    Validate(team, objectives, bots, now);
-                    if (!Calls.ContainsKey(team))
+                    Validate(board, team, objectives, bots, now);
+                    if (!board.Calls.ContainsKey(team))
                     {
-                        TryCall(map, team, objectives, bots, now);
+                        TryCall(board, map, team, objectives, bots, now);
                     }
                 }
             }
@@ -359,9 +351,9 @@ public static class MobaBotObjectives
 
     private static MobaTeam Enemy(MobaTeam team) => team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
 
-    private static void Validate(MobaTeam team, IReadOnlyList<MobaObjective> objectives, IReadOnlyList<MobaBotPlayer> bots, DateTime now)
+    private static void Validate(MobaObjectiveBoard board, MobaTeam team, IReadOnlyList<MobaObjective> objectives, IReadOnlyList<MobaBotPlayer> bots, DateTime now)
     {
-        if (!Calls.TryGetValue(team, out var call))
+        if (!board.Calls.TryGetValue(team, out var call))
         {
             return;
         }
@@ -372,27 +364,27 @@ public static class MobaBotObjectives
         if (current is null)
         {
             endReason = "objective gone";
-            Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(20);
+            board.Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(20);
         }
         else if ((now - call.Started).TotalSeconds > MaxCallSeconds)
         {
             endReason = "timeout";
-            Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(60);
+            board.Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(60);
         }
         else if (!call.Engaged && (now - call.Started).TotalSeconds > 35 && call.ArrivedCount == 0)
         {
             endReason = "nobody could reach the rally point";
-            Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(120);
+            board.Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(120);
         }
         else if (call.Participants.Count < Math.Min(2, call.Objective.Required))
         {
             endReason = "not enough bots left";
-            Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(40);
+            board.Cooldowns[call.Objective.Key] = now + TimeSpan.FromSeconds(40);
         }
 
         if (endReason is not null)
         {
-            Calls.Remove(team);
+            board.Calls.Remove(team);
             Log(bots, "[MOBA-OBJ] {Team} ends {Key}: {Reason}.", team, call.Objective.Key, endReason);
             return;
         }
@@ -411,7 +403,7 @@ public static class MobaBotObjectives
         }
     }
 
-    private static void TryCall(GameMap map, MobaTeam team, IReadOnlyList<MobaObjective> objectives, IReadOnlyList<MobaBotPlayer> bots, DateTime now)
+    private static void TryCall(MobaObjectiveBoard board, GameMap map, MobaTeam team, IReadOnlyList<MobaObjective> objectives, IReadOnlyList<MobaBotPlayer> bots, DateTime now)
     {
         var mine = bots.Where(b => MobaTeams.GetTeam(b) == team).ToList();
         if (mine.Count < 2 || objectives.Count == 0)
@@ -429,13 +421,13 @@ public static class MobaBotObjectives
 
         foreach (var objective in objectives)
         {
-            if (Cooldowns.TryGetValue(objective.Key, out var until) && now < until)
+            if (board.Cooldowns.TryGetValue(objective.Key, out var until) && now < until)
             {
                 continue;
             }
 
             // Do the enemies already go for it? Their call has begun, or the objective is hurt and their champions stand around it.
-            var enemyCall = Calls.TryGetValue(enemy, out var ec) && ec.Objective.Key == objective.Key && ec.Engaged;
+            var enemyCall = board.Calls.TryGetValue(enemy, out var ec) && ec.Objective.Key == objective.Key && ec.Engaged;
             var enemiesThere = objective.Fraction < 0.98
                 && map.GetAttackablesInRange(objective.Position, (int)ScoutTiles).OfType<Player>().Any(p => p.IsMobaClone && p.IsAlive && MobaTeams.GetTeam(p) == enemy);
             var contest = enemyCall || enemiesThere;
@@ -476,7 +468,7 @@ public static class MobaBotObjectives
 
         var participants = bestIds.Select(i => mine[i]).ToList();
         var rally = bestContest ? ReachableNear(map, best.Position) : RallyPoint(map, best.Position, ownNexus, 9);
-        Calls[team] = new MobaObjectiveCall(team, best, rally, participants, bestContest);
+        board.Calls[team] = new MobaObjectiveCall(team, best, rally, participants, bestContest);
         Log(
             bots,
             "[MOBA-OBJ] {Team} {Kind} {Key} ({Fraction:P0} left, avg level {Lv:F1}): {Names} {Mode} at ({X},{Y}).",
@@ -546,4 +538,25 @@ public static class MobaBotObjectives
     {
         bots.FirstOrDefault()?.Logger.LogInformation(message, args);
     }
+}
+
+/// <summary>
+/// The coordinator state of one arena: the calls of both teams, the cooldowns of the objectives and the last look.
+/// </summary>
+public sealed class MobaObjectiveBoard
+{
+    /// <summary>Gets the lock which guards the board.</summary>
+    public object Gate { get; } = new();
+
+    /// <summary>Gets the call of each team.</summary>
+    public Dictionary<MobaTeam, MobaObjectiveCall> Calls { get; } = new();
+
+    /// <summary>Gets the instant until which an objective may not be called again.</summary>
+    public Dictionary<string, DateTime> Cooldowns { get; } = new();
+
+    /// <summary>Gets or sets the instant of the next look.</summary>
+    public DateTime NextTickUtc { get; set; }
+
+    /// <summary>Gets or sets the objectives that were up at the last look.</summary>
+    public IReadOnlyList<MobaObjective> Objectives { get; set; } = Array.Empty<MobaObjective>();
 }

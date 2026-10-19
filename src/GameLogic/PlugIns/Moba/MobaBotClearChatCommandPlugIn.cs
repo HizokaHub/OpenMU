@@ -27,7 +27,7 @@ public class MobaBotClearChatCommandPlugIn : IChatCommandPlugIn
     /// <inheritdoc />
     public async ValueTask HandleCommandAsync(Player player, string command)
     {
-        var removed = await MobaBotPlayer.ClearAllAsync().ConfigureAwait(false);
+        var removed = await MobaBotPlayer.ClearAllAsync(player.CurrentMap).ConfigureAwait(false);
         await player.ShowBlueMessageAsync($"[mobabotclear] {removed} bot(s) eliminados.").ConfigureAwait(false);
     }
 }

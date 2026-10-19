@@ -100,7 +100,7 @@ public static class MobaGold
         };
         amount = (int)Math.Round(amount * traitBonus);
         var itemBonus = champion.Attributes?[Stats.MoneyAmountRate] ?? 1f;
-        var phase = scaleByPhase ? PhaseMultiplierOf(MobaMatchPhase.Current) : 1.0;
+        var phase = scaleByPhase ? PhaseMultiplierOf(MobaArena.Of(champion).Phase) : 1.0;
         var final = (int)Math.Round(amount * phase * Math.Max(1f, itemBonus));
         champion.Money += final;
         MobaIncome.Add(champion, gold: true, reason, final);

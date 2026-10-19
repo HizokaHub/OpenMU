@@ -197,7 +197,7 @@ public static class MobaJungle
 
     private static readonly IDropGenerator NoDrops = new NoDropGenerator();
 
-    private static readonly Dictionary<ushort, JungleState> States = new();
+    private static readonly Dictionary<GameMap, JungleState> States = new();
 
     private static readonly SemaphoreSlim EnsureLock = new(1, 1);
 
@@ -235,7 +235,7 @@ public static class MobaJungle
     {
         await StopAsync(map).ConfigureAwait(false);
         var state = new JungleState();
-        States[map.MapId] = state;
+        States[map] = state;
         var total = 0;
         foreach (var spot in Spots)
         {
@@ -271,7 +271,7 @@ public static class MobaJungle
         await EnsureLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            return States.ContainsKey(map.MapId) ? 0 : await StartAsync(map, gameContext, delayed: true).ConfigureAwait(false);
+            return States.ContainsKey(map) ? 0 : await StartAsync(map, gameContext, delayed: true).ConfigureAwait(false);
         }
         finally
         {
@@ -285,11 +285,11 @@ public static class MobaJungle
     public static bool IsJungleMonster(object? monster) => monster is Monster m && AiByMonster.TryGetValue(m, out _);
 
     /// <summary>Gets the living jungle monsters of a map with their AI (the bots look for camps and objectives here).</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns>The monsters; empty when the jungle is not running.</returns>
-    public static IReadOnlyList<(Monster Monster, MobaJungleIntelligence Ai)> LiveMonsters(ushort mapId)
+    public static IReadOnlyList<(Monster Monster, MobaJungleIntelligence Ai)> LiveMonsters(GameMap map)
     {
-        if (!States.TryGetValue(mapId, out var state))
+        if (!States.TryGetValue(map, out var state))
         {
             return Array.Empty<(Monster, MobaJungleIntelligence)>();
         }
@@ -309,9 +309,9 @@ public static class MobaJungle
     }
 
     /// <summary>Whether the jungle of the map is running.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns><see langword="true"/> if it is.</returns>
-    public static bool IsRunning(ushort mapId) => States.ContainsKey(mapId);
+    public static bool IsRunning(GameMap map) => States.ContainsKey(map);
 
     /// <summary>Removes every jungle monster of the map and cancels the pending respawns.</summary>
     /// <param name="map">The arena map.</param>
@@ -319,7 +319,7 @@ public static class MobaJungle
     public static async ValueTask<int> StopAsync(GameMap map)
     {
         await MobaSelupanEvent.StopAsync(map).ConfigureAwait(false);
-        if (!States.Remove(map.MapId, out var state))
+        if (!States.Remove(map, out var state))
         {
             return 0;
         }
@@ -345,9 +345,9 @@ public static class MobaJungle
     }
 
     /// <summary>Gets the cancellation token of the running jungle of a map (cancelled when it stops), or <see cref="CancellationToken.None"/>.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <returns>The token.</returns>
-    internal static CancellationToken TokenOf(ushort mapId) => States.TryGetValue(mapId, out var state) ? state.Cancel.Token : CancellationToken.None;
+    internal static CancellationToken TokenOf(GameMap map) => States.TryGetValue(map, out var state) ? state.Cancel.Token : CancellationToken.None;
 
     /// <summary>Spawns one monster of the jungle with the stats of its kind at the current level of the match and registers it for the cleanup.</summary>
     /// <param name="map">The map.</param>
@@ -368,7 +368,7 @@ public static class MobaJungle
             return null;
         }
 
-        var level = MobaMatchPhase.LeaderLevel;
+        var level = MobaArena.Of(map).LeaderLevel;
         var health = info.BaseHealth * MobaWaveSpawner.CreepHealthMultiplierAt(level);
         var damageMultiplier = MobaWaveSpawner.CreepDamageMultiplierAt(level) * info.DamageFactor;
         var passive = info.DamageFactor <= 0f;
@@ -411,7 +411,7 @@ public static class MobaJungle
         monster.Died += (_, death) => _ = OnDiedAsync(map, gameContext, monster, kind, death, onDied, rewards, damage);
         await map.AddAsync(monster).ConfigureAwait(false);
         monster.OnSpawn();
-        if (States.TryGetValue(map.MapId, out var state))
+        if (States.TryGetValue(map, out var state))
         {
             state.Monsters.Add(monster);
         }
@@ -564,7 +564,7 @@ public static class MobaJungle
         var mates = (await gameContext.GetPlayersAsync().ConfigureAwait(false))
             .Concat(MobaBotPlayer.All)
             .Distinct()
-            .Where(p => p.IsMobaClone && p.IsAlive && !ReferenceEquals(p, killer) && team != MobaTeam.None && MobaTeams.GetTeam(p) == team)
+            .Where(p => p.IsMobaClone && p.IsAlive && !ReferenceEquals(p, killer) && ReferenceEquals(p.CurrentMap, killer.CurrentMap) && team != MobaTeam.None && MobaTeams.GetTeam(p) == team)
             .ToList();
         foreach (var mate in mates)
         {
@@ -600,8 +600,9 @@ public static class MobaJungle
     }
 
     /// <summary>The level whose stats the bosses take when a fight starts: the match leader, but never less than what the time played says (a boss that waited at level 1 would be a free kill).</summary>
+    /// <param name="arena">The arena of the match.</param>
     /// <returns>The level.</returns>
-    public static int BossLevel() => Math.Clamp(Math.Max(MobaMatchPhase.LeaderLevel, 1 + (int)(MobaMatchTickPlugIn.MatchElapsed.TotalMinutes * 0.35)), 1, 30);
+    public static int BossLevel(MobaArena arena) => Math.Clamp(Math.Max(arena.LeaderLevel, 1 + (int)(arena.Elapsed.TotalMinutes * 0.35)), 1, 30);
 
     /// <summary>Gives a boss the stats of <see cref="BossLevel"/> (life keeps its fraction), like Baron and Dragon in LoL which grow with the game and not with the player.</summary>
     /// <param name="monster">The boss.</param>
@@ -610,7 +611,7 @@ public static class MobaJungle
     internal static int RescaleOnEngage(Monster monster, Kind kind)
     {
         var info = Info[kind];
-        var level = BossLevel();
+        var level = BossLevel(MobaArena.Of(monster));
         var attributes = monster.Attributes;
         var fraction = attributes[Stats.MaximumHealth] > 0 ? attributes[Stats.CurrentHealth] / attributes[Stats.MaximumHealth] : 1f;
         var health = info.BaseHealth * MobaWaveSpawner.CreepHealthMultiplierAt(level);

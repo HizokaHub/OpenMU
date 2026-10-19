@@ -46,11 +46,11 @@ public class MobaWavesChatCommandPlugIn : ChatCommandPlugInBase<MobaWavesChatCom
         }
 
         var arg = arguments.Interval?.Trim().ToLowerInvariant();
-        var running = MobaWavePeriodicSpawner.IsRunning(map.MapId);
+        var running = MobaWavePeriodicSpawner.IsRunning(map);
 
         if (arg is "off" or "stop" or "0")
         {
-            var stopped = MobaWavePeriodicSpawner.Stop(map.MapId);
+            var stopped = MobaWavePeriodicSpawner.Stop(map);
             await player.ShowBlueMessageAsync(stopped
                 ? $"[MOBA] Periodic waves stopped on '{map.Definition.Name}'."
                 : "[MOBA] No periodic waves were running here.").ConfigureAwait(false);
@@ -60,7 +60,7 @@ public class MobaWavesChatCommandPlugIn : ChatCommandPlugInBase<MobaWavesChatCom
         // No argument: toggle off if running.
         if (string.IsNullOrEmpty(arg) && running)
         {
-            MobaWavePeriodicSpawner.Stop(map.MapId);
+            MobaWavePeriodicSpawner.Stop(map);
             await player.ShowBlueMessageAsync($"[MOBA] Periodic waves stopped on '{map.Definition.Name}'.").ConfigureAwait(false);
             return;
         }

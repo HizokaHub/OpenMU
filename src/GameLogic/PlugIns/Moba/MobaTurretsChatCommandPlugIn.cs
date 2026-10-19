@@ -39,7 +39,7 @@ public class MobaTurretsChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatComma
             return;
         }
 
-        if (MobaStructureSpawner.HasTurrets(map.MapId))
+        if (MobaStructureSpawner.HasTurrets(map))
         {
             var removed = await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
             await player.ShowBlueMessageAsync($"[MOBA] Removed {removed} turret(s) from '{map.Definition.Name}'.").ConfigureAwait(false);

@@ -72,7 +72,7 @@ public static class MobaShop
     private static (byte X, byte Y) BlueVendorPos => (MobaLayout.ShopOf(MobaTeam.Blue).X, MobaLayout.ShopOf(MobaTeam.Blue).Y);
     private static (byte X, byte Y) RedVendorPos => (MobaLayout.ShopOf(MobaTeam.Red).X, MobaLayout.ShopOf(MobaTeam.Red).Y);
 
-    private static readonly ConcurrentDictionary<ushort, List<NonPlayerCharacter>> VendorsByMap = new();
+    private static readonly ConcurrentDictionary<GameMap, List<NonPlayerCharacter>> VendorsByMap = new();
     private static readonly ConditionalWeakTable<Player, ShopView> Views = new();
     private static readonly object TierPriceLock = new();
     private static Dictionary<(byte, short), long>? _tierPrices;
@@ -92,7 +92,7 @@ public static class MobaShop
         }
 
         var vendors = new List<NonPlayerCharacter>();
-        if (!VendorsByMap.TryAdd(map.MapId, vendors))
+        if (!VendorsByMap.TryAdd(map, vendors))
         {
             return;
         }
@@ -479,7 +479,7 @@ public static class MobaShop
 
     private static bool IsVendor(NonPlayerCharacter npc)
         => npc.CurrentMap is { } map
-           && VendorsByMap.TryGetValue(map.MapId, out var vendors)
+           && VendorsByMap.TryGetValue(map, out var vendors)
            && vendors.Contains(npc);
 
     private static ShopView BuildView(Player player, int page)

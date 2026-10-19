@@ -66,7 +66,7 @@ public static class MobaCreepDrops
             return null;
         }
 
-        var tier = MobaMatchPhase.Current;
+        var tier = MobaArena.Of(lastHitter).Phase;
         var family = MobaPassives.FamilyOf(lastHitter);
         var all = MobaShopCatalog.Entries
             .Where(e => e.Tier == tier && (e.Families is null || e.Families.Contains(family)))

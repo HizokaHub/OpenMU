@@ -38,7 +38,7 @@ public class MobaNexusChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
             return;
         }
 
-        if (MobaStructureSpawner.HasNexuses(map.MapId))
+        if (MobaStructureSpawner.HasNexuses(map))
         {
             var removed = await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
             await player.ShowBlueMessageAsync($"[MOBA] Removed {removed} nexus(es) from '{map.Definition.Name}'.").ConfigureAwait(false);

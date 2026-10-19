@@ -353,7 +353,7 @@ internal static class MobaBotEconomy
     /// <summary>A pack of the best affordable potions the bot is missing (healing, then mana).</summary>
     private static Purchase? PotionPurchase(Player bot, long gold)
     {
-        var tier = MobaMatchPhase.Current;
+        var tier = MobaArena.Of(bot).Phase;
         foreach (var numbers in new[] { new short[] { 1, 2, 3 }, new short[] { 4, 5, 6 } })
         {
             if (FindPotion(bot, numbers) is not null)

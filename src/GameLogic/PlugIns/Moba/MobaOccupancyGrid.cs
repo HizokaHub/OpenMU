@@ -23,36 +23,36 @@ using MUnique.OpenMU.Pathfinding;
 /// </remarks>
 public static class MobaOccupancyGrid
 {
-    private static readonly ConcurrentDictionary<(ushort Map, int Tile), object> Owners = new();
+    private static readonly ConcurrentDictionary<(GameMap Map, int Tile), object> Owners = new();
 
     private static int Index(Point p) => (p.Y << 8) | p.X;
 
     /// <summary>Whether the tile is part of a structure's permanent footprint (turret / nexus).</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <param name="tile">The tile.</param>
     /// <returns><see langword="true"/> if a structure holds the tile.</returns>
-    public static bool IsStructureTile(ushort mapId, Point tile)
-        => Owners.TryGetValue((mapId, Index(tile)), out var owner) && owner is MobaStructureIntelligence;
+    public static bool IsStructureTile(GameMap map, Point tile)
+        => Owners.TryGetValue((map, Index(tile)), out var owner) && owner is MobaStructureIntelligence;
 
     /// <summary>Whether the tile is free or already owned by <paramref name="self"/>.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <param name="tile">The tile.</param>
     /// <param name="self">The unit asking.</param>
     /// <returns><see langword="true"/> if the tile can be stepped onto.</returns>
-    public static bool IsFree(ushort mapId, Point tile, object self)
-        => !Owners.TryGetValue((mapId, Index(tile)), out var owner) || ReferenceEquals(owner, self);
+    public static bool IsFree(GameMap map, Point tile, object self)
+        => !Owners.TryGetValue((map, Index(tile)), out var owner) || ReferenceEquals(owner, self);
 
     /// <summary>
     /// Atomically claims a tile for <paramref name="owner"/>. Succeeds if the tile is free
     /// or already owned by the same owner.
     /// </summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <param name="tile">The tile.</param>
     /// <param name="owner">The claiming unit.</param>
     /// <returns><see langword="true"/> if the tile is now owned by <paramref name="owner"/>.</returns>
-    public static bool TryClaim(ushort mapId, Point tile, object owner)
+    public static bool TryClaim(GameMap map, Point tile, object owner)
     {
-        var key = (mapId, Index(tile));
+        var key = (map, Index(tile));
         if (Owners.TryGetValue(key, out var existing))
         {
             return ReferenceEquals(existing, owner);
@@ -62,23 +62,23 @@ public static class MobaOccupancyGrid
     }
 
     /// <summary>Releases a tile, but only if <paramref name="owner"/> currently holds it.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <param name="tile">The tile.</param>
     /// <param name="owner">The unit releasing.</param>
-    public static void Release(ushort mapId, Point tile, object owner)
-        => ((ICollection<KeyValuePair<(ushort, int), object>>)Owners)
-            .Remove(new KeyValuePair<(ushort, int), object>((mapId, Index(tile)), owner));
+    public static void Release(GameMap map, Point tile, object owner)
+        => ((ICollection<KeyValuePair<(GameMap, int), object>>)Owners)
+            .Remove(new KeyValuePair<(GameMap, int), object>((map, Index(tile)), owner));
 
     /// <summary>Releases every tile held by <paramref name="owner"/> on the map.</summary>
-    /// <param name="mapId">The map id.</param>
+    /// <param name="map">The map.</param>
     /// <param name="owner">The unit.</param>
-    public static void ReleaseAll(ushort mapId, object owner)
+    public static void ReleaseAll(GameMap map, object owner)
     {
         foreach (var kv in Owners)
         {
-            if (kv.Key.Map == mapId && ReferenceEquals(kv.Value, owner))
+            if (ReferenceEquals(kv.Key.Map, map) && ReferenceEquals(kv.Value, owner))
             {
-                ((ICollection<KeyValuePair<(ushort, int), object>>)Owners).Remove(kv);
+                ((ICollection<KeyValuePair<(GameMap, int), object>>)Owners).Remove(kv);
             }
         }
     }

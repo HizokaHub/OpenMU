@@ -60,7 +60,7 @@ public static class MobaExperience
 
             if (leaderLevel - champion.MobaLevel >= MobaLevels.CatchUpLevelGap)
             {
-                amount = (long)(amount * MobaLevels.CatchUpExpMultiplier(MobaMatchTickPlugIn.MatchElapsed));
+                amount = (long)(amount * MobaLevels.CatchUpExpMultiplier(MobaArena.Of(champion).Elapsed));
             }
         }
 

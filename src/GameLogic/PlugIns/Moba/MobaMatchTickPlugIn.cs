@@ -29,15 +29,8 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     private DateTime _lastDripUtc = DateTime.MinValue;
 
     // Static: the plug-in instance is not guaranteed to persist across periodic ticks
-    // (see the static _arenaSafezoneCleared above), so match-timeline state lives here.
-    private static DateTime _lastScoreLogUtc = DateTime.MinValue;
-    private static DateTime _matchStartUtc = DateTime.MinValue;
-
-    /// <summary>Time since champions first appeared in the current match (Zero if none / not started).</summary>
-    public static TimeSpan MatchElapsed => _matchStartUtc == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - _matchStartUtc;
-
-    /// <summary>Restarts the match clock: the next champion to appear starts a new match timeline.</summary>
-    public static void ResetClock() => _matchStartUtc = DateTime.MinValue;
+    // (see the static _arenaSafezoneCleared above). The match timeline itself lives in MobaArena.
+    private static readonly TimeSpan EmptyArenaResetAfter = TimeSpan.FromSeconds(120);
 
     /// <inheritdoc />
     public void ForceStart() => this._lastDripUtc = DateTime.MinValue;
@@ -86,7 +79,10 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         var mobaChampions = players.Where(p => p.IsMobaClone).ToList();
         var leaderLevel = mobaChampions.Select(p => p.MobaLevel).DefaultIfEmpty(0).Max();
 
-        MobaMatchPhase.Evaluate(mobaChampions);
+        var arenaMap = (await gameContext.GetMapsAsync().ConfigureAwait(false)).FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
+        var arena = MobaArena.Of(arenaMap);
+        MobaMatchPhase.Evaluate(arena, mobaChampions);
+        TrackEmptiness(arena, mobaChampions.Count, now);
 
         foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel))
         {
@@ -99,7 +95,7 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
             await MobaGold.GrantAsync(champion, goldAmount, "passive").ConfigureAwait(false);
         }
 
-        this.LogMatchState(players, now);
+        this.LogMatchState(arena, players, now);
     }
 
     /// <summary>
@@ -107,7 +103,7 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// (elapsed time, team, class, level, K/D/A, HP, invested primary stat) so a full match
     /// can be reconstructed from the log for balance analysis.
     /// </summary>
-    private void LogMatchState(IEnumerable<Player> players, DateTime now)
+    private void LogMatchState(MobaArena arena, IEnumerable<Player> players, DateTime now)
     {
         var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
         if (champions.Count == 0)
@@ -115,21 +111,20 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
             return;
         }
 
-        // Set once, on the first champion of the server session's first match. Not reset on
-        // a transient empty tick (that made elapsed always read 0); restart the server
-        // between balance runs for a clean clock.
-        if (_matchStartUtc == DateTime.MinValue)
+        // Set on the first champion of the arena's match. Not reset on a transient empty tick
+        // (that made elapsed always read 0); TrackEmptiness restarts it after a long empty spell.
+        if (arena.MatchStartUtc == DateTime.MinValue)
         {
-            _matchStartUtc = now;
+            arena.MatchStartUtc = now;
         }
 
-        if ((now - _lastScoreLogUtc).TotalSeconds < ScoreLogSeconds)
+        if ((now - arena.LastScoreLogUtc).TotalSeconds < ScoreLogSeconds)
         {
             return;
         }
 
-        _lastScoreLogUtc = now;
-        var elapsed = (int)(now - _matchStartUtc).TotalSeconds;
+        arena.LastScoreLogUtc = now;
+        var elapsed = (int)(now - arena.MatchStartUtc).TotalSeconds;
 
         foreach (var c in champions.OrderBy(c => (int)MobaTeams.GetTeam(c)).ThenByDescending(c => c.MobaLevel))
         {
@@ -162,6 +157,29 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
                 invested,
                 MobaProgression.DamageScaleFor(c));
             c.Logger.LogInformation("[MOBA-INCOME] t={Elapsed}s {Team} {Name} Lv{Level} | {Income}", elapsed, MobaTeams.GetTeam(c), c.SelectedCharacter?.Name, c.MobaLevel, MobaIncome.Describe(c));
+        }
+    }
+
+    /// <summary>
+    /// Starts a fresh timeline (clock, phase) once the arena has been without any champion for a while,
+    /// so the next match does not inherit the time and phase of the previous one. The grace period covers
+    /// reconnects (a champion is briefly absent between its session and its ghost).
+    /// </summary>
+    private static void TrackEmptiness(MobaArena arena, int champions, DateTime now)
+    {
+        if (champions > 0)
+        {
+            arena.EmptySinceUtc = DateTime.MinValue;
+            return;
+        }
+
+        if (arena.EmptySinceUtc == DateTime.MinValue)
+        {
+            arena.EmptySinceUtc = now;
+        }
+        else if (arena.MatchStartUtc != DateTime.MinValue && (now - arena.EmptySinceUtc) > EmptyArenaResetAfter)
+        {
+            MobaMatchPhase.Reset(arena);
         }
     }
 

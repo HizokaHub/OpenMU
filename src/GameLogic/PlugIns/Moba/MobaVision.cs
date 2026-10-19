@@ -98,7 +98,7 @@ public static class MobaVision
             return true;
         }
 
-        return IsWardedBy(team, map, position) || IsInFountainSight(team, position);
+        return IsWardedBy(team, map, position) || IsInFountainSight(MobaArena.Of(map), team, position);
     }
 
     private static int SightRadiusOf(IAttackable a) => MobaStructures.GetStructureType(a) switch
@@ -109,14 +109,15 @@ public static class MobaVision
     };
 
     /// <summary>Whether a fountain the team owns (see <see cref="MobaFountains"/>) sees the position: an owned fountain gives its team vision around it.</summary>
+    /// <param name="arena">The arena.</param>
     /// <param name="team">The watching team.</param>
     /// <param name="position">The position.</param>
     /// <returns><c>true</c> if the position is within <see cref="FountainRadius"/> tiles of a fountain the team owns.</returns>
-    public static bool IsInFountainSight(MobaTeam team, Point position)
+    public static bool IsInFountainSight(MobaArena arena, MobaTeam team, Point position)
     {
         for (var i = 0; i < MobaFountains.PointCount; i++)
         {
-            if (MobaFountains.StateOf(i).Owner == team
+            if (MobaFountains.StateOf(arena, i).Owner == team
                 && position.EuclideanDistanceTo(new Point(MobaFountains.PositionOf(i).X, MobaFountains.PositionOf(i).Y)) <= MobaFountains.SightRadiusOf(i))
             {
                 return true;

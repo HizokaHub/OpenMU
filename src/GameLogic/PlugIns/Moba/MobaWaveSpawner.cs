@@ -182,7 +182,7 @@ public static class MobaWaveSpawner
             return 0;
         }
 
-        var leaderLevel = MobaMatchPhase.LeaderLevel;
+        var leaderLevel = MobaArena.Of(map).LeaderLevel;
         var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
         var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
         var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;

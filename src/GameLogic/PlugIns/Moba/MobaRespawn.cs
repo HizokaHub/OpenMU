@@ -68,7 +68,7 @@ public class MobaRespawn : IPlayerSpawnGateSelectionPlugIn
     /// <returns>The wait.</returns>
     public static TimeSpan BeginRespawn(Player champion)
     {
-        var delay = DelayFor(champion.MobaLevel, MobaMatchTickPlugIn.MatchElapsed, champion.MobaDeaths);
+        var delay = DelayFor(champion.MobaLevel, MobaArena.Of(champion).Elapsed, champion.MobaDeaths);
         champion.MobaState.LastRespawnDelay = delay;
         return delay;
     }
@@ -77,9 +77,10 @@ public class MobaRespawn : IPlayerSpawnGateSelectionPlugIn
     /// Gets the wait for a ghost whose human disconnected while dead: the full wait, as if it was not a first death.
     /// </summary>
     /// <param name="champion">The champion.</param>
+    /// <param name="arena">The arena of the match.</param>
     /// <returns>The wait.</returns>
-    public static TimeSpan FullDelayOf(MobaChampionState champion)
-        => DelayFor(champion.Level, MobaMatchTickPlugIn.MatchElapsed, 1);
+    public static TimeSpan FullDelayOf(MobaChampionState champion, MobaArena arena)
+        => DelayFor(champion.Level, arena.Elapsed, 1);
 
     /// <inheritdoc />
     public ValueTask SelectSpawnGateAsync(Player player, SpawnGateSelectionArgs args)

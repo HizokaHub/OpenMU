@@ -82,7 +82,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     /// </summary>
     private static readonly TimeSpan LatePushAfter = TimeSpan.FromMinutes(30);
 
-    private static bool IsLateGame => MobaMatchTickPlugIn.MatchElapsed >= LatePushAfter;
+    private bool IsLateGame => MobaArena.Of(this).Elapsed >= LatePushAfter;
 
     /// <summary>An ally this close to (or farther than) a fight is worth walking to instead of fighting 1v2.</summary>
     private const double RegroupMaxTiles = 60;
@@ -284,11 +284,12 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         await base.StopAsync().ConfigureAwait(false);
     }
 
-    /// <summary>Stops and removes every active bot.</summary>
+    /// <summary>Stops and removes every active bot of an arena.</summary>
+    /// <param name="map">The arena map; bots which are on no map are removed too.</param>
     /// <returns>The number of bots removed.</returns>
-    public static async ValueTask<int> ClearAllAsync()
+    public static async ValueTask<int> ClearAllAsync(GameMap? map)
     {
-        var bots = ActiveBots.Keys.ToList();
+        var bots = ActiveBots.Keys.Where(b => b.CurrentMap is null || ReferenceEquals(b.CurrentMap, map)).ToList();
         foreach (var bot in bots)
         {
             try

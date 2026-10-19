@@ -79,7 +79,8 @@ public sealed class MobaGhostPlayer : OfflinePlayer
             if (!handover.WasAlive)
             {
                 // Disconnecting does not skip the respawn wait: the ghost shows up when it would have.
-                await Task.Delay(MobaRespawn.FullDelayOf(handover.State)).ConfigureAwait(false);
+                var arenaMap = await gameContext.GetMapAsync(MobaCloneFactory.ArenaMapNumber, false).ConfigureAwait(false);
+                await Task.Delay(MobaRespawn.FullDelayOf(handover.State, MobaArena.Of(arenaMap))).ConfigureAwait(false);
             }
 
             if (!MobaMatchRegistry.TryGetState(handover.Account.GetId(), out var state) || !ReferenceEquals(state, handover.State))

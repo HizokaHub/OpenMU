@@ -113,7 +113,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private readonly List<Point> _claimedTiles = new();
 
     /// <summary>Captured once at start, so tile release still works after the monster left the map.</summary>
-    private ushort _mapId;
+    private GameMap _mapId = null!;
 
     /// <summary>When the creep first failed to claim any forward step (for the anti-jam shuffle); default = not stuck.</summary>
     private DateTime _blockedSinceUtc;
@@ -133,7 +133,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     protected override void OnStart()
     {
         base.OnStart();
-        this._mapId = this.Monster.CurrentMap.MapId;
+        this._mapId = this.Monster.CurrentMap;
         MobaTeams.Set(this.Monster, this._team);
         this.SyncClaims(this.Monster.Position, Array.Empty<Point>());
 
@@ -144,7 +144,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     /// <summary>Map id for the occupancy grid (captured at start).</summary>
-    private ushort MapId => this._mapId;
+    private GameMap MapId => this._mapId;
 
     /// <summary>
     /// Makes <see cref="_claimedTiles"/> exactly <paramref name="keep"/> plus whichever of
@@ -855,7 +855,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     }
 
     /// <summary>Any walkable, grid-claimable neighbour of <paramref name="from"/> (used only to unstick a jam).</summary>
-    private Point? PickAnyFreeNeighbour(Point from, byte[,] terrain, HashSet<Point> champions, ushort mapId)
+    private Point? PickAnyFreeNeighbour(Point from, byte[,] terrain, HashSet<Point> champions, GameMap mapId)
     {
         var start = this.Monster.Id % 8;
         for (var i = 0; i < 8; i++)

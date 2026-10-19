@@ -136,17 +136,6 @@ public static class MobaFountains
 
     private static readonly ConditionalWeakTable<Player, Signal> Signals = new();
 
-    private static MobaFountainState[] _states = Enumerable.Range(0, Positions.Length + TotemPositions.Length)
-        .Select(i => new MobaFountainState(i < Positions.Length ? MobaFountainState.CaptureSeconds : TotemCaptureSeconds)).ToArray();
-
-    private static double[] _healClock = new double[Positions.Length + TotemPositions.Length];
-
-    private static DateTime _lastTickUtc = DateTime.MinValue;
-
-    private static GameContext? _activeContext;
-
-    private static DateTime _lastChampionUtc = DateTime.MinValue;
-
     /// <summary>Gets the number of fountains.</summary>
     public static int Count => Positions.Length;
 
@@ -163,21 +152,23 @@ public static class MobaFountains
     /// <returns>The radius in tiles.</returns>
     public static int SightRadiusOf(int index) => index < Positions.Length ? MobaVision.FountainRadius : TotemRadius;
 
-    /// <summary>Gets the state of a fountain.</summary>
-    /// <param name="index">The fountain index.</param>
+    /// <summary>Gets the state of a capture point in an arena.</summary>
+    /// <param name="arena">The arena.</param>
+    /// <param name="index">The capture point index.</param>
     /// <returns>The state.</returns>
-    public static MobaFountainState StateOf(int index) => _states[index];
+    public static MobaFountainState StateOf(MobaArena arena, int index) => arena.FountainStates[index];
 
-    /// <summary>Makes every fountain neutral again (new match).</summary>
-    public static void Reset()
+    /// <summary>Makes every capture point of the arena neutral again (new match).</summary>
+    /// <param name="arena">The arena.</param>
+    public static void Reset(MobaArena arena)
     {
-        foreach (var state in _states)
+        foreach (var state in arena.FountainStates)
         {
             state.Reset();
         }
 
-        Array.Clear(_healClock);
-        _lastTickUtc = DateTime.MinValue;
+        Array.Clear(arena.FountainHealClock);
+        arena.FountainLastTickUtc = DateTime.MinValue;
     }
 
     /// <summary>Gets the index of the fountain a champion could channel at its position, or -1.</summary>
@@ -243,24 +234,26 @@ public static class MobaFountains
     {
         var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
         var champions = players.Where(p => p.IsMobaClone && MobaTeams.GetTeam(p) != MobaTeam.None).ToList();
+
+        // The server runs this task once per game context, and every context has its own arena: an empty
+        // context only ever touches its own captures, and only after a minute without champions.
+        var arenaMap = (await gameContext.GetMapsAsync().ConfigureAwait(false)).FirstOrDefault(m => m.MapId == MobaCloneFactory.ArenaMapNumber);
+        var arena = MobaArena.Of(arenaMap);
         if (champions.Count == 0)
         {
-            // The server runs this task once per game context: only the context that hosted the match may end it,
-            // and only after a minute without champions (an empty context must never reset the other one's captures).
-            if (ReferenceEquals(_activeContext, gameContext) && (DateTime.UtcNow - _lastChampionUtc).TotalSeconds > 60)
+            if (arena.FountainLastChampionUtc != DateTime.MinValue && (DateTime.UtcNow - arena.FountainLastChampionUtc).TotalSeconds > 60)
             {
-                Reset();
-                _activeContext = null;
+                Reset(arena);
+                arena.FountainLastChampionUtc = DateTime.MinValue;
             }
 
             return;
         }
 
-        _activeContext = gameContext;
-        _lastChampionUtc = DateTime.UtcNow;
+        arena.FountainLastChampionUtc = DateTime.UtcNow;
         var now = DateTime.UtcNow;
-        var seconds = _lastTickUtc == DateTime.MinValue ? 1.0 : Math.Clamp((now - _lastTickUtc).TotalSeconds, 0.05, 2.5);
-        _lastTickUtc = now;
+        var seconds = arena.FountainLastTickUtc == DateTime.MinValue ? 1.0 : Math.Clamp((now - arena.FountainLastTickUtc).TotalSeconds, 0.05, 2.5);
+        arena.FountainLastTickUtc = now;
 
         for (var i = 0; i < PointCount; i++)
         {
@@ -282,7 +275,7 @@ public static class MobaFountains
                 }
             }
 
-            var state = _states[i];
+            var state = arena.FountainStates[i];
             var blue = channelers.Any(p => MobaTeams.GetTeam(p) == MobaTeam.Blue);
             var red = channelers.Any(p => MobaTeams.GetTeam(p) == MobaTeam.Red);
             var captured = state.Advance(seconds, blue, red);
@@ -325,16 +318,16 @@ public static class MobaFountains
 
             if (state.Owner != MobaTeam.None && i < Positions.Length)
             {
-                _healClock[i] += seconds;
-                while (_healClock[i] >= 1.0)
+                arena.FountainHealClock[i] += seconds;
+                while (arena.FountainHealClock[i] >= 1.0)
                 {
-                    _healClock[i] -= 1.0;
+                    arena.FountainHealClock[i] -= 1.0;
                     Heal(champions, i, state.Owner);
                 }
             }
             else
             {
-                _healClock[i] = 0;
+                arena.FountainHealClock[i] = 0;
             }
         }
     }

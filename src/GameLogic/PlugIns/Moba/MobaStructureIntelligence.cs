@@ -48,7 +48,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
 
     private DateTime _nextAttackUtc;
 
-    private ushort _mapId;
+    private GameMap _mapId = null!;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaStructureIntelligence"/> class.
@@ -67,7 +67,7 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     protected override void OnStart()
     {
         base.OnStart();
-        this._mapId = this.Monster.CurrentMap.MapId;
+        this._mapId = this.Monster.CurrentMap;
         MobaTeams.Set(this.Monster, this._team);
         MobaStructures.Mark(this.Monster, this._type);
         this.ClaimFootprint();

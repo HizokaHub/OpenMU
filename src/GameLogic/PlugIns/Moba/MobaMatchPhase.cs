@@ -23,45 +23,37 @@ public static class MobaMatchPhase
     /// <summary>Champions per team required at the threshold level to advance the phase.</summary>
     public const int ChampionsRequiredPerTeam = 2;
 
-    private static MobaShopTier _current = MobaShopTier.T1;
-
-    private static volatile int _leaderLevel = 1;
-
-    /// <summary>Gets the highest champion level in the match (at least 1); lane creeps are sized from it.</summary>
-    public static int LeaderLevel => _leaderLevel;
-
-    /// <summary>Gets the current creep-drop phase (never regresses within a match).</summary>
-    public static MobaShopTier Current => _current;
-
-    /// <summary>Re-evaluates the phase from the champions currently in the match. Cheap; call from the MOBA tick.</summary>
+    /// <summary>Re-evaluates the phase of the arena from the champions currently in its match. Cheap; call from the MOBA tick.</summary>
+    /// <param name="arena">The arena.</param>
     /// <param name="champions">Every MOBA champion currently in the match.</param>
-    public static void Evaluate(IReadOnlyCollection<Player> champions)
+    public static void Evaluate(MobaArena arena, IReadOnlyCollection<Player> champions)
     {
-        _leaderLevel = Math.Max(1, champions.Select(c => c.MobaLevel).DefaultIfEmpty(1).Max());
-        var before = _current;
-        if (_current < MobaShopTier.T3 && BothTeamsReach(champions, T3LevelThreshold))
+        arena.LeaderLevel = Math.Max(1, champions.Select(c => c.MobaLevel).DefaultIfEmpty(1).Max());
+        var before = arena.Phase;
+        if (arena.Phase < MobaShopTier.T3 && BothTeamsReach(champions, T3LevelThreshold))
         {
-            _current = MobaShopTier.T3;
+            arena.Phase = MobaShopTier.T3;
         }
-        else if (_current < MobaShopTier.T2 && BothTeamsReach(champions, T2LevelThreshold))
+        else if (arena.Phase < MobaShopTier.T2 && BothTeamsReach(champions, T2LevelThreshold))
         {
-            _current = MobaShopTier.T2;
+            arena.Phase = MobaShopTier.T2;
         }
 
-        if (_current != before)
+        if (arena.Phase != before)
         {
-            MobaStructureSpawner.ApplyPhaseHealth(_current);
+            MobaStructureSpawner.ApplyPhaseHealth(arena.Map, arena.Phase);
         }
     }
 
-    /// <summary>Resets the phase to T1 (call when a new match starts on the arena).</summary>
-    public static void Reset()
+    /// <summary>Resets the phase and the clock of the arena to T1 / zero (call when a new match starts on it).</summary>
+    /// <param name="arena">The arena.</param>
+    public static void Reset(MobaArena arena)
     {
-        _current = MobaShopTier.T1;
-        _leaderLevel = 1;
-        MobaMatchTickPlugIn.ResetClock();
+        arena.Phase = MobaShopTier.T1;
+        arena.LeaderLevel = 1;
+        arena.ResetClock();
         MobaDropReport.Reset();
-        MobaStructureSpawner.ApplyPhaseHealth(_current);
+        MobaStructureSpawner.ApplyPhaseHealth(arena.Map, arena.Phase);
     }
 
     private static bool BothTeamsReach(IReadOnlyCollection<Player> champions, int level)

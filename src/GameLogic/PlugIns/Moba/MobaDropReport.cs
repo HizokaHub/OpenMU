@@ -70,7 +70,7 @@ public static class MobaDropReport
             kind,
             monsterName,
             killer.Name,
-            MobaMatchPhase.Current,
+            MobaArena.Of(killer).Phase,
             kind == "zen" ? $" zen={zen}" : string.Empty);
     }
 
@@ -120,7 +120,7 @@ public static class MobaDropReport
             excellent,
             item.HasSkill,
             killer.Name,
-            MobaMatchPhase.Current);
+            MobaArena.Of(killer).Phase);
     }
 
     /// <summary>Records that a tracked creep drop was picked up.</summary>
