@@ -255,6 +255,14 @@ public sealed partial class MobaBotPlayer
     private const double CaptureDetourPassing = 14;
 
     private int _captureIndex = -1;
+    private DateTime _captureChannelSinceUtc;
+    private DateTime _captureBlockedUntilUtc;
+
+    /// <summary>Longest a bot keeps channelling one capture point before it gives up (an uncontested capture takes 15 s).</summary>
+    private static readonly TimeSpan CaptureGiveUpAfter = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long a bot stays away from capturing after it gave up.</summary>
+    private static readonly TimeSpan CaptureCooldown = TimeSpan.FromSeconds(90);
 
     /// <summary>
     /// Captures a fountain or a jungle totem that the team does not own (vision for the whole team, healing at the fountains): walks to it and
@@ -264,9 +272,10 @@ public sealed partial class MobaBotPlayer
     private async ValueTask<bool> TryCaptureAsync(BotContext c, double? detourOverride = null)
     {
         var team = MobaTeams.GetTeam(this);
-        if (team == MobaTeam.None || c.EnemyChampsNear.Count > 0 || c.InCombat || c.HpPct < 0.5f)
+        if (team == MobaTeam.None || c.EnemyChampsNear.Count > 0 || c.InCombat || c.HpPct < 0.5f || DateTime.UtcNow < this._captureBlockedUntilUtc)
         {
             this._captureIndex = -1;
+            this._captureChannelSinceUtc = default;
             return false;
         }
 
@@ -292,6 +301,7 @@ public sealed partial class MobaBotPlayer
         if (best < 0)
         {
             this._captureIndex = -1;
+            this._captureChannelSinceUtc = default;
             return false;
         }
 
@@ -305,8 +315,25 @@ public sealed partial class MobaBotPlayer
             }
 
             this._captureIndex = best;
+            this._captureChannelSinceUtc = default;
             await this.WalkTowardAsync(spot).ConfigureAwait(false);
             return true;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        if (this._captureChannelSinceUtc == default || this._captureIndex != best)
+        {
+            this._captureChannelSinceUtc = nowUtc;
+        }
+
+        if (nowUtc - this._captureChannelSinceUtc > CaptureGiveUpAfter)
+        {
+            // Both teams channelling the same point stalemate for ever: step away and let the others go first.
+            this.Logger.LogInformation("[MOBA-BOT] {Name} gives up capture point {Index} after {Seconds:F0}s (contested).", this.Name, best, (nowUtc - this._captureChannelSinceUtc).TotalSeconds);
+            this._captureBlockedUntilUtc = nowUtc + CaptureCooldown;
+            this._captureIndex = -1;
+            this._captureChannelSinceUtc = default;
+            return false;
         }
 
         this._captureIndex = best;

@@ -458,7 +458,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         {
             this._nextAiHeartbeatUtc = now + AiHeartbeat;
             var movedTiles = pos.EuclideanDistanceTo(this._lastHeartbeatPos);
-            var idleFor = MobaCombatLog.InCombat(this, TimeSpan.FromSeconds(1)) ? 0.0 : (now - this._lastCombatSeenUtc).TotalSeconds;
+            var idleFor = MobaCombatLog.InCombat(this, TimeSpan.FromSeconds(1)) || this._lastCombatSeenUtc == default ? 0.0 : (now - this._lastCombatSeenUtc).TotalSeconds;
             if (MobaCombatLog.InCombat(this, TimeSpan.FromSeconds(2)))
             {
                 this._lastCombatSeenUtc = now;
@@ -499,7 +499,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
                 ctx.AllyChampsNear.Count,
                 overextended ? " OVEREXTENDED" : string.Empty);
 
-            if (movedTiles < 1.0 && idleFor > 5.0 && this._state is BotState.Lane or BotState.GroupPush or BotState.Fight)
+            if (movedTiles < 1.0 && idleFor > 5.0 && this._captureIndex < 0 && this._state is BotState.Lane or BotState.GroupPush or BotState.Fight)
             {
                 this.Logger.LogWarning(
                     "[MOBA-AI] {Name} IDLE {Idle:F0}s @ {X},{Y} state={State} - not moving, not fighting",

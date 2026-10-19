@@ -47,6 +47,21 @@ public class SelectCharacterAction
                 clone.PositionX = (byte)body.Position.X;
                 clone.PositionY = (byte)body.Position.Y;
             }
+            else if (!championState.Placed)
+            {
+                // First entry: start at the team's base (the clone is built at the old arena centre, which now
+                // sits next to an enemy turret).
+                var baseSpot = MobaLayout.NearestWalkable(MobaLayout.ShopOf(MobaTeam.Blue).X, MobaLayout.ShopOf(MobaTeam.Blue).Y);
+                if (championState.Team == MobaTeam.Red)
+                {
+                    baseSpot = MobaLayout.NearestWalkable(MobaLayout.ShopOf(MobaTeam.Red).X, MobaLayout.ShopOf(MobaTeam.Red).Y);
+                }
+
+                clone.PositionX = (byte)baseSpot.X;
+                clone.PositionY = (byte)baseSpot.Y;
+            }
+
+            championState.Placed = true;
 
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;

@@ -36,6 +36,9 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the champion's team.</summary>
     public MobaTeam Team { get; set; } = MobaTeam.None;
 
+    /// <summary>Gets or sets a value indicating whether the champion was already placed at its base when the match was entered.</summary>
+    public bool Placed { get; set; }
+
     /// <summary>Gets or sets the respawn wait of the champion's latest death (for the notice to the player).</summary>
     public TimeSpan LastRespawnDelay { get; set; }
 
