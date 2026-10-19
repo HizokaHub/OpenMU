@@ -19,7 +19,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("A7D31E64-9F02-4C58-8B1D-3E6A0C9F2B47")]
 [PlugIn]
 [Display(Name = "MOBA: set team command", Description = "GM command '/mobateam blue|red' - set your MOBA team.")]
-[ChatCommandHelp(Command, "Set your MOBA team (blue|red).", typeof(MobaTeamChatCommandArgs))]
+[ChatCommandHelp(Command, "Set your MOBA team (blue|red).", typeof(MobaTeamChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaTeamChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatCommandArgs>
 {
     private const string Command = "/mobateam";
@@ -28,7 +28,7 @@ public class MobaTeamChatCommandPlugIn : ChatCommandPlugInBase<MobaTeamChatComma
     public override string Key => Command;
 
     /// <inheritdoc />
-    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
+    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
 
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaTeamChatCommandArgs arguments)

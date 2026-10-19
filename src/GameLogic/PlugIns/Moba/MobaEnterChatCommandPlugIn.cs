@@ -26,8 +26,8 @@ using MUnique.OpenMU.PlugIns;
 [Guid("58B0FF0B-4DCA-4B90-AC0F-10CE2D89EE9B")]
 [PlugIn]
 [Display(Name = "MOBA: enter arena command", Description = "GM command '/moba' - enter a MOBA match as an ephemeral clone (reconnects).")]
-[ChatCommandHelp(Command, "Enter a MOBA match as an ephemeral clone (map 200). Reconnects the client.", typeof(EmptyChatCommandArgs))]
-public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
+[ChatCommandHelp(Command, "Enter a MOBA match as an ephemeral clone (map 200). Needs level 400 + Master class; '/moba force' skips that. Reconnects the client.", typeof(MobaEnterChatCommandArgs), CharacterStatus.GameMaster)]
+public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<MobaEnterChatCommandArgs>
 {
     private const string Command = "/moba";
 
@@ -35,13 +35,19 @@ public class MobaEnterChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
     public override string Key => Command;
 
     /// <inheritdoc />
-    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
+    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
 
     /// <inheritdoc />
-    protected override async ValueTask DoHandleCommandAsync(Player player, EmptyChatCommandArgs arguments)
+    protected override async ValueTask DoHandleCommandAsync(Player player, MobaEnterChatCommandArgs arguments)
     {
         if (player.Account is not { } account || player.SelectedCharacter is not { } real)
         {
+            return;
+        }
+
+        if (!arguments.Force && MobaEligibility.Check(player, real) is { } reason)
+        {
+            await player.ShowBlueMessageAsync($"[MOBA] {reason}").ConfigureAwait(false);
             return;
         }
 

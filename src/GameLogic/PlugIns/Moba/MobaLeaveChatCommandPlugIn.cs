@@ -23,7 +23,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("2F1E6C7A-0B4D-49E8-9C1A-7D3E5A9B2F04")]
 [PlugIn]
 [Display(Name = "MOBA: leave arena command", Description = "GM command '/mobaleave' - end the match and reconnect as the real character.")]
-[ChatCommandHelp(Command, "End the MOBA match and reconnect as your real character.", typeof(EmptyChatCommandArgs))]
+[ChatCommandHelp(Command, "End the MOBA match and reconnect as your real character.", typeof(EmptyChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaLeaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommandArgs>
 {
     private const string Command = "/mobaleave";
@@ -32,7 +32,7 @@ public class MobaLeaveChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatCommand
     public override string Key => Command;
 
     /// <inheritdoc />
-    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
+    public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
 
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, EmptyChatCommandArgs arguments)
