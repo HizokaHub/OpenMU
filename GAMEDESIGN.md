@@ -1585,3 +1585,9 @@ Pedido del usuario: (1) **EXP de campamentos más alta y acorde al nivel del cam
 **Costos reales (a confirmar antes de contratar; hoy no se gastó nada):** VPS 2-4 vCPU / 4-8 GB ≈ US$6-40/mes según proveedor; dominio ≈ US$10-15/año; backups ≈ US$1-8/mes; correo transaccional para cuentas: tier gratuito alcanza al inicio; hosting de descargas del cliente (~0,5-1 GB comprimido): GitHub Releases o almacenamiento tipo R2 ≈ US$0-5/mes; firma de código del instalador (opcional, evita el aviso de SmartScreen) ≈ US$100-400/año. Orden de magnitud total: US$15-60/mes + ≈US$25/año.
 
 **Recomendación de arranque:** H0 (en particular la decisión legal) y luego el primer paso de H1: los 4 arreglos de flujo (son pequeños y todo lo demás cuelga de ellos), seguido de la decisión A/B de instancias.
+
+### Decisión legal y de lanzamiento (usuario, 2026-10-19)
+
+- **Meta: opción B (servidor público)**, pasando antes por una beta cerrada (A). El usuario decidió **conservar todos los assets actuales** (Webzen y los de otras seasons IGC S21 / S12 / S14): frente a Webzen tienen el mismo estatus legal que los de S6, así que no se eliminan.
+- **Cobros para mantener el servidor: aceptados** por el usuario, que asume el riesgo (referencia: un servidor S21 de un familiar lleva más de 10 años funcionando). Recomendaciones registradas: vender cosméticos o recibir donaciones, **nunca ventajas de poder** (rompe el MOBA); tener un método de cobro de respaldo (los procesadores de pago pueden congelar cuentas por propiedad intelectual); consultar la tributación de esos ingresos; aviso «no afiliado a Webzen».
+- **Repos:** pasar a **privados** (crear repos nuevos y subir el historial; un fork público no se puede volver privado) y borrar los públicos solo tras verificar. No se ha hecho todavía; requiere confirmación explícita del usuario (acción externa).
