@@ -1684,7 +1684,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         {
             try
             {
-                var respawnDelay = this.IsMobaClone ? PlugIns.Moba.MobaRespawn.CurrentDelay() : TimeSpan.FromSeconds(3);
+                var respawnDelay = this.IsMobaClone ? PlugIns.Moba.MobaRespawn.BeginRespawn(this) : TimeSpan.FromSeconds(3);
                 await Task.Delay(respawnDelay, cancellationToken).ConfigureAwait(false);
 
                 if (cancellationToken.IsCancellationRequested || this.CurrentMap is null)

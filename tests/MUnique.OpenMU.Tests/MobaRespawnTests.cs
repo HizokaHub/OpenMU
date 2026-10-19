@@ -13,23 +13,47 @@ using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 public class MobaRespawnTests
 {
     /// <summary>
-    /// The wait is 6 s at the start and grows by half a second per minute of match.
+    /// After the first death the wait grows 1.2 s per champion level; the match clock adds nothing before minute 15.
     /// </summary>
-    [TestCase(0, 6)]
-    [TestCase(10, 11)]
-    [TestCase(30, 21)]
-    [TestCase(50, 31)]
-    public void DelayGrowsLinearlyWithMatchTime(double minutes, double expectedSeconds)
+    [TestCase(1, 6)]
+    [TestCase(6, 12)]
+    [TestCase(15, 22.8)]
+    [TestCase(30, 40.8)]
+    public void DelayGrowsWithChampionLevel(int level, double expectedSeconds)
     {
-        Assert.That(MobaRespawn.DelayAt(TimeSpan.FromMinutes(minutes)).TotalSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
+        Assert.That(MobaRespawn.DelayFor(level, TimeSpan.FromMinutes(10), 1).TotalSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
     }
 
     /// <summary>
-    /// The wait never passes 40 s, however long the match lasts.
+    /// The first death of the match only pays half the wait, never below 6 s.
+    /// </summary>
+    [TestCase(1, 6)]
+    [TestCase(6, 6)]
+    [TestCase(15, 11.4)]
+    [TestCase(30, 20.4)]
+    public void FirstDeathPaysHalf(int level, double expectedSeconds)
+    {
+        Assert.That(MobaRespawn.DelayFor(level, TimeSpan.FromMinutes(10), 0).TotalSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
+    }
+
+    /// <summary>
+    /// After minute 15 the wait grows 1 % per minute, up to +25 %.
+    /// </summary>
+    [TestCase(15, 40.8)]
+    [TestCase(25, 44.88)]
+    [TestCase(40, 51)]
+    [TestCase(120, 51)]
+    public void LateGameAddsTimeFactor(double minutes, double expectedSeconds)
+    {
+        Assert.That(MobaRespawn.DelayFor(30, TimeSpan.FromMinutes(minutes), 3).TotalSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
+    }
+
+    /// <summary>
+    /// A fresh match (clock at zero) starts at the minimum for a level 1 champion.
     /// </summary>
     [Test]
-    public void DelayIsCapped()
+    public void MatchStartIsTheMinimum()
     {
-        Assert.That(MobaRespawn.DelayAt(TimeSpan.FromMinutes(500)).TotalSeconds, Is.EqualTo(40));
+        Assert.That(MobaRespawn.DelayFor(1, TimeSpan.Zero, 5).TotalSeconds, Is.EqualTo(6));
     }
 }

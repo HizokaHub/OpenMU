@@ -59,6 +59,7 @@ public static class MobaMatchPhase
     {
         _current = MobaShopTier.T1;
         _leaderLevel = 1;
+        MobaMatchTickPlugIn.ResetClock();
         MobaDropReport.Reset();
         MobaStructureSpawner.ApplyPhaseHealth(_current);
     }

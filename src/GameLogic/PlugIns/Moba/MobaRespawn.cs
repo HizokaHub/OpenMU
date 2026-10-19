@@ -18,28 +18,68 @@ using MUnique.OpenMU.PlugIns;
 [Guid("5D2B7E94-1C6A-4F38-A0E5-8B9C3D4F6A12")]
 public class MobaRespawn : IPlayerSpawnGateSelectionPlugIn
 {
-    /// <summary>The wait at the start of the match, in seconds.</summary>
+    /// <summary>The shortest wait, in seconds (champion level 1, and the floor of the first-death discount).</summary>
     public const double BaseSeconds = 6;
 
-    /// <summary>Seconds added to the wait for every minute of match time.</summary>
-    public const double SecondsPerMinute = 0.5;
+    /// <summary>Seconds added to the wait for every champion level above 1.</summary>
+    public const double SecondsPerLevel = 1.2;
+
+    /// <summary>Match minute after which the time factor starts growing.</summary>
+    public const double TimeFactorStartMinute = 15;
+
+    /// <summary>Growth of the time factor per match minute after <see cref="TimeFactorStartMinute"/>.</summary>
+    public const double TimeFactorPerMinute = 0.01;
+
+    /// <summary>Highest value of the time factor's bonus (+25 %).</summary>
+    public const double TimeFactorMaxBonus = 0.25;
+
+    /// <summary>Share of the wait a champion pays for its first death of the match.</summary>
+    public const double FirstDeathShare = 0.5;
 
     /// <summary>The longest possible wait, in seconds.</summary>
-    public const double MaxSeconds = 40;
+    public const double MaxSeconds = 60;
 
     /// <summary>
-    /// Gets the respawn wait for a death after the given match time.
+    /// Gets the respawn wait of a death, LoL style: it grows with the champion level and, late in the
+    /// match, with the match clock. The first death of a champion only pays half (never below the minimum).
     /// </summary>
+    /// <param name="championLevel">The level of the champion that died (1..30).</param>
     /// <param name="matchElapsed">The time since the match started.</param>
+    /// <param name="deathsBefore">How many times the champion died before this death.</param>
     /// <returns>The wait.</returns>
-    public static TimeSpan DelayAt(TimeSpan matchElapsed)
-        => TimeSpan.FromSeconds(Math.Clamp(BaseSeconds + (SecondsPerMinute * matchElapsed.TotalMinutes), BaseSeconds, MaxSeconds));
+    public static TimeSpan DelayFor(int championLevel, TimeSpan matchElapsed, int deathsBefore)
+    {
+        var byLevel = BaseSeconds + (SecondsPerLevel * (Math.Max(championLevel, 1) - 1));
+        var timeBonus = Math.Clamp((matchElapsed.TotalMinutes - TimeFactorStartMinute) * TimeFactorPerMinute, 0, TimeFactorMaxBonus);
+        var seconds = byLevel * (1 + timeBonus);
+        if (deathsBefore <= 0)
+        {
+            seconds = Math.Max(BaseSeconds, seconds * FirstDeathShare);
+        }
+
+        return TimeSpan.FromSeconds(Math.Min(seconds, MaxSeconds));
+    }
 
     /// <summary>
-    /// Gets the respawn wait of a death happening now.
+    /// Works out the wait of the death that is happening now and remembers it on the champion
+    /// (so the notice shows the same number). Call before the champion's death is counted.
     /// </summary>
+    /// <param name="champion">The champion that died.</param>
     /// <returns>The wait.</returns>
-    public static TimeSpan CurrentDelay() => DelayAt(MobaMatchTickPlugIn.MatchElapsed);
+    public static TimeSpan BeginRespawn(Player champion)
+    {
+        var delay = DelayFor(champion.MobaLevel, MobaMatchTickPlugIn.MatchElapsed, champion.MobaDeaths);
+        champion.MobaState.LastRespawnDelay = delay;
+        return delay;
+    }
+
+    /// <summary>
+    /// Gets the wait for a ghost whose human disconnected while dead: the full wait, as if it was not a first death.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The wait.</returns>
+    public static TimeSpan FullDelayOf(MobaChampionState champion)
+        => DelayFor(champion.Level, MobaMatchTickPlugIn.MatchElapsed, 1);
 
     /// <inheritdoc />
     public ValueTask SelectSpawnGateAsync(Player player, SpawnGateSelectionArgs args)

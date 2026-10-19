@@ -36,6 +36,9 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the champion's team.</summary>
     public MobaTeam Team { get; set; } = MobaTeam.None;
 
+    /// <summary>Gets or sets the respawn wait of the champion's latest death (for the notice to the player).</summary>
+    public TimeSpan LastRespawnDelay { get; set; }
+
     /// <summary>Gets the skill cooldowns: skill number mapped to the UTC instant it is usable again.</summary>
     public Dictionary<short, DateTime> SkillCooldowns { get; } = new();
 

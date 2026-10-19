@@ -104,7 +104,7 @@ public class SelectCharacterAction
                 return;
             }
 
-            var seconds = (int)Math.Ceiling(PlugIns.Moba.MobaRespawn.CurrentDelay().TotalSeconds);
+            var seconds = (int)Math.Ceiling(victim.MobaState.LastRespawnDelay.TotalSeconds);
             await victim.ShowBlueMessageAsync($"[MOBA] You respawn in {seconds} s.").ConfigureAwait(false);
         }
         catch

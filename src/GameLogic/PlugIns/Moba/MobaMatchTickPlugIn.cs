@@ -36,6 +36,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// <summary>Time since champions first appeared in the current match (Zero if none / not started).</summary>
     public static TimeSpan MatchElapsed => _matchStartUtc == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - _matchStartUtc;
 
+    /// <summary>Restarts the match clock: the next champion to appear starts a new match timeline.</summary>
+    public static void ResetClock() => _matchStartUtc = DateTime.MinValue;
+
     /// <inheritdoc />
     public void ForceStart() => this._lastDripUtc = DateTime.MinValue;
 

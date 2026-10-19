@@ -52,6 +52,12 @@ public static class MobaMatchRegistry
             _ = ghost.DisconnectAsync().AsTask();
         }
 
+        if (EntriesByAccount.IsEmpty && MobaBotPlayer.All.Count == 0)
+        {
+            // Nobody left in the arena: the next match starts its own clock.
+            MobaMatchTickPlugIn.ResetClock();
+        }
+
         return entry.CloneCharacter;
     }
 
