@@ -39,6 +39,8 @@ public class GameContext : AsyncDisposable, IGameContext
 
     private readonly Dictionary<ushort, GameMap> _mapList = new();
 
+    private readonly List<GameMap> _instanceMaps = new();
+
     private readonly Dictionary<MiniGameMapKey, MiniGameContext> _miniGames = new();
 
     private readonly Timer _recoverTimer;
@@ -188,7 +190,62 @@ public class GameContext : AsyncDisposable, IGameContext
     public async ValueTask<IEnumerable<GameMap>> GetMapsAsync()
     {
         using var l = await this._mapInitializerLock.LockAsync();
-        return this._mapList.Values.Concat(this._miniGames.Values.Select(g => g.Map)).ToList();
+        return this._mapList.Values.Concat(this._miniGames.Values.Select(g => g.Map)).Concat(this._instanceMaps).ToList();
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<GameMap?> CreateInstanceMapAsync(ushort mapNumber)
+    {
+        GameMap? created;
+        using (await this._mapInitializerLock.LockAsync().ConfigureAwait(false))
+        {
+            created = this._mapInitializer.CreateGameMap(mapNumber);
+            if (created is null)
+            {
+                return null;
+            }
+
+            created.IsInstance = true;
+            this._instanceMaps.Add(created);
+            this.ForwardMapEvents(created);
+        }
+
+        await this._mapInitializer.InitializeStateAsync(created).ConfigureAwait(false);
+        MapCounter.Add(1);
+        return created;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<bool> RemoveInstanceMapAsync(GameMap map)
+    {
+        using (await this._mapInitializerLock.LockAsync().ConfigureAwait(false))
+        {
+            if (!this._instanceMaps.Remove(map))
+            {
+                return false;
+            }
+        }
+
+        MapCounter.Add(-1);
+        return true;
+    }
+
+    private void ForwardMapEvents(GameMap map)
+    {
+        map.ObjectAdded += async args =>
+        {
+            if (this.PlugInManager.GetPlugInPoint<IObjectAddedToMapPlugIn>() is { } plugInPoint)
+            {
+                await plugInPoint.ObjectAddedToMapAsync(args.Map, args.Object).ConfigureAwait(false);
+            }
+        };
+        map.ObjectRemoved += async args =>
+        {
+            if (this.PlugInManager.GetPlugInPoint<IObjectRemovedFromMapPlugIn>() is { } plugInPoint)
+            {
+                await plugInPoint.ObjectRemovedFromMapAsync(args.Map, args.Object).ConfigureAwait(false);
+            }
+        };
     }
 
     /// <inheritdoc/>
@@ -219,20 +276,7 @@ public class GameContext : AsyncDisposable, IGameContext
             }
 
             this._mapList.Add(mapId, createdMap);
-            createdMap.ObjectAdded += async args =>
-            {
-                if (this.PlugInManager.GetPlugInPoint<IObjectAddedToMapPlugIn>() is { } plugInPoint)
-                {
-                    await plugInPoint.ObjectAddedToMapAsync(args.Map, args.Object).ConfigureAwait(false);
-                }
-            };
-            createdMap.ObjectRemoved += async args =>
-            {
-                if (this.PlugInManager.GetPlugInPoint<IObjectRemovedFromMapPlugIn>() is { } plugInPoint)
-                {
-                    await plugInPoint.ObjectRemovedFromMapAsync(args.Map, args.Object).ConfigureAwait(false);
-                }
-            };
+            this.ForwardMapEvents(createdMap);
         }
 
         // ReSharper disable once InconsistentlySynchronizedField it's desired behavior to initialize the map outside the lock to keep locked timespan short.

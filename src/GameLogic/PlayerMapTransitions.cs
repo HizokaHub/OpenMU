@@ -139,7 +139,7 @@ internal sealed class PlayerMapTransitions
     public async ValueTask WarpToAsync(ExitGate gate)
     {
         var player = this._player;
-        var isRespawnOnSameMap = object.Equals(player.CurrentMap?.Definition, gate.Map);
+        var isRespawnOnSameMap = IsSameMap(player, gate);
         if (!await this.TryRemoveFromCurrentMapAsync(isRespawnOnSameMap).ConfigureAwait(false))
         {
             return;
@@ -174,7 +174,7 @@ internal sealed class PlayerMapTransitions
     public async ValueTask RespawnAtAsync(ExitGate gate)
     {
         var player = this._player;
-        var isRespawnOnSameMap = object.Equals(player.CurrentMap?.Definition, gate.Map);
+        var isRespawnOnSameMap = IsSameMap(player, gate);
 
         if (!await this.TryRemoveFromCurrentMapAsync(isRespawnOnSameMap).ConfigureAwait(false))
         {
@@ -190,7 +190,7 @@ internal sealed class PlayerMapTransitions
         {
             // Older clients use a separate packet for the respawn, while newer don't.
             // It requires a slightly different logic.
-            player.CurrentMap = await player.GameContext.GetMapAsync(player.SelectedCharacter!.CurrentMap!.Number.ToUnsigned()).ConfigureAwait(false) ?? throw new InvalidOperationException("Current map not found.");
+            player.CurrentMap = await ResolveMapAsync(player, player.SelectedCharacter!.CurrentMap!.Number.ToUnsigned()).ConfigureAwait(false) ?? throw new InvalidOperationException("Current map not found.");
             await respawnPlugIn.RespawnAsync().ConfigureAwait(false);
             await player.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.EnteredWorld).ConfigureAwait(false);
             player.IsAlive = true;
@@ -237,7 +237,7 @@ internal sealed class PlayerMapTransitions
         }
         else
         {
-            player.CurrentMap = await player.GameContext.GetMapAsync(player.SelectedCharacter!.CurrentMap.Number.ToUnsigned()).ConfigureAwait(false);
+            player.CurrentMap = await ResolveMapAsync(player, player.SelectedCharacter!.CurrentMap.Number.ToUnsigned()).ConfigureAwait(false);
         }
 
         await player.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.EnteredWorld).ConfigureAwait(false);
@@ -297,6 +297,36 @@ internal sealed class PlayerMapTransitions
         return targetMap?.SafeZoneSpawnGate
                ?? spawnTargetMapDefinition.GetSafezoneGate()
                ?? throw new InvalidOperationException($"Game map {spawnTargetMapDefinition} has no spawn gate.");
+    }
+
+    /// <summary>
+    /// Gets the map a player enters for a map number: the instance it is bound to, if it is bound to one of that number,
+    /// otherwise the map the context hosts for the number.
+    /// </summary>
+    private static async ValueTask<GameMap?> ResolveMapAsync(Player player, ushort mapNumber)
+    {
+        if (player.BoundMap is { } bound && bound.MapId == mapNumber)
+        {
+            return bound;
+        }
+
+        return await player.GameContext.GetMapAsync(mapNumber).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Whether going to the gate keeps the player on the map it is on. Two instances of one map number are different
+    /// maps: moving between them (or back to the shared map) is a real map change.
+    /// </summary>
+    private static bool IsSameMap(Player player, ExitGate gate)
+    {
+        if (!object.Equals(player.CurrentMap?.Definition, gate.Map))
+        {
+            return false;
+        }
+
+        return player.BoundMap is { } bound
+            ? ReferenceEquals(player.CurrentMap, bound)
+            : player.CurrentMap?.IsInstance != true;
     }
 
     private async ValueTask<bool> TryRemoveFromCurrentMapAsync(bool willRespawnOnSameMap)

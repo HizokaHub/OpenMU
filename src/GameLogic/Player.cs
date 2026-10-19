@@ -193,6 +193,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public bool IsMobaClone { get; set; }
 
     /// <summary>
+    /// Gets or sets the extra map instance (see <see cref="IGameContext.CreateInstanceMapAsync"/>) this player
+    /// plays on. When set, entering or respawning on that map number puts the player on this instance instead of
+    /// the map the context hosts for the number. Runtime only.
+    /// </summary>
+    public GameMap? BoundMap { get; set; }
+
+    /// <summary>
     /// Gets or sets the champion level (1..30) inside the current MOBA match. Separate
     /// from the MU character level; grows from match EXP and grants a skill point per
     /// level. Runtime only.

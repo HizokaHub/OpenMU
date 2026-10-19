@@ -134,6 +134,22 @@ public interface IGameContext
     ValueTask<IEnumerable<GameMap>> GetMapsAsync();
 
     /// <summary>
+    /// Creates an extra instance of a map, independent of the map of the same number which
+    /// <see cref="GetMapAsync"/> returns: its own objects, monsters and players. A player enters it
+    /// through <see cref="Player.BoundMap"/>.
+    /// </summary>
+    /// <param name="mapNumber">The map number.</param>
+    /// <returns>The new instance, or <see langword="null"/> if the map is not configured.</returns>
+    ValueTask<GameMap?> CreateInstanceMapAsync(ushort mapNumber);
+
+    /// <summary>
+    /// Forgets an instance created with <see cref="CreateInstanceMapAsync"/>. Its players have to be moved away first.
+    /// </summary>
+    /// <param name="map">The instance.</param>
+    /// <returns><see langword="true"/> if the instance was hosted by this context.</returns>
+    ValueTask<bool> RemoveInstanceMapAsync(GameMap map);
+
+    /// <summary>
     /// Gets the players.
     /// </summary>
     ValueTask<IList<Player>> GetPlayersAsync();

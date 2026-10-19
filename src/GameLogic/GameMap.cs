@@ -63,6 +63,13 @@ public class GameMap
     public event AsyncEventHandler<(GameMap Map, ILocateable Object)>? ObjectRemoved;
 
     /// <summary>
+    /// Gets or sets a value indicating whether this map is an extra instance of a map definition (a copy of the
+    /// map of the same number which hosts its own match, see <see cref="IGameContext.CreateInstanceMapAsync"/>),
+    /// and not the one map a context hosts per map number.
+    /// </summary>
+    public bool IsInstance { get; internal set; }
+
+    /// <summary>
     /// Gets the map identifier.
     /// </summary>
     public ushort MapId => this.Definition.Number.ToUnsigned();
