@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.PlugIns;
 
@@ -70,6 +71,15 @@ public class MobaRespawn : IPlayerSpawnGateSelectionPlugIn
     {
         var delay = DelayFor(champion.MobaLevel, MobaArena.Of(champion).Elapsed, champion.MobaDeaths);
         champion.MobaState.LastRespawnDelay = delay;
+        champion.Logger.LogInformation(
+            "[MOBA-RESPAWN] {Name} ({Team}, {Kind}) died: Lv{Level}, death #{Deaths}, match {Minutes:F1} min -> waits {Seconds:F1} s",
+            champion.SelectedCharacter?.Name,
+            MobaTeams.GetTeam(champion),
+            champion is Offline.OfflinePlayer ? "bot" : "human",
+            champion.MobaLevel,
+            champion.MobaDeaths + 1,
+            MobaArena.Of(champion).Elapsed.TotalMinutes,
+            delay.TotalSeconds);
         return delay;
     }
 
@@ -94,6 +104,7 @@ public class MobaRespawn : IPlayerSpawnGateSelectionPlugIn
             return ValueTask.CompletedTask;
         }
 
+        player.Logger.LogInformation("[MOBA-RESPAWN] {Name} respawns at the base of {Team} ({X},{Y})", player.SelectedCharacter?.Name, MobaTeams.GetTeam(player), point.X, point.Y);
         args.Gate = new ExitGate
         {
             Map = map,
