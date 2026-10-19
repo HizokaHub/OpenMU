@@ -80,16 +80,15 @@ public class SelectCharacterAction
         if (sender is Player victim)
         {
             _ = MobaExperience.HandleChampionDeathAsync(victim, death);
-            _ = RespawnAtMidAsync(victim);
+            _ = AnnounceRespawnAsync(victim);
         }
     }
 
     /// <summary>
-    /// After the engine's 3s respawn (which drops the champion at the map's default spawn
-    /// gate), snap a human MOBA champion to mid (128, 128) so it re-enters the fight in the
-    /// centre of the arena. Bots handle their own respawn (back to their lane start).
+    /// Tells a human champion how long the death costs. The respawn itself (delay and the
+    /// spot next to the team's shop) is handled by <see cref="PlugIns.Moba.MobaRespawn"/>.
     /// </summary>
-    private static async Task RespawnAtMidAsync(Player victim)
+    private static async Task AnnounceRespawnAsync(Player victim)
     {
         try
         {
@@ -98,11 +97,8 @@ public class SelectCharacterAction
                 return;
             }
 
-            await Task.Delay(3300).ConfigureAwait(false);
-            if (victim.IsAlive && victim.CurrentMap?.MapId == PlugIns.Moba.MobaCloneFactory.ArenaMapNumber)
-            {
-                await victim.MoveAsync(new MUnique.OpenMU.Pathfinding.Point(128, 128)).ConfigureAwait(false);
-            }
+            var seconds = (int)Math.Ceiling(PlugIns.Moba.MobaRespawn.CurrentDelay().TotalSeconds);
+            await victim.ShowBlueMessageAsync($"[MOBA] You respawn in {seconds} s.").ConfigureAwait(false);
         }
         catch
         {
