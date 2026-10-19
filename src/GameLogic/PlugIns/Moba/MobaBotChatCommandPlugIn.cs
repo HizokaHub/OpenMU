@@ -116,8 +116,9 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
     /// <param name="team">The team.</param>
     /// <param name="classNumbers">The character-class numbers to spawn.</param>
     /// <param name="lanes">The lane of each bot (same order as the classes); by default they are spread over mid, top and bot.</param>
+    /// <param name="arena">The map instance the bots play on; by default the one the caller plays on.</param>
     /// <returns>The number of bots spawned.</returns>
-    internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers, IReadOnlyList<int>? lanes = null)
+    internal static async ValueTask<int> SpawnAsync(Player caller, MobaTeam team, IReadOnlyList<byte> classNumbers, IReadOnlyList<int>? lanes = null, GameMap? arena = null)
     {
         var config = caller.GameContext.Configuration;
 
@@ -158,7 +159,7 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
                 (byte)Math.Clamp(origin.X + laneOffset, 5, 250),
                 (byte)Math.Clamp((int)origin.Y, 5, 250));
 
-            var bot = new MobaBotPlayer(caller.GameContext, team);
+            var bot = new MobaBotPlayer(caller.GameContext, team) { BoundMap = arena ?? caller.BoundMap };
             if (await bot.StartMobaAsync(account, clone, spawn, laneOffset, lane, role).ConfigureAwait(false))
             {
                 spawned++;

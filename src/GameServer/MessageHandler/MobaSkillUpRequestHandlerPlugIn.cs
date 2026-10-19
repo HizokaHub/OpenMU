@@ -37,7 +37,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
         if (span.Length >= 6 && span[3] == 0x07)
         {
             // C1 06 D5 07 menuId optionIndex: an option picked in a server-driven NPC menu.
-            await MobaShop.SelectOptionAsync(player, span[4], span[5]).ConfigureAwait(false);
+            var menuId = span[4];
+            var option = span[5];
+            if (!await MobaQueueNpc.SelectOptionAsync(player, menuId, option).ConfigureAwait(false))
+            {
+                await MobaShop.SelectOptionAsync(player, menuId, option).ConfigureAwait(false);
+            }
+
             return;
         }
 

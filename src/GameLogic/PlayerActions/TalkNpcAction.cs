@@ -45,7 +45,8 @@ public class TalkNpcAction
         }
 
         player.OpenedNpc = npc;
-        if (await PlugIns.Moba.MobaShop.TryOpenMenuAsync(player, npc).ConfigureAwait(false))
+        if (await PlugIns.Moba.MobaShop.TryOpenMenuAsync(player, npc).ConfigureAwait(false)
+            || await PlugIns.Moba.MobaQueueNpc.TryOpenMenuAsync(player, npc).ConfigureAwait(false))
         {
             return;
         }
