@@ -41,6 +41,9 @@ public static class MobaQueueService
     /// <summary>The menu id of the "match found" question.</summary>
     public const byte ReadyMenuId = 3;
 
+    /// <summary>The menu id of the client's queue panel (option 0 leaves the queue).</summary>
+    public const byte PanelMenuId = 4;
+
     private static readonly ConcurrentDictionary<Guid, Player> Sessions = new();
     private static readonly ConcurrentDictionary<Guid, byte> Fillers = new();
     private static readonly ConcurrentDictionary<Guid, MobaQueueFailureReason> FailureReasons = new();
@@ -179,6 +182,7 @@ public static class MobaQueueService
 
         Untrack(player);
         await HandleEventsAsync(Queue.Leave(id)).ConfigureAwait(false);
+        await HideQueuePanelAsync(player).ConfigureAwait(false);
         return duringReadyCheck
             ? "Saliste de la cola con una partida encontrada: recibes una advertencia."
             : "Saliste de la cola.";
@@ -243,6 +247,56 @@ public static class MobaQueueService
         => "Solo / party: 5v5 solo con humanos. "
             + "Con bots: se completa con humanos si los hay; si no, empieza igualmente (" + MobaMatchmaker.DescribeBotStages() + "). "
             + "Cooperativo: tú o tu party (hasta 5) contra 5 bots, al instante.";
+
+    /// <summary>
+    /// Updates the queue panel of every player who waits for a match (once a second, with the queue's clock).
+    /// </summary>
+    private static async ValueTask SendQueuePanelsAsync()
+    {
+        foreach (var (account, player) in Sessions)
+        {
+            var status = BuildQueueStatus(account);
+            await player.InvokeViewPlugInAsync<Views.Moba.IMobaQueueStatusPlugIn>(p => p.ShowQueueStatusAsync(status)).ConfigureAwait(false);
+        }
+    }
+
+    private static ValueTask HideQueuePanelAsync(Player player)
+        => player.InvokeViewPlugInAsync<Views.Moba.IMobaQueueStatusPlugIn>(p => p.ShowQueueStatusAsync(Views.Moba.MobaQueueStatusInfo.Hidden));
+
+    /// <summary>
+    /// Builds what the client's queue panel shows for an account: nothing unless it waits in a pool.
+    /// </summary>
+    private static Views.Moba.MobaQueueStatusInfo BuildQueueStatus(Guid account)
+    {
+        if (Queue.EntryOf(account) is not { } entry)
+        {
+            return Views.Moba.MobaQueueStatusInfo.Hidden;
+        }
+
+        var mode = entry.Mode switch
+        {
+            MobaQueueMode.Open => Views.Moba.MobaQueueStatusMode.Open,
+            MobaQueueMode.Premade => Views.Moba.MobaQueueStatusMode.Premade,
+            MobaQueueMode.WithBots => Views.Moba.MobaQueueStatusMode.WithBots,
+            _ => Views.Moba.MobaQueueStatusMode.Hidden,
+        };
+        if (mode == Views.Moba.MobaQueueStatusMode.Hidden)
+        {
+            return Views.Moba.MobaQueueStatusInfo.Hidden;
+        }
+
+        var wait = DateTime.UtcNow - entry.JoinedUtc;
+        var stages = MobaMatchmaker.BotFillStages.Select(s => ((int)s.Wait.TotalSeconds, s.Humans)).ToList();
+        var next = MobaMatchmaker.BotFillStages.Where(s => s.Wait > wait).Select(s => ((TimeSpan Wait, int Humans)?)s).FirstOrDefault();
+        return new Views.Moba.MobaQueueStatusInfo(
+            mode,
+            (int)wait.TotalSeconds,
+            Queue.WaitingPlayers(entry.Mode),
+            next is { } step ? (int)Math.Ceiling((step.Wait - wait).TotalSeconds) : null,
+            next?.Humans ?? 0,
+            MobaMatchmaker.HumansNeeded(wait) ?? 0,
+            mode == Views.Moba.MobaQueueStatusMode.WithBots ? stages : []);
+    }
 
     private static string DescribeOwnWait(Player player)
     {
@@ -329,6 +383,7 @@ public static class MobaQueueService
         {
             _lastTickUtc = DateTime.UtcNow;
             await HandleEventsAsync(Queue.Tick()).ConfigureAwait(false);
+            await SendQueuePanelsAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -490,6 +545,7 @@ public static class MobaQueueService
                 }
 
                 Untrack(player);
+                await HideQueuePanelAsync(player).ConfigureAwait(false);
                 var guilty = queueEvent.Check.Offenders.Contains(member.AccountId);
                 await player.ShowBlueMessageAsync(guilty
                     ? DescribePenalty(penalties.GetValueOrDefault(member.AccountId))
@@ -552,6 +608,7 @@ public static class MobaQueueService
             {
                 online[member.AccountId] = player;
                 Untrack(player);
+                await HideQueuePanelAsync(player).ConfigureAwait(false);
             }
         }
 

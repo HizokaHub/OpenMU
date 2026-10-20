@@ -126,6 +126,13 @@ public static class MobaQueueNpc
     public static async ValueTask<bool> SelectOptionAsync(Player player, byte menuId, byte optionIndex)
     {
         string? answer;
+        if (menuId == MobaQueueService.PanelMenuId)
+        {
+            // The cancel button of the client's queue panel: no NPC dialog is open, so there is none to close.
+            await player.ShowBlueMessageAsync("[Cola] " + await MobaQueueService.LeaveAsync(player).ConfigureAwait(false)).ConfigureAwait(false);
+            return true;
+        }
+
         if (menuId == MobaQueueService.ReadyMenuId)
         {
             answer = await MobaQueueService.AnswerAsync(player, optionIndex == 0).ConfigureAwait(false);
