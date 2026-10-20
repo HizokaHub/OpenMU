@@ -156,7 +156,15 @@ public static class MobaQueueService
             return "No hay ninguna partida esperando tu respuesta.";
         }
 
-        await HandleEventsAsync(Queue.Answer(account.GetId(), accepted)).ConfigureAwait(false);
+        var check = Queue.ReadyCheckOf(account.GetId());
+        var events = Queue.Answer(account.GetId(), accepted);
+        await HandleEventsAsync(events).ConfigureAwait(false);
+        if (events.Count == 0 && check is not null)
+        {
+            // Still waiting for the others: refresh the "N/10 accepted" of every popup.
+            await SendReadyCheckStateAsync(check).ConfigureAwait(false);
+        }
+
         return accepted ? "Aceptaste. Esperando a los demás..." : "Rechazaste la partida.";
     }
 
@@ -323,27 +331,69 @@ public static class MobaQueueService
 
     private static async ValueTask OnReadyCheckStartedAsync(MobaReadyCheck check)
     {
+        // The fillers answer first so that the popups open already showing how many accepted.
+        foreach (var member in check.Proposal.Players.Where(m => IsFiller(m.AccountId)))
+        {
+            await HandleEventsAsync(Queue.Answer(member.AccountId, true)).ConfigureAwait(false);
+        }
+
+        if (check.State != MobaReadyState.Pending)
+        {
+            return;
+        }
+
         var seconds = (int)MobaReadyCheck.Window.TotalSeconds;
+        foreach (var member in check.Proposal.Players.Where(m => !IsFiller(m.AccountId)))
+        {
+            if (PlayerOf(member.AccountId) is { } player)
+            {
+                await player.ShowBlueMessageAsync($"[Cola] ¡Partida encontrada! Acepta en {seconds} s (botón del aviso, Intro, o /mobaaccept; /mobadecline para rechazar).").ConfigureAwait(false);
+            }
+        }
+
+        await SendReadyCheckStateAsync(check).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Shows every connected player of the check its popup: asking, or "accepted, waiting" for who already accepted.
+    /// </summary>
+    private static async ValueTask SendReadyCheckStateAsync(MobaReadyCheck check)
+    {
+        var remaining = (int)Math.Max(0, (check.DeadlineUtc - DateTime.UtcNow).TotalMilliseconds);
+        var window = (int)(check.DeadlineUtc - check.StartedUtc).TotalMilliseconds;
+        var accepted = check.AcceptedCount;
+        var total = check.PlayerCount;
         foreach (var member in check.Proposal.Players)
         {
-            if (IsFiller(member.AccountId))
-            {
-                await HandleEventsAsync(Queue.Answer(member.AccountId, true)).ConfigureAwait(false);
-                continue;
-            }
-
             if (PlayerOf(member.AccountId) is not { } player)
             {
                 continue;
             }
 
-            await player.ShowBlueMessageAsync($"[Cola] ¡Partida encontrada! Acepta en {seconds} s (menú o /mobaaccept; /mobadecline para rechazar).").ConfigureAwait(false);
-            await player.InvokeViewPlugInAsync<Views.Moba.IMobaShopPlugIn>(p => p.ShowMenuAsync(ReadyMenuId, "Partida encontrada", $"Tu partida está lista. Acepta en {seconds} segundos o saldrás de la cola.", ["Aceptar", "Rechazar"])).ConfigureAwait(false);
+            var status = check.AnswerOf(member.AccountId) == MobaReadyAnswer.Accepted
+                ? Views.Moba.MobaReadyCheckStatus.Accepted
+                : Views.Moba.MobaReadyCheckStatus.Asking;
+            await player.InvokeViewPlugInAsync<Views.Moba.IMobaReadyCheckPlugIn>(p => p.ShowReadyCheckAsync(status, remaining, window, accepted, total)).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Closes the popup of every connected player of the check (it ended: the match starts or failed).
+    /// </summary>
+    private static async ValueTask HideReadyCheckAsync(MobaReadyCheck check)
+    {
+        foreach (var member in check.Proposal.Players)
+        {
+            if (PlayerOf(member.AccountId) is { } player)
+            {
+                await player.InvokeViewPlugInAsync<Views.Moba.IMobaReadyCheckPlugIn>(p => p.ShowReadyCheckAsync(Views.Moba.MobaReadyCheckStatus.Hidden, 0, 0, 0, 0)).ConfigureAwait(false);
+            }
         }
     }
 
     private static async ValueTask OnReadyCheckFailedAsync(MobaQueueEvent queueEvent)
     {
+        await HideReadyCheckAsync(queueEvent.Check).ConfigureAwait(false);
         foreach (var entry in queueEvent.Dropped)
         {
             foreach (var member in entry.Members)
@@ -375,6 +425,7 @@ public static class MobaQueueService
 
     private static async ValueTask OnMatchReadyAsync(MobaReadyCheck check)
     {
+        await HideReadyCheckAsync(check).ConfigureAwait(false);
         var online = new Dictionary<Guid, Player>();
         foreach (var member in check.Proposal.Players)
         {
