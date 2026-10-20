@@ -25,6 +25,7 @@ public class MobaQueuePeriodicPlugIn : IPeriodicTaskPlugIn
     /// <inheritdoc />
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
+        MobaQueuePenalties.Bind(gameContext);
         await MobaQueueNpc.EnsureAsync(gameContext).ConfigureAwait(false);
         await MobaQueueService.TickAsync().ConfigureAwait(false);
     }

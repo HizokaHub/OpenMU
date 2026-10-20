@@ -41,6 +41,16 @@ public class EntityDataContext : ExtendedTypeContext
     /// </summary>
     internal DbSet<CastleSiegePendingReward> CastleSiegePendingRewards => this.Set<CastleSiegePendingReward>();
 
+    /// <summary>
+    /// Gets the MOBA queue penalties (warnings and blocks) of the accounts.
+    /// </summary>
+    internal DbSet<MobaQueuePenalty> MobaQueuePenalties => this.Set<MobaQueuePenalty>();
+
+    /// <summary>
+    /// Gets the record of the failed MOBA ready checks.
+    /// </summary>
+    internal DbSet<MobaQueueIncident> MobaQueueIncidents => this.Set<MobaQueueIncident>();
+
     /// <inheritdoc/>
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -83,6 +93,8 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<CastleSiegeGuild>().Apply();
         modelBuilder.Entity<CastleSiegeGuildRegistration>().Apply();
         modelBuilder.Entity<CastleSiegePendingReward>().Apply();
+        modelBuilder.Entity<MobaQueuePenalty>().Apply();
+        modelBuilder.Entity<MobaQueueIncident>().Apply();
         modelBuilder.Entity<CastleSiegeNpcDefinition>().Apply();
         modelBuilder.Entity<CastleSiegeNpcState>().Apply();
         modelBuilder.Entity<DropItemGroup>().Apply();

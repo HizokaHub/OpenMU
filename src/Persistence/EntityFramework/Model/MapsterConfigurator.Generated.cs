@@ -86,6 +86,12 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.LetterBody, MUnique.OpenMU.DataModel.Entities.LetterBody>()
             .Include<LetterBody, BasicModel.LetterBody>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.MobaQueueIncident, MUnique.OpenMU.DataModel.Entities.MobaQueueIncident>()
+            .Include<MobaQueueIncident, BasicModel.MobaQueueIncident>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.MobaQueuePenalty, MUnique.OpenMU.DataModel.Entities.MobaQueuePenalty>()
+            .Include<MobaQueuePenalty, BasicModel.MobaQueuePenalty>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState, MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState>()
             .Include<QuestMonsterKillRequirementState, BasicModel.QuestMonsterKillRequirementState>();
 

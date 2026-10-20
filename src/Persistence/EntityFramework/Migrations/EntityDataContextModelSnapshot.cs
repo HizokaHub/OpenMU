@@ -3117,6 +3117,67 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.ToTable("MiniGameTerrainChange", "config");
                 });
 
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MobaQueueIncident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("BlockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CharacterName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WarningsAfter")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("MobaQueueIncident", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MobaQueuePenalty", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BlockLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("BlockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastWarningUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Warnings")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique();
+
+                    b.ToTable("MobaQueuePenalty", "data");
+                });
+
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MonsterAttribute", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5261,6 +5322,24 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .WithMany("RawTerrainChanges")
                         .HasForeignKey("MiniGameChangeEventId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MobaQueueIncident", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MobaQueuePenalty", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.MonsterAttribute", b =>

@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands.Arguments;
 using MUnique.OpenMU.Pathfinding;
+using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -20,7 +21,7 @@ public class MobaQueueChatCommandArgs : ArgumentsBase
     [Argument("action", false)]
     public string? Action { get; set; }
 
-    /// <summary>Gets or sets the extra argument: "force" for solo / party, the number of fillers for fill.</summary>
+    /// <summary>Gets or sets the extra argument: "force" for solo / party, the number of fillers for fill, the character name for penalty / pardon.</summary>
     [Argument("extra", false)]
     public string? Extra { get; set; }
 }
@@ -30,8 +31,8 @@ public class MobaQueueChatCommandArgs : ArgumentsBase
 /// </summary>
 [Guid("7C2E9A41-8D35-4B16-A0F7-3E5B1C9D6A82")]
 [PlugIn]
-[Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|leave|status|fill [force|N]' - tests the match queue.")]
-[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, npc (go to the queue master), clear (remove the fake players), window N (seconds to accept), fill N (adds N fake players which accept on their own). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
+[Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|leave|status|fill|penalty|pardon [force|N|name]' - tests the match queue.")]
+[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, npc (go to the queue master), clear (remove the fake players), window N (seconds to accept), fill N (adds N fake players which accept on their own), penalty [name] (shows the warnings and the block), pardon [name] (clears them). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCommandArgs>
 {
     private const string Command = "/mobaqueue";
@@ -46,6 +47,25 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
     {
         MobaReadyCheck.Window = int.TryParse(seconds, out var value) ? TimeSpan.FromSeconds(Math.Clamp(value, 5, 120)) : MobaReadyCheck.DefaultWindow;
         return $"Tiempo para aceptar: {(int)MobaReadyCheck.Window.TotalSeconds} s.";
+    }
+
+    private static async ValueTask<string> PenaltyAsync(Player gm, string? name, bool pardon)
+    {
+        var target = string.IsNullOrWhiteSpace(name) ? gm : gm.GameContext.GetPlayerByCharacterName(name.Trim());
+        if (target?.Account is not { } account)
+        {
+            return $"No encuentro al jugador conectado '{name}'.";
+        }
+
+        var who = target.SelectedCharacter?.Name ?? "?";
+        if (pardon)
+        {
+            return await MobaQueuePenalties.PardonAsync(account.GetId()).ConfigureAwait(false)
+                ? $"Advertencias y bloqueo de {who} borrados."
+                : $"{who} no tenía advertencias.";
+        }
+
+        return $"{who}: {await MobaQueuePenalties.DescribeAsync(account.GetId()).ConfigureAwait(false)}";
     }
 
     private static async ValueTask GoToNpcAsync(Player player)
@@ -86,6 +106,8 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
             "leave" => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
             "clear" => $"{await MobaQueueService.ClearFillersAsync().ConfigureAwait(false)} relleno(s) quitados de la cola.",
             "window" => SetWindow(arguments.Extra),
+            "penalty" => await PenaltyAsync(player, arguments.Extra, pardon: false).ConfigureAwait(false),
+            "pardon" => await PenaltyAsync(player, arguments.Extra, pardon: true).ConfigureAwait(false),
             "fill" => $"{MobaQueueService.AddFillers(int.TryParse(arguments.Extra, out var count) ? Math.Clamp(count, 1, 20) : 1)} jugador(es) de relleno agregados.",
             _ => MobaQueueService.StatusOf(player),
         };

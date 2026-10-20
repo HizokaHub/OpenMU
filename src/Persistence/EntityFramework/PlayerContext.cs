@@ -147,4 +147,15 @@ internal class PlayerContext : CachingEntityFrameworkContext, IPlayerContext
                 .ConfigureAwait(false);
         }
     }
+
+    /// <inheritdoc />
+    public async ValueTask<DataModel.Entities.MobaQueuePenalty?> GetMobaQueuePenaltyAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        using (this.RepositoryProvider.ContextStack.UseContext(this))
+        {
+            return await this.Context.Set<MobaQueuePenalty>()
+                .FirstOrDefaultAsync(penalty => penalty.AccountId == accountId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
 }

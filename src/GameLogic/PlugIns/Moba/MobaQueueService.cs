@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
 using System.Threading;
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Offline;
 using MUnique.OpenMU.Persistence;
 
@@ -36,6 +37,7 @@ public static class MobaQueueService
 
     private static readonly ConcurrentDictionary<Guid, Player> Sessions = new();
     private static readonly ConcurrentDictionary<Guid, byte> Fillers = new();
+    private static readonly ConcurrentDictionary<Guid, MobaQueueFailureReason> FailureReasons = new();
     private static readonly SemaphoreSlim TickLock = new(1, 1);
     private static DateTime _lastTickUtc = DateTime.MinValue;
 
@@ -99,6 +101,18 @@ public static class MobaQueueService
             }
         }
 
+        MobaQueuePenalties.Bind(player.GameContext);
+        foreach (var member in team)
+        {
+            if (await MobaQueuePenalties.GetBlockRemainingAsync(member.Account!.GetId()).ConfigureAwait(false) is { } left)
+            {
+                var duration = MobaQueuePenalties.FormatDuration(left);
+                return team.Count == 1
+                    ? $"Estás bloqueado de la cola por no aceptar partidas. Faltan {duration}."
+                    : $"{member.SelectedCharacter?.Name} está bloqueado de la cola por no aceptar partidas. Faltan {duration}.";
+            }
+        }
+
         var members = team.Select(p => new MobaQueueMember(p.Account!.GetId(), p.SelectedCharacter!.Name)).ToList();
         var result = Queue.Join(mode, members);
         if (result == MobaQueueJoinResult.AlreadyQueued)
@@ -138,9 +152,17 @@ public static class MobaQueueService
             return "No estás en la cola.";
         }
 
+        var duringReadyCheck = Queue.StatusOf(id) == MobaQueueStatus.ReadyCheck;
+        if (duringReadyCheck)
+        {
+            FailureReasons[id] = MobaQueueFailureReason.LeftQueue;
+        }
+
         Untrack(player);
         await HandleEventsAsync(Queue.Leave(id)).ConfigureAwait(false);
-        return "Saliste de la cola.";
+        return duringReadyCheck
+            ? "Saliste de la cola con una partida encontrada: recibes una advertencia."
+            : "Saliste de la cola.";
     }
 
     /// <summary>
@@ -157,12 +179,18 @@ public static class MobaQueueService
         }
 
         var check = Queue.ReadyCheckOf(account.GetId());
+        var alreadyAnswered = check?.AnswerOf(account.GetId()) != MobaReadyAnswer.Pending;
         var events = Queue.Answer(account.GetId(), accepted);
         await HandleEventsAsync(events).ConfigureAwait(false);
         if (events.Count == 0 && check is not null)
         {
             // Still waiting for the others: refresh the "N/10 accepted" of every popup.
             await SendReadyCheckStateAsync(check).ConfigureAwait(false);
+        }
+
+        if (accepted && !alreadyAnswered && await MobaQueuePenalties.RegisterAcceptanceAsync(account.GetId()).ConfigureAwait(false))
+        {
+            return "Aceptaste. Tus advertencias de la cola se borraron. Esperando a los demás...";
         }
 
         return accepted ? "Aceptaste. Esperando a los demás..." : "Rechazaste la partida.";
@@ -324,6 +352,11 @@ public static class MobaQueueService
     {
         if (player.Account is { } account && Queue.StatusOf(account.GetId()) != MobaQueueStatus.None)
         {
+            if (Queue.StatusOf(account.GetId()) == MobaQueueStatus.ReadyCheck)
+            {
+                FailureReasons[account.GetId()] = MobaQueueFailureReason.Disconnected;
+            }
+
             Untrack(player);
             await HandleEventsAsync(Queue.Leave(account.GetId())).ConfigureAwait(false);
         }
@@ -394,6 +427,7 @@ public static class MobaQueueService
     private static async ValueTask OnReadyCheckFailedAsync(MobaQueueEvent queueEvent)
     {
         await HideReadyCheckAsync(queueEvent.Check).ConfigureAwait(false);
+        var penalties = await PenalizeOffendersAsync(queueEvent.Check).ConfigureAwait(false);
         foreach (var entry in queueEvent.Dropped)
         {
             foreach (var member in entry.Members)
@@ -406,7 +440,7 @@ public static class MobaQueueService
                 Untrack(player);
                 var guilty = queueEvent.Check.Offenders.Contains(member.AccountId);
                 await player.ShowBlueMessageAsync(guilty
-                    ? "[Cola] No aceptaste la partida: sales de la cola y recibes una advertencia."
+                    ? DescribePenalty(penalties.GetValueOrDefault(member.AccountId))
                     : "[Cola] Alguien de tu party no aceptó la partida: sales de la cola.").ConfigureAwait(false);
             }
         }
@@ -421,6 +455,39 @@ public static class MobaQueueService
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Gives a warning (and maybe a block) to every player who failed the ready check, and records the incident.
+    /// </summary>
+    private static async ValueTask<Dictionary<Guid, MobaPenaltyOutcome?>> PenalizeOffendersAsync(MobaReadyCheck check)
+    {
+        var outcomes = new Dictionary<Guid, MobaPenaltyOutcome?>();
+        foreach (var account in check.Offenders.Where(id => !IsFiller(id)))
+        {
+            var name = check.Proposal.Players.FirstOrDefault(m => m.AccountId == account)?.Name ?? string.Empty;
+            if (!FailureReasons.TryRemove(account, out var reason))
+            {
+                reason = check.AnswerOf(account) == MobaReadyAnswer.Declined ? MobaQueueFailureReason.Declined : MobaQueueFailureReason.TimedOut;
+            }
+
+            outcomes[account] = await MobaQueuePenalties.RegisterFailureAsync(account, name, reason).ConfigureAwait(false);
+        }
+
+        return outcomes;
+    }
+
+    private static string DescribePenalty(MobaPenaltyOutcome? outcome)
+    {
+        const string Prefix = "[Cola] No aceptaste la partida: sales de la cola. ";
+        if (outcome is not { } result)
+        {
+            return Prefix + "Recibes una advertencia.";
+        }
+
+        return result.BlockedFor is { } block
+            ? Prefix + $"Advertencias {result.Warnings}/{MobaQueuePenaltyRules.WarningsForBlock}: no podrás buscar partida durante {MobaQueuePenalties.FormatDuration(block)}."
+            : Prefix + $"Advertencia {result.Warnings}/{MobaQueuePenaltyRules.WarningsForBlock}.";
     }
 
     private static async ValueTask OnMatchReadyAsync(MobaReadyCheck check)

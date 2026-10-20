@@ -110,4 +110,12 @@ public interface IPlayerContext : IContext
     ValueTask<IReadOnlyList<CastleSiegePendingReward>> GetPendingCastleSiegeRewardsAsync(
         Guid characterId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the MOBA queue penalty (warnings and block) of an account.
+    /// </summary>
+    /// <param name="accountId">The account identifier.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The penalty; <see langword="null"/> if the account never failed a ready check.</returns>
+    ValueTask<MobaQueuePenalty?> GetMobaQueuePenaltyAsync(Guid accountId, CancellationToken cancellationToken = default);
 }

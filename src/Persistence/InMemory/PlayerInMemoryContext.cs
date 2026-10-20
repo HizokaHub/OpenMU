@@ -92,4 +92,13 @@ public class PlayerInMemoryContext : InMemoryContext, IPlayerContext
             .ConfigureAwait(false);
         return pendingRewards.Where(reward => reward.CharacterId == characterId).ToList();
     }
+
+    /// <inheritdoc />
+    public async ValueTask<DataModel.Entities.MobaQueuePenalty?> GetMobaQueuePenaltyAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var penalties = await this.Provider.GetRepository<MobaQueuePenalty>()
+            .GetAllAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return penalties.FirstOrDefault(penalty => penalty.AccountId == accountId);
+    }
 }
