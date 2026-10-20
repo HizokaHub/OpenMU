@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
@@ -16,14 +17,17 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public static class MobaQueueNpc
 {
-    /// <summary>The NPC the queue master looks like: "Elite Skill Soldier", which has no function of its own.</summary>
-    public const short NpcNumber = 372;
+    /// <summary>
+    /// The NPC the queue master looks like: "Leo The Helper", a knight in plate armour which the client draws in Lorencia
+    /// (the first try, "Elite Skill Soldier", is a skeleton skin whose model is not loaded there and never showed up).
+    /// </summary>
+    public const short NpcNumber = 371;
 
     /// <summary>The map the NPC stands on (Lorencia).</summary>
     public const ushort MapNumber = 0;
 
     /// <summary>Where the NPC stands, near the plaza of Lorencia; the nearest walkable tile is used.</summary>
-    public static readonly Point Position = new(136, 134);
+    public static readonly Point Position = new(134, 130);
 
     private const string Title = "Maestro de la Arena";
 
@@ -74,7 +78,15 @@ public static class MobaQueueNpc
         npc.Initialize();
         await map.AddAsync(npc).ConfigureAwait(false);
         npc.OnSpawn();
+        gameContext.LoggerFactory.CreateLogger(typeof(MobaQueueNpc)).LogInformation("[MOBA-QUEUE] queue master NPC {Number} placed in map {Map} at {X},{Y}.", NpcNumber, MapNumber, spot.X, spot.Y);
     }
+
+    /// <summary>
+    /// Gets where the queue master of a map stands.
+    /// </summary>
+    /// <param name="map">The map (Lorencia of a game server).</param>
+    /// <returns>The position, or <see langword="null"/> if there is none.</returns>
+    public static Point? PositionOn(GameMap map) => Npcs.TryGetValue(map, out var npc) ? npc.Position : null;
 
     /// <summary>
     /// Gets whether an NPC is a queue master.

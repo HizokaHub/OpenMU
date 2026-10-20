@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands.Arguments;
+using MUnique.OpenMU.Pathfinding;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -30,7 +31,7 @@ public class MobaQueueChatCommandArgs : ArgumentsBase
 [Guid("7C2E9A41-8D35-4B16-A0F7-3E5B1C9D6A82")]
 [PlugIn]
 [Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|leave|status|fill [force|N]' - tests the match queue.")]
-[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, fill N (adds N fake players which accept on their own). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
+[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, npc (go to the queue master), fill N (adds N fake players which accept on their own). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCommandArgs>
 {
     private const string Command = "/mobaqueue";
@@ -41,10 +42,37 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
     /// <inheritdoc />
     public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
 
+    private static async ValueTask GoToNpcAsync(Player player)
+    {
+        if (await player.GameContext.GetMapAsync(MobaQueueNpc.MapNumber, false).ConfigureAwait(false) is not { } lorencia
+            || MobaQueueNpc.PositionOn(lorencia) is not { } spot)
+        {
+            await player.ShowBlueMessageAsync("[Cola] El Maestro de la Arena todavía no está en Lorencia.").ConfigureAwait(false);
+            return;
+        }
+
+        await player.ShowBlueMessageAsync($"[Cola] El Maestro de la Arena está en Lorencia ({spot.X},{spot.Y}).").ConfigureAwait(false);
+        var next = new Point((byte)Math.Min(spot.X + 2, 255), spot.Y);
+        if (ReferenceEquals(player.CurrentMap, lorencia))
+        {
+            await player.MoveAsync(next).ConfigureAwait(false);
+        }
+        else
+        {
+            await player.TeleportToMapAsync(lorencia, next).ConfigureAwait(false);
+        }
+    }
+
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaQueueChatCommandArgs arguments)
     {
         var force = string.Equals(arguments.Extra?.Trim(), "force", StringComparison.OrdinalIgnoreCase);
+        if (arguments.Action?.Trim().ToLowerInvariant() == "npc")
+        {
+            await GoToNpcAsync(player).ConfigureAwait(false);
+            return;
+        }
+
         var message = arguments.Action?.Trim().ToLowerInvariant() switch
         {
             "solo" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Solo, force).ConfigureAwait(false),
