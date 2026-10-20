@@ -155,8 +155,14 @@ public static class MobaWaveSpawner
     public static async ValueTask<int> SpawnWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team)
     {
         var total = 0;
+        var middleOnly = MobaFormats.MiddleLaneOnly(MobaArena.Of(map).Format);
         for (var lane = 0; lane < MobaLayout.LaneCount; lane++)
         {
+            if (middleOnly && lane != MobaLayout.MidLane)
+            {
+                continue;
+            }
+
             total += await SpawnLaneWaveAsync(map, gameContext, team, lane).ConfigureAwait(false);
         }
 

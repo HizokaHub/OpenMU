@@ -62,6 +62,9 @@ public sealed class MobaArena
     /// <summary>Gets a value indicating whether the arena is in the countdown before a match: only the champions move.</summary>
     public bool IsPreMatch => DateTime.UtcNow < this.PreMatchUntilUtc;
 
+    /// <summary>Gets the terrain tiles of the walls which close the side lanes (formats which play the middle lane only).</summary>
+    public List<MUnique.OpenMU.Pathfinding.Point> LaneWallTiles { get; } = new();
+
     /// <summary>Gets the terrain tiles which hold the champions in during the countdown.</summary>
     public List<MUnique.OpenMU.Pathfinding.Point> BarrierTiles { get; } = new();
 

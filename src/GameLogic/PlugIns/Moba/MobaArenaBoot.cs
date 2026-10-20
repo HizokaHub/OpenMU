@@ -31,6 +31,7 @@ public static class MobaArenaBoot
     public static async ValueTask EnsureAsync(GameMap map, IGameContext gameContext)
     {
         ClearSafezone(map);
+        MobaLaneWalls.Raise(map);
         await MobaShop.EnsureVendorsAsync(map, gameContext).ConfigureAwait(false);
         await MobaStructureSpawner.EnsureStructuresAsync(map, gameContext).ConfigureAwait(false);
         if (!MobaArena.Of(map).IsPreMatch)
@@ -74,7 +75,9 @@ public static class MobaArenaBoot
     public static async ValueTask TearDownAsync(GameMap map, IGameContext gameContext)
     {
         MobaPreMatch.Lower(map);
+        MobaLaneWalls.Lower(map);
         MobaArena.Of(map).PreMatchUntilUtc = DateTime.MinValue;
+        MobaArena.Of(map).Format = MobaFormat.Classic;
         MobaWavePeriodicSpawner.Stop(map);
         MobaBotObjectives.Reset(MobaArena.Of(map));
         await MobaJungle.StopAsync(map).ConfigureAwait(false);

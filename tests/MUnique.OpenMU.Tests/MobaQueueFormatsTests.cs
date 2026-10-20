@@ -145,6 +145,68 @@ public class MobaQueueFormatsTests
         Assert.That(proposal.Red.SelectMany(e => e.Members).All(m => m.IsBot), Is.True);
     }
 
+    /// <summary>
+    /// The ARAM search works like the search with bots, in its own pool and format.
+    /// </summary>
+    [Test]
+    public void AramStartsWithBotsAfterTheFirstStep()
+    {
+        this.Join(MobaFormat.Aram, MobaQueueMode.WithBots, 6);
+        this.Join(MobaFormat.Classic, MobaQueueMode.WithBots, 1);
+
+        this._now = this._now.AddSeconds(120);
+        var proposals = this._queue.Tick().Select(e => e.Check.Proposal).ToList();
+
+        var aram = proposals.Single(p => p.Format == MobaFormat.Aram);
+        Assert.That(aram.Blue.Sum(e => e.Size), Is.EqualTo(5));
+        Assert.That(aram.Players.Count(p => !p.IsBot), Is.EqualTo(6));
+        Assert.That(proposals.Count(p => p.Format == MobaFormat.Classic), Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// Only the formats which play the middle lane have walls: two along the corridor and one across each end, tile-exact.
+    /// </summary>
+    [Test]
+    public void OnlyMiddleLaneFormatsHaveWalls()
+    {
+        Assert.That(MobaLaneWalls.RectsFor(MobaFormat.Classic), Is.Empty);
+        Assert.That(MobaLaneWalls.RectsFor(MobaFormat.Trio), Is.Empty);
+
+        var rects = MobaLaneWalls.RectsFor(MobaFormat.Duel);
+        Assert.That(rects, Has.Count.EqualTo(4));
+        Assert.That(MobaLaneWalls.RectsFor(MobaFormat.Aram), Is.EqualTo(rects));
+        Assert.That(rects[0], Is.EqualTo(new MobaWallRect(104, 3, 2, 250)));
+        Assert.That(rects[1], Is.EqualTo(new MobaWallRect(131, 3, 2, 250)));
+    }
+
+    /// <summary>
+    /// The corridor is closed: the walls are solid on both sides and at both ends, and open inside.
+    /// </summary>
+    [Test]
+    public void WallsEncloseTheCorridor()
+    {
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 104, 100), Is.True);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 132, 100), Is.True);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 118, 3), Is.True);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 118, 252), Is.True);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 118, 100), Is.False);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 103, 100), Is.False);
+        Assert.That(MobaLaneWalls.IsWall(MobaFormat.Classic, 104, 100), Is.False);
+
+        // No gap: every column of the corridor's width is covered at both ends, every row at both sides.
+        for (var x = 104; x <= 132; x++)
+        {
+            Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, x, 4), Is.True, $"top, x={x}");
+            Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, x, 251), Is.True, $"bottom, x={x}");
+        }
+
+        for (var y = 3; y <= 252; y++)
+        {
+            Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 105, y), Is.True, $"left, y={y}");
+            Assert.That(MobaLaneWalls.IsWall(MobaFormat.Duel, 131, y), Is.True, $"right, y={y}");
+        }
+    }
+
     private static List<MobaQueueMember> Members(int count)
         => Enumerable.Range(1, count).Select(i => new MobaQueueMember(Guid.NewGuid(), "P" + i)).ToList();
 

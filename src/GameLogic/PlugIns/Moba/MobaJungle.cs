@@ -262,6 +262,11 @@ public static class MobaJungle
     /// <returns>The number of monsters spawned.</returns>
     public static async ValueTask<int> EnsureStartedAsync(GameMap map, IGameContext gameContext)
     {
+        if (!MobaFormats.HasJungle(MobaArena.Of(map).Format))
+        {
+            return 0;
+        }
+
         await EnsureLock.WaitAsync().ConfigureAwait(false);
         try
         {

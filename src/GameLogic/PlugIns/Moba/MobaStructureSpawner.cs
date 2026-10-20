@@ -174,7 +174,8 @@ public static class MobaStructureSpawner
         var list = TurretsByMap.GetOrAdd(map, _ => new List<Monster>());
         var count = 0;
 
-        foreach (var spec in MobaLayout.Towers)
+        var middleOnly = MobaFormats.MiddleLaneOnly(MobaArena.Of(map).Format);
+        foreach (var spec in MobaLayout.Towers.Where(t => !middleOnly || t.Lane == MobaLayout.MidLane))
         {
             var turret = await SpawnTurretAsync(map, gameContext, spec.Team, (spec.Position.X, spec.Position.Y), spec.Lane, spec.Tier).ConfigureAwait(false);
             if (turret is not null)

@@ -94,6 +94,11 @@ public static class MobaPreMatch
         var arena = MobaArena.Of(map);
         foreach (var tile in arena.BarrierTiles)
         {
+            if (MobaLaneWalls.IsWall(arena.Format, tile.X, tile.Y))
+            {
+                continue; // The countdown ring crosses a lane wall: that tile stays a wall.
+            }
+
             map.Terrain.WalkMap[tile.X, tile.Y] = true;
             map.Terrain.UpdateAiGridValue(tile.X, tile.Y);
         }

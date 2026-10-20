@@ -86,14 +86,6 @@ public static class MobaFormats
     public static bool MiddleLaneOnly(MobaFormat format) => format is MobaFormat.Duel or MobaFormat.Aram;
 
     /// <summary>
-    /// Gets whether a format can be searched: the formats which play the middle lane only wait for the barriers which close the
-    /// side lanes.
-    /// </summary>
-    /// <param name="format">The format.</param>
-    /// <returns><see langword="true"/> if the format is ready to be played.</returns>
-    public static bool IsPlayable(MobaFormat format) => !MiddleLaneOnly(format);
-
-    /// <summary>
     /// Gets the name of a format for the players.
     /// </summary>
     /// <param name="format">The format.</param>

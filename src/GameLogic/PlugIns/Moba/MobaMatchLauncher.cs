@@ -119,7 +119,9 @@ public static class MobaMatchLauncher
     private static async ValueTask SpawnFillersAsync(Player host, MobaTeam team, GameMap arena, int count)
     {
         var families = MobaBotChatCommandPlugIn.AllFamilies.OrderBy(_ => Random.Shared.Next()).Take(count).ToList();
-        var lanes = FillerLanes.Take(count).ToList();
+        var lanes = MobaFormats.MiddleLaneOnly(MobaArena.Of(arena).Format)
+            ? Enumerable.Repeat(MobaLayout.MidLane, count).ToList()
+            : FillerLanes.Take(count).ToList();
         await MobaBotChatCommandPlugIn.SpawnAsync(host, team, families, lanes, arena).ConfigureAwait(false);
     }
 

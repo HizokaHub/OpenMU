@@ -32,6 +32,9 @@ public enum MobaQueueChoice : byte
 
     /// <summary>The 1v1 search: humans only, alone.</summary>
     Duel = 5,
+
+    /// <summary>The ARAM search (5v5 in the middle lane, the side lanes closed): like the search with bots, alone or with the party.</summary>
+    Aram = 6,
 }
 
 /// <summary>
@@ -79,16 +82,12 @@ public static class MobaQueueService
         {
             MobaQueueChoice.Trio => MobaFormat.Trio,
             MobaQueueChoice.Duel => MobaFormat.Duel,
+            MobaQueueChoice.Aram => MobaFormat.Aram,
             _ => MobaFormat.Classic,
         };
-        if (!MobaFormats.IsPlayable(format))
-        {
-            return $"El formato {MobaFormats.Label(format)} todavía no está disponible.";
-        }
-
         var teamSize = MobaFormats.TeamSize(format);
         var wantsParty = choice == MobaQueueChoice.Party
-            || (choice is MobaQueueChoice.WithBots or MobaQueueChoice.Coop or MobaQueueChoice.Trio && player.Party is { PartyList.Count: >= 2 });
+            || (choice is MobaQueueChoice.WithBots or MobaQueueChoice.Coop or MobaQueueChoice.Trio or MobaQueueChoice.Aram && player.Party is { PartyList.Count: >= 2 });
         if (choice == MobaQueueChoice.Duel && player.Party is { PartyList.Count: >= 2 })
         {
             return "El 1v1 es individual: sal del party para buscarlo.";
@@ -127,7 +126,7 @@ public static class MobaQueueService
 
         mode = choice switch
         {
-            MobaQueueChoice.WithBots or MobaQueueChoice.Trio => MobaQueueMode.WithBots,
+            MobaQueueChoice.WithBots or MobaQueueChoice.Trio or MobaQueueChoice.Aram => MobaQueueMode.WithBots,
             MobaQueueChoice.Coop => MobaQueueMode.Coop,
             MobaQueueChoice.Duel => MobaQueueMode.Open,
             _ => team.Count == MobaMatchmaker.TeamSize ? MobaQueueMode.Premade : MobaQueueMode.Open,
@@ -178,7 +177,12 @@ public static class MobaQueueService
 
         if (format == MobaFormat.Duel)
         {
-            return $"Buscando partida 1v1. Hay {Queue.WaitingPlayers(mode, format)} jugador(es) esperando en esta cola.";
+            return $"Buscando partida 1v1 (carril central). Hay {Queue.WaitingPlayers(mode, format)} jugador(es) esperando en esta cola.";
+        }
+
+        if (format == MobaFormat.Aram)
+        {
+            return $"Buscando ARAM 5v5 por el carril central ({what}). Primero se intenta completar con humanos; si no hay, empieza igualmente con bots: {MobaMatchmaker.DescribeBotStages(format)}. Hay {Queue.WaitingPlayers(mode, format)} jugador(es) esperando en esta cola.";
         }
 
         return mode switch
@@ -276,11 +280,20 @@ public static class MobaQueueService
     /// Explains the search modes (for the "how do the modes work" option of the queue master).
     /// </summary>
     /// <returns>The text.</returns>
-    public static string ModesHelp()
-        => "Solo / party: 5v5 solo con humanos. "
-            + "3v3: tres carriles con jungla; solo humanos y, pasados 10 minutos, se completa con bots si hay 4 o más. "
-            + "Con bots: se completa con humanos si los hay; si no, empieza igualmente (" + MobaMatchmaker.DescribeBotStages() + "). "
-            + "Cooperativo: tú o tu party (hasta 5) contra 5 bots, al instante.";
+    public static string ModesHelp() => string.Join(" | ", ModesHelpLines());
+
+    /// <summary>
+    /// Explains the search modes, one line per mode.
+    /// </summary>
+    /// <returns>The lines.</returns>
+    public static IReadOnlyList<string> ModesHelpLines() =>
+    [
+        "Solo / party: 5v5 solo con humanos, tres carriles y jungla.",
+        "Con bots: se completa con humanos si los hay; si no, empieza igualmente (" + MobaMatchmaker.DescribeBotStages() + ").",
+        "Cooperativo: tú o tu party (hasta 5) contra 5 bots, al instante.",
+        "3v3: tres carriles con jungla; solo humanos y, pasados 10 minutos, se completa con bots si hay 4 o más.",
+        "1v1: carril central, solo humanos. ARAM: 5v5 por el carril central, como «con bots» (" + MobaMatchmaker.DescribeBotStages(MobaFormat.Aram) + ").",
+    ];
 
     /// <summary>
     /// Updates the queue panel of every player who waits for a match (once a second, with the queue's clock).
@@ -311,7 +324,7 @@ public static class MobaQueueService
         {
             (MobaFormat.Trio, MobaQueueMode.WithBots) => Views.Moba.MobaQueueStatusMode.Trio,
             (MobaFormat.Duel, MobaQueueMode.Open) => Views.Moba.MobaQueueStatusMode.Duel,
-            (MobaFormat.Aram, MobaQueueMode.Open) => Views.Moba.MobaQueueStatusMode.Aram,
+            (MobaFormat.Aram, MobaQueueMode.WithBots) => Views.Moba.MobaQueueStatusMode.Aram,
             (_, MobaQueueMode.Open) => Views.Moba.MobaQueueStatusMode.Open,
             (_, MobaQueueMode.Premade) => Views.Moba.MobaQueueStatusMode.Premade,
             (_, MobaQueueMode.WithBots) => Views.Moba.MobaQueueStatusMode.WithBots,

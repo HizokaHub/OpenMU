@@ -40,6 +40,8 @@ public static class MobaQueueNpc
         "Buscar con bots (garantizada)",
         "Cooperativo contra bots",
         "Buscar 3v3 (solo o party)",
+        "Buscar 1v1 (carril central)",
+        "Buscar ARAM 5v5 (carril central)",
         "Salir de la cola",
         "Estado de la cola",
         "Cómo funcionan los modos",
@@ -147,9 +149,11 @@ public static class MobaQueueNpc
                 2 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.WithBots).ConfigureAwait(false),
                 3 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Coop).ConfigureAwait(false),
                 4 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Trio).ConfigureAwait(false),
-                5 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
-                6 => MobaQueueService.StatusOf(player),
-                _ => MobaQueueService.ModesHelp(),
+                5 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Duel).ConfigureAwait(false),
+                6 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Aram).ConfigureAwait(false),
+                7 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
+                8 => MobaQueueService.StatusOf(player),
+                _ => null,
             };
         }
         else
@@ -157,7 +161,19 @@ public static class MobaQueueNpc
             return menuId == MobaQueueService.MenuId;
         }
 
-        await player.ShowBlueMessageAsync("[Cola] " + answer).ConfigureAwait(false);
+        if (answer is null)
+        {
+            // The "how do the modes work" option: one line per mode.
+            foreach (var line in MobaQueueService.ModesHelpLines())
+            {
+                await player.ShowBlueMessageAsync("[Cola] " + line).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            await player.ShowBlueMessageAsync("[Cola] " + answer).ConfigureAwait(false);
+        }
+
         await CloseDialogAsync(player).ConfigureAwait(false);
         return true;
     }
