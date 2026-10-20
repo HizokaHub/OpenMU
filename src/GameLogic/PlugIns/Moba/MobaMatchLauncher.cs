@@ -20,7 +20,7 @@ public static class MobaMatchLauncher
     /// <summary>The pause between the "match ready" message and the disconnection which sends the player to the match.</summary>
     private static readonly TimeSpan SendOffDelay = TimeSpan.FromSeconds(3);
 
-    /// <summary>The lanes the bot fillers of a team take, in order.</summary>
+    /// <summary>The lanes the bot fillers of a team take, in order (a team of three has one player per lane).</summary>
     private static readonly int[] FillerLanes = { MobaLayout.MidLane, 0, 2, 1, 0 };
 
     /// <summary>
@@ -48,7 +48,9 @@ public static class MobaMatchLauncher
                 return;
             }
 
-            // The countdown first: while it runs the arena is held (barrier around the bases, no bots, jungle or waves).
+            // The format first (the arena boot and the countdown read it), then the countdown: while it runs the arena is held
+            // (barrier around the bases, no bots, jungle or waves).
+            MobaArena.Of(arena).Format = proposal.Format;
             MobaPreMatch.Begin(arena, context);
             await MobaArenaBoot.EnsureAsync(arena, context).ConfigureAwait(false);
 
@@ -76,7 +78,8 @@ public static class MobaMatchLauncher
             }
 
             logger.LogInformation(
-                "[MOBA-QUEUE] match started on arena {Arena}: {Blue} blue / {Red} red, {Humans} human(s).",
+                "[MOBA-QUEUE] {Format} match started on arena {Arena}: {Blue} blue / {Red} red, {Humans} human(s).",
+                MobaFormats.Label(proposal.Format),
                 arena.Id.ToString()[..8],
                 proposal.Blue.Sum(e => e.Size),
                 proposal.Red.Sum(e => e.Size),

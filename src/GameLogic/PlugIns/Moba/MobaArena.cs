@@ -50,6 +50,9 @@ public sealed class MobaArena
     /// <summary>Gets or sets the UTC instant the fountain step last saw a champion.</summary>
     public DateTime FountainLastChampionUtc { get; set; } = DateTime.MinValue;
 
+    /// <summary>Gets or sets the format of the match played in the arena (teams, lanes, jungle).</summary>
+    public MobaFormat Format { get; set; } = MobaFormat.Classic;
+
     /// <summary>Gets the map the match is played on (<see langword="null"/> for the detached stand-in).</summary>
     public GameMap? Map { get; }
 

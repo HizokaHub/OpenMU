@@ -206,13 +206,9 @@ public sealed class MobaQueue
 {
     private readonly object _lock = new();
     private readonly Func<DateTime> _clock;
-    private readonly Dictionary<MobaQueueMode, List<MobaQueueEntry>> _pools = new()
-    {
-        [MobaQueueMode.Open] = new List<MobaQueueEntry>(),
-        [MobaQueueMode.Premade] = new List<MobaQueueEntry>(),
-        [MobaQueueMode.WithBots] = new List<MobaQueueEntry>(),
-        [MobaQueueMode.Coop] = new List<MobaQueueEntry>(),
-    };
+    private readonly Dictionary<(MobaFormat Format, MobaQueueMode Mode), List<MobaQueueEntry>> _pools =
+        Enum.GetValues<MobaFormat>().SelectMany(format => Enum.GetValues<MobaQueueMode>().Select(mode => (format, mode)))
+            .ToDictionary(key => key, _ => new List<MobaQueueEntry>());
 
     private readonly List<MobaReadyCheck> _checks = new();
 
@@ -232,13 +228,14 @@ public sealed class MobaQueue
     /// <param name="members">The players; they stay together.</param>
     /// <param name="joinedUtc">When they first queued (to keep their place after a failed ready check); now if <see langword="null"/>.</param>
     /// <returns>The result.</returns>
-    public MobaQueueJoinResult Join(MobaQueueMode mode, IReadOnlyList<MobaQueueMember> members, DateTime? joinedUtc = null)
+    public MobaQueueJoinResult Join(MobaQueueMode mode, IReadOnlyList<MobaQueueMember> members, DateTime? joinedUtc = null, MobaFormat format = MobaFormat.Classic)
     {
+        var teamSize = MobaFormats.TeamSize(format);
         var validSize = mode switch
         {
-            MobaQueueMode.Premade => members.Count == MobaMatchmaker.TeamSize,
-            MobaQueueMode.WithBots or MobaQueueMode.Coop => members.Count is >= 1 and <= MobaMatchmaker.TeamSize,
-            _ => members.Count is >= 1 and <= MobaMatchmaker.MaxOpenEntrySize,
+            MobaQueueMode.Premade => members.Count == teamSize,
+            MobaQueueMode.WithBots or MobaQueueMode.Coop => members.Count >= 1 && members.Count <= teamSize,
+            _ => members.Count >= 1 && members.Count <= MobaFormats.MaxOpenEntrySize(format),
         };
         if (!validSize || members.Select(m => m.AccountId).Distinct().Count() != members.Count)
         {
@@ -252,7 +249,7 @@ public sealed class MobaQueue
                 return MobaQueueJoinResult.AlreadyQueued;
             }
 
-            this.Insert(new MobaQueueEntry(mode, members, joinedUtc ?? this._clock()));
+            this.Insert(new MobaQueueEntry(mode, members, joinedUtc ?? this._clock(), format));
             return MobaQueueJoinResult.Joined;
         }
     }
@@ -340,11 +337,11 @@ public sealed class MobaQueue
     /// </summary>
     /// <param name="mode">The pool.</param>
     /// <returns>The number of players.</returns>
-    public int WaitingPlayers(MobaQueueMode mode)
+    public int WaitingPlayers(MobaQueueMode mode, MobaFormat format = MobaFormat.Classic)
     {
         lock (this._lock)
         {
-            return this._pools[mode].Sum(e => e.Size);
+            return this._pools[(format, mode)].Sum(e => e.Size);
         }
     }
 
@@ -366,21 +363,24 @@ public sealed class MobaQueue
                 }
             }
 
-            // Humans only first (the bot pool is a wild card for the others), then the matches with bots whose wait is over,
-            // then the cooperative ones, which start at once.
-            while (MobaMatchmaker.TryFormHumans(this._pools[MobaQueueMode.Open], this._pools[MobaQueueMode.Premade], this._pools[MobaQueueMode.WithBots]) is { } humans)
+            // Per format: humans only first (the bot pool is a wild card for the others), then the matches with bots whose wait
+            // is over, then the cooperative ones, which start at once.
+            foreach (var format in Enum.GetValues<MobaFormat>())
             {
-                events.Add(this.Propose(humans, now));
-            }
+                while (MobaMatchmaker.TryFormHumans(this.Pool(format, MobaQueueMode.Open), this.Pool(format, MobaQueueMode.Premade), this.Pool(format, MobaQueueMode.WithBots), format) is { } humans)
+                {
+                    events.Add(this.Propose(humans, now));
+                }
 
-            while (MobaMatchmaker.TryFormWithBots(this._pools[MobaQueueMode.WithBots], now) is { } withBots)
-            {
-                events.Add(this.Propose(withBots, now));
-            }
+                while (MobaMatchmaker.TryFormWithBots(this.Pool(format, MobaQueueMode.WithBots), now, format) is { } withBots)
+                {
+                    events.Add(this.Propose(withBots, now));
+                }
 
-            foreach (var entry in this._pools[MobaQueueMode.Coop].ToList())
-            {
-                events.Add(this.Propose(MobaMatchmaker.FormCoop(entry), now));
+                foreach (var entry in this.Pool(format, MobaQueueMode.Coop).ToList())
+                {
+                    events.Add(this.Propose(MobaMatchmaker.FormCoop(entry, format), now));
+                }
             }
 
             return events;
@@ -392,7 +392,7 @@ public sealed class MobaQueue
     {
         foreach (var entry in proposal.Entries)
         {
-            this._pools[entry.Mode].Remove(entry);
+            this.Pool(entry.Format, entry.Mode).Remove(entry);
         }
 
         var check = new MobaReadyCheck(proposal, now);
@@ -438,10 +438,12 @@ public sealed class MobaQueue
         return new MobaQueueEvent(MobaQueueEventKind.ReadyCheckFailed, check, requeued, dropped);
     }
 
+    private List<MobaQueueEntry> Pool(MobaFormat format, MobaQueueMode mode) => this._pools[(format, mode)];
+
     /// <summary>Inserts an entry into its pool, oldest first.</summary>
     private void Insert(MobaQueueEntry entry)
     {
-        var pool = this._pools[entry.Mode];
+        var pool = this.Pool(entry.Format, entry.Mode);
         var index = pool.FindIndex(e => e.JoinedUtc > entry.JoinedUtc);
         pool.Insert(index < 0 ? pool.Count : index, entry);
     }

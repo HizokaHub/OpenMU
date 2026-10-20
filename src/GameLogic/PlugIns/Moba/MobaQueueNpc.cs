@@ -39,6 +39,7 @@ public static class MobaQueueNpc
         "Buscar con mi party",
         "Buscar con bots (garantizada)",
         "Cooperativo contra bots",
+        "Buscar 3v3 (solo o party)",
         "Salir de la cola",
         "Estado de la cola",
         "Cómo funcionan los modos",
@@ -145,8 +146,9 @@ public static class MobaQueueNpc
                 1 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Party).ConfigureAwait(false),
                 2 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.WithBots).ConfigureAwait(false),
                 3 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Coop).ConfigureAwait(false),
-                4 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
-                5 => MobaQueueService.StatusOf(player),
+                4 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Trio).ConfigureAwait(false),
+                5 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
+                6 => MobaQueueService.StatusOf(player),
                 _ => MobaQueueService.ModesHelp(),
             };
         }

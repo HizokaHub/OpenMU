@@ -20,6 +20,15 @@ public enum MobaQueueStatusMode : byte
 
     /// <summary>The pool which accepts bots: it shows the steps of the wait.</summary>
     WithBots = 3,
+
+    /// <summary>The 3v3 search: humans only, then bots complete it after the wait.</summary>
+    Trio = 4,
+
+    /// <summary>The 1v1 search: humans only.</summary>
+    Duel = 5,
+
+    /// <summary>The ARAM search (5v5 in the middle lane).</summary>
+    Aram = 6,
 }
 
 /// <summary>

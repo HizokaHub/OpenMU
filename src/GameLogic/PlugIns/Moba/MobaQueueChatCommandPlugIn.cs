@@ -31,8 +31,8 @@ public class MobaQueueChatCommandArgs : ArgumentsBase
 /// </summary>
 [Guid("7C2E9A41-8D35-4B16-A0F7-3E5B1C9D6A82")]
 [PlugIn]
-[Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|bots|coop|leave|status|fill|penalty|pardon [force|N|name]' - tests the match queue.")]
-[ChatCommandHelp(Command, "Test the match queue: solo, party, bots (search accepting bots), coop (against five bots), leave, status, npc (go to the queue master), clear (remove the fake players), window N (seconds to accept), fill N (adds N fake players which accept on their own), penalty [name] (shows the warnings and the block), pardon [name] (clears them). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
+[Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|bots|coop|trio|duel|leave|status|fill|penalty|pardon [force|N|name]' - tests the match queue.")]
+[ChatCommandHelp(Command, "Test the match queue: solo, party, bots (search accepting bots), coop (against five bots), trio (3v3), duel (1v1), leave, status, npc (go to the queue master), clear (remove the fake players), window N (seconds to accept), fill N (adds N fake players which accept on their own), penalty [name] (shows the warnings and the block), pardon [name] (clears them). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCommandArgs>
 {
     private const string Command = "/mobaqueue";
@@ -104,6 +104,8 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
             "solo" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Solo, force).ConfigureAwait(false),
             "bots" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.WithBots, force).ConfigureAwait(false),
             "coop" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Coop, force).ConfigureAwait(false),
+            "trio" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Trio, force).ConfigureAwait(false),
+            "duel" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Duel, force).ConfigureAwait(false),
             "help" => MobaQueueService.ModesHelp(),
             "party" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Party, force).ConfigureAwait(false),
             "leave" => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
