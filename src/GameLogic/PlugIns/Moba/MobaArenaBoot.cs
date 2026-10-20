@@ -33,7 +33,11 @@ public static class MobaArenaBoot
         ClearSafezone(map);
         await MobaShop.EnsureVendorsAsync(map, gameContext).ConfigureAwait(false);
         await MobaStructureSpawner.EnsureStructuresAsync(map, gameContext).ConfigureAwait(false);
-        await MobaJungle.EnsureStartedAsync(map, gameContext).ConfigureAwait(false);
+        if (!MobaArena.Of(map).IsPreMatch)
+        {
+            // In the countdown the jungle waits: it starts with the match (see MobaPreMatch).
+            await MobaJungle.EnsureStartedAsync(map, gameContext).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -69,6 +73,8 @@ public static class MobaArenaBoot
     /// <returns>A task.</returns>
     public static async ValueTask TearDownAsync(GameMap map, IGameContext gameContext)
     {
+        MobaPreMatch.Lower(map);
+        MobaArena.Of(map).PreMatchUntilUtc = DateTime.MinValue;
         MobaWavePeriodicSpawner.Stop(map);
         MobaBotObjectives.Reset(MobaArena.Of(map));
         await MobaJungle.StopAsync(map).ConfigureAwait(false);

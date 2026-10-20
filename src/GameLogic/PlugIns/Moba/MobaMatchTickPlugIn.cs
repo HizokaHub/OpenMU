@@ -96,7 +96,7 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         TrackEmptiness(arena, mobaChampions.Count, now);
         await this.ReapIfAbandonedAsync(gameContext, arenaMap, arena, mobaChampions.Count, now).ConfigureAwait(false);
 
-        foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel))
+        foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel && !arena.IsPreMatch))
         {
             await MobaExperience.GrantAsync(champion, MobaLevels.PassiveExpPerTick, "passive").ConfigureAwait(false);
 

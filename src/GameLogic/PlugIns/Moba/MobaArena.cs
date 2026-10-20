@@ -53,6 +53,15 @@ public sealed class MobaArena
     /// <summary>Gets the map the match is played on (<see langword="null"/> for the detached stand-in).</summary>
     public GameMap? Map { get; }
 
+    /// <summary>Gets or sets the UTC instant the countdown before the match ends (<see cref="DateTime.MinValue"/> when there is none).</summary>
+    public DateTime PreMatchUntilUtc { get; set; } = DateTime.MinValue;
+
+    /// <summary>Gets a value indicating whether the arena is in the countdown before a match: only the champions move.</summary>
+    public bool IsPreMatch => DateTime.UtcNow < this.PreMatchUntilUtc;
+
+    /// <summary>Gets the terrain tiles which hold the champions in during the countdown.</summary>
+    public List<MUnique.OpenMU.Pathfinding.Point> BarrierTiles { get; } = new();
+
     /// <summary>Gets or sets a value indicating whether the Crywolf safezone flags of this map were stripped (a MOBA arena has no safe tiles).</summary>
     public bool SafezoneCleared { get; set; }
 

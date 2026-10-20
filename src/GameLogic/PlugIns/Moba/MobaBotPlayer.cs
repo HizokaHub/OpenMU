@@ -365,6 +365,12 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        // The match has not started: bots stand still until the countdown is over.
+        if (MobaArena.Of(map).IsPreMatch)
+        {
+            return;
+        }
+
         // Spend earned points even while dead / respawning, so a bot on the losing team
         // that barely lives still keeps its level's worth of stats and skill ranks.
         if (!this._isDummy)

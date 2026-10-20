@@ -48,6 +48,8 @@ public static class MobaMatchLauncher
                 return;
             }
 
+            // The countdown first: while it runs the arena is held (barrier around the bases, no bots, jungle or waves).
+            MobaPreMatch.Begin(arena, context);
             await MobaArenaBoot.EnsureAsync(arena, context).ConfigureAwait(false);
 
             var sendOff = new List<Player>();
