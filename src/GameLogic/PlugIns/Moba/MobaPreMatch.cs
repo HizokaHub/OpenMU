@@ -25,6 +25,9 @@ public static class MobaPreMatch
     /// <summary>Thickness of the barrier wall, in tiles.</summary>
     public const double BarrierThickness = 1.8;
 
+    /// <summary>How long the "match starts" banner stays on screen.</summary>
+    private const int BannerMilliseconds = 3500;
+
     /// <summary>The seconds before the start at which the players are reminded.</summary>
     private static readonly int[] Reminders = [20, 15, 10, 5, 4, 3, 2, 1];
 
@@ -157,7 +160,7 @@ public static class MobaPreMatch
             await player.ShowBlueMessageAsync(blue).ConfigureAwait(false);
             if (banner is not null)
             {
-                await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(banner, MessageType.GoldenCenter)).ConfigureAwait(false);
+                await player.InvokeViewPlugInAsync<Views.Moba.IMobaBannerPlugIn>(p => p.ShowBannerAsync(banner, BannerMilliseconds)).ConfigureAwait(false);
             }
         }
     }
