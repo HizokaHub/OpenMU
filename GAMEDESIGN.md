@@ -1720,3 +1720,25 @@ Primera versión completa del flujo, todavía con la interfaz provisional (menú
 - **GM:** `/mobaqueue penalty [nombre]` muestra advertencias/bloqueo; `/mobaqueue pardon [nombre]` los borra (para pruebas).
 - **Pruebas:** 969 (961 + 8 nuevas); migración aplicada y comprobada en la BD real.
 - **A validar en juego:** rechazar tres veces seguidas (con `/mobaqueue fill 9`): avisos 1/3, 2/3 y bloqueo de 5 min; intentar buscar bloqueado (mensaje con el tiempo que falta); `/mobaqueue penalty`; salirse de la cola antes de encontrar partida no suma; `/mobaqueue pardon` limpia; tras cumplir el bloqueo, aceptar una partida borra las advertencias.
+
+## Sesión 2026-10-20 (tarde): modos de cola con bots y variantes — decisiones del usuario y fase 1 (C y D) hecha en código
+
+**Modos de búsqueda acordados** (menú del Maestro de la Arena; la lista crece por fases):
+
+| Modo | Formato | Arranque | Estado |
+|---|---|---|---|
+| Normal (solo / party / equipo de 5) | 5v5 solo humanos | con 10 humanos | hecho |
+| **C — Buscar con bots (garantizada)** | 5v5 | siempre arranca; espera escalonada | **hecho (fase 1), sin reiniciar servidor** |
+| **D — Cooperativo** | 1 a 5 humanos (solo o party) + bots hasta 5 contra 5 bots | inmediato | **hecho (fase 1)** |
+| **E — 3v3** | 3 carriles **con jungla activa**, 1 jugador por carril | con 6 humanos; a los **10 min** con **≥4 humanos** se completa con bots; con menos de 4 sigue esperando | pendiente (fase 3) |
+| **F — 1v1** | carril central, **sin jungla**; los carriles de arriba y abajo se cierran con la **misma barrera de la cuenta atrás**, a ambos lados | con 2 humanos, solo humanos | pendiente (fase 3) |
+| **ARAM rápido** | 5v5 por un solo carril (interpretación a confirmar: el carril central abierto y los otros cerrados con la barrera, como en 1v1) | por definir | pendiente (fase 3) |
+| **Partida privada** | tamaño y bots a elegir, sin cola (torneos y pruebas) | a petición | pendiente (fase 4) |
+
+Descartado por ahora: 2v2, entrar en caliente a una partida con bots, reemplazo por bot de un ausente (esto último va con el anti-AFK).
+
+**Reglas de C** (implementadas en `MobaMatchmaker` / `MobaQueue`): los jugadores de C son **comodín** de las colas estrictas. Primero se intenta una partida solo de humanos: completan la cola abierta (solos y parties 2-4), y 5 solos de C pueden ser el equipo rival de un equipo premade de 5. La cola normal **nunca** recibe bots y sus jugadores nunca entran a una partida con bots. Si no sale, el humano más antiguo de C marca el escalón de espera y los humanos mínimos para empezar con bots: **2:00 → 6 o más, 3:00 → 4 o más, 4:00 → 2 o más, 6:00 → cualquiera (1)**. Los humanos se **reparten entre los dos equipos** lo más parejo posible (un party va siempre junto) y los bots rellenan hasta 5 por lado. Las plazas de bot son miembros `IsBot` (aceptan solos el ready-check; el lanzador ya convertía en bots a los miembros sin sesión). Un ready-check fallido nunca devuelve bots a la cola.
+**Reglas de D:** el party (o el jugador solo) más bots hasta 5 contra 5 bots; si solo hay **un** humano no hay ready-check (empieza al instante); con party sí.
+**Menú:** Buscar partida (solo) · Buscar con mi party · Buscar con bots (garantizada) · Cooperativo contra bots · Salir de la cola · Estado de la cola · Cómo funcionan los modos. Comandos GM: `/mobaqueue bots|coop|help`. Los tiempos se explican en la respuesta al unirse, en «Estado de la cola» (tiempo llevado y siguiente escalón) y en «Cómo funcionan los modos»; el panel del cliente con cuenta viva es la fase 2.
+**Plan por fases:** (1) C y D en 5v5 [hecho en código]; (2) panel en el cliente con el tiempo de espera, humanos en cola y próximo escalón (paquete nuevo); (3) formatos 1v1 / 3v3 / ARAM: `MobaArena` con carriles activos, jungla opcional y barreras en los carriles cerrados, tamaño de equipo por formato en el emparejador y el lanzador; (4) partida privada.
+**Pruebas:** 980/980 (11 nuevas en `MobaQueueBotsTests`). Aún sin validar en juego; el servidor no se reinició porque el usuario tenía el cliente abierto.

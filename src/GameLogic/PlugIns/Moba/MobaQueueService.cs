@@ -20,6 +20,12 @@ public enum MobaQueueChoice : byte
 
     /// <summary>Search with the whole party (2 to 4 players: the open pool; exactly 5: the premade pool).</summary>
     Party = 1,
+
+    /// <summary>Search accepting bots (alone, or with the party if there is one): humans first, bots after the wait of <see cref="MobaMatchmaker.BotFillStages"/>.</summary>
+    WithBots = 2,
+
+    /// <summary>Play against five bots at once (alone, or with the party if there is one).</summary>
+    Coop = 3,
 }
 
 /// <summary>
@@ -60,7 +66,9 @@ public static class MobaQueueService
 
         var team = new List<Player>();
         var mode = MobaQueueMode.Open;
-        if (choice == MobaQueueChoice.Solo)
+        var wantsParty = choice == MobaQueueChoice.Party
+            || (choice is MobaQueueChoice.WithBots or MobaQueueChoice.Coop && player.Party is { PartyList.Count: >= 2 });
+        if (!wantsParty)
         {
             team.Add(player);
         }
@@ -86,12 +94,18 @@ public static class MobaQueueService
                 team.Add(human);
             }
 
-            mode = team.Count == MobaMatchmaker.TeamSize ? MobaQueueMode.Premade : MobaQueueMode.Open;
             if (team.Count > MobaMatchmaker.TeamSize)
             {
                 return "El party tiene más de 5 jugadores.";
             }
         }
+
+        mode = choice switch
+        {
+            MobaQueueChoice.WithBots => MobaQueueMode.WithBots,
+            MobaQueueChoice.Coop => MobaQueueMode.Coop,
+            _ => team.Count == MobaMatchmaker.TeamSize ? MobaQueueMode.Premade : MobaQueueMode.Open,
+        };
 
         foreach (var member in team)
         {
@@ -130,8 +144,13 @@ public static class MobaQueueService
             Track(member);
         }
 
-        var what = mode == MobaQueueMode.Premade ? "equipo de 5" : team.Count > 1 ? $"party de {team.Count}" : "solo";
-        return $"Buscando partida ({what}). Hay {Queue.WaitingPlayers(mode)} jugador(es) esperando en tu cola.";
+        var what = team.Count == 1 ? "solo" : mode == MobaQueueMode.Premade ? "equipo de 5" : $"party de {team.Count}";
+        return mode switch
+        {
+            MobaQueueMode.Coop => $"Partida cooperativa contra bots ({what}): empieza en unos segundos.",
+            MobaQueueMode.WithBots => $"Buscando partida con bots ({what}). Primero se intenta completar con humanos; si no hay, la partida empieza igualmente con bots: {MobaMatchmaker.DescribeBotStages()}. Hay {Queue.WaitingPlayers(mode)} jugador(es) esperando en esta cola.",
+            _ => $"Buscando partida ({what}). Hay {Queue.WaitingPlayers(mode)} jugador(es) esperando en tu cola.",
+        };
     }
 
     /// <summary>
@@ -205,6 +224,7 @@ public static class MobaQueueService
     {
         var open = Queue.WaitingPlayers(MobaQueueMode.Open);
         var premade = Queue.WaitingPlayers(MobaQueueMode.Premade);
+        var withBots = Queue.WaitingPlayers(MobaQueueMode.WithBots);
         var own = player.Account is { } account ? Queue.StatusOf(account.GetId()) : MobaQueueStatus.None;
         var text = own switch
         {
@@ -212,7 +232,31 @@ public static class MobaQueueService
             MobaQueueStatus.ReadyCheck => "Se encontró una partida: acepta o rechaza.",
             _ => "No estás en la cola.",
         };
-        return $"{text} Esperando: {open} jugador(es) (solos y parties), {premade} (equipos de 5).";
+        return $"{text} Esperando: {open} jugador(es) (solos y parties), {premade} (equipos de 5), {withBots} (con bots).{DescribeOwnWait(player)}";
+    }
+
+    /// <summary>
+    /// Explains the search modes (for the "how do the modes work" option of the queue master).
+    /// </summary>
+    /// <returns>The text.</returns>
+    public static string ModesHelp()
+        => "Solo / party: 5v5 solo con humanos. "
+            + "Con bots: se completa con humanos si los hay; si no, empieza igualmente (" + MobaMatchmaker.DescribeBotStages() + "). "
+            + "Cooperativo: tú o tu party (hasta 5) contra 5 bots, al instante.";
+
+    private static string DescribeOwnWait(Player player)
+    {
+        if (player.Account is not { } account || Queue.EntryOf(account.GetId()) is not { Mode: MobaQueueMode.WithBots } entry)
+        {
+            return string.Empty;
+        }
+
+        var wait = DateTime.UtcNow - entry.JoinedUtc;
+        var next = MobaMatchmaker.BotFillStages.Where(stage => stage.Wait > wait).Select(stage => ((TimeSpan Wait, int Humans)?)stage).FirstOrDefault();
+        var waited = MobaQueuePenalties.FormatDuration(wait);
+        return next is { } step
+            ? $" Llevas {waited}; con {MobaQueuePenalties.FormatDuration(step.Wait - wait)} más empieza con {(step.Humans == 1 ? "los humanos que haya" : $"{step.Humans} o más humanos")}."
+            : $" Llevas {waited}: la partida con bots empieza en cuanto se arme.";
     }
 
     /// <summary>
@@ -372,6 +416,14 @@ public static class MobaQueueService
 
         if (check.State != MobaReadyState.Pending)
         {
+            return;
+        }
+
+        // A cooperative match of a single human has nobody to wait for: no question, it starts at once.
+        if (check.Proposal.Entries.FirstOrDefault(e => e.Mode == MobaQueueMode.Coop) is { } coop
+            && coop.Members.Count(m => !m.IsBot && !IsFiller(m.AccountId)) == 1)
+        {
+            await HandleEventsAsync(Queue.Answer(coop.Members.First(m => !m.IsBot).AccountId, true)).ConfigureAwait(false);
             return;
         }
 

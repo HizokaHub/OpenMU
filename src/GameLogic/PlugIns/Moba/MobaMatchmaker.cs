@@ -14,6 +14,15 @@ public enum MobaQueueMode : byte
 
     /// <summary>A premade team of exactly five; it only meets another premade team.</summary>
     Premade = 1,
+
+    /// <summary>
+    /// Solos and parties of 1 to 5 who accept bots: a wild card which completes the human-only matches of the other pools
+    /// (also a premade team's opponents), and which gets a match with bots when it has waited long enough.
+    /// </summary>
+    WithBots = 2,
+
+    /// <summary>A solo player or a party of up to five who play against five bots; the match starts at once.</summary>
+    Coop = 3,
 }
 
 /// <summary>
@@ -21,7 +30,8 @@ public enum MobaQueueMode : byte
 /// </summary>
 /// <param name="AccountId">The account identifier (one champion per account).</param>
 /// <param name="Name">The character name, for messages.</param>
-public sealed record MobaQueueMember(Guid AccountId, string Name);
+/// <param name="IsBot">Whether the place is filled by a bot (it has no session and accepts any ready check).</param>
+public sealed record MobaQueueMember(Guid AccountId, string Name, bool IsBot = false);
 
 /// <summary>
 /// A solo player or a party waiting in the queue; its members always end up in the same team.
@@ -93,6 +103,199 @@ public static class MobaMatchmaker
     /// <returns>A proposal, or <see langword="null"/> if the pool cannot form a match yet.</returns>
     public static MobaMatchProposal? TryForm(IReadOnlyList<MobaQueueEntry> pool, MobaQueueMode mode)
         => mode == MobaQueueMode.Premade ? FormPremade(pool) : FormOpen(pool);
+
+    /// <summary>
+    /// The steps of the wait in the bot pool: after the oldest entry waited this long, a match with bots needs this many humans.
+    /// The player who searches with bots always gets a match: at the last step a single human is enough.
+    /// </summary>
+    public static readonly IReadOnlyList<(TimeSpan Wait, int Humans)> BotFillStages =
+    [
+        (TimeSpan.FromSeconds(120), 6),
+        (TimeSpan.FromSeconds(180), 4),
+        (TimeSpan.FromSeconds(240), 2),
+        (TimeSpan.FromSeconds(360), 1),
+    ];
+
+    /// <summary>
+    /// Gets how many humans a match with bots needs after the oldest bot-pool entry waited <paramref name="wait"/>.
+    /// </summary>
+    /// <param name="wait">How long the oldest entry has waited.</param>
+    /// <returns>The humans needed; <see langword="null"/> if it is too early for a match with bots.</returns>
+    public static int? HumansNeeded(TimeSpan wait)
+    {
+        int? needed = null;
+        foreach (var (stage, humans) in BotFillStages)
+        {
+            if (wait >= stage)
+            {
+                needed = humans;
+            }
+        }
+
+        return needed;
+    }
+
+    /// <summary>
+    /// Describes the steps of the wait in the bot pool, for the players.
+    /// </summary>
+    /// <returns>The text.</returns>
+    public static string DescribeBotStages()
+        => string.Join(", ", BotFillStages.Select(s => $"{(int)s.Wait.TotalMinutes}:{s.Wait.Seconds:00} con {(s.Humans == 1 ? "cualquier n\u00famero de" : $"{s.Humans} o m\u00e1s")} humanos"));
+
+    /// <summary>
+    /// Tries to form a match of humans only. Entries of the bot pool (wild cards) take part: they complete the open pool and
+    /// the opposing team of a premade team. Premade pairs go first, then a premade team against a team built from wild cards,
+    /// then the open pool.
+    /// </summary>
+    /// <param name="open">The open pool, the oldest first.</param>
+    /// <param name="premade">The premade pool, the oldest first.</param>
+    /// <param name="wildCards">The bot pool, the oldest first.</param>
+    /// <returns>A proposal, or <see langword="null"/> if no match can be formed yet.</returns>
+    public static MobaMatchProposal? TryFormHumans(IReadOnlyList<MobaQueueEntry> open, IReadOnlyList<MobaQueueEntry> premade, IReadOnlyList<MobaQueueEntry> wildCards)
+    {
+        var teams = premade.Concat(wildCards.Where(e => e.Size == TeamSize)).Take(2).ToList();
+        if (teams.Count == 2)
+        {
+            return new MobaMatchProposal([teams[0]], [teams[1]]);
+        }
+
+        if (premade.Count > 0
+            && FindSubset(wildCards.Where(e => e.Size < TeamSize).Take(SearchWindow).ToList(), TeamSize) is { } opponents)
+        {
+            return new MobaMatchProposal([premade[0]], opponents);
+        }
+
+        var mixed = open.Concat(wildCards.Where(e => e.Size <= MaxOpenEntrySize)).OrderBy(e => e.JoinedUtc).ToList();
+        return FormOpen(mixed);
+    }
+
+    /// <summary>
+    /// Tries to form a match with bots from the bot pool: when its oldest entry has waited long enough for the humans at hand
+    /// (see <see cref="BotFillStages"/>), the humans are spread over the two teams (parties stay together) and the empty places
+    /// are filled with bots.
+    /// </summary>
+    /// <param name="pool">The bot pool, the oldest first.</param>
+    /// <param name="nowUtc">The current time (UTC).</param>
+    /// <returns>A proposal, or <see langword="null"/> if it is too early or there are too few humans.</returns>
+    public static MobaMatchProposal? TryFormWithBots(IReadOnlyList<MobaQueueEntry> pool, DateTime nowUtc)
+    {
+        if (pool.Count == 0 || HumansNeeded(nowUtc - pool[0].JoinedUtc) is not { } needed)
+        {
+            return null;
+        }
+
+        var chosen = new List<MobaQueueEntry>();
+        var humans = 0;
+        foreach (var entry in pool.Take(SearchWindow))
+        {
+            if (humans + entry.Size > 2 * TeamSize)
+            {
+                continue;
+            }
+
+            chosen.Add(entry);
+            if (Balance(chosen) is null)
+            {
+                chosen.RemoveAt(chosen.Count - 1);
+                continue;
+            }
+
+            humans += entry.Size;
+        }
+
+        if (humans < needed || Balance(chosen) is not { } sides)
+        {
+            return null;
+        }
+
+        return new MobaMatchProposal(WithBotsFilled(sides.Blue, pool[0].JoinedUtc), WithBotsFilled(sides.Red, pool[0].JoinedUtc));
+    }
+
+    /// <summary>
+    /// Forms the cooperative match of an entry: its humans (with bots up to five) against five bots.
+    /// </summary>
+    /// <param name="entry">The entry of the cooperative pool.</param>
+    /// <returns>The proposal.</returns>
+    public static MobaMatchProposal FormCoop(MobaQueueEntry entry)
+        => new(WithBotsFilled([entry], entry.JoinedUtc), [BotEntry(TeamSize, entry.JoinedUtc)]);
+
+    private static List<MobaQueueEntry> WithBotsFilled(IReadOnlyList<MobaQueueEntry> team, DateTime joinedUtc)
+    {
+        var list = team.ToList();
+        var missing = TeamSize - team.Sum(e => e.Size);
+        if (missing > 0)
+        {
+            list.Add(BotEntry(missing, joinedUtc));
+        }
+
+        return list;
+    }
+
+    private static MobaQueueEntry BotEntry(int count, DateTime joinedUtc)
+        => new(MobaQueueMode.WithBots, Enumerable.Range(1, count).Select(i => new MobaQueueMember(Guid.NewGuid(), $"Bot {i}", IsBot: true)).ToList(), joinedUtc);
+
+    /// <summary>Spreads the entries over two teams of at most five players, as even as possible; the oldest entry is in the blue team.</summary>
+    private static (List<MobaQueueEntry> Blue, List<MobaQueueEntry> Red)? Balance(List<MobaQueueEntry> entries)
+    {
+        (List<MobaQueueEntry> Blue, List<MobaQueueEntry> Red)? best = null;
+        var bestGap = int.MaxValue;
+        var count = entries.Count;
+        for (var mask = 1; mask < (1 << count); mask += 2)
+        {
+            var blueSize = 0;
+            for (var i = 0; i < count; i++)
+            {
+                if ((mask & (1 << i)) != 0)
+                {
+                    blueSize += entries[i].Size;
+                }
+            }
+
+            var redSize = entries.Sum(e => e.Size) - blueSize;
+            if (blueSize > TeamSize || redSize > TeamSize || Math.Abs(blueSize - redSize) >= bestGap)
+            {
+                continue;
+            }
+
+            bestGap = Math.Abs(blueSize - redSize);
+            best = (entries.Where((_, i) => (mask & (1 << i)) != 0).ToList(), entries.Where((_, i) => (mask & (1 << i)) == 0).ToList());
+        }
+
+        return best;
+    }
+
+    /// <summary>Finds entries (oldest first) whose players add up to exactly <paramref name="target"/>.</summary>
+    private static List<MobaQueueEntry>? FindSubset(List<MobaQueueEntry> candidates, int target)
+    {
+        var chosen = new List<MobaQueueEntry>();
+        return SubsetFrom(candidates, 0, target, chosen) ? chosen : null;
+    }
+
+    private static bool SubsetFrom(List<MobaQueueEntry> candidates, int from, int remaining, List<MobaQueueEntry> chosen)
+    {
+        if (remaining == 0)
+        {
+            return true;
+        }
+
+        for (var i = from; i < candidates.Count; i++)
+        {
+            if (candidates[i].Size > remaining)
+            {
+                continue;
+            }
+
+            chosen.Add(candidates[i]);
+            if (SubsetFrom(candidates, i + 1, remaining - candidates[i].Size, chosen))
+            {
+                return true;
+            }
+
+            chosen.RemoveAt(chosen.Count - 1);
+        }
+
+        return false;
+    }
 
     private static MobaMatchProposal? FormPremade(IReadOnlyList<MobaQueueEntry> pool)
     {

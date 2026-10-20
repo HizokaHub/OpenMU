@@ -57,7 +57,7 @@ public sealed class MobaReadyCheck
         this.Proposal = proposal;
         this.StartedUtc = startedUtc;
         this.DeadlineUtc = startedUtc + Window;
-        this._answers = proposal.Players.ToDictionary(p => p.AccountId, _ => MobaReadyAnswer.Pending);
+        this._answers = proposal.Players.ToDictionary(p => p.AccountId, p => p.IsBot ? MobaReadyAnswer.Accepted : MobaReadyAnswer.Pending);
     }
 
     /// <summary>Gets the identifier of the check.</summary>
@@ -210,6 +210,8 @@ public sealed class MobaQueue
     {
         [MobaQueueMode.Open] = new List<MobaQueueEntry>(),
         [MobaQueueMode.Premade] = new List<MobaQueueEntry>(),
+        [MobaQueueMode.WithBots] = new List<MobaQueueEntry>(),
+        [MobaQueueMode.Coop] = new List<MobaQueueEntry>(),
     };
 
     private readonly List<MobaReadyCheck> _checks = new();
@@ -232,9 +234,12 @@ public sealed class MobaQueue
     /// <returns>The result.</returns>
     public MobaQueueJoinResult Join(MobaQueueMode mode, IReadOnlyList<MobaQueueMember> members, DateTime? joinedUtc = null)
     {
-        var validSize = mode == MobaQueueMode.Premade
-            ? members.Count == MobaMatchmaker.TeamSize
-            : members.Count is >= 1 and <= MobaMatchmaker.MaxOpenEntrySize;
+        var validSize = mode switch
+        {
+            MobaQueueMode.Premade => members.Count == MobaMatchmaker.TeamSize,
+            MobaQueueMode.WithBots or MobaQueueMode.Coop => members.Count is >= 1 and <= MobaMatchmaker.TeamSize,
+            _ => members.Count is >= 1 and <= MobaMatchmaker.MaxOpenEntrySize,
+        };
         if (!validSize || members.Select(m => m.AccountId).Distinct().Count() != members.Count)
         {
             return MobaQueueJoinResult.InvalidSize;
@@ -305,6 +310,19 @@ public sealed class MobaQueue
     }
 
     /// <summary>
+    /// Gets the entry an account waits in.
+    /// </summary>
+    /// <param name="account">The account.</param>
+    /// <returns>The entry, or <see langword="null"/> if the account is not waiting in a pool.</returns>
+    public MobaQueueEntry? EntryOf(Guid account)
+    {
+        lock (this._lock)
+        {
+            return this._pools.Values.SelectMany(pool => pool).FirstOrDefault(e => e.Members.Any(m => m.AccountId == account));
+        }
+    }
+
+    /// <summary>
     /// Gets the ready check an account is in.
     /// </summary>
     /// <param name="account">The account.</param>
@@ -348,23 +366,38 @@ public sealed class MobaQueue
                 }
             }
 
-            foreach (var mode in new[] { MobaQueueMode.Open, MobaQueueMode.Premade })
+            // Humans only first (the bot pool is a wild card for the others), then the matches with bots whose wait is over,
+            // then the cooperative ones, which start at once.
+            while (MobaMatchmaker.TryFormHumans(this._pools[MobaQueueMode.Open], this._pools[MobaQueueMode.Premade], this._pools[MobaQueueMode.WithBots]) is { } humans)
             {
-                while (MobaMatchmaker.TryForm(this._pools[mode], mode) is { } proposal)
-                {
-                    foreach (var entry in proposal.Entries)
-                    {
-                        this._pools[mode].Remove(entry);
-                    }
+                events.Add(this.Propose(humans, now));
+            }
 
-                    var check = new MobaReadyCheck(proposal, now);
-                    this._checks.Add(check);
-                    events.Add(new MobaQueueEvent(MobaQueueEventKind.ReadyCheckStarted, check, Array.Empty<MobaQueueEntry>(), Array.Empty<MobaQueueEntry>()));
-                }
+            while (MobaMatchmaker.TryFormWithBots(this._pools[MobaQueueMode.WithBots], now) is { } withBots)
+            {
+                events.Add(this.Propose(withBots, now));
+            }
+
+            foreach (var entry in this._pools[MobaQueueMode.Coop].ToList())
+            {
+                events.Add(this.Propose(MobaMatchmaker.FormCoop(entry), now));
             }
 
             return events;
         }
+    }
+
+    /// <summary>Takes the real entries of a proposal out of their pools and opens its ready check.</summary>
+    private MobaQueueEvent Propose(MobaMatchProposal proposal, DateTime now)
+    {
+        foreach (var entry in proposal.Entries)
+        {
+            this._pools[entry.Mode].Remove(entry);
+        }
+
+        var check = new MobaReadyCheck(proposal, now);
+        this._checks.Add(check);
+        return new MobaQueueEvent(MobaQueueEventKind.ReadyCheckStarted, check, Array.Empty<MobaQueueEntry>(), Array.Empty<MobaQueueEntry>());
     }
 
     private IReadOnlyList<MobaQueueEvent> AnswerCore(MobaReadyCheck check, Guid account, bool accepted)
@@ -386,6 +419,11 @@ public sealed class MobaQueue
         var dropped = new List<MobaQueueEntry>();
         foreach (var entry in check.Proposal.Entries)
         {
+            if (entry.Members.All(m => m.IsBot))
+            {
+                continue;
+            }
+
             if (entry.Members.Any(m => check.Offenders.Contains(m.AccountId)))
             {
                 dropped.Add(entry);
