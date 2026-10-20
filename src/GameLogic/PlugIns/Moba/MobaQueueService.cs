@@ -201,6 +201,26 @@ public static class MobaQueueService
     }
 
     /// <summary>
+    /// Takes every filler out of the queue (GM tests).
+    /// </summary>
+    /// <returns>The number of fillers removed.</returns>
+    public static async ValueTask<int> ClearFillersAsync()
+    {
+        var removed = 0;
+        foreach (var id in Fillers.Keys.ToList())
+        {
+            Fillers.TryRemove(id, out _);
+            if (Queue.StatusOf(id) != MobaQueueStatus.None)
+            {
+                await HandleEventsAsync(Queue.Leave(id)).ConfigureAwait(false);
+                removed++;
+            }
+        }
+
+        return removed;
+    }
+
+    /// <summary>
     /// Gets whether an account is a filler (a fake player added with <see cref="AddFillers"/>).
     /// </summary>
     /// <param name="account">The account.</param>

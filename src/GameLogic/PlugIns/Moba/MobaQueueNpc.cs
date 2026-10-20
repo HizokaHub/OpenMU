@@ -143,6 +143,21 @@ public static class MobaQueueNpc
         }
 
         await player.ShowBlueMessageAsync("[Cola] " + answer).ConfigureAwait(false);
+        await CloseDialogAsync(player).ConfigureAwait(false);
         return true;
+    }
+
+    /// <summary>
+    /// Closes the NPC dialog on the server. The client keeps a server-menu NPC "open" after an option is picked (the shop
+    /// answers with its window); the queue answers with a message only, so without this the next click on the NPC would be
+    /// ignored because the player would still be in the dialog state.
+    /// </summary>
+    private static async ValueTask CloseDialogAsync(Player player)
+    {
+        if (player.PlayerState.CurrentState == PlayerState.NpcDialogOpened
+            && await player.PlayerState.TryAdvanceToAsync(PlayerState.EnteredWorld).ConfigureAwait(false))
+        {
+            player.OpenedNpc = null;
+        }
     }
 }

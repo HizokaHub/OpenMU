@@ -31,7 +31,7 @@ public class MobaQueueChatCommandArgs : ArgumentsBase
 [Guid("7C2E9A41-8D35-4B16-A0F7-3E5B1C9D6A82")]
 [PlugIn]
 [Display(Name = "MOBA: queue command", Description = "GM command '/mobaqueue solo|party|leave|status|fill [force|N]' - tests the match queue.")]
-[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, npc (go to the queue master), fill N (adds N fake players which accept on their own). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
+[ChatCommandHelp(Command, "Test the match queue: solo, party, leave, status, npc (go to the queue master), clear (remove the fake players), window N (seconds to accept), fill N (adds N fake players which accept on their own). 'force' skips the level 400 / Master requirement.", typeof(MobaQueueChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCommandArgs>
 {
     private const string Command = "/mobaqueue";
@@ -41,6 +41,12 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
 
     /// <inheritdoc />
     public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
+
+    private static string SetWindow(string? seconds)
+    {
+        MobaReadyCheck.Window = int.TryParse(seconds, out var value) ? TimeSpan.FromSeconds(Math.Clamp(value, 5, 120)) : MobaReadyCheck.DefaultWindow;
+        return $"Tiempo para aceptar: {(int)MobaReadyCheck.Window.TotalSeconds} s.";
+    }
 
     private static async ValueTask GoToNpcAsync(Player player)
     {
@@ -78,6 +84,8 @@ public class MobaQueueChatCommandPlugIn : ChatCommandPlugInBase<MobaQueueChatCom
             "solo" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Solo, force).ConfigureAwait(false),
             "party" => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Party, force).ConfigureAwait(false),
             "leave" => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
+            "clear" => $"{await MobaQueueService.ClearFillersAsync().ConfigureAwait(false)} relleno(s) quitados de la cola.",
+            "window" => SetWindow(arguments.Extra),
             "fill" => $"{MobaQueueService.AddFillers(int.TryParse(arguments.Extra, out var count) ? Math.Clamp(count, 1, 20) : 1)} jugador(es) de relleno agregados.",
             _ => MobaQueueService.StatusOf(player),
         };

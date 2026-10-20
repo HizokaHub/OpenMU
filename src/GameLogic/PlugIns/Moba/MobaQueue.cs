@@ -39,8 +39,11 @@ public enum MobaReadyState : byte
 /// </summary>
 public sealed class MobaReadyCheck
 {
-    /// <summary>The time the players have to answer.</summary>
-    public static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
+    /// <summary>The default time the players have to answer.</summary>
+    public static readonly TimeSpan DefaultWindow = TimeSpan.FromSeconds(10);
+
+    /// <summary>Gets or sets the time the players have to answer (10 seconds; a GM can lengthen it to test: <c>/mobaqueue window</c>).</summary>
+    public static TimeSpan Window { get; set; } = DefaultWindow;
 
     private readonly Dictionary<Guid, MobaReadyAnswer> _answers;
 
