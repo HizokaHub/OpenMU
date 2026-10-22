@@ -13,10 +13,11 @@ namespace MUnique.OpenMU.GameLogic.Views.Moba;
 /// <param name="TeamSize">The places of every team.</param>
 /// <param name="MidOnly">Whether only the middle lane is played.</param>
 /// <param name="FillWithBots">Whether the free places are filled with bots.</param>
+/// <param name="Locked">Whether the room has a password.</param>
 /// <param name="Players">How many humans are in the room.</param>
 /// <param name="AgeSeconds">How long ago the room was created.</param>
 /// <param name="IdleSeconds">How long ago something happened in the room (the room closes after a while without news).</param>
-public sealed record MobaRoomListEntry(int Id, string Name, string HostName, int TeamSize, bool MidOnly, bool FillWithBots, int Players, int AgeSeconds, int IdleSeconds);
+public sealed record MobaRoomListEntry(int Id, string Name, string HostName, int TeamSize, bool MidOnly, bool FillWithBots, bool Locked, int Players, int AgeSeconds, int IdleSeconds);
 
 /// <summary>
 /// Shows the list of the open private rooms in the room browser of the client. The browser asks for a fresh list with

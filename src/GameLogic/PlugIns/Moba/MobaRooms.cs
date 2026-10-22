@@ -34,7 +34,12 @@ public static class MobaRooms
     /// <summary>After this long without news the members are told the room is about to close.</summary>
     public static readonly TimeSpan IdleWarning = TimeSpan.FromMinutes(12);
 
+    /// <summary>The longest room password.</summary>
+    public const int MaxPasswordLength = 16;
+
     private const int MaxChatHistory = 40;
+    private static readonly TimeSpan RematchLife = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan InviteSeconds = TimeSpan.FromSeconds(30);
     private const int HistoryOnJoin = 20;
     private static readonly TimeSpan MinChatInterval = TimeSpan.FromMilliseconds(600);
 
@@ -42,7 +47,10 @@ public static class MobaRooms
     private static readonly ConcurrentDictionary<int, MobaRoom> ById = new();
     private static readonly ConcurrentDictionary<Guid, int> RoomIdOfAccount = new();
     private static readonly ConditionalWeakTable<Player, StrongBox<DateTime>> LastChat = new();
+    private static readonly ConcurrentDictionary<Guid, Rematch> Rematches = new();
     private static int nextId = 100;
+
+    private sealed record Rematch(Guid RoomKey, string Name, int TeamSize, bool MidOnly, bool Bots, string Password, Guid Host, MobaTeam Team, DateTime Expires);
 
     /// <summary>Gets the room a player is in.</summary>
     /// <param name="player">The player.</param>
@@ -60,8 +68,9 @@ public static class MobaRooms
     /// <param name="teamSize">The players per team (1 to 5).</param>
     /// <param name="midOnly">Whether only the middle lane is played.</param>
     /// <param name="fillWithBots">Whether the free places are filled with bots.</param>
+    /// <param name="password">The password of the room; empty or <see langword="null"/> for an open room.</param>
     /// <returns>The answer for the player.</returns>
-    public static async ValueTask<string> CreateAsync(Player player, string? name, int teamSize, bool midOnly, bool fillWithBots)
+    public static async ValueTask<string> CreateAsync(Player player, string? name, int teamSize, bool midOnly, bool fillWithBots, string? password = null)
     {
         if (CheckPlayer(player) is { } problem)
         {
@@ -95,6 +104,7 @@ public static class MobaRooms
                 TeamSize = teamSize,
                 MidOnly = midOnly,
                 FillWithBots = fillWithBots,
+                Password = Clean(password, MaxPasswordLength),
                 Host = player.Account!.GetId(),
             };
             room.Members[room.Host] = (player, MobaTeam.Blue);
@@ -106,14 +116,15 @@ public static class MobaRooms
         player.Logger.LogInformation("[MOBA-ROOM] '{Host}' created room {Id} '{Name}' ({Label}, bots {Bots}).", hostName, room.Id, room.Name, room.Label, fillWithBots);
         await AddNoticeAsync(room, $"{hostName} creó la sala.").ConfigureAwait(false);
         await PublishAsync(room).ConfigureAwait(false);
-        return $"Sala «{room.Name}» creada ({room.Label}).";
+        return $"Sala «{room.Name}» creada ({room.Label}){(room.IsLocked ? " con clave" : string.Empty)}.";
     }
 
     /// <summary>Joins a room (the team with fewer players).</summary>
     /// <param name="player">The player.</param>
     /// <param name="id">The identifier of the room.</param>
+    /// <param name="password">The password typed by the player (not needed when invited).</param>
     /// <returns>The answer for the player.</returns>
-    public static async ValueTask<string> JoinAsync(Player player, int id)
+    public static async ValueTask<string> JoinAsync(Player player, int id, string? password = null)
     {
         if (CheckPlayer(player) is { } problem)
         {
@@ -134,6 +145,11 @@ public static class MobaRooms
         if (room.Kicked.Contains(accountId))
         {
             return "El anfitrión te expulsó de esa sala.";
+        }
+
+        if (room.IsLocked && !room.Invited.Contains(accountId) && !string.Equals(Clean(password, MaxPasswordLength), room.Password, StringComparison.Ordinal))
+        {
+            return "La clave de la sala no es correcta.";
         }
 
         MobaTeam team;
@@ -299,6 +315,12 @@ public static class MobaRooms
         }
 
         var clean = Clean(text, MaxChatLength);
+        if (clean.StartsWith("/invitar ", StringComparison.OrdinalIgnoreCase))
+        {
+            await player.ShowBlueMessageAsync("[Sala] " + await InviteByNameAsync(player, clean[9..]).ConfigureAwait(false)).ConfigureAwait(false);
+            return;
+        }
+
         var last = LastChat.GetOrCreateValue(player);
         if (clean.Length == 0 || DateTime.UtcNow - last.Value < MinChatInterval)
         {
@@ -330,6 +352,7 @@ public static class MobaRooms
                 r.TeamSize,
                 r.MidOnly,
                 r.FillWithBots,
+                r.IsLocked,
                 r.Members.Count,
                 (int)(now - r.CreatedUtc).TotalSeconds,
                 (int)(now - r.LastActivityUtc).TotalSeconds))
@@ -398,7 +421,14 @@ public static class MobaRooms
             }
         }
 
+        var notReady = room.Members.Where(m => m.Key != room.Host && !room.Ready.Contains(m.Key)).Select(m => m.Value.Session.SelectedCharacter?.Name).ToList();
+        if (notReady.Count > 0)
+        {
+            return $"Todavía no están listos: {string.Join(", ", notReady)}.";
+        }
+
         // The room is closed before the match starts: its members belong to the match now.
+        RememberForRematch(room);
         Unregister(room);
         foreach (var member in room.Members.Values.Select(m => m.Session))
         {
@@ -431,6 +461,9 @@ public static class MobaRooms
             3 => await StartAsync(player).ConfigureAwait(false),
             4 => await LeaveAsync(player).ConfigureAwait(false),
             5 => await CloseRoomAsync(player).ConfigureAwait(false),
+            6 => await ToggleReadyAsync(player).ConfigureAwait(false),
+            7 => await OpenSkillsAsync(player).ConfigureAwait(false),
+            8 => await InvitePartyAsync(player).ConfigureAwait(false),
             _ => null,
         };
 
@@ -438,6 +471,223 @@ public static class MobaRooms
         {
             await player.ShowBlueMessageAsync("[Sala] " + answer).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>A player says it is ready, or not any more.</summary>
+    /// <param name="player">The player.</param>
+    /// <returns>The answer for the player.</returns>
+    public static async ValueTask<string> ToggleReadyAsync(Player player)
+    {
+        if (player.Account is not { } account || RoomOf(player) is not { } room)
+        {
+            return "No estás en ninguna sala.";
+        }
+
+        if (room.Host == account.GetId())
+        {
+            return "El anfitrión empieza la partida cuando todos los demás están listos.";
+        }
+
+        var ready = room.Ready.Add(account.GetId());
+        if (!ready)
+        {
+            room.Ready.Remove(account.GetId());
+        }
+
+        Touch(room);
+        await AddNoticeAsync(room, $"{player.SelectedCharacter?.Name} {(ready ? "está listo" : "ya no está listo")}.").ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
+        return ready ? "Estás listo." : "Ya no estás listo.";
+    }
+
+    /// <summary>Opens the skill window of a player of a room.</summary>
+    /// <param name="player">The player.</param>
+    /// <returns>The answer for the player (empty: the window opens).</returns>
+    public static async ValueTask<string?> OpenSkillsAsync(Player player)
+    {
+        if (RoomOf(player) is null)
+        {
+            return "No estás en ninguna sala.";
+        }
+
+        await MobaLoadoutService.OpenAsync(player).ConfigureAwait(false);
+        return null;
+    }
+
+    /// <summary>The host invites every other member of its party to the room.</summary>
+    /// <param name="host">The host.</param>
+    /// <returns>The answer for the host.</returns>
+    public static async ValueTask<string> InvitePartyAsync(Player host)
+    {
+        if (HostRoomOf(host, out var room) is { } problem)
+        {
+            return problem;
+        }
+
+        if (host.Party is not { } party || party.PartyList.Count < 2)
+        {
+            return "No tienes party. Para invitar a alguien escribe /invitar NOMBRE en el chat de la sala.";
+        }
+
+        var invited = 0;
+        foreach (var member in party.PartyList.OfType<Player>().Where(p => !ReferenceEquals(p, host) && p is not OfflinePlayer))
+        {
+            if (await InviteAsync(room!, host, member).ConfigureAwait(false) is null)
+            {
+                invited++;
+            }
+        }
+
+        return invited == 0 ? "Nadie de tu party puede recibir la invitación ahora." : $"Invitaste a {invited} jugador(es) de tu party.";
+    }
+
+    /// <summary>The host invites a connected player by character name.</summary>
+    /// <param name="host">The host.</param>
+    /// <param name="name">The character name.</param>
+    /// <returns>The answer for the host.</returns>
+    public static async ValueTask<string> InviteByNameAsync(Player host, string name)
+    {
+        if (HostRoomOf(host, out var room) is { } problem)
+        {
+            return problem;
+        }
+
+        var target = host.GameContext.GetPlayerByCharacterName(name.Trim());
+        if (target is null || target is OfflinePlayer)
+        {
+            return $"No encuentro a «{name.Trim()}» conectado.";
+        }
+
+        return await InviteAsync(room!, host, target).ConfigureAwait(false) ?? $"Invitaste a {target.SelectedCharacter?.Name}.";
+    }
+
+    /// <summary>Sends the invitation of the room to a player.</summary>
+    private static async ValueTask<string?> InviteAsync(MobaRoom room, Player host, Player target)
+    {
+        if (target.Account is not { } account || target.SelectedCharacter is null)
+        {
+            return "ese jugador no está en el juego.";
+        }
+
+        if (RoomOf(target) is not null || MobaMatchRegistry.IsInMatch(account.GetId()))
+        {
+            return $"{target.SelectedCharacter.Name} ya está en una sala o en una partida.";
+        }
+
+        room.Invited.Add(account.GetId());
+        room.Kicked.Remove(account.GetId());
+        await target.InvokeViewPlugInAsync<IMobaRoomInvitePlugIn>(p => p.ShowInviteAsync(room.Id, room.Name, host.SelectedCharacter?.Name ?? "?", (int)InviteSeconds.TotalSeconds)).ConfigureAwait(false);
+        await target.ShowBlueMessageAsync($"[Sala] {host.SelectedCharacter?.Name} te invita a la sala «{room.Name}».").ConfigureAwait(false);
+        return null;
+    }
+
+    /// <summary>
+    /// Remembers who was in a room which starts a match: when they come back to town (the match ends) they find the same room
+    /// again, with the same settings and the chat empty (the rematch).
+    /// </summary>
+    private static void RememberForRematch(MobaRoom room)
+    {
+        var expires = DateTime.UtcNow + RematchLife;
+        foreach (var (accountId, (_, team)) in room.Members)
+        {
+            Rematches[accountId] = new Rematch(room.RematchId, room.Name, room.TeamSize, room.MidOnly, room.FillWithBots, room.Password, room.Host, team, expires);
+        }
+    }
+
+    /// <summary>
+    /// Puts the players of a finished room-match back into a room: the first one to be back in Lorencia recreates it (same name and
+    /// settings) and the others join it, in their old team.
+    /// </summary>
+    /// <param name="gameContext">The game context.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask TickRematchAsync(IGameContext gameContext)
+    {
+        if (Rematches.IsEmpty)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var expired in Rematches.Where(r => r.Value.Expires < now).Select(r => r.Key).ToList())
+        {
+            Rematches.TryRemove(expired, out _);
+        }
+
+        foreach (var player in (await gameContext.GetPlayersAsync().ConfigureAwait(false)).Where(p => !p.IsMobaClone && p is not OfflinePlayer && p.Account is not null && p.SelectedCharacter is not null))
+        {
+            var accountId = player.Account!.GetId();
+            if (!Rematches.TryGetValue(accountId, out var rematch)
+                || RoomOf(player) is not null
+                || MobaMatchRegistry.IsInMatch(accountId)
+                || player.CurrentMap is not { MapId: MobaQueueNpc.MapNumber })
+            {
+                continue;
+            }
+
+            Rematches.TryRemove(accountId, out _);
+            var room = ById.Values.FirstOrDefault(r => r.RematchId == rematch.RoomKey);
+            if (room is null)
+            {
+                lock (Sync)
+                {
+                    room = ById.Values.FirstOrDefault(r => r.RematchId == rematch.RoomKey) ?? CreateFor(player, rematch);
+                }
+            }
+            else
+            {
+                await JoinRematchAsync(room, player, rematch).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static MobaRoom CreateFor(Player host, Rematch rematch)
+    {
+        var room = new MobaRoom
+        {
+            Id = ++nextId,
+            Name = rematch.Name,
+            TeamSize = rematch.TeamSize,
+            MidOnly = rematch.MidOnly,
+            FillWithBots = rematch.Bots,
+            Password = rematch.Password,
+            RematchId = rematch.RoomKey,
+            Host = host.Account!.GetId(),
+        };
+        room.Members[room.Host] = (host, rematch.Team);
+        ById[room.Id] = room;
+        RoomIdOfAccount[room.Host] = room.Id;
+        _ = FinishRematchAsync(room, host);
+        return room;
+    }
+
+    private static async Task FinishRematchAsync(MobaRoom room, Player host)
+    {
+        Track(host);
+        await AddNoticeAsync(room, $"{host.SelectedCharacter?.Name} volvió a abrir la sala después de la partida.").ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
+    }
+
+    private static async ValueTask JoinRematchAsync(MobaRoom room, Player player, Rematch rematch)
+    {
+        var accountId = player.Account!.GetId();
+        MobaTeam team;
+        lock (Sync)
+        {
+            if (room.Members.Count >= 2 * room.TeamSize || RoomIdOfAccount.ContainsKey(accountId))
+            {
+                return;
+            }
+
+            team = room.TeamPlayers(rematch.Team).Count < room.TeamSize ? rematch.Team : (rematch.Team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue);
+            room.Members[accountId] = (player, team);
+            RoomIdOfAccount[accountId] = room.Id;
+        }
+
+        Track(player);
+        Touch(room);
+        await AddNoticeAsync(room, $"{player.SelectedCharacter?.Name} volvió a la sala.").ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
+        await SendHistoryAsync(room, player).ConfigureAwait(false);
     }
 
     /// <summary>Runs a button of the host which acts on another player.</summary>
@@ -516,6 +766,7 @@ public static class MobaRooms
         lock (Sync)
         {
             room.Members.Remove(accountId);
+            room.Ready.Remove(accountId);
             RoomIdOfAccount.TryRemove(accountId, out _);
             if (room.Members.Count == 0)
             {
@@ -654,11 +905,17 @@ public static class MobaRooms
         foreach (var (id, (session, _)) in room.Members.ToList())
         {
             MobaRoomMember Of(KeyValuePair<Guid, (Player Session, MobaTeam Team)> m)
-                => new(m.Value.Session.SelectedCharacter?.Name ?? "?", m.Key == room.Host, m.Key == id, MobaMinimapKind.BaseClassIndex(m.Value.Session.SelectedCharacter?.CharacterClass?.Number ?? 0));
+                => new(
+                    m.Value.Session.SelectedCharacter?.Name ?? "?",
+                    m.Key == room.Host,
+                    m.Key == id,
+                    MobaMinimapKind.BaseClassIndex(m.Value.Session.SelectedCharacter?.CharacterClass?.Number ?? 0),
+                    m.Key == room.Host || room.Ready.Contains(m.Key),
+                    MobaLoadoutStore.HasPick(m.Value.Session.SelectedCharacter?.Name ?? string.Empty));
 
             var blue = room.Members.Where(m => m.Value.Team == MobaTeam.Blue).Select(Of).ToList();
             var red = room.Members.Where(m => m.Value.Team == MobaTeam.Red).Select(Of).ToList();
-            var info = new MobaRoomInfo(room.Id, room.Name, room.TeamSize, room.MidOnly, room.FillWithBots, id == room.Host, blue, red);
+            var info = new MobaRoomInfo(room.Id, room.Name, room.TeamSize, room.MidOnly, room.FillWithBots, id == room.Host, room.IsLocked, blue, red);
             await session.InvokeViewPlugInAsync<IMobaRoomPlugIn>(p => p.ShowRoomAsync(info)).ConfigureAwait(false);
         }
     }

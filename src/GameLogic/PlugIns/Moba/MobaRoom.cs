@@ -27,6 +27,21 @@ public sealed class MobaRoom
     /// <summary>Gets the format of the match: the layout of the arena.</summary>
     public MobaFormat Format => this.MidOnly ? MobaFormat.Aram : MobaFormat.Classic;
 
+    /// <summary>Gets the password of the room; empty for an open room.</summary>
+    public string Password { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the room needs a password to join (invited players do not).</summary>
+    public bool IsLocked => this.Password.Length > 0;
+
+    /// <summary>Gets the players who said they are ready (the host starts when everybody else is).</summary>
+    public HashSet<Guid> Ready { get; } = new();
+
+    /// <summary>Gets the accounts the host invited: they join without the password.</summary>
+    public HashSet<Guid> Invited { get; } = new();
+
+    /// <summary>Gets the identifier the players of a finished match find their room again with.</summary>
+    public Guid RematchId { get; init; } = Guid.NewGuid();
+
     /// <summary>Gets or sets the account of the host.</summary>
     public Guid Host { get; set; }
 

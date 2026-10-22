@@ -14,7 +14,7 @@ using MUnique.OpenMU.PlugIns;
 /// <summary>
 /// Sends the list of the open private rooms to the MOBA client. Layout:
 /// <code>
-/// C2 hi lo D5 1F  open  count  count * ( id(u32 LE)  nameLen name  hostLen host  teamSize  flags(1 mid only, 2 bots)  players
+/// C2 hi lo D5 1F  open  count  count * ( id(u32 LE)  nameLen name  hostLen host  teamSize  flags(1 mid only, 2 bots, 4 locked)  players
 ///                                         ageSeconds(u16 LE)  idleSeconds(u16 LE) )
 /// </code>
 /// </summary>
@@ -50,7 +50,7 @@ public class MobaRoomListPlugIn : IMobaRoomListPlugIn
             AddText(body, room.Name, MaxNameBytes);
             AddText(body, room.HostName, MaxHostBytes);
             body.Add((byte)room.TeamSize);
-            body.Add((byte)((room.MidOnly ? 1 : 0) | (room.FillWithBots ? 2 : 0)));
+            body.Add((byte)((room.MidOnly ? 1 : 0) | (room.FillWithBots ? 2 : 0) | (room.Locked ? 4 : 0)));
             body.Add((byte)Math.Min(room.Players, byte.MaxValue));
             body.AddRange(BitConverter.GetBytes((ushort)Math.Clamp(room.AgeSeconds, 0, ushort.MaxValue)));
             body.AddRange(BitConverter.GetBytes((ushort)Math.Clamp(room.IdleSeconds, 0, ushort.MaxValue)));

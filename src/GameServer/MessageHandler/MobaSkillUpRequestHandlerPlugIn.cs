@@ -104,19 +104,24 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
 
         if (span.Length >= 6 && span[3] == 0x20)
         {
-            // C1 len D5 20 teamSize flags nameLen name: create a room (flags: 1 middle lane only, 2 bots).
+            // C1 len D5 20 teamSize flags nameLen name passLen pass: create a room (flags: 1 middle lane only, 2 bots).
             var nameLength = span.Length >= 7 ? Math.Min((int)span[6], span.Length - 7) : 0;
             var roomName = nameLength > 0 ? System.Text.Encoding.UTF8.GetString(span.Slice(7, nameLength)) : null;
-            var answer = await MobaRooms.CreateAsync(player, roomName, span[4], (span[5] & 1) != 0, (span[5] & 2) != 0).ConfigureAwait(false);
+            var passOffset = 7 + nameLength;
+            var passLength = span.Length > passOffset ? Math.Min((int)span[passOffset], span.Length - passOffset - 1) : 0;
+            var roomPassword = passLength > 0 ? System.Text.Encoding.UTF8.GetString(span.Slice(passOffset + 1, passLength)) : null;
+            var answer = await MobaRooms.CreateAsync(player, roomName, span[4], (span[5] & 1) != 0, (span[5] & 2) != 0, roomPassword).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[Sala] " + answer).ConfigureAwait(false);
             return;
         }
 
         if (span.Length >= 8 && span[3] == 0x21)
         {
-            // C1 08 D5 21 id(u32 LE): join a room.
+            // C1 len D5 21 id(u32 LE) passLen pass: join a room.
             var roomId = BitConverter.ToInt32(span.Slice(4, 4));
-            await player.ShowBlueMessageAsync("[Sala] " + await MobaRooms.JoinAsync(player, roomId).ConfigureAwait(false)).ConfigureAwait(false);
+            var joinPassLength = span.Length > 8 ? Math.Min((int)span[8], span.Length - 9) : 0;
+            var joinPassword = joinPassLength > 0 ? System.Text.Encoding.UTF8.GetString(span.Slice(9, joinPassLength)) : null;
+            await player.ShowBlueMessageAsync("[Sala] " + await MobaRooms.JoinAsync(player, roomId, joinPassword).ConfigureAwait(false)).ConfigureAwait(false);
             return;
         }
 

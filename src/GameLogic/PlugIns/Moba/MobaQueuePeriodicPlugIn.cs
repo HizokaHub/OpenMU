@@ -29,5 +29,6 @@ public class MobaQueuePeriodicPlugIn : IPeriodicTaskPlugIn
         await MobaQueueNpc.EnsureAsync(gameContext).ConfigureAwait(false);
         await MobaQueueService.TickAsync().ConfigureAwait(false);
         await MobaRooms.TickAsync().ConfigureAwait(false);
+        await MobaRooms.TickRematchAsync(gameContext).ConfigureAwait(false);
     }
 }

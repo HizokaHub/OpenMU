@@ -14,8 +14,8 @@ using MUnique.OpenMU.PlugIns;
 /// <summary>
 /// Sends the private room of the player to the MOBA client. Layout:
 /// <code>
-/// C2 hi lo D5 1B  present  isHost  fillBots  midOnly  teamSize  id(u32 LE)  nameLen name
-///   blueCount (flags baseClass nameLen name)*  redCount (flags baseClass nameLen name)*       flags: bit0 host, bit1 yours
+/// C2 hi lo D5 1B  present  isHost  fillBots  midOnly  locked  teamSize  id(u32 LE)  nameLen name
+///   blueCount (flags baseClass nameLen name)*  redCount (flags baseClass nameLen name)*       flags: bit0 host, bit1 yours, bit2 ready, bit3 has picked skills
 /// </code>
 /// </summary>
 [PlugIn]
@@ -53,6 +53,7 @@ public class MobaRoomPlugIn : IMobaRoomPlugIn
             body.Add(room.IsHost ? (byte)1 : (byte)0);
             body.Add(room.FillWithBots ? (byte)1 : (byte)0);
             body.Add(room.MidOnly ? (byte)1 : (byte)0);
+            body.Add(room.Locked ? (byte)1 : (byte)0);
             body.Add((byte)room.TeamSize);
             body.AddRange(BitConverter.GetBytes((uint)room.Id));
             AddText(body, room.Name, MaxRoomNameBytes);
@@ -91,7 +92,7 @@ public class MobaRoomPlugIn : IMobaRoomPlugIn
         body.Add((byte)members.Count);
         foreach (var member in members)
         {
-            body.Add((byte)((member.IsHost ? 1 : 0) | (member.IsMine ? 2 : 0)));
+            body.Add((byte)((member.IsHost ? 1 : 0) | (member.IsMine ? 2 : 0) | (member.IsReady ? 4 : 0) | (member.HasSkills ? 8 : 0)));
             body.Add(member.BaseClass);
             AddText(body, member.Name, MaxNameBytes);
         }

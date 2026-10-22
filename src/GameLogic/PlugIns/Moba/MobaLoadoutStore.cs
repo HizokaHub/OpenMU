@@ -48,6 +48,20 @@ public static class MobaLoadoutStore
     }
 
     /// <summary>
+    /// Gets whether the character ever picked its skills (otherwise it takes the class default).
+    /// </summary>
+    /// <param name="characterName">The real character's name.</param>
+    /// <returns><see langword="true"/> if there is a saved pick.</returns>
+    public static bool HasPick(string characterName)
+    {
+        lock (Sync)
+        {
+            Load();
+            return _picks!.ContainsKey(characterName);
+        }
+    }
+
+    /// <summary>
     /// Checks a loadout.
     /// </summary>
     /// <param name="skills">The skill numbers.</param>
