@@ -92,11 +92,15 @@ public static class MobaAfk
             : idleSeconds >= AvailableAfterSeconds ? MobaAfkStage.Idle
             : MobaAfkStage.Active;
 
+    // Only the players of a real match: the game masters who test alone in the shared arena (or watch bots without a team) are
+    // allowed to stand still.
     private static bool IsWatched(Player player)
         => player.IsMobaClone
            && player is not MobaBotPlayer
            && player.CurrentMap is not null
            && player.CurrentMap.MapId == MobaCloneFactory.ArenaMapNumber
+           && player.MobaState.Arena is not null
+           && MobaTeams.GetTeam(player) != MobaTeam.None
            && (player is MobaGhostPlayer || player is not OfflinePlayer);
 
     private static string NameOf(Player player) => player.SelectedCharacter?.Name ?? "?";
