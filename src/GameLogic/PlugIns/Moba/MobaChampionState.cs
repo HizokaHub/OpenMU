@@ -48,6 +48,9 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the respawn wait of the champion's latest death (for the notice to the player).</summary>
     public TimeSpan LastRespawnDelay { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the loadout window was already opened for the champion in this match.</summary>
+    public bool LoadoutOffered { get; set; }
+
     /// <summary>Gets or sets the gold the champion earned in this match (what the results screen shows).</summary>
     public long GoldEarned { get; set; }
 

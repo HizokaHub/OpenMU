@@ -18,7 +18,7 @@ public static class MobaLoadoutStore
     public const int MinSkills = 4;
 
     /// <summary>The most skills a loadout has.</summary>
-    public const int MaxSkills = 6;
+    public const int MaxSkills = 4;
 
     private static readonly object Sync = new();
 
@@ -57,7 +57,7 @@ public static class MobaLoadoutStore
     {
         if (skills.Count is < MinSkills or > MaxSkills)
         {
-            return $"Elige entre {MinSkills} y {MaxSkills} skills.";
+            return MinSkills == MaxSkills ? $"Elige {MinSkills} skills." : $"Elige entre {MinSkills} y {MaxSkills} skills.";
         }
 
         if (skills.Distinct().Count() != skills.Count)

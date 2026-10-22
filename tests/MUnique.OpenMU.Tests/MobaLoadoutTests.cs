@@ -64,7 +64,7 @@ public class MobaLoadoutTests
         foreach (var number in ClassNumbers)
         {
             var selectable = MobaLoadouts.SelectableFor(number);
-            Assert.That(selectable.Count, Is.GreaterThanOrEqualTo(MobaLoadoutStore.MaxSkills), $"class {number}");
+            Assert.That(selectable.Count, Is.GreaterThanOrEqualTo(MobaLoadoutStore.MaxSkills + 2), $"class {number}");
             Assert.That(selectable.Intersect(buffs), Is.Empty, $"class {number}");
         }
     }
@@ -77,7 +77,7 @@ public class MobaLoadoutTests
     {
         var wizard = MobaLoadouts.SelectableFor(2);
         Assert.That(MobaLoadoutStore.Validate(wizard.Take(3).ToArray(), 2), Is.Not.Null);
-        Assert.That(MobaLoadoutStore.Validate(wizard.Take(7).ToArray(), 2), Is.Not.Null);
+        Assert.That(MobaLoadoutStore.Validate(wizard.Take(5).ToArray(), 2), Is.Not.Null);
         Assert.That(MobaLoadoutStore.Validate(new short[] { wizard[0], wizard[0], wizard[1], wizard[2] }, 2), Is.Not.Null);
         Assert.That(MobaLoadoutStore.Validate(new short[] { wizard[0], wizard[1], wizard[2], 260 }, 2), Is.Not.Null);
         Assert.That(MobaLoadoutStore.Validate(wizard.Take(4).ToArray(), 2), Is.Null);
@@ -91,7 +91,7 @@ public class MobaLoadoutTests
     {
         Assert.That(MobaLoadoutStore.SelectedFor("Test", 2), Is.EqualTo(MobaLoadouts.DefaultFor(2)));
 
-        var picks = MobaLoadouts.SelectableFor(2).Skip(2).Take(5).ToArray();
+        var picks = MobaLoadouts.SelectableFor(2).Skip(2).Take(4).ToArray();
         Assert.That(MobaLoadoutStore.TrySave("Test", 2, picks, out var error), Is.True, error);
         Assert.That(MobaLoadoutStore.SelectedFor("Test", 2), Is.EqualTo(picks));
 

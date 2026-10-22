@@ -39,8 +39,8 @@ public static class MobaRoomMenu
     {
         var options = OptionsOf(player);
         var text = MobaRooms.RoomOf(player) is null
-            ? "Juega con tus amigos sin cola: crea una sala y comparte el código, o únete a la de un amigo con /sala unir CÓDIGO."
-            : MobaRooms.Describe(player);
+            ? "Juega con tus amigos sin cola: crea una sala y comparte el código, o únete a la de un amigo con su código."
+            : $"Estás en la sala {MobaRooms.RoomOf(player)!.Code}. Sus botones están en el panel de la izquierda.";
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowMenuAsync(MobaRooms.MenuId, Title, text, options.Select(o => o.Label).ToList())).ConfigureAwait(false);
     }
 
@@ -97,21 +97,25 @@ public static class MobaRoomMenu
                 ("Crear sala 3v3", Action.Create3v3),
                 ("Crear sala 1v1", Action.Create1v1),
                 ("Crear sala ARAM 5v5", Action.CreateAram),
-                ("Unirme con un código", Action.HowToJoin),
+                ("#Unirme con un código", Action.HowToJoin),
                 ("Cerrar", Action.Close),
             ];
         }
 
-        var options = new List<(string, Action)> { ("Cambiar mi equipo", Action.SwitchTeam), ("Actualizar la sala", Action.Refresh) };
-        if (player.Account is { } account && room.Host == account.GetId())
-        {
-            options.Add(($"Rellenar con bots: {(room.FillWithBots ? "sí" : "no")} (cambiar)", Action.ToggleBots));
-            options.Add(("¡Empezar la partida!", Action.Start));
-        }
+        // The panel on the left of the screen has the team, bots and start buttons.
+        return [("Salir de la sala", Action.Leave), ("Cerrar", Action.Close)];
+    }
 
-        options.Add(("Salir de la sala", Action.Leave));
-        options.Add(("Cerrar", Action.Close));
-        return options;
+    /// <summary>
+    /// Joins the room whose code was typed in the box of the menu panel.
+    /// </summary>
+    /// <param name="player">The player.</param>
+    /// <param name="code">The code.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask JoinByCodeAsync(Player player, string code)
+    {
+        await player.ShowBlueMessageAsync("[Sala] " + await MobaRooms.JoinAsync(player, code).ConfigureAwait(false)).ConfigureAwait(false);
+        await CloseDialogAsync(player).ConfigureAwait(false);
     }
 
     private static async ValueTask CloseDialogAsync(Player player)

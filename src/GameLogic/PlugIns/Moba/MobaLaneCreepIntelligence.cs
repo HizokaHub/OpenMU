@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Buffers;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.Pathfinding;
@@ -73,6 +74,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMilliseconds(400);
 
     private DateTime _nextScanUtc;
+
+    /// <summary>Where the creep was and what it decided, for the jitter diagnosis (see <see cref="MobaCreepTrace"/>).</summary>
+    private readonly MobaCreepTrace _trace = new();
+
+    /// <summary>What the current AI tick decided; recorded with the position at the start of the next tick.</summary>
+    private string _decision = "idle";
 
     private readonly IReadOnlyList<Point> _waypoints;
 
@@ -250,12 +257,14 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         if (monster.Attributes[Stats.IsStunned] > 0 || monster.Attributes[Stats.IsAsleep] > 0 || monster.Attributes[Stats.IsFrozen] > 0
             || MobaCreepHold.IsHeld(monster))
         {
+            this._decision = "disabled";
             return;
         }
 
         var pos = monster.Position;
         var attackRange = monster.Definition.AttackRange;
         var acquisitionRange = attackRange + AcquisitionRangeBonus;
+        this.TraceTick(pos, attackRange);
 
         // Standing still (attacking / idle): hold only the current tile, free the rest of
         // the last walk chunk so other creeps can use it.
@@ -274,6 +283,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             }
             else
             {
+                this._decision = monster.IsWalking ? "return-walking" : "return-feed";
                 if (!monster.IsWalking)
                 {
                     await this.FeedChunkTowardAsync(pos, this._engageAnchor).ConfigureAwait(false);
@@ -292,6 +302,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             this._combatTarget = null;
             this._combatTargetFromChampAggro = false;
             this._returningToLane = true;
+            this._decision = "leash-drop";
             return;
         }
 
@@ -351,6 +362,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         // (staying in attack range of the current target when possible).
         if (!monster.IsWalking && this.TileSharedWithOther(pos))
         {
+            this._decision = "stepoff";
             await this.StepOffSharedTileAsync(pos, this._combatTarget, attackRange).ConfigureAwait(false);
             return;
         }
@@ -361,7 +373,12 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             {
                 if (monster.IsWalking)
                 {
+                    this._decision = "stop-to-attack";
                     await monster.StopWalkingAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    this._decision = "attack-wait";
                 }
 
                 this._lastChaseTarget = null;
@@ -372,6 +389,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 {
                     var delay = monster.Definition.AttackDelay;
                     this._nextAttackUtc = DateTime.UtcNow + (delay > TimeSpan.Zero ? delay : TimeSpan.FromMilliseconds(1500));
+                    this._decision = "attack";
                     await monster.AttackAsync(target).ConfigureAwait(false);
                 }
             }
@@ -379,6 +397,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             {
                 // Fresh target while mid-march -> cut the march chunk short and head at
                 // it now, so two waves meeting engage on contact instead of walking past.
+                this._decision = ReferenceEquals(target, this._lastChaseTarget) ? "chase-refeed" : "chase-new-target";
                 await this.FeedChunkTowardAsync(pos, target.Position).ConfigureAwait(false);
                 this._lastChaseTarget = target;
             }
@@ -388,8 +407,43 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
         // No target: march the lane (also the path back to it when returning).
         this._lastChaseTarget = null;
+        this._decision = "march";
         await this.MarchAsync(pos).ConfigureAwait(false);
     }
+
+    /// <summary>Records the creep's position with what the previous tick decided, counts the decision and reports a creep which keeps reversing.</summary>
+    private void TraceTick(Point pos, int attackRange)
+    {
+        var now = DateTime.UtcNow;
+        var target = this._combatTarget;
+        var targetText = target is null ? "none" : DescribeTarget(target);
+        MobaCreepTrace.Count(this._team, this._decision);
+        this._trace.Record(new MobaCreepTrace.Sample(now, pos, this._decision, targetText));
+        this._decision = "idle";
+        var report = this._trace.Check(now, () => this.TraceHeader(pos, attackRange, targetText));
+        if (report is not null)
+        {
+            MobaCreepTrace.Logger?.LogWarning("[MOBA-CREEP-JITTER] {Report}", report);
+        }
+    }
+
+    private string TraceHeader(Point pos, int attackRange, string targetText)
+    {
+        var target = this._combatTarget;
+        var distance = target is null ? 0 : target.GetDistanceTo(pos);
+        var anchor = this._hasEngageAnchor ? pos.EuclideanDistanceTo(this._engageAnchor) : -1;
+        return $"creep #{this.Monster.Id} {this.Monster.Definition.Designation} {this._team} pos=({pos.X},{pos.Y}) walking={this.Monster.IsWalking} target={targetText} dist={distance:0.0} "
+            + $"attackRange={attackRange} fromChampAggro={this._combatTargetFromChampAggro} returning={this._returningToLane} anchorDist={anchor:0.0} laneDist={this.DistanceToLane(pos):0.0} "
+            + $"waypoint={this._currentWaypoint}/{this._waypoints.Count} chunkSteps={this._chunkStepCount} detour={(this._detour is null ? "no" : "yes")} "
+            + $"blockedMs={(this._blockedSinceUtc == default ? 0 : (int)(DateTime.UtcNow - this._blockedSinceUtc).TotalMilliseconds)}";
+    }
+
+    private static string DescribeTarget(IAttackable target) => target switch
+    {
+        Monster monster => $"{monster.Definition.Designation}#{monster.Id}",
+        Player player => $"champion:{player.SelectedCharacter?.Name}",
+        _ => target.GetType().Name,
+    };
 
     private static readonly TimeSpan ReactWindow = TimeSpan.FromSeconds(2);
 
@@ -829,6 +883,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 else if (now - this._blockedSinceUtc >= StuckShuffleAfter
                          && this.PickAnyFreeNeighbour(from, terrain, champions, mapId) is { } wiggle)
                 {
+                    this._decision = "wiggle";
                     this.SyncClaims(from, new[] { wiggle });
                     var wiggleStep = new WalkingStep[] { new(from, wiggle, GetDirection(from, wiggle)) };
                     await this.Monster.WalkToAsync(wiggle, wiggleStep.AsMemory()).ConfigureAwait(false);

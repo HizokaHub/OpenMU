@@ -17,7 +17,7 @@ using MUnique.OpenMU.Pathfinding;
 public static class MobaPreMatch
 {
     /// <summary>Seconds from the moment the match is launched until it starts (players need a few seconds to reconnect).</summary>
-    public const int CountdownSeconds = 20;
+    public const int CountdownSeconds = 45;
 
     /// <summary>Radius, in tiles, of the circle the champions are held in around their base.</summary>
     public const int BarrierRadius = 10;
@@ -29,7 +29,7 @@ public static class MobaPreMatch
     private const int BannerMilliseconds = 3500;
 
     /// <summary>The seconds before the start at which the players are reminded.</summary>
-    private static readonly int[] Reminders = [20, 15, 10, 5, 4, 3, 2, 1];
+    private static readonly int[] Reminders = [30, 20, 15, 10, 5, 4, 3, 2, 1];
 
     /// <summary>
     /// Gets the tiles of the barrier around a point.
@@ -121,6 +121,7 @@ public static class MobaPreMatch
                 }
 
                 await SendBarrierAsync(map, gameContext, true).ConfigureAwait(false);
+                await OfferLoadoutsAsync(map, gameContext, open: true).ConfigureAwait(false);
                 var remaining = (int)Math.Ceiling((arena.PreMatchUntilUtc - DateTime.UtcNow).TotalSeconds);
                 if (Array.IndexOf(Reminders, remaining) >= 0 && announced.Add(remaining))
                 {
@@ -133,6 +134,7 @@ public static class MobaPreMatch
             Lower(map);
             await SendBarrierAsync(map, gameContext, false).ConfigureAwait(false);
             arena.PreMatchUntilUtc = DateTime.MinValue;
+            await OfferLoadoutsAsync(map, gameContext, open: false).ConfigureAwait(false);
             arena.MatchStartUtc = DateTime.UtcNow;
             await MobaJungle.EnsureStartedAsync(map, gameContext).ConfigureAwait(false);
             MobaWavePeriodicSpawner.Start(map, gameContext, TimeSpan.FromSeconds(MobaWavePeriodicSpawner.DefaultIntervalSeconds));
@@ -155,6 +157,15 @@ public static class MobaPreMatch
         foreach (var player in (await gameContext.GetPlayersAsync().ConfigureAwait(false)).Where(p => p.IsMobaClone && ReferenceEquals(p.CurrentMap, map)))
         {
             await player.InvokeViewPlugInAsync<Views.Moba.IMobaBarrierPlugIn>(p => p.ShowBarrierAsync(active, (byte)BarrierRadius, blue, red)).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Opens the loadout window of every human champion of the arena which did not get it yet (open) or closes it (the match starts).</summary>
+    private static async ValueTask OfferLoadoutsAsync(GameMap map, IGameContext gameContext, bool open)
+    {
+        foreach (var player in (await gameContext.GetPlayersAsync().ConfigureAwait(false)).Where(p => p.IsMobaClone && p is not MobaBotPlayer && ReferenceEquals(p.CurrentMap, map)))
+        {
+            await (open ? MobaLoadoutService.OfferAsync(player) : MobaLoadoutService.CloseAsync(player)).ConfigureAwait(false);
         }
     }
 

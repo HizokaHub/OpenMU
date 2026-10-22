@@ -113,6 +113,35 @@ public sealed class SkillList : ISkillList, IDisposable
         }
     }
 
+    /// <summary>
+    /// Swaps the skills a MOBA champion picked: of the skills in <paramref name="pool"/>, the ones not in
+    /// <paramref name="wanted"/> are removed and the missing ones of <paramref name="wanted"/> are added; everything else
+    /// (buffs, item skills, strengthener points) is left alone. The client's skill bar is told.
+    /// </summary>
+    /// <param name="pool">The skill numbers the player can pick from.</param>
+    /// <param name="wanted">The skills the champion should have.</param>
+    /// <returns>A task which completes when the list and the client are up to date.</returns>
+    public async ValueTask ReplaceMobaPicksAsync(IReadOnlySet<short> pool, IReadOnlyCollection<Skill> wanted)
+    {
+        var wantedNumbers = wanted.Select(s => s.Number).ToHashSet();
+        var removed = this._learnedSkills
+            .Where(e => e.Skill is { } s && pool.Contains(s.Number) && !wantedNumbers.Contains(s.Number) && s.MasterDefinition?.ReplacedSkill is null)
+            .ToList();
+        foreach (var entry in removed)
+        {
+            this._learnedSkills.Remove(entry);
+            if (this._availableSkills.Remove(entry.Skill!.Number.ToUnsigned()))
+            {
+                await this._player.InvokeViewPlugInAsync<ISkillListViewPlugIn>(p => p.RemoveSkillAsync(entry.Skill)).ConfigureAwait(false);
+            }
+        }
+
+        foreach (var skill in wanted.Where(s => !this.ContainsSkill((ushort)s.Number)))
+        {
+            await this.AddLearnedSkillAsync(new SkillEntry { Skill = skill, Level = 0 }).ConfigureAwait(false);
+        }
+    }
+
     /// <inheritdoc/>
     public async ValueTask<bool> RemoveItemSkillAsync(ushort skillId)
     {

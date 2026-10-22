@@ -619,6 +619,12 @@ public static class MobaTelemetry
 
     private static void LogWavesAndStructures(GameMap map, ILogger logger, int elapsed)
     {
+        MobaCreepTrace.Logger = logger;
+        if (MobaCreepTrace.TakeSummary() is { } creepSummary)
+        {
+            logger.LogInformation("[MOBA-CREEP-STATS] {Summary}", creepSummary);
+        }
+
         var monsters = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<NPC.Monster>().ToList();
 
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })

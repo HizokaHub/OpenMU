@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Offline;
+using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Persistence;
 
 /// <summary>
@@ -92,7 +93,7 @@ public static class MobaRooms
         }
 
         Track(player);
-        await Task.CompletedTask.ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
         return $"Sala creada: código {room.Code} ({MobaFormats.Label(format)}). Tus amigos entran con /sala unir {room.Code}.";
     }
 
@@ -135,6 +136,7 @@ public static class MobaRooms
 
         Track(player);
         await TellRoomAsync(room, $"{player.SelectedCharacter?.Name} se unió a la sala (equipo {TeamName(team)}).", except: player).ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
         return $"Entraste a la sala {room.Code} ({MobaFormats.Label(room.Format)}), equipo {TeamName(team)}.";
     }
 
@@ -166,8 +168,10 @@ public static class MobaRooms
         }
 
         Untrack(player);
+        await player.InvokeViewPlugInAsync<IMobaRoomPlugIn>(p => p.ShowRoomAsync(null)).ConfigureAwait(false);
         var name = player.SelectedCharacter?.Name;
         await TellRoomAsync(room, newHost is null ? $"{name} salió de la sala." : $"{name} salió de la sala; {newHost.SelectedCharacter?.Name} es el nuevo anfitrión.").ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
         return "Saliste de la sala.";
     }
 
@@ -196,6 +200,7 @@ public static class MobaRooms
         }
 
         await TellRoomAsync(room, $"{player.SelectedCharacter?.Name} cambió de equipo.", except: player).ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
         return answer;
     }
 
@@ -217,6 +222,7 @@ public static class MobaRooms
 
         room.FillWithBots = fill;
         await TellRoomAsync(room, fill ? "Los lugares libres se rellenarán con bots." : "Sin bots: los dos equipos tienen que quedar igualados.", except: player).ConfigureAwait(false);
+        await PublishAsync(room).ConfigureAwait(false);
         return fill ? "Rellenar con bots: sí." : "Rellenar con bots: no.";
     }
 
@@ -286,6 +292,7 @@ public static class MobaRooms
         foreach (var member in room.Members.Values.Select(m => m.Session))
         {
             Untrack(member);
+            await member.InvokeViewPlugInAsync<IMobaRoomPlugIn>(p => p.ShowRoomAsync(null)).ConfigureAwait(false);
         }
 
         var now = DateTime.UtcNow;
@@ -297,6 +304,43 @@ public static class MobaRooms
         player.Logger.LogInformation("[MOBA-ROOM] room {Code} starts a {Format} match: {Blue} blue / {Red} red humans.", room.Code, MobaFormats.Label(room.Format), blue.Count, red.Count);
         await MobaMatchLauncher.LaunchAsync(proposal, online).ConfigureAwait(false);
         return "¡Empieza la partida!";
+    }
+
+    /// <summary>Runs a button of the room panel of the client.</summary>
+    /// <param name="player">The player who pressed it.</param>
+    /// <param name="action">The button: 1 change team, 2 bots, 3 start, 4 leave.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask HandleActionAsync(Player player, byte action)
+    {
+        var room = RoomOf(player);
+        var answer = action switch
+        {
+            1 => await SwitchTeamAsync(player).ConfigureAwait(false),
+            2 => await SetBotsAsync(player, !(room?.FillWithBots ?? true)).ConfigureAwait(false),
+            3 => await StartAsync(player).ConfigureAwait(false),
+            4 => await LeaveAsync(player).ConfigureAwait(false),
+            _ => null,
+        };
+
+        if (answer is not null)
+        {
+            await player.ShowBlueMessageAsync("[Sala] " + answer).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Sends the panel of the room to every member.</summary>
+    private static async ValueTask PublishAsync(MobaRoom room)
+    {
+        foreach (var (id, (session, _)) in room.Members.ToList())
+        {
+            MobaRoomMember Of(KeyValuePair<Guid, (Player Session, MobaTeam Team)> m)
+                => new(m.Value.Session.SelectedCharacter?.Name ?? "?", m.Key == room.Host, m.Key == id, MobaMinimapKind.BaseClassIndex(m.Value.Session.SelectedCharacter?.CharacterClass?.Number ?? 0));
+
+            var blue = room.Members.Where(m => m.Value.Team == MobaTeam.Blue).Select(Of).ToList();
+            var red = room.Members.Where(m => m.Value.Team == MobaTeam.Red).Select(Of).ToList();
+            var info = new MobaRoomInfo(room.Code, MobaFormats.Label(room.Format), room.FillWithBots, id == room.Host, MobaFormats.TeamSize(room.Format), blue, red);
+            await session.InvokeViewPlugInAsync<IMobaRoomPlugIn>(p => p.ShowRoomAsync(info)).ConfigureAwait(false);
+        }
     }
 
     private static List<MobaQueueEntry> EntriesOf(MobaRoom room, MobaTeam team, int teamSize, DateTime now)

@@ -88,6 +88,21 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 5 && span[3] == 0x1C)
+        {
+            // C1 05 D5 1C action: a button of the private room panel (1 change team, 2 bots, 3 start, 4 leave).
+            await MobaRooms.HandleActionAsync(player, span[4]).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 5 && span[3] == 0x1D)
+        {
+            // C1 len D5 1D codeLen code: the code typed in the "join a room" box of the menu panel.
+            var codeLength = Math.Min((int)span[4], span.Length - 5);
+            await MobaRoomMenu.JoinByCodeAsync(player, System.Text.Encoding.ASCII.GetString(span.Slice(5, codeLength))).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 4 && span[3] == 0x18)
         {
             // C1 04 D5 18: the button of the results table (back to town).

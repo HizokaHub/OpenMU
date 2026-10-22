@@ -88,16 +88,22 @@ public static class MobaLoadouts
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
     };
 
-    // Buffs and summons: not part of the loadout a player picks (the design buys buffs in the shop and leaves summons out).
-    private static readonly HashSet<short> NotSelectable = new()
+    // The buffs of every class: the champion always has them, they are not part of the picks.
+    private static readonly HashSet<short> Buffs = new()
     {
         16, 233,                    // Soul Barrier, Expansion of Wizardry
         18, 48,                     // Defense, Swell Life
         26, 27, 28, 77, 234,        // Heal, Greater Defense, Greater Damage, Infinity Arrow, Recovery
-        30, 31, 32, 33, 34, 35, 36, // Elf summons
-        63, 64,                     // Dark Lord: Summon, Increase Critical Damage
+        64,                         // Dark Lord: Increase Critical Damage
         217, 218,                   // Summoner: Berserker, Damage Reflection
         266, 267, 268,              // Rage Fighter self-buffs
+    };
+
+    // Summons: neither picked nor given (the design leaves them out).
+    private static readonly HashSet<short> Summons = new()
+    {
+        30, 31, 32, 33, 34, 35, 36, // Elf summons
+        63,                         // Dark Lord: Summon
     };
 
     // What a player gets when it never picked a loadout: the class's six main attacks.
@@ -120,7 +126,7 @@ public static class MobaLoadouts
     /// <param name="config">The game configuration.</param>
     /// <param name="clone">The clone character.</param>
     /// <param name="characterClass">The clone's class.</param>
-    /// <param name="chosenSkills">The skills the player picked (see <see cref="MobaLoadoutStore"/>); <see langword="null"/> gives the whole class kit (tests, bots, the <c>/moba</c> shortcut).</param>
+    /// <param name="chosenSkills">The skills the player picked (see <see cref="MobaLoadoutStore"/>), which get the class's buffs besides; <see langword="null"/> gives the whole class kit (tests, bots, the <c>/moba</c> shortcut).</param>
     public static void Apply(Persistence.IContext context, GameConfiguration config, Character clone, CharacterClass characterClass, IReadOnlyList<short>? chosenSkills = null)
     {
         var inventory = clone.Inventory ?? throw new InvalidOperationException("Clone has no inventory.");
@@ -142,7 +148,8 @@ public static class MobaLoadouts
             inventory.Items.Add(item);
         }
 
-        foreach (var number in chosenSkills ?? Skills[family])
+        var learned = chosenSkills is null ? Skills[family] : chosenSkills.Concat(BuffsFor(characterClass.Number)).Distinct().ToArray();
+        foreach (var number in learned)
         {
             if (config.Skills.FirstOrDefault(s => s.Number == number) is not { } skill)
             {
@@ -174,14 +181,22 @@ public static class MobaLoadouts
     /// <param name="classNumber">The character class number.</param>
     /// <returns>The skill numbers, in the order the kit lists them.</returns>
     public static IReadOnlyList<short> SelectableFor(byte classNumber)
-        => Skills[FamilyOf(classNumber)].Where(n => !NotSelectable.Contains(n)).ToArray();
+        => Skills[FamilyOf(classNumber)].Where(n => !Buffs.Contains(n) && !Summons.Contains(n)).ToArray();
+
+    /// <summary>
+    /// The buffs of a class, which every champion of it has besides the skills it picked.
+    /// </summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <returns>The skill numbers.</returns>
+    public static IReadOnlyList<short> BuffsFor(byte classNumber)
+        => Skills[FamilyOf(classNumber)].Where(Buffs.Contains).ToArray();
 
     /// <summary>
     /// The loadout a player gets when it never picked one.
     /// </summary>
     /// <param name="classNumber">The character class number.</param>
     /// <returns>The skill numbers.</returns>
-    public static IReadOnlyList<short> DefaultFor(byte classNumber) => DefaultPicks[FamilyOf(classNumber)];
+    public static IReadOnlyList<short> DefaultFor(byte classNumber) => DefaultPicks[FamilyOf(classNumber)].Take(MobaLoadoutStore.MaxSkills).ToArray();
 
     private static Family FamilyOf(byte classNumber) => classNumber switch
     {
