@@ -110,7 +110,7 @@ public static class MobaQueueNpc
     public static bool IsQueueMaster(NonPlayerCharacter npc) => Npcs.Values.Contains(npc);
 
     /// <summary>
-    /// Opens the menu if the player talks to a queue master.
+    /// Opens the room browser if the player talks to the arena master.
     /// </summary>
     /// <param name="player">The player.</param>
     /// <param name="npc">The NPC.</param>
@@ -122,8 +122,9 @@ public static class MobaQueueNpc
             return false;
         }
 
-        var text = "Aquí se busca partida de la Arena (5 contra 5). Necesitas nivel 400 y clase Master. " + MobaQueueService.StatusOf(player);
-        await player.InvokeViewPlugInAsync<Views.Moba.IMobaShopPlugIn>(p => p.ShowMenuAsync(MobaQueueService.MenuId, Title, text, Options)).ConfigureAwait(false);
+        // There is no queue any more: the master only opens the room browser (or the panel of the player's room).
+        await MobaRooms.OpenAsync(player).ConfigureAwait(false);
+        await CloseDialogAsync(player).ConfigureAwait(false);
         return true;
     }
 
