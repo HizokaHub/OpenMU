@@ -143,7 +143,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     }
 
     /// <summary>
-    /// The creature of the Elf for her HUD and minimap: <c>C1 0C D5 29 present control keyLo keyHi hp% x y rank</c>
+    /// The creature of the Elf for her HUD and minimap: <c>C1 0C D5 29 present mode(0 follows, 1 commanded, 2 holds its post) keyLo keyHi hp% x y rank</c>
     /// (present 0 = she has none). Sent to every champion; the ones without a summon get the short "none" once in a while,
     /// which also clears a stale icon.
     /// </summary>
@@ -164,7 +164,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             span[2] = PacketCode;
             span[3] = 0x29;
             span[4] = summon is null ? (byte)0 : (byte)1;
-            span[5] = player.MobaSummonControl ? (byte)1 : (byte)0;
+            span[5] = player.MobaSummonControl ? (byte)1 : (player.MobaSummonStay ? (byte)2 : (byte)0);
             span[6] = summon is { } s1 ? (byte)(s1.Monster.Id & 0xFF) : (byte)0;
             span[7] = summon is { } s2 ? (byte)(s2.Monster.Id >> 8) : (byte)0;
             span[8] = summon is { } s3 ? HealthPercent(s3.Monster) : (byte)0;

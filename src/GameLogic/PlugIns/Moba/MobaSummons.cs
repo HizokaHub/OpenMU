@@ -91,33 +91,56 @@ public static class MobaSummons
         }
     }
 
-    /// <summary>Turns the control mode on or off.</summary>
+    /// <summary>Control mode: the champion commands the summon.</summary>
+    public const byte ModeControl = 1;
+
+    /// <summary>Release: the summon stays where it is, holding its post (it finishes the order it has).</summary>
+    public const byte ModeStay = 0;
+
+    /// <summary>Call back: the summon follows the champion again.</summary>
+    public const byte ModeFollow = 2;
+
+    /// <summary>Changes what the summon does: commanded (X), released where it stands (X again) or following the champion (Z).</summary>
     /// <param name="owner">The champion.</param>
-    /// <param name="on">The new mode.</param>
+    /// <param name="mode"><see cref="ModeControl"/>, <see cref="ModeStay"/> or <see cref="ModeFollow"/>.</param>
     /// <returns>A task.</returns>
-    public static async ValueTask SetControlAsync(Player owner, bool on)
+    public static async ValueTask SetControlAsync(Player owner, byte mode)
     {
         if (!owner.IsMobaClone)
         {
             return;
         }
 
-        if (on && Of(owner) is null)
+        if (Of(owner) is not { } summon)
         {
-            await owner.ShowBlueMessageAsync("[MOBA] No tienes una invocación viva.").ConfigureAwait(false);
             owner.MobaSummonControl = false;
+            owner.MobaSummonStay = false;
+            await owner.ShowBlueMessageAsync("[MOBA] No tienes una invocación viva.").ConfigureAwait(false);
             return;
         }
 
-        owner.MobaSummonControl = on;
-        if (!on)
+        string message;
+        switch (mode)
         {
-            Of(owner)?.Brain.ClearOrders();
+            case ModeControl:
+                owner.MobaSummonControl = true;
+                owner.MobaSummonStay = false;
+                message = "[MOBA] Controlas a tu invocación: clic derecho en el suelo o en el minimapa la manda, en un enemigo la manda a atacarlo. X para soltarla, Z para llamarla.";
+                break;
+            case ModeFollow:
+                owner.MobaSummonControl = false;
+                owner.MobaSummonStay = false;
+                summon.Brain.ClearOrders();
+                message = "[MOBA] La invocación vuelve contigo y te sigue.";
+                break;
+            default:
+                owner.MobaSummonControl = false;
+                owner.MobaSummonStay = true;
+                message = "[MOBA] La invocación se queda donde está defendiendo su puesto (ataca lo que tenga cerca, no a las torres). Z para llamarla.";
+                break;
         }
 
-        await owner.ShowBlueMessageAsync(on
-            ? "[MOBA] Controlas a tu invocación: clic derecho en el suelo o en el minimapa la manda, en un enemigo la manda a atacarlo. X para soltarla."
-            : "[MOBA] La invocación te sigue otra vez.").ConfigureAwait(false);
+        await owner.ShowBlueMessageAsync(message).ConfigureAwait(false);
     }
 
     /// <summary>Applies an order of the owner to the summon.</summary>
@@ -161,6 +184,7 @@ public static class MobaSummons
         if (owner.IsMobaClone)
         {
             owner.MobaSummonControl = false;
+            owner.MobaSummonStay = false;
         }
     }
 

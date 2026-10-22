@@ -33,6 +33,12 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets a value indicating whether the champion commands its summon (control mode of the Elf's creature).</summary>
     public bool SummonControl { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the summon was released where it stands: it keeps its post (fights what comes near,
+    /// does not follow the champion) until the champion calls it back.
+    /// </summary>
+    public bool SummonStay { get; set; }
+
     /// <summary>Gets or sets the kills of this match.</summary>
     public int Kills { get; set; }
 

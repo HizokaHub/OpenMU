@@ -231,6 +231,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         set => this.MobaState.SummonControl = value;
     }
 
+    /// <summary>Gets or sets a value indicating whether the summon was released where it stands (it holds its post instead of following).</summary>
+    public bool MobaSummonStay
+    {
+        get => this.MobaState.SummonStay;
+        set => this.MobaState.SummonStay = value;
+    }
+
     /// <summary>Gets or sets the unspent MOBA champion points of the class buffs (earned at levels 5, 10, 15, 20, 25 and 30).</summary>
     public int MobaBuffPoints
     {

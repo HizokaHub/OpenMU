@@ -72,8 +72,8 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
 
         if (span.Length >= 5 && span[3] == 0x27)
         {
-            // C1 05 D5 27 on: the control key (X) of the summon was pressed: 1 = command it, 0 = let it follow.
-            await MobaSummons.SetControlAsync(player, span[4] != 0).ConfigureAwait(false);
+            // C1 05 D5 27 mode: the keys of the summon: 1 = command it (X), 0 = release it where it stands (X again), 2 = call it back (Z).
+            await MobaSummons.SetControlAsync(player, span[4]).ConfigureAwait(false);
             return;
         }
 

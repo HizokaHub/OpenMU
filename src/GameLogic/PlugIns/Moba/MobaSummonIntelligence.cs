@@ -49,6 +49,9 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     /// <summary>Gets a value indicating whether the owner is commanding the summon (otherwise it follows the owner).</summary>
     public bool Controlled => this.Owner.MobaSummonControl;
 
+    /// <summary>Gets a value indicating whether the owner left it holding its post (it neither follows nor is commanded).</summary>
+    public bool Stay => this.Owner.MobaSummonStay;
+
     /// <summary>Gets the point the summon was ordered to walk to, if any.</summary>
     public Point? MoveOrder => this._moveOrder;
 
@@ -200,16 +203,17 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
             this._retaliateTarget = null;
         }
 
-        var watchCenter = this.Controlled ? position : this.Owner.Position;
+        var holdsPost = this.Controlled || this.Stay;
+        var watchCenter = holdsPost ? position : this.Owner.Position;
         var target = this._retaliateTarget ?? this.FindEnemy(map, watchCenter, position);
-        if (target is not null && (this.Controlled || Distance(target.Position, this.Owner.Position) <= LeashRange))
+        if (target is not null && (holdsPost || Distance(target.Position, this.Owner.Position) <= LeashRange))
         {
             await this.FightAsync(target, attackRange).ConfigureAwait(false);
             return;
         }
 
         this._retaliateTarget = null;
-        if (!this.Controlled)
+        if (!holdsPost)
         {
             await this.FollowOwnerAsync(map, position).ConfigureAwait(false);
         }
