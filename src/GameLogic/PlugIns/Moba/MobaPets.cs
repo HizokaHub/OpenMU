@@ -12,6 +12,7 @@ using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Pet;
 using MUnique.OpenMU.GameLogic.PlayerActions.Items;
+using MUnique.OpenMU.GameLogic.Views.World;
 
 /// <summary>
 /// MOBA balance of pets, mounts and the Dark Lord's Dark Raven.
@@ -43,6 +44,8 @@ public static class MobaPets
     /// <summary>Movement speed (native unit) of mounts: 10 % above the 15 of the wings.</summary>
     private const float MountSpeed = 16.5f;
 
+    private const byte PetSlotOfHorse = 8;
+    private const byte PetSlotOfRaven = 1;
     private const short HorseNumber = 4;
     private const short RavenNumber = 5;
     private const short EarthshakeSkill = 62;
@@ -214,6 +217,65 @@ public static class MobaPets
         }
     }
 
+    /// <summary>
+    /// The appearance of a champion with the pets it switched on from the inventory: the Dark Horse takes the place of the item in
+    /// the pet slot and the Dark Raven the one of the left hand (the shield), as if they were equipped.
+    /// </summary>
+    /// <param name="player">The champion.</param>
+    /// <param name="equipped">The appearance of the equipped items.</param>
+    /// <returns>The appearance to show.</returns>
+    public static IEnumerable<ItemAppearance> ApplyActivePets(Player player, List<ItemAppearance> equipped)
+    {
+        if (!ActiveByPlayer.TryGetValue(player, out var active))
+        {
+            return equipped;
+        }
+
+        void Place(Item? item, byte slot)
+        {
+            if (item is null)
+            {
+                return;
+            }
+
+            equipped.RemoveAll(a => a.ItemSlot == slot);
+            var appearance = item.GetAppearance();
+            appearance.ItemSlot = slot;
+            equipped.Add(appearance);
+        }
+
+        Place(active.Horse, PetSlotOfHorse);
+        Place(active.Raven, PetSlotOfRaven);
+        return equipped;
+    }
+
+    /// <summary>
+    /// Whether the item is a Dark Horse / Dark Raven of a MOBA champion which the appearance packets must treat as worn: the slot it
+    /// shows in and whether it is switched on now.
+    /// </summary>
+    /// <param name="player">The champion the packet is about.</param>
+    /// <param name="item">The item of the packet.</param>
+    /// <param name="slot">The slot the pet shows in.</param>
+    /// <param name="active">Whether it is switched on.</param>
+    /// <returns><see langword="true"/> for a pet which is not equipped.</returns>
+    public static bool TryGetShownSlot(Player player, Item item, out byte slot, out bool active)
+    {
+        slot = 0;
+        active = false;
+        if (!player.IsMobaClone
+            || item.Definition is not { Group: 13 } definition
+            || (definition.Number != HorseNumber && definition.Number != RavenNumber)
+            || player.Inventory is not { } inventory
+            || inventory.EquippedItems.Contains(item))
+        {
+            return false;
+        }
+
+        slot = definition.Number == HorseNumber ? PetSlotOfHorse : PetSlotOfRaven;
+        active = ActiveByPlayer.TryGetValue(player, out var pets) && (definition.Number == HorseNumber ? pets.Horse == item : pets.Raven == item);
+        return true;
+    }
+
     /// <summary>Whether the Dark Horse of the champion is switched on (from the inventory).</summary>
     /// <param name="player">The champion.</param>
     /// <returns><see langword="true"/> while it works.</returns>
@@ -263,6 +325,7 @@ public static class MobaPets
             if (active.Horse is not null)
             {
                 await DeactivateHorseAsync(player, active).ConfigureAwait(false);
+                await ShowAppearanceAsync(player, item).ConfigureAwait(false);
                 await player.ShowBlueMessageAsync("[MOBA] Dark Horse desactivado.").ConfigureAwait(false);
                 return;
             }
@@ -278,6 +341,7 @@ public static class MobaPets
                 await skillList.AddPetSkillAsync(skill).ConfigureAwait(false);
             }
 
+            await ShowAppearanceAsync(player, item).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Horse activado: más velocidad y la skill Terremoto. Clic derecho otra vez para desactivarlo.").ConfigureAwait(false);
             return;
         }
@@ -286,11 +350,13 @@ public static class MobaPets
         {
             player.RemovePetCommandManager();
             active.Raven = null;
+            await ShowAppearanceAsync(player, item).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
             return;
         }
 
         active.Raven = item;
+        await ShowAppearanceAsync(player, item).ConfigureAwait(false);
         var manager = new Pet.RavenCommandManager(player, item);
         player.UsePetCommandManager(manager);
         await manager.SetBehaviourAsync(PetBehaviour.AttackWithOwner, null).ConfigureAwait(false);
@@ -312,6 +378,7 @@ public static class MobaPets
         if (active.Horse is { } horse && (!inventory.Items.Contains(horse) || inventory.EquippedItems.Contains(horse)))
         {
             await DeactivateHorseAsync(player, active).ConfigureAwait(false);
+            await ShowAppearanceAsync(player, horse).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Horse desactivado.").ConfigureAwait(false);
         }
 
@@ -319,7 +386,29 @@ public static class MobaPets
         {
             player.RemovePetCommandManager();
             active.Raven = null;
+            await ShowAppearanceAsync(player, raven).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Tells everybody around (and the owner) how the pet slot of the champion looks now: the pet when it is switched on, otherwise
+    /// the item which is really equipped there (or nothing).
+    /// </summary>
+    private static async ValueTask ShowAppearanceAsync(Player player, Item pet)
+    {
+        player.OnAppearanceChanged();
+        var isHorse = pet.Definition?.Number == HorseNumber;
+        var slot = isHorse ? PetSlotOfHorse : PetSlotOfRaven;
+        var isActive = isHorse ? IsHorseActive(player) : IsRavenActive(player);
+
+        // The pet itself (switched on: it is shown; off: its slot is cleared) ...
+        await player.ForEachWorldObserverAsync<IAppearanceChangedPlugIn>(p => p.AppearanceChangedAsync(player, pet, isActive), true).ConfigureAwait(false);
+
+        // ... and, when it is off, what is really equipped in that slot comes back.
+        if (!isActive && player.Inventory?.GetItem(slot) is { } real && player.Inventory.EquippedItems.Contains(real))
+        {
+            await player.ForEachWorldObserverAsync<IAppearanceChangedPlugIn>(p => p.AppearanceChangedAsync(player, real, true), true).ConfigureAwait(false);
         }
     }
 

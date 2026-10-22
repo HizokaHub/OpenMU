@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView.World;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Network;
@@ -49,7 +50,16 @@ public class AppearanceChangedPlugIn : IAppearanceChangedPlugIn
                 ChangedPlayerId = changedPlayer.GetId(this._player),
             };
 
-            if (inventory!.EquippedItems.Contains(item))
+            // MOBA: a Dark Horse / Dark Raven switched on from the inventory is shown (or cleared) in the slot it would take if equipped.
+            var slot = item.ItemSlot;
+            var visible = inventory!.EquippedItems.Contains(item);
+            if (MobaPets.TryGetShownSlot(changedPlayer, item, out var petSlot, out var petActive))
+            {
+                slot = petSlot;
+                visible = petActive;
+            }
+
+            if (visible)
             {
                 itemSerializer.SerializeItem(packet.ItemData, item);
             }
@@ -62,7 +72,7 @@ public class AppearanceChangedPlugIn : IAppearanceChangedPlugIn
             // This full information is irrelevant. For this message, we just need the "glow" level, which means the one of the appearance serializer.
             // In the available space, the item position is serialized.
             // To summarize: The 4 higher bits hold the item position, the 4 lower bits hold the "glow" level
-            packet.ItemData[1] = (byte)(item.ItemSlot << 4);
+            packet.ItemData[1] = (byte)(slot << 4);
             packet.ItemData[1] |= item.GetGlowLevel();
 
             // We could also continue to dumb down information here as this packet reveals all of the options of an item to

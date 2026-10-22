@@ -44,7 +44,8 @@ internal sealed class PlayerAppearanceData : IAppearanceData
         {
             if (this._player.Inventory != null)
             {
-                return this._player.Inventory.EquippedItems.Select(item => item.GetAppearance());
+                // MOBA: a Dark Horse / Dark Raven switched on from the inventory looks equipped.
+                return PlugIns.Moba.MobaPets.ApplyActivePets(this._player, this._player.Inventory.EquippedItems.Select(item => item.GetAppearance()).ToList());
             }
 
             return Enumerable.Empty<ItemAppearance>();
