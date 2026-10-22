@@ -104,6 +104,11 @@ public static class MobaGold
         var final = (int)Math.Round(amount * phase * Math.Max(1f, itemBonus));
         champion.Money += final;
         MobaIncome.Add(champion, gold: true, reason, final);
+        champion.MobaState.GoldEarned += final;
+        if (reason is "creep" or "jungle")
+        {
+            champion.MobaState.CreepScore++;
+        }
 
         champion.Logger.LogDebug(
             "[MOBA-GOLD] {Name} +{Amount} ({Reason}), total={Total}",

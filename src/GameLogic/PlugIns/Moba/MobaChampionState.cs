@@ -48,6 +48,18 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the respawn wait of the champion's latest death (for the notice to the player).</summary>
     public TimeSpan LastRespawnDelay { get; set; }
 
+    /// <summary>Gets or sets the gold the champion earned in this match (what the results screen shows).</summary>
+    public long GoldEarned { get; set; }
+
+    /// <summary>Gets or sets the minions and jungle monsters the champion last-hit.</summary>
+    public int CreepScore { get; set; }
+
+    /// <summary>Gets or sets the damage the champion dealt to other champions.</summary>
+    public long DamageDealt { get; set; }
+
+    /// <summary>Gets or sets the damage the champion took from other champions.</summary>
+    public long DamageTaken { get; set; }
+
     /// <summary>Gets or sets the UTC instant of the champion's last sign of life (see <see cref="MobaAfk"/>).</summary>
     public DateTime LastInputUtc { get; set; } = DateTime.UtcNow;
 

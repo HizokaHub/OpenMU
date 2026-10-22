@@ -209,6 +209,14 @@ public static class MobaTelemetry
             var vs = StatsTable.GetOrCreateValue(victim);
             vs.DamageTaken += total;
 
+            // The results screen keeps its own totals with the champion's match state (they survive a reconnect).
+            if (attacker is Player { IsMobaClone: true } resultsAttacker)
+            {
+                resultsAttacker.MobaState.DamageDealt += total;
+            }
+
+            victim.MobaState.DamageTaken += total;
+
             // --- engagement + burst ---
             var va = victim.Attributes;
             var maxHp = va?[Stats.MaximumHealth] ?? 1f;

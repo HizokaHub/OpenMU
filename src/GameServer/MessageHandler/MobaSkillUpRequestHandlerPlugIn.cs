@@ -69,6 +69,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 4 && span[3] == 0x18)
+        {
+            // C1 04 D5 18: the button of the results table (back to town).
+            await MobaMatchEnder.ReturnToTownAsync(player).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 4 && span[3] == 0x09)
         {
             // C1 04 D5 09: recall (key B).
