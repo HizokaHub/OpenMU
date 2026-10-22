@@ -41,8 +41,18 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     private const int RefeedWhenStepsLeft = 1;
 
-    /// <summary>If the creep has wanted to move but couldn't claim a step for this long, it takes any free neighbour to break a jam.</summary>
-    private static readonly TimeSpan StuckShuffleAfter = TimeSpan.FromMilliseconds(1000);
+    /// <summary>If the creep has wanted to move but couldn't claim a step for this long, it takes a free neighbour (not further from where it is going) to break a jam.</summary>
+    private static readonly TimeSpan StuckShuffleAfter = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>
+    /// Tiles a melee creep (attack range 2 or less) may still be from its target and hit it. The creeps of a crowded front can
+    /// hardly ever claim the tile next to their target (the neighbours are taken), so they circled at two tiles and looked as if
+    /// they advanced and retreated while fighting (seen in the logs of 2026-10-22: the chase decisions caused most reversals).
+    /// </summary>
+    private const int MeleeContactSlack = 1;
+
+    /// <summary>The longest attack range which counts as melee.</summary>
+    private const int MeleeRange = 2;
 
     /// <summary>Tiles added to the creep's attack range to "notice" and walk toward an enemy.</summary>
     private const int AcquisitionRangeBonus = 6;
@@ -369,7 +379,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
         if (this._combatTarget is { } target)
         {
-            if (target.GetDistanceTo(pos) <= attackRange)
+            var reach = attackRange <= MeleeRange ? attackRange + MeleeContactSlack : attackRange;
+            if (target.GetDistanceTo(pos) <= reach)
             {
                 if (monster.IsWalking)
                 {
@@ -881,7 +892,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                     this._blockedSinceUtc = now;
                 }
                 else if (now - this._blockedSinceUtc >= StuckShuffleAfter
-                         && this.PickAnyFreeNeighbour(from, terrain, champions, mapId) is { } wiggle)
+                         && this.PickFreeNeighbourToward(from, to, terrain, champions, mapId) is { } wiggle)
                 {
                     this._decision = "wiggle";
                     this.SyncClaims(from, new[] { wiggle });
@@ -909,25 +920,42 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
     }
 
-    /// <summary>Any walkable, grid-claimable neighbour of <paramref name="from"/> (used only to unstick a jam).</summary>
-    private Point? PickAnyFreeNeighbour(Point from, byte[,] terrain, HashSet<Point> champions, GameMap mapId)
+    /// <summary>
+    /// A walkable, grid-claimable neighbour of <paramref name="from"/> which is not further from <paramref name="goal"/> than the
+    /// creep is now, the closest one first (used only to unstick a jam). The old version took ANY neighbour, backwards ones included,
+    /// so a creep blocked in a crowd stepped back and then walked forward again, over and over.
+    /// </summary>
+    private Point? PickFreeNeighbourToward(Point from, Point goal, byte[,] terrain, HashSet<Point> champions, GameMap mapId)
     {
-        var start = this.Monster.Id % 8;
-        for (var i = 0; i < 8; i++)
+        var current = from.EuclideanDistanceTo(goal);
+        Point? best = null;
+        var bestDistance = double.MaxValue;
+        for (var dir = 0; dir < 8; dir++)
         {
-            var (dx, dy) = ((start + i) % 8) switch
+            var (dx, dy) = dir switch
             {
                 0 => (0, -1), 1 => (1, -1), 2 => (1, 0), 3 => (1, 1),
                 4 => (0, 1), 5 => (-1, 1), 6 => (-1, 0), _ => (-1, -1),
             };
 
-            var n = new Point((byte)(from.X + dx), (byte)(from.Y + dy));
-            if (n != from && terrain[n.X, n.Y] != 0 && !champions.Contains(n) && MobaOccupancyGrid.TryClaim(mapId, n, this))
+            var x = from.X + dx;
+            var y = from.Y + dy;
+            if (x is < 0 or > 255 || y is < 0 or > 255)
             {
-                return n;
+                continue;
             }
+
+            var n = new Point((byte)x, (byte)y);
+            var distance = n.EuclideanDistanceTo(goal);
+            if (distance > current + 0.5 || distance >= bestDistance || terrain[n.X, n.Y] == 0 || champions.Contains(n) || !MobaOccupancyGrid.IsFree(mapId, n, this))
+            {
+                continue;
+            }
+
+            best = n;
+            bestDistance = distance;
         }
 
-        return null;
+        return best is { } pick && MobaOccupancyGrid.TryClaim(mapId, pick, this) ? pick : null;
     }
 }

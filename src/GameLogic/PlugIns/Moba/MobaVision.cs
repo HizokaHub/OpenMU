@@ -84,13 +84,18 @@ public static class MobaVision
     /// <param name="target">The champion.</param>
     /// <returns><c>true</c> if any vision source of the team covers it.</returns>
     public static bool IsVisibleTo(MobaTeam team, Player target)
-    {
-        if (target.CurrentMap is not { } map)
-        {
-            return true;
-        }
+        => target.CurrentMap is not { } map || IsPositionVisibleTo(team, map, target.Position);
 
-        var position = target.Position;
+    /// <summary>
+    /// Determines whether a point of the map is covered by a vision source of the team (the creeps, champions, structures, wards and
+    /// owned fountains around it).
+    /// </summary>
+    /// <param name="team">The watching team.</param>
+    /// <param name="map">The map.</param>
+    /// <param name="position">The point.</param>
+    /// <returns><c>true</c> if any vision source of the team covers it.</returns>
+    public static bool IsPositionVisibleTo(MobaTeam team, GameMap map, Point position)
+    {
         if (map.GetAttackablesInRange(position, NexusRadius).Any(a => a.IsActive()
             && MobaTeams.GetTeam(a) == team
             && a.GetDistanceTo(position) <= SightRadiusOf(a)))

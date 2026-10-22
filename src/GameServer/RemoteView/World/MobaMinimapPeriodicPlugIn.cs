@@ -16,7 +16,7 @@ using MUnique.OpenMU.PlugIns;
 
 /// <summary>
 /// Pushes what the whole team knows to each MOBA player's minimap, wherever it is on the map (the scene
-/// range of the client doesn't cover it). Creeps are deliberately not sent. Custom packet C1 D5 10:
+/// range of the client doesn't cover it). The lane minions go in their own packet (<c>C2 D5 25</c>, small dots). Custom packet C1 D5 10:
 /// <code>
 /// C1 len D5 10 count  [ kind team x y hp% ] * count
 /// </code>
@@ -37,6 +37,10 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     private const byte PacketCode = 0xD5;
     private const byte PacketSubCode = 0x10;
     private const int EntrySize = 5;
+    private const byte CreepsSubCode = 0x25;
+    private const int CreepHeaderLength = 7;
+    private const int CreepEntrySize = 3;
+    private const int MaxCreepDots = 400;
 
     /// <summary>Cap so the C1 length byte never overflows (5 + n*5 &lt;= 255).</summary>
     private const int MaxEntries = 48;
@@ -133,7 +137,63 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             }
 
             await connection.SendAsync(Write).ConfigureAwait(false);
+            await SendCreepsAsync(connection, team, map).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// The lane minions as small dots: <c>C2 hi lo D5 25 count(u16 LE) [ x y team ] * count</c>. The team's own minions are always
+    /// sent; the enemy ones only while the team sees them. Jungle monsters and structures are not minions.
+    /// </summary>
+    private static async ValueTask SendCreepsAsync(IConnection connection, MobaTeam team, GameMap map)
+    {
+        var dots = new List<(byte X, byte Y, byte Team)>();
+        foreach (var attackable in map.GetAttackablesInRange(new MUnique.OpenMU.Pathfinding.Point(128, 128), 255))
+        {
+            if (!attackable.IsAlive || attackable is not Monster creep || MobaStructures.IsStructure(creep))
+            {
+                continue;
+            }
+
+            var creepTeam = MobaTeams.GetTeam(creep);
+            if (creepTeam == MobaTeam.None
+                || (creepTeam != team && !MobaVision.IsPositionVisibleTo(team, map, creep.Position)))
+            {
+                continue;
+            }
+
+            dots.Add((creep.Position.X, creep.Position.Y, (byte)creepTeam));
+            if (dots.Count >= MaxCreepDots)
+            {
+                break;
+            }
+        }
+
+        var length = CreepHeaderLength + (dots.Count * CreepEntrySize);
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC2;
+            span[1] = (byte)(length >> 8);
+            span[2] = (byte)(length & 0xFF);
+            span[3] = PacketCode;
+            span[4] = CreepsSubCode;
+            span[5] = (byte)(dots.Count & 0xFF);
+            span[6] = (byte)(dots.Count >> 8);
+            var offset = CreepHeaderLength;
+            foreach (var (x, y, dotTeam) in dots)
+            {
+                span[offset] = x;
+                span[offset + 1] = y;
+                span[offset + 2] = dotTeam;
+                offset += CreepEntrySize;
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
     }
 
     private static byte HealthPercent(IAttackable attackable)
