@@ -1291,6 +1291,16 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public ValueTask RemoveSummonAsync() => this._summon.RemoveAsync();
 
     /// <summary>
+    /// Makes the pet command manager of a pet which is not equipped (the MOBA Dark Raven works from the inventory).
+    /// </summary>
+    /// <param name="manager">The manager.</param>
+    public void UsePetCommandManager(IPetCommandManager manager)
+    {
+        this._petCommandManager?.Dispose();
+        this._petCommandManager = manager;
+    }
+
+    /// <summary>
     /// Removes the pet command manager.
     /// </summary>
     public void RemovePetCommandManager()

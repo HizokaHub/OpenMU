@@ -168,6 +168,14 @@ public sealed class SkillList : ISkillList, IDisposable
         return this._availableSkills.ContainsKey(skillId);
     }
 
+    /// <summary>
+    /// Adds a skill which an item gives, for an item which is not equipped (the MOBA pets work from the inventory).
+    /// <see cref="RemoveItemSkillAsync"/> takes it away again.
+    /// </summary>
+    /// <param name="skill">The skill.</param>
+    /// <returns>A task.</returns>
+    public ValueTask AddPetSkillAsync(Skill skill) => this.AddItemSkillAsync(skill);
+
     private async ValueTask AddItemSkillAsync(Skill skill)
     {
         // If character is not selected (e.g., during disconnect cleanup), skill list doesn't need to be updated

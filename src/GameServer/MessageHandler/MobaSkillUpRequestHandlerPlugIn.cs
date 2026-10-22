@@ -70,6 +70,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 5 && span[3] == 0x2A)
+        {
+            // C1 05 D5 2A slot: the right click of a Dark Horse / Dark Raven in the inventory (switches it on or off).
+            await MobaPets.ToggleFromInventoryAsync(player, span[4]).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 5 && span[3] == 0x27)
         {
             // C1 05 D5 27 mode: the keys of the summon: 1 = command it (X), 0 = release it where it stands (X again), 2 = call it back (Z).

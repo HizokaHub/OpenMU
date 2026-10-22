@@ -43,6 +43,10 @@ public static class MobaPets
     /// <summary>Movement speed (native unit) of mounts: 10 % above the 15 of the wings.</summary>
     private const float MountSpeed = 16.5f;
 
+    private const short HorseNumber = 4;
+    private const short RavenNumber = 5;
+    private const short EarthshakeSkill = 62;
+
     private static readonly object ConfigLock = new();
 
     private static readonly ConditionalWeakTable<Item, object> ActivatedRavens = new();
@@ -50,7 +54,23 @@ public static class MobaPets
     /// <summary>The Dark Lord's damaging skills (without the pets').</summary>
     private static readonly short[] DarkLordKitSkills = { 60, 61, 66, 65, 78, 74, 19, 20, 21, 22, 23 };
 
+    private static readonly ConditionalWeakTable<Player, ActivePets> ActiveByPlayer = new();
+
     private static bool _configured;
+
+    /// <summary>What a Dark Lord has switched on from its inventory.</summary>
+    private sealed class ActivePets
+    {
+        public Item? Horse { get; set; }
+
+        public IElement? HorseSpeed { get; set; }
+
+        public IElement? HorseSpeedUnderwater { get; set; }
+
+        public Skill? HorseSkill { get; set; }
+
+        public Item? Raven { get; set; }
+    }
 
     /// <summary>
     /// Gets the pet experience a pet needs to be at <paramref name="level"/> (same formula as the
@@ -194,6 +214,141 @@ public static class MobaPets
         }
     }
 
+    /// <summary>Whether the Dark Horse of the champion is switched on (from the inventory).</summary>
+    /// <param name="player">The champion.</param>
+    /// <returns><see langword="true"/> while it works.</returns>
+    public static bool IsHorseActive(Player player) => ActiveByPlayer.TryGetValue(player, out var active) && active.Horse is not null;
+
+    /// <summary>Whether the Dark Raven of the champion is switched on (from the inventory).</summary>
+    /// <param name="player">The champion.</param>
+    /// <returns><see langword="true"/> while it works.</returns>
+    public static bool IsRavenActive(Player player) => ActiveByPlayer.TryGetValue(player, out var active) && active.Raven is not null;
+
+    /// <summary>
+    /// The right click of a Dark Horse or Dark Raven in the inventory: the pet works from the inventory (it keeps no equipment
+    /// slot, so the Dark Lord can wear a shield and another pet) until the player clicks it again. The Horse gives its speed and
+    /// the Earthshake skill; the Raven attacks with its owner.
+    /// </summary>
+    /// <param name="player">The champion.</param>
+    /// <param name="slot">The inventory slot of the pet.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask ToggleFromInventoryAsync(Player player, byte slot)
+    {
+        if (!player.IsMobaClone || player.Inventory is not { } inventory || player.Attributes is not { } attributes)
+        {
+            return;
+        }
+
+        if (inventory.GetItem(slot) is not { Definition: { Group: 13 } definition } item
+            || (definition.Number != HorseNumber && definition.Number != RavenNumber))
+        {
+            return;
+        }
+
+        if (MobaPassives.FamilyOf(player) != MobaFamily.DarkLord)
+        {
+            await player.ShowBlueMessageAsync("[MOBA] Solo el Dark Lord puede usar esta mascota.").ConfigureAwait(false);
+            return;
+        }
+
+        if (inventory.EquippedItems.Contains(item))
+        {
+            await player.ShowBlueMessageAsync("[MOBA] Ya la llevas equipada: guárdala en el inventario y actívala con clic derecho para liberar el slot.").ConfigureAwait(false);
+            return;
+        }
+
+        var active = ActiveByPlayer.GetOrCreateValue(player);
+        if (definition.Number == HorseNumber)
+        {
+            if (active.Horse is not null)
+            {
+                await DeactivateHorseAsync(player, active).ConfigureAwait(false);
+                await player.ShowBlueMessageAsync("[MOBA] Dark Horse desactivado.").ConfigureAwait(false);
+                return;
+            }
+
+            active.Horse = item;
+            active.HorseSpeed = new SimpleElement(MountSpeed, AggregateType.Maximum);
+            active.HorseSpeedUnderwater = new SimpleElement(MountSpeed, AggregateType.Maximum);
+            attributes.AddElement(active.HorseSpeed, Stats.MovementSpeed);
+            attributes.AddElement(active.HorseSpeedUnderwater, Stats.MovementSpeedUnderwater);
+            active.HorseSkill = definition.Skill ?? player.GameContext.Configuration.Skills.FirstOrDefault(s => s.Number == EarthshakeSkill);
+            if (active.HorseSkill is { } skill && player.SkillList is SkillList skillList)
+            {
+                await skillList.AddPetSkillAsync(skill).ConfigureAwait(false);
+            }
+
+            await player.ShowBlueMessageAsync("[MOBA] Dark Horse activado: más velocidad y la skill Terremoto. Clic derecho otra vez para desactivarlo.").ConfigureAwait(false);
+            return;
+        }
+
+        if (active.Raven is not null)
+        {
+            player.RemovePetCommandManager();
+            active.Raven = null;
+            await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
+            return;
+        }
+
+        active.Raven = item;
+        var manager = new Pet.RavenCommandManager(player, item);
+        player.UsePetCommandManager(manager);
+        await manager.SetBehaviourAsync(PetBehaviour.AttackWithOwner, null).ConfigureAwait(false);
+        await player.ShowBlueMessageAsync("[MOBA] Dark Raven activado: ataca junto a ti. Clic derecho otra vez para desactivarlo.").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A pet switched on from the inventory stops working when its item leaves the inventory (sold, dropped, equipped).
+    /// </summary>
+    /// <param name="player">The champion.</param>
+    /// <returns>A task.</returns>
+    private static async ValueTask SyncActiveAsync(Player player)
+    {
+        if (!ActiveByPlayer.TryGetValue(player, out var active) || player.Inventory is not { } inventory)
+        {
+            return;
+        }
+
+        if (active.Horse is { } horse && (!inventory.Items.Contains(horse) || inventory.EquippedItems.Contains(horse)))
+        {
+            await DeactivateHorseAsync(player, active).ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[MOBA] Dark Horse desactivado.").ConfigureAwait(false);
+        }
+
+        if (active.Raven is { } raven && (!inventory.Items.Contains(raven) || inventory.EquippedItems.Contains(raven)))
+        {
+            player.RemovePetCommandManager();
+            active.Raven = null;
+            await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
+        }
+    }
+
+    private static async ValueTask DeactivateHorseAsync(Player player, ActivePets active)
+    {
+        if (player.Attributes is { } attributes)
+        {
+            if (active.HorseSpeed is { } speed)
+            {
+                attributes.RemoveElement(speed, Stats.MovementSpeed);
+            }
+
+            if (active.HorseSpeedUnderwater is { } underwater)
+            {
+                attributes.RemoveElement(underwater, Stats.MovementSpeedUnderwater);
+            }
+        }
+
+        if (active.HorseSkill is { } skill)
+        {
+            await player.SkillList!.RemoveItemSkillAsync(skill.Number.ToUnsigned()).ConfigureAwait(false);
+        }
+
+        active.Horse = null;
+        active.HorseSpeed = null;
+        active.HorseSpeedUnderwater = null;
+        active.HorseSkill = null;
+    }
+
     /// <summary>
     /// Match tick: makes every Dark Lord with an equipped Dark Raven attack with its owner (the
     /// client would have to send the pet command otherwise).
@@ -205,6 +360,11 @@ public static class MobaPets
         try
         {
             var players = await gameContext.GetPlayersAsync().ConfigureAwait(false);
+            foreach (var champion in players.Where(p => p.IsMobaClone))
+            {
+                await SyncActiveAsync(champion).ConfigureAwait(false);
+            }
+
             foreach (var champion in players.Where(p => p.IsMobaClone && p.IsAlive))
             {
                 if (champion.Inventory?.GetItem(InventoryConstants.RightHandSlot) is { } pet
