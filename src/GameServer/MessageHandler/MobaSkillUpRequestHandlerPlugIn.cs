@@ -95,11 +95,44 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
-        if (span.Length >= 5 && span[3] == 0x1D)
+        if (span.Length >= 4 && span[3] == 0x1E)
         {
-            // C1 len D5 1D codeLen code: the code typed in the "join a room" box of the menu panel.
-            var codeLength = Math.Min((int)span[4], span.Length - 5);
-            await MobaRoomMenu.JoinByCodeAsync(player, System.Text.Encoding.ASCII.GetString(span.Slice(5, codeLength))).ConfigureAwait(false);
+            // C1 04 D5 1E: the room browser asks for a fresh list of rooms.
+            await MobaRooms.SendListAsync(player, false).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 6 && span[3] == 0x20)
+        {
+            // C1 len D5 20 teamSize flags nameLen name: create a room (flags: 1 middle lane only, 2 bots).
+            var nameLength = span.Length >= 7 ? Math.Min((int)span[6], span.Length - 7) : 0;
+            var roomName = nameLength > 0 ? System.Text.Encoding.UTF8.GetString(span.Slice(7, nameLength)) : null;
+            var answer = await MobaRooms.CreateAsync(player, roomName, span[4], (span[5] & 1) != 0, (span[5] & 2) != 0).ConfigureAwait(false);
+            await player.ShowBlueMessageAsync("[Sala] " + answer).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 8 && span[3] == 0x21)
+        {
+            // C1 08 D5 21 id(u32 LE): join a room.
+            var roomId = BitConverter.ToInt32(span.Slice(4, 4));
+            await player.ShowBlueMessageAsync("[Sala] " + await MobaRooms.JoinAsync(player, roomId).ConfigureAwait(false)).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 6 && span[3] == 0x22)
+        {
+            // C1 len D5 22 action nameLen name: a host button which acts on another player (1 move, 2 kick, 3 make host).
+            var targetLength = Math.Min((int)span[5], span.Length - 6);
+            await MobaRooms.HandleTargetActionAsync(player, span[4], System.Text.Encoding.UTF8.GetString(span.Slice(6, targetLength))).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 5 && span[3] == 0x24)
+        {
+            // C1 len D5 24 textLen text: a line of the room chat.
+            var textLength = Math.Min((int)span[4], span.Length - 5);
+            await MobaRooms.ChatAsync(player, System.Text.Encoding.UTF8.GetString(span.Slice(5, textLength))).ConfigureAwait(false);
             return;
         }
 

@@ -18,7 +18,7 @@ public class MobaRoomChatCommandArgs : ArgumentsBase
     [Argument("action", false)]
     public string? Action { get; set; }
 
-    /// <summary>Gets or sets the extra argument: the format for crear (5v5, 3v3, 1v1, aram), the code for unir, si / no for bots.</summary>
+    /// <summary>Gets or sets the extra argument: the format for crear (NvN, NvNaram, aram), the room number for unir, si / no for bots.</summary>
     [Argument("extra", false)]
     public string? Extra { get; set; }
 }
@@ -31,7 +31,7 @@ public class MobaRoomChatCommandArgs : ArgumentsBase
 [Guid("3E8A5C72-9D14-4B60-A2F7-6C1B0E4D9835")]
 [PlugIn]
 [Display(Name = "MOBA: private room command", Description = "Command '/sala crear|unir|equipo|bots|iniciar|salir|estado' - private rooms with a code.")]
-[ChatCommandHelp(Command, "Private MOBA rooms with a code: 'crear [5v5|3v3|1v1|aram]' creates one, 'unir CODE' joins, 'equipo' changes your team, 'bots si|no' (host) fills the free places with bots, 'iniciar' (host) starts the match, 'salir' leaves, no argument shows the room.", typeof(MobaRoomChatCommandArgs))]
+[ChatCommandHelp(Command, "Private MOBA rooms (the same as the room browser of the queue master): 'crear [NvN|NvNaram|aram]' creates one, 'unir NUMBER' joins, 'equipo' changes your team, 'bots si|no' (host) fills the free places with bots, 'iniciar' (host) starts the match, 'salir' leaves, no argument shows the room.", typeof(MobaRoomChatCommandArgs))]
 public class MobaRoomChatCommandPlugIn : ChatCommandPlugInBase<MobaRoomChatCommandArgs>
 {
     private const string Command = "/sala";
@@ -43,17 +43,24 @@ public class MobaRoomChatCommandPlugIn : ChatCommandPlugInBase<MobaRoomChatComma
     public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
 
     /// <summary>
-    /// Gets the format a text names.
+    /// Gets the size and the map a text names: <c>3v3</c> (three per team, the three lanes), <c>3v3aram</c> (the middle lane only)
+    /// or <c>aram</c> (five per team, the middle lane only).
     /// </summary>
-    /// <param name="text">The text (5v5, 3v3, 1v1, aram).</param>
-    /// <returns>The format; the classic one if the text is empty or unknown.</returns>
-    public static MobaFormat FormatOf(string? text) => text?.Trim().ToLowerInvariant() switch
+    /// <param name="text">The text.</param>
+    /// <returns>The players per team and whether only the middle lane is played; 5v5 on three lanes if the text is empty or unknown.</returns>
+    public static (int TeamSize, bool MidOnly) ShapeOf(string? text)
     {
-        "3v3" or "trio" => MobaFormat.Trio,
-        "1v1" or "duel" => MobaFormat.Duel,
-        "aram" => MobaFormat.Aram,
-        _ => MobaFormat.Classic,
-    };
+        var clean = (text ?? string.Empty).Trim().ToLowerInvariant();
+        var midOnly = clean.Contains("aram");
+        var size = clean.Length >= 3 && clean[1] == 'v' && int.TryParse(clean[..1], out var parsed) && parsed is >= 1 and <= 5 ? parsed : 5;
+        return (size, midOnly);
+    }
+
+    private static ValueTask<string> CreateAsync(Player player, string? shape)
+    {
+        var (size, midOnly) = ShapeOf(shape);
+        return MobaRooms.CreateAsync(player, null, size, midOnly, true);
+    }
 
     /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaRoomChatCommandArgs arguments)
@@ -61,8 +68,8 @@ public class MobaRoomChatCommandPlugIn : ChatCommandPlugInBase<MobaRoomChatComma
         var extra = arguments.Extra?.Trim();
         var message = arguments.Action?.Trim().ToLowerInvariant() switch
         {
-            "crear" => await MobaRooms.CreateAsync(player, FormatOf(extra)).ConfigureAwait(false),
-            "unir" => await MobaRooms.JoinAsync(player, extra).ConfigureAwait(false),
+            "crear" => await CreateAsync(player, extra).ConfigureAwait(false),
+            "unir" => int.TryParse(extra, out var roomId) ? await MobaRooms.JoinAsync(player, roomId).ConfigureAwait(false) : "Escribe el número de la sala: /sala unir 101.",
             "salir" => await MobaRooms.LeaveAsync(player).ConfigureAwait(false),
             "equipo" => await MobaRooms.SwitchTeamAsync(player).ConfigureAwait(false),
             "bots" => await MobaRooms.SetBotsAsync(player, !string.Equals(extra, "no", StringComparison.OrdinalIgnoreCase)).ConfigureAwait(false),

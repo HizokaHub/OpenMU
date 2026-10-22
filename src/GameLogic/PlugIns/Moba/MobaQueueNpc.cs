@@ -49,7 +49,7 @@ public static class MobaQueueNpc
         "Buscar 1v1 (carril central)",
         "Buscar ARAM 5v5 (carril central)",
         "Elegir mis skills",
-        "Partida privada (sala con código)",
+        "Salas privadas (crear o unirse)",
         "Salir de la cola",
         "Estado de la cola",
         "Cómo funcionan los modos",
@@ -156,12 +156,8 @@ public static class MobaQueueNpc
         }
         else if (menuId == MobaQueueService.MenuId && player.OpenedNpc is { } npcRoom && IsQueueMaster(npcRoom) && optionIndex == RoomOption)
         {
-            await MobaRoomMenu.OpenAsync(player).ConfigureAwait(false);
-            return true;
-        }
-        else if (menuId == MobaRooms.MenuId)
-        {
-            await MobaRoomMenu.SelectOptionAsync(player, optionIndex).ConfigureAwait(false);
+            await MobaRooms.OpenAsync(player).ConfigureAwait(false);
+            await CloseDialogAsync(player).ConfigureAwait(false);
             return true;
         }
         else if (menuId == MobaQueueService.MenuId && player.OpenedNpc is { } npc2 && IsQueueMaster(npc2))

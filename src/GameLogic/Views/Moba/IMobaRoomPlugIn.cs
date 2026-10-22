@@ -16,18 +16,20 @@ public sealed record MobaRoomMember(string Name, bool IsHost, bool IsMine, byte 
 /// <summary>
 /// What the room panel of the client shows.
 /// </summary>
-/// <param name="Code">The code of the room.</param>
-/// <param name="Label">The format of the match (5v5, 3v3...).</param>
-/// <param name="FillWithBots">Whether the free places are filled with bots.</param>
-/// <param name="IsHost">Whether the receiving player is the host (it gets the bots and start buttons).</param>
+/// <param name="Id">The identifier of the room.</param>
+/// <param name="Name">The name the host gave the room.</param>
 /// <param name="TeamSize">The places of every team.</param>
+/// <param name="MidOnly">Whether only the middle lane is played.</param>
+/// <param name="FillWithBots">Whether the free places are filled with bots.</param>
+/// <param name="IsHost">Whether the receiving player is the host (it gets the host buttons).</param>
 /// <param name="Blue">The blue team.</param>
 /// <param name="Red">The red team.</param>
-public sealed record MobaRoomInfo(string Code, string Label, bool FillWithBots, bool IsHost, int TeamSize, IReadOnlyList<MobaRoomMember> Blue, IReadOnlyList<MobaRoomMember> Red);
+public sealed record MobaRoomInfo(int Id, string Name, int TeamSize, bool MidOnly, bool FillWithBots, bool IsHost, IReadOnlyList<MobaRoomMember> Blue, IReadOnlyList<MobaRoomMember> Red);
 
 /// <summary>
-/// Shows the panel of the private room of the player. The panel's buttons answer with <c>C1 05 D5 1C action</c>
-/// (1 change team, 2 bots, 3 start, 4 leave).
+/// Shows the panel of the private room of the player. The buttons answer with <c>C1 05 D5 1C action</c>
+/// (1 change team, 2 bots, 3 start, 4 leave, 5 close the room) and, for a player of the room, with
+/// <c>C1 len D5 22 action nameLen name</c> (1 move, 2 kick, 3 make host).
 /// </summary>
 public interface IMobaRoomPlugIn : IViewPlugIn
 {

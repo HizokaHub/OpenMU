@@ -14,17 +14,18 @@ using MUnique.OpenMU.PlugIns;
 /// <summary>
 /// Sends the private room of the player to the MOBA client. Layout:
 /// <code>
-/// C2 hi lo D5 1B  present  isHost  fillBots  teamSize  codeLen code  labelLen label
+/// C2 hi lo D5 1B  present  isHost  fillBots  midOnly  teamSize  id(u32 LE)  nameLen name
 ///   blueCount (flags baseClass nameLen name)*  redCount (flags baseClass nameLen name)*       flags: bit0 host, bit1 yours
 /// </code>
 /// </summary>
 [PlugIn]
-[Display(Name = "MOBA: room panel", Description = "Shows the panel of the private room (code, teams, buttons).")]
+[Display(Name = "MOBA: room panel", Description = "Shows the panel of the private room (teams, chat, host buttons).")]
 [Guid("C26E8A41-5D93-4F07-B1A8-3E7C9D0F4B65")]
 public class MobaRoomPlugIn : IMobaRoomPlugIn
 {
     private const int HeaderLength = 5;
     private const int MaxNameBytes = 20;
+    private const int MaxRoomNameBytes = 72;
     private const int MaxMembers = 12;
 
     private readonly RemotePlayer _player;
@@ -51,9 +52,10 @@ public class MobaRoomPlugIn : IMobaRoomPlugIn
             body.Add(1);
             body.Add(room.IsHost ? (byte)1 : (byte)0);
             body.Add(room.FillWithBots ? (byte)1 : (byte)0);
+            body.Add(room.MidOnly ? (byte)1 : (byte)0);
             body.Add((byte)room.TeamSize);
-            AddText(body, room.Code);
-            AddText(body, room.Label);
+            body.AddRange(BitConverter.GetBytes((uint)room.Id));
+            AddText(body, room.Name, MaxRoomNameBytes);
             AddTeam(body, room.Blue);
             AddTeam(body, room.Red);
         }
@@ -75,10 +77,10 @@ public class MobaRoomPlugIn : IMobaRoomPlugIn
         await connection.SendAsync(Write).ConfigureAwait(false);
     }
 
-    private static void AddText(List<byte> body, string text)
+    private static void AddText(List<byte> body, string text, int maxBytes)
     {
         var bytes = Encoding.UTF8.GetBytes(text);
-        var count = Math.Min(bytes.Length, MaxNameBytes);
+        var count = Math.Min(bytes.Length, maxBytes);
         body.Add((byte)count);
         body.AddRange(bytes.AsSpan(0, count).ToArray());
     }
@@ -91,7 +93,7 @@ public class MobaRoomPlugIn : IMobaRoomPlugIn
         {
             body.Add((byte)((member.IsHost ? 1 : 0) | (member.IsMine ? 2 : 0)));
             body.Add(member.BaseClass);
-            AddText(body, member.Name);
+            AddText(body, member.Name, MaxNameBytes);
         }
     }
 }
