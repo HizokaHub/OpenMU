@@ -48,6 +48,12 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the respawn wait of the champion's latest death (for the notice to the player).</summary>
     public TimeSpan LastRespawnDelay { get; set; }
 
+    /// <summary>Gets or sets the UTC instant of the champion's last sign of life (see <see cref="MobaAfk"/>).</summary>
+    public DateTime LastInputUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Gets or sets how far the anti-AFK escalation of this champion has gone.</summary>
+    public MobaAfkStage AfkStage { get; set; }
+
     /// <summary>Gets the skill cooldowns: skill number mapped to the UTC instant it is usable again.</summary>
     public Dictionary<short, DateTime> SkillCooldowns { get; } = new();
 

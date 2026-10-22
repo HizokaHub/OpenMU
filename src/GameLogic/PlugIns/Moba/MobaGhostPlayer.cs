@@ -67,6 +67,10 @@ public sealed class MobaGhostPlayer : OfflinePlayer
 
         clone.PositionX = (byte)player.Position.X;
         clone.PositionY = (byte)player.Position.Y;
+
+        // The anti-AFK counts the disconnect as the last sign of life.
+        state.LastInputUtc = DateTime.UtcNow;
+        state.AfkStage = MobaAfkStage.Active;
         return new Handover(account, clone, player.MobaRealCharacter, state, MobaVitals.Capture(player), player.IsAlive);
     }
 

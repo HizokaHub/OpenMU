@@ -71,6 +71,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // The walls which close the side lanes of the middle-lane-only formats: the clients mirror them.
         await MobaLaneWalls.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Anti-AFK: idle champions are announced to their team and then sent to their base.
+        await MobaAfk.TickAsync(gameContext).ConfigureAwait(false);
+
         // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
         await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
 

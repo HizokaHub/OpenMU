@@ -62,6 +62,8 @@ public class SelectCharacterAction
             }
 
             championState.Placed = true;
+            championState.LastInputUtc = DateTime.UtcNow;
+            championState.AfkStage = MobaAfkStage.Active;
 
             player.MobaRealCharacter = realCharacter;
             player.SuppressPersistence = true;

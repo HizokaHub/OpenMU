@@ -10,8 +10,10 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameServer.RemoteView;
 using MUnique.OpenMU.Network.Packets;
+using MUnique.OpenMU.Network.Packets.ClientToServer;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -26,6 +28,29 @@ public class PacketHandlerPlugInContainer<THandler> : StrategyPlugInProvider<byt
     /// Since packet handler plugins are not holding any player state, they can be kept as singleton instances to save some memory.
     /// </summary>
     private static readonly ConcurrentDictionary<Type, THandler> HandlerCache = new();
+
+    /// <summary>
+    /// The packets which show a human is playing (walking, attacking, casting, picking, the MOBA channel, chatting);
+    /// the MOBA anti-AFK counts them as input.
+    /// </summary>
+    private static readonly HashSet<byte> InputPacketCodes = new()
+    {
+        WalkRequest.Code,
+        InstantMoveRequest.Code,
+        HitRequest.Code,
+        TargetedSkill.Code,
+        AreaSkill.Code,
+        AreaSkillHit.Code,
+        RageAttackRequest.Code,
+        RageAttackRangeRequest.Code,
+        TeleportTargetRef.Code,
+        PickupItemRequest.Code,
+        ConsumeItemRequest.Code,
+        BuyItemFromNpcRequest.Code,
+        SellItemToNpcRequest.Code,
+        PublicChatMessage.Code,
+        0xD5, // the MOBA channel
+    };
 
     private readonly IClientVersionProvider _clientVersionProvider;
 
@@ -69,6 +94,12 @@ public class PacketHandlerPlugInContainer<THandler> : StrategyPlugInProvider<byt
     {
         var typeIndex = packet.Span[0] % 2 == 1 ? 2 : 3;
         var packetType = packet.Span[typeIndex];
+        if (player.IsMobaClone && InputPacketCodes.Contains(packetType))
+        {
+            // Anti-AFK: the human did something.
+            await MobaAfk.NoteInputAsync(player).ConfigureAwait(false);
+        }
+
         var handler = this[packetType];
         await this.HandlePacketAsync(player, packet, handler).ConfigureAwait(false);
     }
