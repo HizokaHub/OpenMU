@@ -21,8 +21,14 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the EXP toward the next champion level.</summary>
     public long Experience { get; set; }
 
-    /// <summary>Gets or sets the unspent champion skill points.</summary>
-    public int SkillPoints { get; set; }
+    /// <summary>
+    /// Gets or sets the unspent champion skill points of the attack skills (one per level up to
+    /// <see cref="MobaSkills.AttackPointsMaxLevel"/>; the champion starts with the one of level 1).
+    /// </summary>
+    public int SkillPoints { get; set; } = 1;
+
+    /// <summary>Gets or sets the unspent points of the class buffs (earned at the levels of <see cref="MobaSkills.BuffPointLevels"/>).</summary>
+    public int BuffPoints { get; set; }
 
     /// <summary>Gets or sets the kills of this match.</summary>
     public int Kills { get; set; }

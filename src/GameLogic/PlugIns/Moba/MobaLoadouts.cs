@@ -183,6 +183,17 @@ public static class MobaLoadouts
     public static IReadOnlyList<short> SelectableFor(byte classNumber)
         => Skills[FamilyOf(classNumber)].Where(n => !Buffs.Contains(n) && !Summons.Contains(n)).ToArray();
 
+    /// <summary>Whether the skill is one of the class buffs.</summary>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <returns><see langword="true"/> for a buff.</returns>
+    public static bool IsBuff(short skillNumber) => Buffs.Contains(skillNumber);
+
+    /// <summary>Whether the skill is part of the kit of the class (what a champion can learn in a match).</summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <returns><see langword="true"/> if the kit has it.</returns>
+    public static bool InKit(byte classNumber, short skillNumber) => Skills[FamilyOf(classNumber)].Contains(skillNumber);
+
     /// <summary>
     /// The buffs of a class, which every champion of it has besides the skills it picked.
     /// </summary>

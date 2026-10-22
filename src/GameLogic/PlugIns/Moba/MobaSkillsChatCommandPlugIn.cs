@@ -37,7 +37,7 @@ public class MobaSkillsChatCommandPlugIn : ChatCommandPlugInBase<EmptyChatComman
             return;
         }
 
-        await player.ShowBlueMessageAsync($"[MOBA] Nivel {player.MobaLevel} - puntos de habilidad sin gastar: {player.MobaSkillPoints}").ConfigureAwait(false);
+        await player.ShowBlueMessageAsync($"[MOBA] Nivel {player.MobaLevel} - puntos de habilidad sin gastar: {player.MobaSkillPoints}, de buffs: {player.MobaBuffPoints}").ConfigureAwait(false);
         foreach (var entry in character.LearnedSkills.Where(s => s.Skill is not null).OrderBy(s => s.Skill!.Number))
         {
             await player.ShowBlueMessageAsync($"  #{entry.Skill!.Number} {entry.Skill.Name} - nivel {entry.Level}/{MobaSkills.SkillLevelCap}").ConfigureAwait(false);

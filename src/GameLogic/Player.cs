@@ -217,11 +217,18 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         set => this.MobaState.Experience = value;
     }
 
-    /// <summary>Gets or sets the unspent MOBA champion skill points (one earned per champion level).</summary>
+    /// <summary>Gets or sets the unspent MOBA champion skill points of the attack skills (one earned per champion level, up to level 20).</summary>
     public int MobaSkillPoints
     {
         get => this.MobaState.SkillPoints;
         set => this.MobaState.SkillPoints = value;
+    }
+
+    /// <summary>Gets or sets the unspent MOBA champion points of the class buffs (earned at levels 5, 10, 15, 20, 25 and 30).</summary>
+    public int MobaBuffPoints
+    {
+        get => this.MobaState.BuffPoints;
+        set => this.MobaState.BuffPoints = value;
     }
 
     /// <summary>
@@ -1160,6 +1167,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         if (!this.IsMobaClone && skill.Requirements.Any(r => r.MinimumValue > this.Attributes![r.Attribute]))
         {
+            return false;
+        }
+
+        // MOBA mode: a skill of the kit is inactive until the player puts a point in it (like LoL).
+        if (this.IsMobaClone && this is not PlugIns.Moba.MobaBotPlayer && PlugIns.Moba.MobaSkills.IsInactive(this, skillEntry))
+        {
+            await this.ShowBlueMessageAsync($"[MOBA] {skill.Name} está inactiva: sube un punto en ella con el + de la barra.").ConfigureAwait(false);
             return false;
         }
 

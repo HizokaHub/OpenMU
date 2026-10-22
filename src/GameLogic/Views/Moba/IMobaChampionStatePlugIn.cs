@@ -19,6 +19,7 @@ public interface IMobaChampionStatePlugIn : IViewPlugIn
     /// <param name="experienceToNextLevel">Experience needed for the next level (0 at the cap).</param>
     /// <param name="skillPoints">Unspent champion skill points.</param>
     /// <param name="statPoints">Unspent stat points (shown in the character window).</param>
-    /// <param name="skillLevels">The learned skills as (skill number, level) pairs, so the client can show the "+" buttons.</param>
-    ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, long statPoints, IReadOnlyList<(short Number, byte Level)> skillLevels);
+    /// <param name="skillLevels">The learned skills as (skill number, level) pairs, so the client can show the "+" buttons; bit 7 of the level marks a buff.</param>
+    /// <param name="buffPoints">Unspent points of the class buffs.</param>
+    ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, long statPoints, IReadOnlyList<(short Number, byte Level)> skillLevels, int buffPoints);
 }

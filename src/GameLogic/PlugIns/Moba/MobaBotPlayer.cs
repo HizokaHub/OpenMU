@@ -215,7 +215,8 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             this.IsMobaClone = true;
             this.MobaLevel = 1;
             this.MobaExperience = 0;
-            this.MobaSkillPoints = 0;
+            this.MobaSkillPoints = 1;
+            this.MobaBuffPoints = 0;
             this.MobaSkillCooldowns.Clear();
             this.MobaSkillGraceEnds.Clear();
 
@@ -1909,6 +1910,20 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             if (MobaSkills.TryLevelUp(this, entry.Skill!.Number) != MobaSkills.SkillUpResult.Ok)
             {
                 learned.Remove(entry);
+            }
+        }
+
+        // The buff points go into the buffs the same way.
+        var buffs = character.LearnedSkills
+            .Where(s => s.Skill is { } sk && MobaSkills.IsBuff((short)sk.Number) && s.Level < MobaSkills.SkillLevelCap)
+            .ToList();
+        guard = 0;
+        while (this.MobaBuffPoints > 0 && buffs.Count > 0 && guard++ < 64)
+        {
+            var entry = buffs[guard % buffs.Count];
+            if (MobaSkills.TryLevelUp(this, entry.Skill!.Number) != MobaSkills.SkillUpResult.Ok)
+            {
+                buffs.Remove(entry);
             }
         }
 

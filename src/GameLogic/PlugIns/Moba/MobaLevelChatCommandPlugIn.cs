@@ -46,7 +46,9 @@ public class MobaLevelChatCommandPlugIn : ChatCommandPlugInBase<MobaLevelChatCom
             for (var lvl = from; lvl < target; lvl++)
             {
                 player.MobaLevel++;
-                player.MobaSkillPoints++;
+                var (skillPoints, buffPoints) = MobaSkills.PointsForReaching(player, player.MobaLevel);
+                player.MobaSkillPoints += skillPoints;
+                player.MobaBuffPoints += buffPoints;
                 character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(player);
             }
         }
@@ -55,8 +57,10 @@ public class MobaLevelChatCommandPlugIn : ChatCommandPlugInBase<MobaLevelChatCom
             // Roll back: strip the points those levels would have granted (clamped at 0).
             for (var lvl = from; lvl > target; lvl--)
             {
+                var (skillPoints, buffPoints) = MobaSkills.PointsForReaching(player, player.MobaLevel);
                 player.MobaLevel--;
-                player.MobaSkillPoints = Math.Max(0, player.MobaSkillPoints - 1);
+                player.MobaSkillPoints = Math.Max(0, player.MobaSkillPoints - skillPoints);
+                player.MobaBuffPoints = Math.Max(0, player.MobaBuffPoints - buffPoints);
                 character.LevelUpPoints = Math.Max(0, character.LevelUpPoints - MobaStatEconomy.PointsPerLevel(player));
             }
         }

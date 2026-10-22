@@ -16,7 +16,8 @@ using MUnique.OpenMU.PlugIns;
 /// <code>
 /// C1 len D5 02  level(1)  exp(u32 LE)  nextExp(u32 LE)  skillPoints(1)  count(1)  [ skillNum(u16 LE) level(1) ] * count
 /// </code>
-/// followed by the unspent stat points (u32 LE). nextExp 0 = at the champion level cap.
+/// followed by the unspent stat points (u32 LE) and the unspent buff points (1). nextExp 0 = at the champion level cap.
+/// Bit 7 of a skill level marks a buff (it is raised with the buff points); level 0 = inactive.
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: champion state", Description = "Sends champion level + experience + skill levels for the HUD.")]
@@ -34,7 +35,7 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
     public MobaChampionStatePlugIn(RemotePlayer player) => this._player = player;
 
     /// <inheritdoc />
-    public async ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, long statPoints, IReadOnlyList<(short Number, byte Level)> skillLevels)
+    public async ValueTask ShowChampionStateAsync(int level, long experience, long experienceToNextLevel, int skillPoints, long statPoints, IReadOnlyList<(short Number, byte Level)> skillLevels, int buffPoints)
     {
         if (this._player.Connection is not { Connected: true } connection)
         {
@@ -45,7 +46,7 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
         var next = (uint)Math.Clamp(experienceToNextLevel, 0, uint.MaxValue);
         var count = Math.Min(skillLevels.Count, 40);
         var stats = (uint)Math.Clamp(statPoints, 0, uint.MaxValue);
-        var length = HeaderLength + (count * 3) + 4;
+        var length = HeaderLength + (count * 3) + 4 + 1;
 
         int Write()
         {
@@ -80,6 +81,7 @@ public class MobaChampionStatePlugIn : IMobaChampionStatePlugIn
             span[offset + 1] = (byte)((stats >> 8) & 0xFF);
             span[offset + 2] = (byte)((stats >> 16) & 0xFF);
             span[offset + 3] = (byte)((stats >> 24) & 0xFF);
+            span[offset + 4] = (byte)Math.Clamp(buffPoints, 0, 255);
 
             return length;
         }

@@ -79,7 +79,9 @@ public static class MobaExperience
         {
             champion.MobaExperience -= MobaLevels.ExpToNext(champion.MobaLevel);
             champion.MobaLevel++;
-            champion.MobaSkillPoints++;
+            var (skillPoints, buffPoints) = MobaSkills.PointsForReaching(champion, champion.MobaLevel);
+            champion.MobaSkillPoints += skillPoints;
+            champion.MobaBuffPoints += buffPoints;
             if (champion.SelectedCharacter is { } character)
             {
                 character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(champion);
@@ -97,18 +99,22 @@ public static class MobaExperience
 
             champion.Logger.LogDebug("[MOBA] {Name} -> champion level {Level} (via {Reason})", champion.SelectedCharacter?.Name, champion.MobaLevel, reason);
 
-            if (MobaLevels.IsMilestone(champion.MobaLevel))
+            if (buffPoints > 0)
             {
                 await champion.InvokeViewPlugInAsync<IShowMessagePlugIn>(p =>
-                    p.ShowMessageAsync($"NIVEL {champion.MobaLevel} - elegí una habilidad", MessageType.GoldenCenter)).ConfigureAwait(false);
-                await champion.ShowBlueMessageAsync($"[MOBA] ¡Nivel {champion.MobaLevel}! Tenés un pick de habilidad disponible.").ConfigureAwait(false);
-                await ShowStatPointsAsync(champion).ConfigureAwait(false);
+                    p.ShowMessageAsync($"NIVEL {champion.MobaLevel} - +{buffPoints} puntos para tus buffs", MessageType.GoldenCenter)).ConfigureAwait(false);
+                await champion.ShowBlueMessageAsync($"[MOBA] ¡Nivel {champion.MobaLevel}! +{buffPoints} puntos para los buffs de tu clase ({champion.MobaBuffPoints} sin gastar).").ConfigureAwait(false);
+            }
+            else if (skillPoints > 0)
+            {
+                await champion.ShowBlueMessageAsync($"[MOBA] Nivel de campeón {champion.MobaLevel} (+1 punto de habilidad, {champion.MobaSkillPoints} sin gastar).").ConfigureAwait(false);
             }
             else
             {
-                await champion.ShowBlueMessageAsync($"[MOBA] Nivel de campeón {champion.MobaLevel} (+1 punto de habilidad, {champion.MobaSkillPoints} sin gastar).").ConfigureAwait(false);
-                await ShowStatPointsAsync(champion).ConfigureAwait(false);
+                await champion.ShowBlueMessageAsync($"[MOBA] Nivel de campeón {champion.MobaLevel}.").ConfigureAwait(false);
             }
+
+            await ShowStatPointsAsync(champion).ConfigureAwait(false);
 
             if (champion.MobaLevel >= MobaLevels.MaxLevel)
             {
@@ -143,11 +149,11 @@ public static class MobaExperience
         var toNext = champion.MobaLevel >= MobaLevels.MaxLevel ? 0 : MobaLevels.ExpToNext(champion.MobaLevel);
         var skillLevels = (champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<SkillEntry>())
             .Where(s => s.Skill is not null)
-            .Select(s => ((short)s.Skill!.Number, (byte)Math.Clamp(s.Level, 0, 255)))
+            .Select(s => ((short)s.Skill!.Number, (byte)(Math.Clamp(s.Level, 0, 127) | (MobaSkills.IsBuff((short)s.Skill!.Number) ? 0x80 : 0))))
             .ToList();
 
         return champion.InvokeViewPlugInAsync<IMobaChampionStatePlugIn>(p =>
-            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints, champion.SelectedCharacter?.LevelUpPoints ?? 0, skillLevels));
+            p.ShowChampionStateAsync(champion.MobaLevel, champion.MobaExperience, toNext, champion.MobaSkillPoints, champion.SelectedCharacter?.LevelUpPoints ?? 0, skillLevels, champion.MobaBuffPoints));
     }
 
     /// <summary>Grants EXP to every MOBA champion of <paramref name="team"/> on the map.</summary>
