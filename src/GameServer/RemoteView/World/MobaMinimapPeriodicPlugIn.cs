@@ -138,7 +138,43 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
 
             await connection.SendAsync(Write).ConfigureAwait(false);
             await SendCreepsAsync(connection, team, map).ConfigureAwait(false);
+            await SendSummonAsync(connection, player).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// The creature of the Elf for her HUD and minimap: <c>C1 0C D5 29 present control keyLo keyHi hp% x y rank</c>
+    /// (present 0 = she has none). Sent to every champion; the ones without a summon get the short "none" once in a while,
+    /// which also clears a stale icon.
+    /// </summary>
+    private static async ValueTask SendSummonAsync(IConnection connection, Player player)
+    {
+        const int Length = 12;
+        var summon = MobaSummons.Of(player);
+        if (summon is null && !player.MobaSummonControl && MobaLoadouts.SummonsFor(player.SelectedCharacter?.CharacterClass?.Number ?? 0).Count == 0)
+        {
+            return;
+        }
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(Length)[..Length];
+            span[0] = 0xC1;
+            span[1] = Length;
+            span[2] = PacketCode;
+            span[3] = 0x29;
+            span[4] = summon is null ? (byte)0 : (byte)1;
+            span[5] = player.MobaSummonControl ? (byte)1 : (byte)0;
+            span[6] = summon is { } s1 ? (byte)(s1.Monster.Id & 0xFF) : (byte)0;
+            span[7] = summon is { } s2 ? (byte)(s2.Monster.Id >> 8) : (byte)0;
+            span[8] = summon is { } s3 ? HealthPercent(s3.Monster) : (byte)0;
+            span[9] = summon is { } s4 ? (byte)s4.Monster.Position.X : (byte)0;
+            span[10] = summon is { } s5 ? (byte)s5.Monster.Position.Y : (byte)0;
+            span[11] = (byte)MobaSummons.RankOf(player);
+            return Length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
     }
 
     /// <summary>

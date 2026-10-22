@@ -44,7 +44,9 @@ public static class MobaSkills
     /// <returns>The attack skill points and the buff points.</returns>
     public static (int Skill, int Buff) PointsForReaching(byte classNumber, int level)
     {
-        var skill = level <= AttackPointsMaxLevel ? 1 : 0;
+        // The Elf has a 5th skill (the summon) to rank up: 5 x 5 = 25 points, up to level 25.
+        var lastLevel = AttackPointsMaxLevel + (MobaLoadouts.SummonsFor(classNumber).Count > 0 ? SkillLevelCap : 0);
+        var skill = level <= lastLevel ? 1 : 0;
         var buff = Array.IndexOf(BuffPointLevels, level) >= 0 ? BuffPointsPerMilestone(classNumber) : 0;
         return (skill, buff);
     }
@@ -111,6 +113,11 @@ public static class MobaSkills
         }
 
         entry.Level++;
+        if (MobaLoadouts.IsCreatureSummon(skillNumber))
+        {
+            MobaSummons.Refresh(champion);
+        }
+
         if (isBuff)
         {
             champion.MobaBuffPoints--;

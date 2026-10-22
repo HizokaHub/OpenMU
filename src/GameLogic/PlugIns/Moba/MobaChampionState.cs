@@ -30,6 +30,9 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the unspent points of the class buffs (earned at the levels of <see cref="MobaSkills.BuffPointLevels"/>).</summary>
     public int BuffPoints { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the champion commands its summon (control mode of the Elf's creature).</summary>
+    public bool SummonControl { get; set; }
+
     /// <summary>Gets or sets the kills of this match.</summary>
     public int Kills { get; set; }
 

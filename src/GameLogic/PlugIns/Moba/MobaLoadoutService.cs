@@ -50,7 +50,7 @@ public static class MobaLoadoutService
             MobaMinimapKind.BaseClassIndex(classNumber),
             MobaLoadoutStore.MinSkills,
             MobaLoadoutStore.MaxSkills,
-            MobaLoadouts.SelectableFor(classNumber),
+            MobaLoadouts.SelectableFor(classNumber).Concat(MobaLoadouts.SummonsFor(classNumber)).ToArray(),
             MobaLoadoutStore.SelectedFor(character.Name, classNumber));
         await player.InvokeViewPlugInAsync<IMobaLoadoutPlugIn>(p => p.ShowLoadoutAsync(info)).ConfigureAwait(false);
     }
@@ -87,6 +87,7 @@ public static class MobaLoadoutService
         }
 
         var configuration = player.GameContext.Configuration;
+        skills = MobaLoadoutStore.SelectedFor(character.Name, classNumber).ToList();
         if (inArena && player.SkillList is SkillList skillList)
         {
             var wanted = skills
@@ -95,7 +96,7 @@ public static class MobaLoadoutService
                 .Select(n => configuration.Skills.FirstOrDefault(s => s.Number == n))
                 .OfType<DataModel.Configuration.Skill>()
                 .ToList();
-            await skillList.ReplaceMobaPicksAsync(MobaLoadouts.SelectableFor(classNumber).ToHashSet(), wanted).ConfigureAwait(false);
+            await skillList.ReplaceMobaPicksAsync(MobaLoadouts.SelectableFor(classNumber).Concat(MobaLoadouts.SummonsFor(classNumber)).ToHashSet(), wanted).ConfigureAwait(false);
         }
 
         var names = skills.Select(n => configuration.Skills.FirstOrDefault(s => s.Number == n)?.Name ?? $"#{n}");

@@ -40,11 +40,11 @@ public static class MobaLoadoutStore
             Load();
             if (_picks!.TryGetValue(characterName, out var picked) && Validate(picked, classNumber) is null)
             {
-                return picked;
+                return WithSummon(picked, classNumber);
             }
         }
 
-        return MobaLoadouts.DefaultFor(classNumber);
+        return WithSummon(MobaLoadouts.DefaultFor(classNumber), classNumber);
     }
 
     /// <summary>
@@ -69,18 +69,26 @@ public static class MobaLoadoutStore
     /// <returns>The reason it is not valid, or <see langword="null"/> if it is.</returns>
     public static string? Validate(IReadOnlyCollection<short> skills, byte classNumber)
     {
-        if (skills.Count is < MinSkills or > MaxSkills)
+        // The appearance of the summon (the Elf's 5th skill) comes along with the 4 picks; it is optional.
+        var summons = skills.Where(MobaLoadouts.IsCreatureSummon).ToList();
+        var picks = skills.Where(s => !MobaLoadouts.IsCreatureSummon(s)).ToList();
+        if (picks.Count is < MinSkills or > MaxSkills)
         {
             return MinSkills == MaxSkills ? $"Elige {MinSkills} skills." : $"Elige entre {MinSkills} y {MaxSkills} skills.";
         }
 
-        if (skills.Distinct().Count() != skills.Count)
+        if (picks.Distinct().Count() != picks.Count)
         {
             return "Hay skills repetidas.";
         }
 
+        if (summons.Count > 1 || (summons.Count == 1 && !MobaLoadouts.SummonsFor(classNumber).Contains(summons[0])))
+        {
+            return "Esa invocación no se puede elegir para tu clase.";
+        }
+
         var allowed = MobaLoadouts.SelectableFor(classNumber);
-        return skills.All(allowed.Contains) ? null : "Alguna skill no se puede elegir para tu clase.";
+        return picks.All(allowed.Contains) ? null : "Alguna skill no se puede elegir para tu clase.";
     }
 
     /// <summary>
@@ -100,7 +108,7 @@ public static class MobaLoadoutStore
         }
 
         // Kept in the order of the class's list, which is the order of the skill bar.
-        var ordered = MobaLoadouts.SelectableFor(classNumber).Where(skills.Contains).ToArray();
+        var ordered = MobaLoadouts.SelectableFor(classNumber).Where(skills.Contains).Concat(skills.Where(MobaLoadouts.IsCreatureSummon)).ToArray();
         lock (Sync)
         {
             Load();
@@ -109,6 +117,18 @@ public static class MobaLoadoutStore
         }
 
         return true;
+    }
+
+    /// <summary>The picks plus, for a class with a summon, the appearance it takes (the default one when none was chosen).</summary>
+    private static IReadOnlyList<short> WithSummon(IReadOnlyList<short> picks, byte classNumber)
+    {
+        var summons = MobaLoadouts.SummonsFor(classNumber);
+        if (summons.Count == 0 || picks.Any(MobaLoadouts.IsCreatureSummon))
+        {
+            return picks;
+        }
+
+        return picks.Concat(summons.Take(1)).ToArray();
     }
 
     /// <summary>Forgets what was read, so the next call reads the file again (tests).</summary>

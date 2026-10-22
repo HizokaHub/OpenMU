@@ -57,15 +57,30 @@ internal sealed class PlayerSummon
             Y1 = (byte)Math.Max(this._player.Position.Y - 3, byte.MinValue),
             Y2 = (byte)Math.Min(this._player.Position.Y + 3, byte.MaxValue),
         };
-        var intelligence = new SummonedMonsterIntelligence(this._player);
+        var moba = this._player.IsMobaClone && this._player is not PlugIns.Moba.MobaBotPlayer;
+        SummonedMonsterIntelligence intelligence = moba ? new PlugIns.Moba.MobaSummonIntelligence(this._player) : new SummonedMonsterIntelligence(this._player);
         var monster = new Monster(area, definition, gameMap, NullDropGenerator.Instance, intelligence, this._player.GameContext.PlugInManager, this._player.GameContext.PathFinderPool);
         area.MaximumHealthOverride = (int)monster.Attributes[Stats.MaximumHealth];
         area.MaximumHealthOverride += (int)(monster.Attributes[Stats.MaximumHealth] * this._player.Attributes?[Stats.SummonedMonsterHealthIncrease] ?? 0);
+        if (moba)
+        {
+            PlugIns.Moba.MobaSummons.Prepare(this._player, area);
+        }
 
         this.Current = (monster, intelligence);
         monster.Initialize();
+        if (moba)
+        {
+            PlugIns.Moba.MobaSummons.Equip(this._player, monster);
+        }
+
         await gameMap.AddAsync(monster).ConfigureAwait(false);
         monster.OnSpawn();
+        if (moba)
+        {
+            // Its brain runs on its own, whether somebody sees it or not (the control mode sends it across the map).
+            intelligence.Start();
+        }
     }
 
     /// <summary>

@@ -546,7 +546,7 @@ public static class MobaJungle
     /// <returns>A task.</returns>
     internal static async ValueTask RewardAsync(GameMap map, IGameContext gameContext, Kind kind, DeathInformation death)
     {
-        if (map.GetObject(death.KillerId) is not Player { IsMobaClone: true } killer)
+        if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { IsMobaClone: true } killer)
         {
             return;
         }
@@ -577,7 +577,7 @@ public static class MobaJungle
     /// <summary>Telemetry of a cleared spot: how long the fight took and what that means as damage per second of the killer, to tune the jungle with real games.</summary>
     private static void LogClear(GameMap map, Spot spot, int groupIndex, MobaJungleGroup group, DeathInformation death)
     {
-        if (map.GetObject(death.KillerId) is not Player { IsMobaClone: true } killer)
+        if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { IsMobaClone: true } killer)
         {
             return;
         }

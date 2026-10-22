@@ -99,12 +99,15 @@ public static class MobaLoadouts
         266, 267, 268,              // Rage Fighter self-buffs
     };
 
-    // Summons: neither picked nor given (the design leaves them out).
+    // Summons: the Elf's seven creatures are the appearances of her 5th skill (she picks one, all of the same strength);
+    // the Dark Lord's Summon (63) teleports the party, it is no creature, so nobody picks or gets it.
     private static readonly HashSet<short> Summons = new()
     {
         30, 31, 32, 33, 34, 35, 36, // Elf summons
         63,                         // Dark Lord: Summon
     };
+
+    private static readonly short[] ElfSummons = { 30, 31, 32, 33, 34, 35, 36 };
 
     // What a player gets when it never picked a loadout: the class's six main attacks.
     private static readonly Dictionary<Family, short[]> DefaultPicks = new()
@@ -148,7 +151,9 @@ public static class MobaLoadouts
             inventory.Items.Add(item);
         }
 
-        var learned = chosenSkills is null ? Skills[family] : chosenSkills.Concat(BuffsFor(characterClass.Number)).Distinct().ToArray();
+        var learned = chosenSkills is null
+            ? Skills[family]
+            : chosenSkills.Concat(BuffsFor(characterClass.Number)).Concat(SummonsFor(characterClass.Number).Where(_ => !chosenSkills.Any(IsCreatureSummon)).Take(1)).Distinct().ToArray();
         foreach (var number in learned)
         {
             if (config.Skills.FirstOrDefault(s => s.Number == number) is not { } skill)
@@ -182,6 +187,17 @@ public static class MobaLoadouts
     /// <returns>The skill numbers, in the order the kit lists them.</returns>
     public static IReadOnlyList<short> SelectableFor(byte classNumber)
         => Skills[FamilyOf(classNumber)].Where(n => !Buffs.Contains(n) && !Summons.Contains(n)).ToArray();
+
+    /// <summary>The creature appearances of the 5th skill of a class (only the Elf has them).</summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <returns>The skill numbers; empty when the class has no summon.</returns>
+    public static IReadOnlyList<short> SummonsFor(byte classNumber)
+        => FamilyOf(classNumber) == Family.Elf ? ElfSummons : Array.Empty<short>();
+
+    /// <summary>Whether the skill is the summon of a creature (an appearance of the Elf's 5th skill).</summary>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <returns><see langword="true"/> for a creature summon.</returns>
+    public static bool IsCreatureSummon(short skillNumber) => Array.IndexOf(ElfSummons, skillNumber) >= 0;
 
     /// <summary>Whether the skill is one of the class buffs.</summary>
     /// <param name="skillNumber">The skill number.</param>

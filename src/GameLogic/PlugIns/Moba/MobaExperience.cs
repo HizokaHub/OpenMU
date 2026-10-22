@@ -126,6 +126,7 @@ public static class MobaExperience
         {
             // Re-pin HP / mana / SD / defense to the new champion level and top them up.
             MobaProgression.ApplyLevelScaling(champion);
+            MobaSummons.Refresh(champion);
 
             // TODO(step 3): open the milestone pick window here instead of just messaging.
         }
@@ -190,7 +191,7 @@ public static class MobaExperience
             // Any death breaks the victim's own kill streak, not just one at an enemy champion's hands.
             MobaGold.ResetStreak(victim);
 
-            if (map.GetObject(death.KillerId) is not Player killer
+            if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { } killer
                 || !killer.IsMobaClone
                 || !MobaTeams.AreEnemies(killer, victim))
             {

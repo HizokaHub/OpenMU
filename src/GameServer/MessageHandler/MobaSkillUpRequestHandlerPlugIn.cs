@@ -70,6 +70,20 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 5 && span[3] == 0x27)
+        {
+            // C1 05 D5 27 on: the control key (X) of the summon was pressed: 1 = command it, 0 = let it follow.
+            await MobaSummons.SetControlAsync(player, span[4] != 0).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 9 && span[3] == 0x28)
+        {
+            // C1 09 D5 28 kind x y keyLo keyHi: an order for the summon (1 walk to the tile, 2 attack the object).
+            await MobaSummons.OrderAsync(player, span[4], span[5], span[6], (ushort)(span[7] | (span[8] << 8))).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 5 && span[3] == 0x1A)
         {
             // C1 len D5 1A count skill(u16 LE)...: the loadout picked in the loadout window.

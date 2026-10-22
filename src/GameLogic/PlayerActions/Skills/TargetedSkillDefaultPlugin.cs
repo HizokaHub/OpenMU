@@ -123,7 +123,9 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             return;
         }
 
-        if (skill.SkillType == SkillType.SummonMonster && player.Summon is { })
+        // MOBA: the Elf's creature is replaced by a new cast (no toggle), and a rank 0 skill can't be cast.
+        var mobaSummon = skill.SkillType == SkillType.SummonMonster && player.IsMobaClone && player is not PlugIns.Moba.MobaBotPlayer;
+        if (skill.SkillType == SkillType.SummonMonster && player.Summon is { } && !mobaSummon)
         {
             await player.RemoveSummonAsync().ConfigureAwait(false);
             return;
@@ -151,6 +153,11 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             if (SummonSkillToMonsterMapping.TryGetValue(skill.Number, out var monsterNumber)
                 && player.GameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == monsterNumber) is { } monsterDefinition)
             {
+                if (mobaSummon)
+                {
+                    await player.RemoveSummonAsync().ConfigureAwait(false);
+                }
+
                 await player.CreateSummonedMonsterAsync(monsterDefinition).ConfigureAwait(false);
             }
         }

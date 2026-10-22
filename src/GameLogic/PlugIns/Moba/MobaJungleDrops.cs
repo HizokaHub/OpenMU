@@ -96,7 +96,7 @@ public static class MobaJungleDrops
     /// <returns>A task.</returns>
     public static async ValueTask DropBossItemsAsync(GameMap map, MobaJungle.Kind kind, Monster boss, DeathInformation death, IReadOnlyDictionary<Player, double> damage)
     {
-        if (map.GetObject(death.KillerId) is not Player { IsMobaClone: true } killer)
+        if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { IsMobaClone: true } killer)
         {
             return;
         }

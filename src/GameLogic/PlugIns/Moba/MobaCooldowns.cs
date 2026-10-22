@@ -63,6 +63,15 @@ public static class MobaCooldowns
         [62] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },  // Earthshake
         [214] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },  // Drain Life
 
+        // --- The Elf's creature (the seven appearances share the cooldown) ---
+        [30] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [31] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [32] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [33] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [34] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [35] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+        [36] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
+
         // --- Sustain / buffs: long, and shrink noticeably as ranked ---
         [26] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },   // Heal
         [28] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Damage

@@ -224,6 +224,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         set => this.MobaState.SkillPoints = value;
     }
 
+    /// <summary>Gets or sets a value indicating whether the champion commands its summon (the Elf's creature) instead of it following.</summary>
+    public bool MobaSummonControl
+    {
+        get => this.MobaState.SummonControl;
+        set => this.MobaState.SummonControl = value;
+    }
+
     /// <summary>Gets or sets the unspent MOBA champion points of the class buffs (earned at levels 5, 10, 15, 20, 25 and 30).</summary>
     public int MobaBuffPoints
     {
@@ -1265,7 +1272,11 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// <summary>
     /// Notifies the player object that the summoned monster died.
     /// </summary>
-    public void SummonDied() => this._summon.OnDied();
+    public void SummonDied()
+    {
+        this._summon.OnDied();
+        PlugIns.Moba.MobaSummons.OnSummonGone(this);
+    }
 
     /// <summary>
     /// Removes the player summon.

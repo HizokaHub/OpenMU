@@ -8,7 +8,7 @@ namespace MUnique.OpenMU.GameLogic.NPC;
 /// The intelligence for a summoned monster.
 /// It's basically the same as for the <see cref="BasicMonsterIntelligence"/>, but chooses monsters as targets.
 /// </summary>
-public sealed class SummonedMonsterIntelligence : BasicMonsterIntelligence
+public class SummonedMonsterIntelligence : BasicMonsterIntelligence
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SummonedMonsterIntelligence"/> class.
