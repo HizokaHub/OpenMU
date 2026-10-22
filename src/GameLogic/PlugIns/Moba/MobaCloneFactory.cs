@@ -80,12 +80,13 @@ public static class MobaCloneFactory
     /// </summary>
     /// <param name="player">The player who will play the clone (its persistence context is used to create the entities).</param>
     /// <param name="realCharacter">The real character to clone. Only read, never mutated.</param>
+    /// <param name="loadout">The skills the player picked for the match; <see langword="null"/> gives the whole class kit.</param>
     /// <returns>The clone character, ready to be used as the selected character for a match.</returns>
-    public static ValueTask<Character> BuildCloneAsync(Player player, Character realCharacter)
+    public static ValueTask<Character> BuildCloneAsync(Player player, Character realCharacter, IReadOnlyList<short>? loadout = null)
     {
         var real = realCharacter ?? throw new ArgumentNullException(nameof(realCharacter));
         var characterClass = real.CharacterClass ?? throw new InvalidOperationException("The character has no class assigned.");
-        return BuildCloneCoreAsync(player, characterClass, real.Name, real.CharacterSlot, real.CharacterStatus);
+        return BuildCloneCoreAsync(player, characterClass, real.Name, real.CharacterSlot, real.CharacterStatus, loadout);
     }
 
     /// <summary>
@@ -96,9 +97,9 @@ public static class MobaCloneFactory
     /// <param name="name">The clone's name.</param>
     /// <returns>The clone character.</returns>
     public static ValueTask<Character> BuildForClassAsync(Player player, CharacterClass characterClass, string name)
-        => BuildCloneCoreAsync(player, characterClass, name, 0, CharacterStatus.Normal);
+        => BuildCloneCoreAsync(player, characterClass, name, 0, CharacterStatus.Normal, null);
 
-    private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status)
+    private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status, IReadOnlyList<short>? loadout)
     {
         MobaPets.EnsureConfigured(player.GameContext.Configuration);
         MobaShieldSkills.EnsureConfigured(player.GameContext.Configuration);
@@ -156,7 +157,7 @@ public static class MobaCloneFactory
         // Fixed class starter loadout: a basic class weapon (+ ammo for bows) and the
         // class skill list. Deterministic, independent of the real character. The "pick
         // 4-6 skills" flow replaces the skill list later.
-        MobaLoadouts.Apply(context, player.GameContext.Configuration, clone, characterClass);
+        MobaLoadouts.Apply(context, player.GameContext.Configuration, clone, characterClass, loadout);
 
         player.Logger.LogInformation(
             "[MOBA] Clone '{Name}' (class {Class}) loadout: hands=[{Hands}], skills=[{Skills}], points={Points}",

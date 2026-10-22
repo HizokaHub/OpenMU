@@ -88,6 +88,30 @@ public static class MobaLoadouts
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
     };
 
+    // Buffs and summons: not part of the loadout a player picks (the design buys buffs in the shop and leaves summons out).
+    private static readonly HashSet<short> NotSelectable = new()
+    {
+        16, 233,                    // Soul Barrier, Expansion of Wizardry
+        18, 48,                     // Defense, Swell Life
+        26, 27, 28, 77, 234,        // Heal, Greater Defense, Greater Damage, Infinity Arrow, Recovery
+        30, 31, 32, 33, 34, 35, 36, // Elf summons
+        63, 64,                     // Dark Lord: Summon, Increase Critical Damage
+        217, 218,                   // Summoner: Berserker, Damage Reflection
+        266, 267, 268,              // Rage Fighter self-buffs
+    };
+
+    // What a player gets when it never picked a loadout: the class's six main attacks.
+    private static readonly Dictionary<Family, short[]> DefaultPicks = new()
+    {
+        [Family.Wizard] = new short[] { 9, 39, 5, 8, 12, 14 },
+        [Family.Knight] = new short[] { 19, 22, 41, 42, 43, 232 },
+        [Family.Elf] = new short[] { 24, 51, 52, 235, 67, 76 },
+        [Family.MagicGladiator] = new short[] { 22, 41, 55, 56, 9, 14 },
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 22 },
+        [Family.Summoner] = new short[] { 214, 215, 223, 224, 225, 230 },
+        [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265 },
+    };
+
     /// <summary>
     /// Adds the class-default weapon (with ammo if it is a bow / crossbow) and the class
     /// skill list to a freshly built clone.
@@ -96,7 +120,8 @@ public static class MobaLoadouts
     /// <param name="config">The game configuration.</param>
     /// <param name="clone">The clone character.</param>
     /// <param name="characterClass">The clone's class.</param>
-    public static void Apply(Persistence.IContext context, GameConfiguration config, Character clone, CharacterClass characterClass)
+    /// <param name="chosenSkills">The skills the player picked (see <see cref="MobaLoadoutStore"/>); <see langword="null"/> gives the whole class kit (tests, bots, the <c>/moba</c> shortcut).</param>
+    public static void Apply(Persistence.IContext context, GameConfiguration config, Character clone, CharacterClass characterClass, IReadOnlyList<short>? chosenSkills = null)
     {
         var inventory = clone.Inventory ?? throw new InvalidOperationException("Clone has no inventory.");
         var family = FamilyOf(characterClass.Number);
@@ -117,7 +142,7 @@ public static class MobaLoadouts
             inventory.Items.Add(item);
         }
 
-        foreach (var number in Skills[family])
+        foreach (var number in chosenSkills ?? Skills[family])
         {
             if (config.Skills.FirstOrDefault(s => s.Number == number) is not { } skill)
             {
@@ -142,6 +167,21 @@ public static class MobaLoadouts
     /// <returns>The skill numbers, or an empty list if the class has no loadout.</returns>
     public static IReadOnlyList<short> SkillNumbersFor(CharacterClass characterClass)
         => Skills.TryGetValue(FamilyOf(characterClass.Number), out var numbers) ? numbers : Array.Empty<short>();
+
+    /// <summary>
+    /// The skills a player can pick for its loadout: the class's attacks, area attacks and crowd control (no buffs, no summons).
+    /// </summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <returns>The skill numbers, in the order the kit lists them.</returns>
+    public static IReadOnlyList<short> SelectableFor(byte classNumber)
+        => Skills[FamilyOf(classNumber)].Where(n => !NotSelectable.Contains(n)).ToArray();
+
+    /// <summary>
+    /// The loadout a player gets when it never picked one.
+    /// </summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <returns>The skill numbers.</returns>
+    public static IReadOnlyList<short> DefaultFor(byte classNumber) => DefaultPicks[FamilyOf(classNumber)];
 
     private static Family FamilyOf(byte classNumber) => classNumber switch
     {

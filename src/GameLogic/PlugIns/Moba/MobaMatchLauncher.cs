@@ -98,7 +98,8 @@ public static class MobaMatchLauncher
     private static async ValueTask ArmAsync(Player player, MobaTeam team, GameMap arena)
     {
         var real = player.SelectedCharacter!;
-        var clone = await MobaCloneFactory.BuildCloneAsync(player, real).ConfigureAwait(false);
+        var loadout = MobaLoadoutStore.SelectedFor(real.Name, real.CharacterClass?.Number ?? 0);
+        var clone = await MobaCloneFactory.BuildCloneAsync(player, real, loadout).ConfigureAwait(false);
 
         // The clone is created through this session's persistence context: detach it and suppress this session's save.
         MobaCloneFactory.DetachClone(player, clone);

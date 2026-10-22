@@ -17,7 +17,8 @@ using MUnique.OpenMU.PlugIns;
 /// Also handles the option picked in a server-driven NPC menu (the MOBA shop categories):
 /// <code>C1 06 D5 07  menuId  optionIndex</code>, and the recall request (key B):
 /// <code>C1 04 D5 09</code>, the fountain capture key (<code>C1 05 D5 0F on</code>), and the minion picked for the teleport scroll:
-/// <code>C1 06 D5 0B  targetId(u16 LE)</code>.
+/// <code>C1 06 D5 0B  targetId(u16 LE)</code>, the results table's button (<code>C1 04 D5 18</code>) and the loadout picked in the
+/// loadout window (<code>C1 len D5 1A count skill(u16 LE)...</code>).
 /// </summary>
 [PlugIn]
 [Display(Name = "MOBA: client request handler", Description = "Handles the MOBA client requests: skill level-up (C1 D5 03) and NPC menu option picks (C1 D5 07).")]
@@ -66,6 +67,24 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
         {
             // C1 05 D5 0F on: the capture key (F) of the fountains was pressed (1) or released (0); repeated while held.
             await MobaFountains.SignalAsync(player, span[4] != 0).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 5 && span[3] == 0x1A)
+        {
+            // C1 len D5 1A count skill(u16 LE)...: the loadout picked in the loadout window.
+            var count = span[4];
+            if (span.Length >= 5 + (count * 2))
+            {
+                var skills = new List<short>(count);
+                for (var i = 0; i < count; i++)
+                {
+                    skills.Add((short)(span[5 + (i * 2)] | (span[6 + (i * 2)] << 8)));
+                }
+
+                await MobaLoadoutService.SaveAsync(player, skills).ConfigureAwait(false);
+            }
+
             return;
         }
 
