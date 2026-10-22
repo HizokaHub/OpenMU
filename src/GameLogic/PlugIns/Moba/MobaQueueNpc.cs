@@ -34,6 +34,9 @@ public static class MobaQueueNpc
     /// <summary>The index of the "pick my skills" option of the menu.</summary>
     private const int LoadoutOption = 7;
 
+    /// <summary>The index of the "private room" option of the menu.</summary>
+    private const int RoomOption = 8;
+
     private static readonly ConcurrentDictionary<GameMap, NonPlayerCharacter> Npcs = new();
 
     private static readonly string[] Options =
@@ -46,6 +49,7 @@ public static class MobaQueueNpc
         "Buscar 1v1 (carril central)",
         "Buscar ARAM 5v5 (carril central)",
         "Elegir mis skills",
+        "Partida privada (sala con código)",
         "Salir de la cola",
         "Estado de la cola",
         "Cómo funcionan los modos",
@@ -150,6 +154,16 @@ public static class MobaQueueNpc
             await CloseDialogAsync(player).ConfigureAwait(false);
             return true;
         }
+        else if (menuId == MobaQueueService.MenuId && player.OpenedNpc is { } npcRoom && IsQueueMaster(npcRoom) && optionIndex == RoomOption)
+        {
+            await MobaRoomMenu.OpenAsync(player).ConfigureAwait(false);
+            return true;
+        }
+        else if (menuId == MobaRooms.MenuId)
+        {
+            await MobaRoomMenu.SelectOptionAsync(player, optionIndex).ConfigureAwait(false);
+            return true;
+        }
         else if (menuId == MobaQueueService.MenuId && player.OpenedNpc is { } npc2 && IsQueueMaster(npc2))
         {
             answer = optionIndex switch
@@ -161,8 +175,8 @@ public static class MobaQueueNpc
                 4 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Trio).ConfigureAwait(false),
                 5 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Duel).ConfigureAwait(false),
                 6 => await MobaQueueService.JoinAsync(player, MobaQueueChoice.Aram).ConfigureAwait(false),
-                8 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
-                9 => MobaQueueService.StatusOf(player),
+                9 => await MobaQueueService.LeaveAsync(player).ConfigureAwait(false),
+                10 => MobaQueueService.StatusOf(player),
                 _ => null,
             };
         }
