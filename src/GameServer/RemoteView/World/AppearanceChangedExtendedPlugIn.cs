@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView.World;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Network;
@@ -40,9 +41,17 @@ public class AppearanceChangedExtendedPlugIn : IAppearanceChangedPlugIn
             return;
         }
 
+        // MOBA: a Dark Horse / Dark Raven switched on from the inventory is shown (or cleared) in the slot it would take if equipped.
+        var slot = item.ItemSlot;
+        if (MobaPets.TryGetShownSlot(changedPlayer, item, out var petSlot, out var petActive))
+        {
+            slot = petSlot;
+            isEquipped = petActive;
+        }
+
         await connection.SendAppearanceChangedExtendedAsync(
             changedPlayer.GetId(this._player),
-            item.ItemSlot,
+            slot,
             (byte)((isEquipped ? item.Definition?.Group : 0xFF) ?? 0xFF),
             (ushort)(item.Definition?.Number ?? 0xFFFF),
             item.Level,
