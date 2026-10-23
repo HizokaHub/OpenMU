@@ -39,6 +39,12 @@ public sealed class MobaChampionState
     /// </summary>
     public bool SummonStay { get; set; }
 
+    /// <summary>Gets or sets the level (1-10) of the Elf's creature; it grows with what it kills and is kept while the match lasts.</summary>
+    public int SummonLevel { get; set; } = 1;
+
+    /// <summary>Gets or sets the kill points the creature collected (they decide its level).</summary>
+    public int SummonPoints { get; set; }
+
     /// <summary>Gets or sets the kills of this match.</summary>
     public int Kills { get; set; }
 

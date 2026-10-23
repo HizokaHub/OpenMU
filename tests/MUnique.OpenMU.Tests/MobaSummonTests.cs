@@ -109,4 +109,24 @@ public class MobaSummonTests
         Assert.That(MobaSummons.HealthAt(20, 3), Is.GreaterThan(MobaSummons.HealthAt(5, 3)));
         Assert.That(MobaSummons.DamageMultiplierAt(20, 3), Is.GreaterThan(MobaSummons.DamageMultiplierAt(5, 3)));
     }
+
+    /// <summary>
+    /// The creature levels up from 1 to 10 with its kill points and gets stronger with every level.
+    /// </summary>
+    [Test]
+    public void TheCreatureLevelsUpWithKillsUpToTen()
+    {
+        Assert.That(MobaSummons.LevelForPoints(0), Is.EqualTo(1));
+        Assert.That(MobaSummons.LevelForPoints(3), Is.EqualTo(1));
+        Assert.That(MobaSummons.LevelForPoints(4), Is.EqualTo(2));
+        Assert.That(MobaSummons.LevelForPoints(71), Is.EqualTo(9));
+        Assert.That(MobaSummons.LevelForPoints(72), Is.EqualTo(MobaSummons.MaxSummonLevel));
+        Assert.That(MobaSummons.LevelForPoints(10_000), Is.EqualTo(MobaSummons.MaxSummonLevel));
+
+        for (var level = 1; level < MobaSummons.MaxSummonLevel; level++)
+        {
+            Assert.That(MobaSummons.HealthAt(10, 3, level + 1), Is.GreaterThan(MobaSummons.HealthAt(10, 3, level)));
+            Assert.That(MobaSummons.DamageMultiplierAt(10, 3, level + 1), Is.GreaterThan(MobaSummons.DamageMultiplierAt(10, 3, level)));
+        }
+    }
 }

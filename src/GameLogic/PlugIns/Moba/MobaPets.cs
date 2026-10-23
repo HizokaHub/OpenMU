@@ -50,6 +50,12 @@ public static class MobaPets
     private const short RavenNumber = 5;
     private const short EarthshakeSkill = 62;
 
+    /// <summary>The numbers (group 13) of the utility pets which can be switched on from the inventory, in the bit order of <see cref="ExtraMaskOf"/>.</summary>
+    private static readonly short[] UtilityPetNumbers = { 0, 1, 64, 65, 67, 80, 106, 123 };
+
+    /// <summary>Bit of the Dark Raven in the mask of <see cref="ExtraMaskOf"/> (after the eight utility pets).</summary>
+    private const int RavenMaskBit = 8;
+
     private static readonly object ConfigLock = new();
 
     private static readonly ConditionalWeakTable<Item, object> ActivatedRavens = new();
@@ -73,6 +79,22 @@ public static class MobaPets
         public Skill? HorseSkill { get; set; }
 
         public Item? Raven { get; set; }
+
+        public Dictionary<short, UtilityPet> Utility { get; } = new();
+    }
+
+    /// <summary>A utility pet (Angel, Imp, Demon, Spirit, Rudolf, Panda, Unicorn, Skeleton) the champion switched on: its item and its bonuses.</summary>
+    private sealed class UtilityPet
+    {
+        public UtilityPet(Item item, List<PowerUpWrapper> powerUps)
+        {
+            this.Item = item;
+            this.PowerUps = powerUps;
+        }
+
+        public Item Item { get; }
+
+        public List<PowerUpWrapper> PowerUps { get; }
     }
 
     /// <summary>
@@ -244,8 +266,8 @@ public static class MobaPets
             equipped.Add(appearance);
         }
 
+        // Only the horse (a mount) takes the pet slot; the Raven and the utility pets are sent apart (see ExtraMaskOf), so the shield stays.
         Place(active.Horse, PetSlotOfHorse);
-        Place(active.Raven, PetSlotOfRaven);
         return equipped;
     }
 
@@ -264,15 +286,15 @@ public static class MobaPets
         active = false;
         if (!player.IsMobaClone
             || item.Definition is not { Group: 13 } definition
-            || (definition.Number != HorseNumber && definition.Number != RavenNumber)
+            || definition.Number != HorseNumber
             || player.Inventory is not { } inventory
             || inventory.EquippedItems.Contains(item))
         {
             return false;
         }
 
-        slot = definition.Number == HorseNumber ? PetSlotOfHorse : PetSlotOfRaven;
-        active = ActiveByPlayer.TryGetValue(player, out var pets) && (definition.Number == HorseNumber ? pets.Horse == item : pets.Raven == item);
+        slot = PetSlotOfHorse;
+        active = ActiveByPlayer.TryGetValue(player, out var pets) && pets.Horse == item;
         return true;
     }
 
@@ -280,6 +302,36 @@ public static class MobaPets
     /// <param name="player">The champion.</param>
     /// <returns><see langword="true"/> while it works.</returns>
     public static bool IsHorseActive(Player player) => ActiveByPlayer.TryGetValue(player, out var active) && active.Horse is not null;
+
+    /// <summary>
+    /// The pets of the champion which the clients draw apart from its equipment (they are switched on from the inventory): one bit per
+    /// utility pet in the order of <see cref="UtilityPetNumbers"/> (Angel, Imp, Demon, Spirit, Rudolf, Panda, Unicorn, Skeleton) and bit 8 for the Dark Raven.
+    /// </summary>
+    /// <param name="player">The champion.</param>
+    /// <returns>The mask (0 when none).</returns>
+    public static ushort ExtraMaskOf(Player player)
+    {
+        if (!ActiveByPlayer.TryGetValue(player, out var active))
+        {
+            return 0;
+        }
+
+        var mask = 0;
+        for (var i = 0; i < UtilityPetNumbers.Length; i++)
+        {
+            if (active.Utility.ContainsKey(UtilityPetNumbers[i]))
+            {
+                mask |= 1 << i;
+            }
+        }
+
+        if (active.Raven is not null)
+        {
+            mask |= 1 << RavenMaskBit;
+        }
+
+        return (ushort)mask;
+    }
 
     /// <summary>Whether the Dark Raven of the champion is switched on (from the inventory).</summary>
     /// <param name="player">The champion.</param>
@@ -309,8 +361,18 @@ public static class MobaPets
             return;
         }
 
-        if (inventory.GetItem(slot) is not { Definition: { Group: 13 } definition } item
-            || (definition.Number != HorseNumber && definition.Number != RavenNumber))
+        if (inventory.GetItem(slot) is not { Definition: { Group: 13 } definition } item)
+        {
+            return;
+        }
+
+        if (Array.IndexOf(UtilityPetNumbers, definition.Number) >= 0)
+        {
+            await ToggleUtilityAsync(player, inventory, item, definition).ConfigureAwait(false);
+            return;
+        }
+
+        if (definition.Number != HorseNumber && definition.Number != RavenNumber)
         {
             return;
         }
@@ -358,13 +420,11 @@ public static class MobaPets
         {
             player.RemovePetCommandManager();
             active.Raven = null;
-            await ShowAppearanceAsync(player, item).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
             return;
         }
 
         active.Raven = item;
-        await ShowAppearanceAsync(player, item).ConfigureAwait(false);
         var manager = new Pet.RavenCommandManager(player, item);
         player.UsePetCommandManager(manager);
         await manager.SetBehaviourAsync(PetBehaviour.AttackWithOwner, null).ConfigureAwait(false);
@@ -394,8 +454,54 @@ public static class MobaPets
         {
             player.RemovePetCommandManager();
             active.Raven = null;
-            await ShowAppearanceAsync(player, raven).ConfigureAwait(false);
             await player.ShowBlueMessageAsync("[MOBA] Dark Raven desactivado.").ConfigureAwait(false);
+        }
+
+        foreach (var (number, utility) in active.Utility.ToList())
+        {
+            if (!inventory.Items.Contains(utility.Item) || inventory.EquippedItems.Contains(utility.Item))
+            {
+                DeactivateUtility(active, number);
+                await player.ShowBlueMessageAsync($"[MOBA] {utility.Item.Definition?.Name} desactivado.").ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The right click of an Angel, Imp, Demon, Spirit, Rudolf, Panda, Unicorn or Skeleton: it works from the inventory, with the bonuses
+    /// of the item, and every client draws it next to the champion; any number of them can be on at once.
+    /// </summary>
+    private static async ValueTask ToggleUtilityAsync(Player player, IInventoryStorage inventory, Item item, ItemDefinition definition)
+    {
+        var active = ActiveByPlayer.GetOrCreateValue(player);
+        var number = definition.Number;
+        if (active.Utility.ContainsKey(number))
+        {
+            DeactivateUtility(active, number);
+            await player.ShowBlueMessageAsync($"[MOBA] {definition.Name} desactivado.").ConfigureAwait(false);
+            return;
+        }
+
+        var worn = inventory.GetItem(PetSlotOfHorse);
+        if (inventory.EquippedItems.Contains(item) || (worn?.Definition is { Group: 13 } wornDefinition && wornDefinition.Number == number))
+        {
+            await player.ShowBlueMessageAsync("[MOBA] Ya la llevas equipada: guárdala en el inventario y actívala con clic derecho para liberar el slot.").ConfigureAwait(false);
+            return;
+        }
+
+        var powerUps = player.GameContext.ItemPowerUpFactory.GetPowerUps(item, player.Attributes!).ToList();
+        active.Utility[number] = new UtilityPet(item, powerUps);
+        await player.ShowBlueMessageAsync($"[MOBA] {definition.Name} activado: se ve a tu lado y da su bonificación. Clic derecho otra vez para desactivarlo.").ConfigureAwait(false);
+    }
+
+    private static void DeactivateUtility(ActivePets active, short number)
+    {
+        if (active.Utility.Remove(number, out var utility))
+        {
+            foreach (var powerUp in utility.PowerUps)
+            {
+                powerUp.Dispose();
+            }
         }
     }
 

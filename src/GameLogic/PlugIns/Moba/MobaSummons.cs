@@ -37,15 +37,116 @@ public static class MobaSummons
     /// <param name="level">The champion level.</param>
     /// <param name="rank">The rank of the skill (1-5).</param>
     /// <returns>The maximum life.</returns>
-    public static float HealthAt(int level, int rank)
-        => MobaProgression.HealthAt(level) * (0.30f + (0.08f * Math.Clamp(rank, 1, MobaSkills.SkillLevelCap)));
+    /// <param name="summonLevel">The level of the creature itself (1-10).</param>
+    public static float HealthAt(int level, int rank, int summonLevel = 1)
+        => MobaProgression.HealthAt(level) * (0.30f + (0.08f * Math.Clamp(rank, 1, MobaSkills.SkillLevelCap))) * (1f + (LevelHealthBonus * (Math.Clamp(summonLevel, 1, MaxSummonLevel) - 1)));
 
     /// <summary>The factor on the damage of a lane minion: 1.0 at rank 1 up to 1.8 at rank 5.</summary>
     /// <param name="level">The champion level.</param>
     /// <param name="rank">The rank of the skill (1-5).</param>
+    /// <param name="summonLevel">The level of the creature itself (1-10).</param>
     /// <returns>The multiplier.</returns>
-    public static float DamageMultiplierAt(int level, int rank)
-        => MobaWaveSpawner.CreepDamageMultiplierAt(level) * (0.8f + (0.2f * Math.Clamp(rank, 1, MobaSkills.SkillLevelCap)));
+    public static float DamageMultiplierAt(int level, int rank, int summonLevel = 1)
+        => MobaWaveSpawner.CreepDamageMultiplierAt(level) * (0.8f + (0.2f * Math.Clamp(rank, 1, MobaSkills.SkillLevelCap))) * (1f + (LevelDamageBonus * (Math.Clamp(summonLevel, 1, MaxSummonLevel) - 1)));
+
+    /// <summary>Kill points of a lane minion.</summary>
+    public const int PointsCreep = 1;
+
+    /// <summary>Kill points of a jungle monster.</summary>
+    public const int PointsJungle = 3;
+
+    /// <summary>Kill points of an epic jungle monster.</summary>
+    public const int PointsEpic = 8;
+
+    /// <summary>Kill points of an enemy champion.</summary>
+    public const int PointsChampion = 6;
+
+    /// <summary>The highest level of the creature.</summary>
+    public const int MaxSummonLevel = 10;
+
+    /// <summary>Life gained per level of the creature (relative to level 1).</summary>
+    public const float LevelHealthBonus = 0.15f;
+
+    /// <summary>Damage gained per level of the creature (relative to level 1).</summary>
+    public const float LevelDamageBonus = 0.12f;
+
+    /// <summary>Defense gained per level of the creature.</summary>
+    public const float LevelDefenseBonus = 6f;
+
+    // Kill points needed in total to reach level 2, 3, ... 10.
+    private static readonly int[] PointsToReach = { 4, 9, 15, 22, 30, 39, 49, 60, 72 };
+
+    /// <summary>The level (1-10) a creature with these kill points has.</summary>
+    /// <param name="points">The kill points.</param>
+    /// <returns>The level.</returns>
+    public static int LevelForPoints(int points)
+    {
+        var level = 1;
+        foreach (var needed in PointsToReach)
+        {
+            if (points < needed)
+            {
+                break;
+            }
+
+            level++;
+        }
+
+        return level;
+    }
+
+    /// <summary>The progress (0-100) towards the next level of the creature; 100 at the highest level.</summary>
+    /// <param name="owner">The champion.</param>
+    /// <returns>The percentage.</returns>
+    public static int ProgressPercent(Player owner)
+    {
+        var level = Math.Clamp(owner.MobaSummonLevel, 1, MaxSummonLevel);
+        if (level >= MaxSummonLevel)
+        {
+            return 100;
+        }
+
+        var from = level == 1 ? 0 : PointsToReach[level - 2];
+        var to = PointsToReach[level - 1];
+        return Math.Clamp((owner.MobaSummonPoints - from) * 100 / Math.Max(1, to - from), 0, 99);
+    }
+
+    /// <summary>When the creature of the champion (or a creature of it) lands the last hit, it collects kill points.</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="death">How the victim died.</param>
+    /// <param name="points">The points the kill is worth.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask NoteKillAsync(GameMap map, DeathInformation death, int points)
+    {
+        if (map.GetObject(death.KillerId) is Monster { SummonedBy: { IsMobaClone: true } owner } killer
+            && ReferenceEquals(Of(owner)?.Monster, killer))
+        {
+            await GrantPointsAsync(owner, points).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Adds kill points to the creature of the champion and levels it up when it earns it.</summary>
+    /// <param name="owner">The champion.</param>
+    /// <param name="points">The points.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask GrantPointsAsync(Player owner, int points)
+    {
+        if (points <= 0 || owner.MobaSummonLevel >= MaxSummonLevel)
+        {
+            return;
+        }
+
+        owner.MobaSummonPoints += points;
+        var level = LevelForPoints(owner.MobaSummonPoints);
+        if (level <= owner.MobaSummonLevel)
+        {
+            return;
+        }
+
+        owner.MobaSummonLevel = level;
+        Refresh(owner);
+        await owner.ShowBlueMessageAsync($"[MOBA] Tu invocación sube al nivel {level}{(level >= MaxSummonLevel ? " (máximo)" : string.Empty)}.").ConfigureAwait(false);
+    }
 
     /// <summary>Gets the rank (0-5) of the summon skill the champion carries; 0 if it has none or it is inactive.</summary>
     /// <param name="owner">The champion.</param>
@@ -69,7 +170,7 @@ public static class MobaSummons
     /// <param name="area">The spawn area of the monster.</param>
     public static void Prepare(Player owner, MonsterSpawnArea area)
     {
-        area.MaximumHealthOverride = (int)HealthAt(owner.MobaLevel, Math.Max(RankOf(owner), 1));
+        area.MaximumHealthOverride = (int)HealthAt(owner.MobaLevel, Math.Max(RankOf(owner), 1), owner.MobaSummonLevel);
     }
 
     /// <summary>Called after the monster was initialized: its team, and the combat stats of its rank.</summary>
@@ -203,14 +304,15 @@ public static class MobaSummons
     {
         var level = owner.MobaLevel;
         var rank = Math.Max(RankOf(owner), 1);
-        var damageMul = DamageMultiplierAt(level, rank);
-        var health = HealthAt(level, rank);
+        var summonLevel = Math.Clamp(owner.MobaSummonLevel, 1, MaxSummonLevel);
+        var damageMul = DamageMultiplierAt(level, rank, summonLevel);
+        var health = HealthAt(level, rank, summonLevel);
         var before = monster.Attributes[Stats.MaximumHealth];
 
         SetAbsolute(monster, Stats.MaximumHealth, health);
         SetAbsolute(monster, Stats.MinimumPhysBaseDmg, BaseMinDamage * damageMul);
         SetAbsolute(monster, Stats.MaximumPhysBaseDmg, BaseMaxDamage * damageMul);
-        SetAbsolute(monster, Stats.DefenseBase, BaseDefense);
+        SetAbsolute(monster, Stats.DefenseBase, BaseDefense + (LevelDefenseBonus * (summonLevel - 1)));
         SetAbsolute(monster, Stats.AttackRatePvm, AttackRate);
         SetAbsolute(monster, Stats.DefenseRatePvm, DefenseRate);
 

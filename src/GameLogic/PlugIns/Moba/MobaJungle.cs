@@ -552,6 +552,7 @@ public static class MobaJungle
         }
 
         var info = Info[kind];
+        await MobaSummons.NoteKillAsync(map, death, info.Epic ? MobaSummons.PointsEpic : MobaSummons.PointsJungle).ConfigureAwait(false);
         await MobaExperience.GrantAsync(killer, ScaledExp(info.Exp, killer.MobaLevel), "jungle").ConfigureAwait(false);
         await MobaGold.GrantAsync(killer, info.Gold, "jungle").ConfigureAwait(false);
         if (!info.Epic)

@@ -287,6 +287,7 @@ public static class MobaWaveSpawner
             var beneficiaryTeam = deadTeam == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
             var deathPosition = creep?.Position ?? default;
             var lastHitter = MobaSummons.CreditedChampion(map.GetObject(death.KillerId));
+            await MobaSummons.NoteKillAsync(map, death, MobaSummons.PointsCreep).ConfigureAwait(false);
 
             var champions = map.GetAttackablesInRange(deathPosition, MobaLevels.ShareRadius)
                 .OfType<Player>()

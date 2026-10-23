@@ -11,6 +11,7 @@ using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
+using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.Network;
 using MUnique.OpenMU.PlugIns;
 
@@ -139,6 +140,8 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             await connection.SendAsync(Write).ConfigureAwait(false);
             await SendCreepsAsync(connection, team, map).ConfigureAwait(false);
             await SendSummonAsync(connection, player).ConfigureAwait(false);
+            await SendSummonSizesAsync(connection, players, map).ConfigureAwait(false);
+            await SendExtraPetsAsync(connection, player, players, map).ConfigureAwait(false);
         }
     }
 
@@ -149,7 +152,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     /// </summary>
     private static async ValueTask SendSummonAsync(IConnection connection, Player player)
     {
-        const int Length = 12;
+        const int Length = 14;
         var summon = MobaSummons.Of(player);
         if (summon is null && !player.MobaSummonControl && MobaLoadouts.SummonsFor(player.SelectedCharacter?.CharacterClass?.Number ?? 0).Count == 0)
         {
@@ -171,7 +174,88 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             span[9] = summon is { } s4 ? (byte)s4.Monster.Position.X : (byte)0;
             span[10] = summon is { } s5 ? (byte)s5.Monster.Position.Y : (byte)0;
             span[11] = (byte)MobaSummons.RankOf(player);
+            span[12] = (byte)Math.Clamp(player.MobaSummonLevel, 1, MobaSummons.MaxSummonLevel);
+            span[13] = (byte)MobaSummons.ProgressPercent(player);
             return Length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The level of every living creature of the match, so each client can draw it bigger the higher its level is (also for the ones
+    /// of the other champions): <c>C1 len D5 2B count [ keyLo keyHi level ] * count</c>.
+    /// </summary>
+    private static async ValueTask SendSummonSizesAsync(IConnection connection, IEnumerable<Player> champions, GameMap map)
+    {
+        var entries = new List<(ushort Key, byte Level)>();
+        foreach (var champion in champions)
+        {
+            if (champion.IsMobaClone && ReferenceEquals(champion.CurrentMap, map) && MobaSummons.Of(champion) is { } summon)
+            {
+                entries.Add(((ushort)summon.Monster.Id, (byte)Math.Clamp(champion.MobaSummonLevel, 1, MobaSummons.MaxSummonLevel)));
+            }
+        }
+
+        var length = 5 + (entries.Count * 3);
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = (byte)length;
+            span[2] = PacketCode;
+            span[3] = 0x2B;
+            span[4] = (byte)entries.Count;
+            var offset = 5;
+            foreach (var (key, level) in entries)
+            {
+                span[offset] = (byte)(key & 0xFF);
+                span[offset + 1] = (byte)(key >> 8);
+                span[offset + 2] = level;
+                offset += 3;
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The pets every champion switched on from its inventory, so each client draws them next to it:
+    /// <c>C1 len D5 2C count [ keyLo keyHi maskLo maskHi ] * count</c> (the mask is <see cref="MobaPets.ExtraMaskOf"/>). Only champions with a pet are listed.
+    /// </summary>
+    private static async ValueTask SendExtraPetsAsync(IConnection connection, Player viewer, IEnumerable<Player> champions, GameMap map)
+    {
+        var entries = new List<(ushort Key, ushort Mask)>();
+        foreach (var champion in champions)
+        {
+            if (champion.IsMobaClone && ReferenceEquals(champion.CurrentMap, map) && MobaPets.ExtraMaskOf(champion) is var mask and not 0)
+            {
+                entries.Add((champion.GetId(viewer), mask));
+            }
+        }
+
+        var length = 5 + (entries.Count * 4);
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = (byte)length;
+            span[2] = PacketCode;
+            span[3] = 0x2C;
+            span[4] = (byte)entries.Count;
+            var offset = 5;
+            foreach (var (key, mask) in entries)
+            {
+                span[offset] = (byte)(key & 0xFF);
+                span[offset + 1] = (byte)(key >> 8);
+                span[offset + 2] = (byte)(mask & 0xFF);
+                span[offset + 3] = (byte)(mask >> 8);
+                offset += 4;
+            }
+
+            return length;
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);

@@ -238,6 +238,20 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         set => this.MobaState.SummonStay = value;
     }
 
+    /// <summary>Gets or sets the level (1-10) of the Elf's creature.</summary>
+    public int MobaSummonLevel
+    {
+        get => this.MobaState.SummonLevel;
+        set => this.MobaState.SummonLevel = value;
+    }
+
+    /// <summary>Gets or sets the kill points the Elf's creature collected.</summary>
+    public int MobaSummonPoints
+    {
+        get => this.MobaState.SummonPoints;
+        set => this.MobaState.SummonPoints = value;
+    }
+
     /// <summary>Gets or sets the unspent MOBA champion points of the class buffs (earned at levels 5, 10, 15, 20, 25 and 30).</summary>
     public int MobaBuffPoints
     {

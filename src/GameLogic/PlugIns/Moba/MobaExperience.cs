@@ -200,6 +200,7 @@ public static class MobaExperience
 
             killer.MobaKills++;
             victim.MobaDeaths++;
+            await MobaSummons.NoteKillAsync(map, death, MobaSummons.PointsChampion).ConfigureAwait(false);
 
             var killExp = MobaLevels.ChampionKillExp + (victim.MobaLevel * MobaLevels.ChampionKillPerVictimLevel);
 

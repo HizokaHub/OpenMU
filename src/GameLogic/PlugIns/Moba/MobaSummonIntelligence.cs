@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Collections.Concurrent;
 using System.Threading;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
@@ -21,8 +22,16 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     /// <summary>Tiles from the owner at which a summon which follows starts walking back to it.</summary>
     private const int FollowDistance = 4;
 
-    /// <summary>Tiles from the owner past which a summon which follows is moved next to it instead of walking.</summary>
-    private const int TeleportDistance = 30;
+    /// <summary>Tiles within which the short search of the monster is enough; further away the creature follows a route.</summary>
+    private const int DirectWalkRange = 6;
+
+    /// <summary>Steps of a stretch of the route (the walker takes 16 at most; the client follows each stretch with its own path).</summary>
+    private const int StepsPerHop = 10;
+
+    /// <summary>Nodes a route search may close (the map is 256x256).</summary>
+    private const int RouteSearchLimit = 20000;
+
+    private static readonly ConcurrentBag<PathFinder> RouteFinders = new();
 
     /// <summary>Tiles around the one it watches (the owner when it follows, itself when controlled) in which it picks fights.</summary>
     private const int AcquireRange = 7;
@@ -36,6 +45,10 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     private IAttackable? _retaliateTarget;
     private Point? _moveOrder;
     private DateTime _nextAttackUtc;
+    private IList<PathResultNode>? _route;
+    private int _routeIndex;
+    private Point _routeGoal;
+    private int _moveFailures;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaSummonIntelligence"/> class.
@@ -188,9 +201,11 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
             }
             else
             {
-                if (!monster.IsWalking)
+                if (!monster.IsWalking && !await this.TravelAsync(map, destination).ConfigureAwait(false) && ++this._moveFailures >= 3)
                 {
-                    await monster.WalkToAsync(destination).ConfigureAwait(false);
+                    // No way there (a wall, a closed area): the order is dropped instead of standing still forever.
+                    this._moveOrder = null;
+                    this._moveFailures = 0;
                 }
 
                 return;
@@ -233,15 +248,94 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
             return;
         }
 
-        var near = map.Terrain.GetRandomCoordinate(owner.Position, 2);
-        if (distance > TeleportDistance)
+        // Called back from anywhere on the map it walks all the way (a route of short stretches), it never jumps to the owner.
+        await this.TravelAsync(map, map.Terrain.GetRandomCoordinate(owner.Position, 2)).ConfigureAwait(false);
+    }
+
+    private static PathFinder CreateRouteFinder()
+        => new(new FullGridNetwork(true))
         {
-            await this.Monster.MoveAsync(near).ConfigureAwait(false);
-        }
-        else
+            Heuristic = new ManhattanHeuristic(),
+            HeuristicEstimate = 12,
+            SearchLimit = RouteSearchLimit,
+        };
+
+    /// <summary>
+    /// Walks towards a point anywhere on the map. Close points use the short search of the monster; far ones a heuristic search of
+    /// the whole route, walked in stretches of <see cref="StepsPerHop"/> steps (the short search gives up past some tiles, which left
+    /// the creature standing half way, and the client cannot follow a walk of 16 steps either).
+    /// </summary>
+    /// <returns><see langword="true"/> if a walk was started or is on its way.</returns>
+    private async ValueTask<bool> TravelAsync(GameMap map, Point goal)
+    {
+        var monster = this.Monster;
+        var position = monster.Position;
+        if (monster.IsWalking)
         {
-            await this.Monster.WalkToAsync(near).ConfigureAwait(false);
+            return true;
         }
+
+        if (Distance(position, goal) <= DirectWalkRange && await monster.WalkToAsync(goal).ConfigureAwait(false))
+        {
+            this._route = null;
+            return true;
+        }
+
+        if (this._route is not { } route
+            || this._routeIndex >= route.Count
+            || Distance(goal, this._routeGoal) > 3
+            || Distance(position, route[this._routeIndex].PreviousPoint) > 1)
+        {
+            route = this.FindRoute(map, position, goal);
+            if (route is null || route.Count == 0)
+            {
+                this._route = null;
+                return false;
+            }
+
+            this._route = route;
+            this._routeIndex = 0;
+            this._routeGoal = goal;
+        }
+
+        var count = Math.Min(route.Count - this._routeIndex, StepsPerHop);
+        var steps = new WalkingStep[count];
+        for (var i = 0; i < count; i++)
+        {
+            var node = route[this._routeIndex + i];
+            var from = i == 0 ? position : steps[i - 1].To;
+            steps[i] = new WalkingStep(from, node.Point, from.GetDirectionTo(node.Point));
+        }
+
+        this._routeIndex += count;
+        await monster.WalkToAsync(steps[count - 1].To, steps).ConfigureAwait(false);
+        return true;
+    }
+
+    private IList<PathResultNode>? FindRoute(GameMap map, Point from, Point to)
+    {
+        if (!RouteFinders.TryTake(out var finder))
+        {
+            finder = CreateRouteFinder();
+        }
+
+        try
+        {
+            finder.ResetPathFinder();
+            return finder.FindPath(from, to, map.Terrain.AIgrid, true);
+        }
+        finally
+        {
+            RouteFinders.Add(finder);
+        }
+    }
+
+    private sealed class ManhattanHeuristic : IHeuristic
+    {
+        public int HeuristicEstimateMultiplier { get; set; }
+
+        public int CalculateHeuristicDistance(Point location, Point target)
+            => this.HeuristicEstimateMultiplier * (Math.Abs(location.X - target.X) + Math.Abs(location.Y - target.Y));
     }
 
     private async ValueTask FightAsync(IAttackable target, int attackRange)
@@ -267,7 +361,7 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
 
         if (!monster.IsWalking && monster.CurrentMap is { } map)
         {
-            await monster.WalkToAsync(map.Terrain.GetRandomCoordinate(target.Position, (byte)Math.Max(attackRange - 1, 1))).ConfigureAwait(false);
+            await this.TravelAsync(map, map.Terrain.GetRandomCoordinate(target.Position, (byte)Math.Max(attackRange - 1, 1))).ConfigureAwait(false);
         }
     }
 
