@@ -39,6 +39,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     /// </summary>
     private const int MaxStepsPerChunk = 2;
 
+    /// <summary>A marching creep which gets no closer to its waypoint for this long is stuck: it is freed (see <see cref="BreakFreeAsync"/>).</summary>
+    private static readonly TimeSpan StuckBreakAfter = TimeSpan.FromSeconds(7);
+
     private const int RefeedWhenStepsLeft = 1;
 
     /// <summary>If the creep has wanted to move but couldn't claim a step for this long, it takes a free neighbour (not further from where it is going) to break a jam.</summary>
@@ -134,6 +137,18 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
     /// <summary>When the creep first failed to claim any forward step (for the anti-jam shuffle); default = not stuck.</summary>
     private DateTime _blockedSinceUtc;
+
+    /// <summary>The waypoint whose progress is being watched, the closest the creep has been to it and since when it has not got closer.</summary>
+    private int _progressWaypoint = -1;
+
+    private double _bestWaypointDistance = double.MaxValue;
+
+    private DateTime _lastProgressUtc = DateTime.UtcNow;
+
+    private DateTime _lastBlockReportUtc;
+
+    /// <summary>The tile the creep stood on before its last wiggle (it must not wiggle straight back).</summary>
+    private Point _wiggledFrom;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaLaneCreepIntelligence"/> class.
@@ -638,6 +653,22 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
             waypoint = this._waypoints[this._currentWaypoint];
         }
 
+        // Stuck for good (seen in the 8th game: Red creeps stood minutes beside their own base turret): free it.
+        var laneWaypoint = this._waypoints[this._currentWaypoint];
+        var distanceToWaypoint = laneWaypoint.EuclideanDistanceTo(pos);
+        var progressNow = DateTime.UtcNow;
+        if (this._progressWaypoint != this._currentWaypoint || distanceToWaypoint < this._bestWaypointDistance - 1.0)
+        {
+            this._progressWaypoint = this._currentWaypoint;
+            this._bestWaypointDistance = distanceToWaypoint;
+            this._lastProgressUtc = progressNow;
+        }
+        else if (progressNow - this._lastProgressUtc >= StuckBreakAfter && !this.Monster.IsWalking)
+        {
+            await this.BreakFreeAsync(pos).ConfigureAwait(false);
+            return;
+        }
+
         waypoint = this.DetourAroundStructure(pos, waypoint);
 
         // Only re-feed once the current chunk is (almost) consumed, so the walk stays fluid.
@@ -652,6 +683,70 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
 
         await this.FeedChunkTowardAsync(pos, waypoint).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Frees a creep which has not got closer to its waypoint for <see cref="StuckBreakAfter"/>: logs who holds the tiles around it,
+    /// frees the tiles held by units which are gone, and sends it to the first waypoint ahead which is not beside a structure with the
+    /// game's path finder (which ignores the claims of other creeps), so it walks on past whatever blocks it.
+    /// </summary>
+    private async ValueTask BreakFreeAsync(Point pos)
+    {
+        var monster = this.Monster;
+        var now = DateTime.UtcNow;
+        this._decision = "unstick";
+        var freed = MobaOccupancyGrid.ReleaseStaleAround(this.MapId, pos, 3);
+
+        if (now - this._lastBlockReportUtc >= TimeSpan.FromSeconds(30))
+        {
+            this._lastBlockReportUtc = now;
+            var around = new List<string>();
+            for (var dy = -1; dy <= 1; dy++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var x = pos.X + dx;
+                    var y = pos.Y + dy;
+                    if ((dx != 0 || dy != 0) && x is >= 0 and <= 255 && y is >= 0 and <= 255)
+                    {
+                        var tile = new Point((byte)x, (byte)y);
+                        around.Add($"({x},{y})={(monster.CurrentMap.Terrain.AIgrid[x, y] == 0 ? "wall" : MobaOccupancyGrid.DescribeOwner(this.MapId, tile))}");
+                    }
+                }
+            }
+
+            MobaCreepTrace.Logger?.LogWarning(
+                "[MOBA-CREEP-BLOCK] creep #{Id} {Team} at ({X},{Y}) has not got closer to waypoint {Waypoint}/{Count} for {Seconds:F0}s; stale claims freed: {Freed}; around: {Around}",
+                monster.Id,
+                this._team,
+                pos.X,
+                pos.Y,
+                this._currentWaypoint,
+                this._waypoints.Count,
+                (now - this._lastProgressUtc).TotalSeconds,
+                freed,
+                string.Join(" ", around));
+        }
+
+        // The first waypoint ahead which is clear of structures and at least a few tiles away.
+        var ahead = this._currentWaypoint;
+        while (ahead < this._waypoints.Count - 1 && (this.IsNearStructure(this._waypoints[ahead]) || this._waypoints[ahead].EuclideanDistanceTo(pos) < 4))
+        {
+            ahead++;
+        }
+
+        this._currentWaypoint = ahead;
+        this._detour = null;
+        this._chunkStepCount = 0;
+        this._progressWaypoint = ahead;
+        this._bestWaypointDistance = this._waypoints[ahead].EuclideanDistanceTo(pos);
+        this._lastProgressUtc = now;
+        this.SyncClaims(pos, Array.Empty<Point>());
+        if (await monster.WalkToAsync(this._waypoints[ahead]).ConfigureAwait(false))
+        {
+            this._chunkStartedUtc = now;
+            this._chunkStepCount = 8;
+        }
     }
 
     /// <summary>
@@ -895,6 +990,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                          && this.PickFreeNeighbourToward(from, to, terrain, champions, mapId) is { } wiggle)
                 {
                     this._decision = "wiggle";
+                    this._wiggledFrom = from;
                     this.SyncClaims(from, new[] { wiggle });
                     var wiggleStep = new WalkingStep[] { new(from, wiggle, GetDirection(from, wiggle)) };
                     await this.Monster.WalkToAsync(wiggle, wiggleStep.AsMemory()).ConfigureAwait(false);
@@ -947,7 +1043,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
 
             var n = new Point((byte)x, (byte)y);
             var distance = n.EuclideanDistanceTo(goal);
-            if (distance > current + 0.5 || distance >= bestDistance || terrain[n.X, n.Y] == 0 || champions.Contains(n) || !MobaOccupancyGrid.IsFree(mapId, n, this))
+            if (n == this._wiggledFrom || distance > current + 0.5 || distance >= bestDistance || terrain[n.X, n.Y] == 0 || champions.Contains(n) || !MobaOccupancyGrid.IsFree(mapId, n, this))
             {
                 continue;
             }

@@ -69,6 +69,61 @@ public static class MobaOccupancyGrid
         => ((ICollection<KeyValuePair<(GameMap, int), object>>)Owners)
             .Remove(new KeyValuePair<(GameMap, int), object>((map, Index(tile)), owner));
 
+    /// <summary>
+    /// Frees the tiles around a point which are held by a unit which is not on the map any more (a dead or removed minion whose
+    /// release did not run). A creep which stands still for ever beside such a tile never gets past it.
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <param name="center">The centre.</param>
+    /// <param name="radius">The radius in tiles.</param>
+    /// <returns>How many tiles were freed.</returns>
+    public static int ReleaseStaleAround(GameMap map, Point center, int radius)
+    {
+        var freed = 0;
+        for (var dy = -radius; dy <= radius; dy++)
+        {
+            for (var dx = -radius; dx <= radius; dx++)
+            {
+                var x = center.X + dx;
+                var y = center.Y + dy;
+                if (x is < 0 or > 255 || y is < 0 or > 255)
+                {
+                    continue;
+                }
+
+                var key = (map, Index(new Point((byte)x, (byte)y)));
+                if (Owners.TryGetValue(key, out var owner)
+                    && owner is MobaLaneCreepIntelligence { } creep
+                    && (!creep.Monster.IsAlive || !ReferenceEquals(creep.Monster.CurrentMap, map))
+                    && ((ICollection<KeyValuePair<(GameMap, int), object>>)Owners).Remove(new KeyValuePair<(GameMap, int), object>(key, owner)))
+                {
+                    freed++;
+                }
+            }
+        }
+
+        return freed;
+    }
+
+    /// <summary>Describes who holds a tile (for the diagnostic of a creep which cannot move).</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="tile">The tile.</param>
+    /// <returns>A short text.</returns>
+    public static string DescribeOwner(GameMap map, Point tile)
+    {
+        if (!Owners.TryGetValue((map, Index(tile)), out var owner))
+        {
+            return "free";
+        }
+
+        return owner switch
+        {
+            MobaStructureIntelligence => "structure",
+            MobaLaneCreepIntelligence creep => $"creep#{creep.Monster.Id} {(creep.Monster.IsAlive ? "alive" : "DEAD")} {MobaTeams.GetTeam(creep.Monster)} @{creep.Monster.Position.X},{creep.Monster.Position.Y} walking={creep.Monster.IsWalking}",
+            _ => owner.GetType().Name,
+        };
+    }
+
     /// <summary>Releases every tile held by <paramref name="owner"/> on the map.</summary>
     /// <param name="map">The map.</param>
     /// <param name="owner">The unit.</param>

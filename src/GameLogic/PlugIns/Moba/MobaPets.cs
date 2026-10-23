@@ -296,6 +296,14 @@ public static class MobaPets
     /// <returns>A task.</returns>
     public static async ValueTask ToggleFromInventoryAsync(Player player, byte slot)
     {
+        var slotItem = player.Inventory?.GetItem(slot);
+        player.Logger.LogInformation(
+            "[MOBA-PET] \"{Name}\" right-clicked slot {Slot}: item {Item}, champion {Clone}",
+            player.SelectedCharacter?.Name,
+            slot,
+            slotItem is null ? "none" : $"{slotItem.Definition?.Name} ({slotItem.Definition?.Group},{slotItem.Definition?.Number})",
+            player.IsMobaClone);
+
         if (!player.IsMobaClone || player.Inventory is not { } inventory || player.Attributes is not { } attributes)
         {
             return;
