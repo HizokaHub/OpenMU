@@ -224,23 +224,16 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         base.Dispose(managed);
     }
 
-    private static Direction GetDirection(Point from, Point to)
-    {
-        var dx = Math.Sign(to.X - from.X);
-        var dy = Math.Sign(to.Y - from.Y);
-        return (dx, dy) switch
-        {
-            (0, -1) => Direction.North,
-            (1, -1) => Direction.NorthEast,
-            (1, 0) => Direction.East,
-            (1, 1) => Direction.SouthEast,
-            (0, 1) => Direction.South,
-            (-1, 1) => Direction.SouthWest,
-            (-1, 0) => Direction.West,
-            (-1, -1) => Direction.NorthWest,
-            _ => Direction.Undefined,
-        };
-    }
+    /// <summary>
+    /// The direction code of a one-tile step. It must be the game's own (<see cref="DirectionExtensions.GetDirectionTo(Point, Point)"/>):
+    /// the client rebuilds a walk from the direction codes, which are rotated 45 degrees against the grid (North is x-1, y+1). The creeps
+    /// used their own table, so every walk the clients drew went the wrong way (backwards or sideways) and snapped to the real
+    /// position at the next chunk: minions seemed to walk backwards, vanish and reappear.
+    /// </summary>
+    /// <param name="from">The tile the step starts on.</param>
+    /// <param name="to">The tile it ends on.</param>
+    /// <returns>The direction code.</returns>
+    internal static Direction GetDirection(Point from, Point to) => from.GetDirectionTo(to);
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Timer callback; exceptions swallowed to keep the timer alive.")]
     private async void SafeTick()
