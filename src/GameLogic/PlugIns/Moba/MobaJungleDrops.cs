@@ -76,9 +76,18 @@ public static class MobaJungleDrops
     /// <param name="tierExcellent">The excellent options the match phase gives.</param>
     /// <returns>The item level and the number of excellent options.</returns>
     public static (int Level, int Excellent) QualityOf(MobaJungle.Kind kind, double damage, double topDamage, int tierExcellent)
+        => QualityOf(LevelsOf(kind), damage, topDamage, tierExcellent);
+
+    /// <summary>The quality of an item from a boss with explicit item levels (the golden monsters), see the overload by kind.</summary>
+    /// <param name="levels">The lowest and the highest item level.</param>
+    /// <param name="damage">What the champion did.</param>
+    /// <param name="topDamage">What the champion that did the most did.</param>
+    /// <param name="tierExcellent">The excellent options the match phase gives.</param>
+    /// <returns>The item level and the number of excellent options.</returns>
+    public static (int Level, int Excellent) QualityOf((int Min, int Max) levels, double damage, double topDamage, int tierExcellent)
     {
         var ratio = topDamage <= 0 ? 1.0 : Math.Clamp(damage / topDamage, 0.0, 1.0);
-        var (low, high) = LevelsOf(kind);
+        var (low, high) = levels;
         var level = ratio >= 0.5 ? high : low;
         var excellent = Math.Max(1, (int)Math.Round(tierExcellent * (0.25 + (0.75 * ratio))));
         return (level, Math.Min(excellent, tierExcellent));
@@ -94,7 +103,20 @@ public static class MobaJungleDrops
     /// <param name="death">How it died.</param>
     /// <param name="damage">The damage every champion did to it.</param>
     /// <returns>A task.</returns>
-    public static async ValueTask DropBossItemsAsync(GameMap map, MobaJungle.Kind kind, Monster boss, DeathInformation death, IReadOnlyDictionary<Player, double> damage)
+    public static ValueTask DropBossItemsAsync(GameMap map, MobaJungle.Kind kind, Monster boss, DeathInformation death, IReadOnlyDictionary<Player, double> damage)
+        => DropSplitItemsAsync(map, LevelsOf(kind), boss, death, damage, kind.ToString());
+
+    /// <summary>
+    /// Drops one item for every champion of the team of the last hitter that hurt the monster (best item for the most damage), with the given item levels.
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <param name="levels">The lowest and the highest item level.</param>
+    /// <param name="boss">The dead monster.</param>
+    /// <param name="death">How it died.</param>
+    /// <param name="damage">The damage every champion did to it.</param>
+    /// <param name="label">A name for the log.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask DropSplitItemsAsync(GameMap map, (int Min, int Max) levels, Monster boss, DeathInformation death, IReadOnlyDictionary<Player, double> damage, string label)
     {
         if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { IsMobaClone: true } killer)
         {
@@ -117,7 +139,7 @@ public static class MobaJungleDrops
         var dropped = new List<string>();
         foreach (var (champion, dealt) in winners)
         {
-            var (level, excellent) = QualityOf(kind, dealt, top, tierExcellent);
+            var (level, excellent) = QualityOf(levels, dealt, top, tierExcellent);
             var item = await MobaCreepDrops.CreateItemAsync(champion, level, excellent).ConfigureAwait(false);
             if (item is null)
             {
@@ -129,7 +151,26 @@ public static class MobaJungleDrops
             dropped.Add($"{champion.Name} +{level} x{excellent}exc ({dealt / maxHealth:P0})");
         }
 
-        killer.Logger.LogInformation("[MOBA-JUNGLE] {Kind} drops {Count} item(s) for the team of {Killer}: {List}.", kind, dropped.Count, killer.Name, string.Join(", ", dropped));
+        killer.Logger.LogInformation("[MOBA-JUNGLE] {Kind} drops {Count} item(s) for the team of {Killer}: {List}.", label, dropped.Count, killer.Name, string.Join(", ", dropped));
+    }
+
+    /// <summary>Drops one item of the given level, reserved for the champion, where the monster died.</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="champion">The champion.</param>
+    /// <param name="monster">The dead monster.</param>
+    /// <param name="level">The item level.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask DropSingleItemAsync(GameMap map, Player champion, Monster monster, int level)
+    {
+        var (_, _, _, tierExcellent) = MobaShop.TierStatsOf(MobaArena.Of(champion).Phase);
+        var item = await MobaCreepDrops.CreateItemAsync(champion, level, Math.Max(1, tierExcellent / 2)).ConfigureAwait(false);
+        if (item is null)
+        {
+            return;
+        }
+
+        var coordinates = map.Terrain.GetRandomCoordinate(monster.Position, 2);
+        await map.AddAsync(new DroppedItem(item, coordinates, map, null, new object[] { champion })).ConfigureAwait(false);
     }
 }
 

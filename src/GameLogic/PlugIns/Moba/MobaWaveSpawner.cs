@@ -192,6 +192,12 @@ public static class MobaWaveSpawner
         var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
         var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
         var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
+        if (MobaGolden.IsReinforced(map, team))
+        {
+            // The team which killed a Great Golden Dragon sends a golden monster with every wave for a while.
+            composition = composition.Append((MobaGolden.ReinforcementNumber, 1)).ToArray();
+        }
+
         var lane = MobaLayout.WaypointsFor(team, laneIndex);
         var terrain = map.Terrain;
         var spawn = lane[0];
@@ -201,13 +207,19 @@ public static class MobaWaveSpawner
         var total = 0;
         foreach (var (number, count) in composition)
         {
+            var golden = number == MobaGolden.ReinforcementNumber;
+            var power = golden ? MobaGolden.ReinforcementPower : 1f;
             var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
-            if (baseDefinition is null)
+            if (baseDefinition is null && !golden)
             {
                 continue;
             }
 
-            var definition = baseDefinition.Clone(gameContext.Configuration);
+            var definition = golden ? MobaGolden.DefinitionFor(gameContext, number) : baseDefinition!.Clone(gameContext.Configuration);
+            if (definition is null)
+            {
+                continue;
+            }
 
             // The four S6 mobs differ in attack delay (Spider 1800, Worm 1600, Goblin 1800, Rabbit 1500 ms), which would make one
             // team's creeps hit harder than the other's; both teams share the same cadence.
@@ -240,7 +252,7 @@ public static class MobaWaveSpawner
                     X2 = startPoint.X,
                     Y1 = startPoint.Y,
                     Y2 = startPoint.Y,
-                    MaximumHealthOverride = (int)(CreepHealth * creepHealthMul),
+                    MaximumHealthOverride = (int)(CreepHealth * creepHealthMul * power),
                 };
 
                 var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
@@ -254,7 +266,7 @@ public static class MobaWaveSpawner
                     gameContext.PathFinderPool);
 
                 monster.Initialize();
-                ForceCreepStats(monster, creepHealthMul, creepDamageMul);
+                ForceCreepStats(monster, creepHealthMul * power, creepDamageMul * power);
                 monster.Died += (sender, death) => _ = OnCreepKilledAsync(map, sender as Monster, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();

@@ -100,6 +100,11 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         var arena = MobaArena.Of(arenaMap);
         MobaMatchPhase.Evaluate(arena, mobaChampions);
         TrackEmptiness(arena, mobaChampions.Count, now);
+        if (mobaChampions.Count > 0)
+        {
+            await MobaGolden.TickAsync(gameContext, arenaMap, arena).ConfigureAwait(false);
+        }
+
         await this.ReapIfAbandonedAsync(gameContext, arenaMap, arena, mobaChampions.Count, now).ConfigureAwait(false);
 
         foreach (var champion in mobaChampions.Where(p => p.MobaLevel < MobaLevels.MaxLevel && !arena.IsPreMatch))

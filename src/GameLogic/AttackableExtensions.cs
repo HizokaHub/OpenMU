@@ -383,6 +383,12 @@ public static class AttackableExtensions
             PlugIns.Moba.MobaStructures.NoteChampionHit(structure, mobaSieger, before, dmg);
         }
 
+        // MOBA: the golden monsters of the invasion hit for a share of the life of the champion (and kill minions in one blow).
+        if (attacker is NPC.Monster goldenAttacker && PlugIns.Moba.MobaGolden.TryGetHitDamage(goldenAttacker, defender, damageFactor, out var goldenDamage))
+        {
+            dmg = goldenDamage;
+        }
+
         return defender.GetHitInfo((uint)dmg, attributes, attacker, (uint)manaToll);
     }
 

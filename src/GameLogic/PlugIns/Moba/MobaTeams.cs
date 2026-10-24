@@ -65,7 +65,13 @@ public static class MobaTeams
     {
         var teamA = GetTeam(a);
         var teamB = GetTeam(b);
-        return teamA != MobaTeam.None && teamB != MobaTeam.None && teamA != teamB;
+        if (teamA != MobaTeam.None && teamB != MobaTeam.None)
+        {
+            return teamA != teamB;
+        }
+
+        // The golden monsters of the invasion have no team and are the enemy of every team (and not of each other).
+        return (teamA != MobaTeam.None && MobaGolden.IsGolden(b)) || (teamB != MobaTeam.None && MobaGolden.IsGolden(a));
     }
 
     /// <summary>
