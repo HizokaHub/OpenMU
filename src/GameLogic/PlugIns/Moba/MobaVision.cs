@@ -160,19 +160,23 @@ public static class MobaVision
     /// <summary>Places a ward of the champion at its position, paying <see cref="WardCost"/> gold.</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>A message for the champion (success or why not).</returns>
-    public static string TryPlaceWard(Player champion)
+    public static string TryPlaceWard(Player champion, bool free = false)
     {
         if (!champion.IsMobaClone || champion.CurrentMap is not { } map)
         {
             return "[MOBA] You need to be in a match.";
         }
 
-        if (champion.Money < WardCost)
+        if (!free && champion.Money < WardCost)
         {
             return $"[MOBA] A ward costs {WardCost} gold.";
         }
 
-        champion.Money -= WardCost;
+        if (!free)
+        {
+            champion.Money -= WardCost;
+        }
+
         lock (WardLock)
         {
             Wards.RemoveAll(w => w.ExpiresUtc <= DateTime.UtcNow);

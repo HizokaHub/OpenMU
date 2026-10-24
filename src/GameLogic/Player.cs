@@ -1748,6 +1748,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             try
             {
                 var respawnDelay = this.IsMobaClone ? PlugIns.Moba.MobaRespawn.BeginRespawn(this) : TimeSpan.FromSeconds(3);
+
+                // MOBA: a reviving elixir (golden loot) in the inventory is used at once and the champion comes back after a moment.
+                if (this.IsMobaClone && PlugIns.Moba.MobaGoldenLoot.TryConsumeElixirOnDeath(this))
+                {
+                    respawnDelay = TimeSpan.FromSeconds(1);
+                }
+
                 await Task.Delay(respawnDelay, cancellationToken).ConfigureAwait(false);
 
                 if (cancellationToken.IsCancellationRequested || this.CurrentMap is null)

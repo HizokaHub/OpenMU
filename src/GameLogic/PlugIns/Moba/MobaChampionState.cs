@@ -45,6 +45,9 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets the kill points the creature collected (they decide its level).</summary>
     public int SummonPoints { get; set; }
 
+    /// <summary>Gets or sets the golden monsters of the invasion this champion killed with the last hit.</summary>
+    public int GoldenKills { get; set; }
+
     /// <summary>Gets or sets the kills of this match.</summary>
     public int Kills { get; set; }
 

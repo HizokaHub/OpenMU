@@ -68,4 +68,28 @@ public class MobaGoldenTests
         Assert.That(MobaGolden.IsGolden(new object()), Is.False);
         Assert.That(MobaTeams.AreEnemies(new object(), new object()), Is.False);
     }
+
+    /// <summary>
+    /// Two golden goblins bring a whole turret down in well under a minute, and a turret needs many hits to kill one goblin.
+    /// </summary>
+    [Test]
+    public void TwoGoblinsBringATurretDown()
+    {
+        var hitsToKillTurret = 1.0 / MobaGolden.StructureShareOf(MobaGolden.Tier.Small);
+        var seconds = hitsToKillTurret / 2 * MobaGolden.AttackSecondsOf(MobaGolden.Tier.Small);
+        Assert.That(seconds, Is.LessThan(40));
+        Assert.That(1.0 / MobaGolden.TurretShareOf(MobaGolden.Tier.Small), Is.GreaterThan(30));
+    }
+
+    /// <summary>
+    /// Every kind of golden loot is a different jewel, and the Great Golden Dragon always drops a chest.
+    /// </summary>
+    [Test]
+    public void TheLootIsDistinctAndTheDragonAlwaysDropsAChest()
+    {
+        var names = Enum.GetValues<MobaGoldenLoot.Kind>().Select(MobaGoldenLoot.DefinitionNameOf).ToList();
+        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count));
+        Assert.That(MobaGoldenLoot.ChancesOf(MobaGolden.Tier.Great).Any(c => c.Kind == MobaGoldenLoot.Kind.Chest && c.Chance >= 1.0), Is.True);
+        Assert.That(MobaGoldenLoot.KindOf(null), Is.Null);
+    }
 }

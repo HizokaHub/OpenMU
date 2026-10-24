@@ -72,8 +72,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
 
         if (span.Length >= 5 && span[3] == 0x2A)
         {
-            // C1 05 D5 2A slot: the right click of a Dark Horse / Dark Raven in the inventory (switches it on or off).
-            await MobaPets.ToggleFromInventoryAsync(player, span[4]).ConfigureAwait(false);
+            // C1 05 D5 2A slot: the right click of a pet or of a golden gem in the inventory (a pet is switched on or off, a gem is used).
+            var itemSlot = span[4];
+            if (!await MobaGoldenLoot.TryUseAsync(player, itemSlot).ConfigureAwait(false))
+            {
+                await MobaPets.ToggleFromInventoryAsync(player, itemSlot).ConfigureAwait(false);
+            }
+
             return;
         }
 

@@ -11,22 +11,20 @@ using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
 /// The brain of a golden monster of the invasion (see <see cref="MobaGolden"/>). It runs its own timer and attacks everything in its reach: champions,
-/// lane minions, summons and structures, never another golden monster. A guard stands on its spot and chases up to <see cref="LeashTiles"/> tiles from it;
-/// a patroller walks its route (the lane towards an enemy base) and fights what it meets. A turret hit makes it retreat for a few seconds and ignore the
-/// structures for a while, so the goblins do not die suicidally under a turret.
+/// lane minions, summons and structures (a turret hit does not make it retreat: two goblins are enough to bring a turret down), never another golden
+/// monster. A guard stands on its spot and chases up to <see cref="LeashTiles"/> tiles from it; a patroller walks its route (the lane towards an enemy
+/// base) and fights what it meets. To spare the server, a monster nobody sees only looks around every few ticks.
 /// </summary>
 public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
 {
     /// <summary>Tiles a guard may stray from its spot.</summary>
     public const double LeashTiles = 20;
 
+    /// <summary>A monster which nobody sees looks around once in this many ticks.</summary>
+    private const int UnobservedScanEvery = 5;
+
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(300);
 
-    private static readonly TimeSpan RetreatTime = TimeSpan.FromSeconds(7);
-
-    private static readonly TimeSpan IgnoreStructuresTime = TimeSpan.FromSeconds(30);
-
-    private readonly MobaGolden.Tier _tier;
     private readonly Point _home;
     private readonly bool _guard;
     private readonly IReadOnlyList<Point>? _patrol;
@@ -35,21 +33,17 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
     private volatile bool _ticking;
     private IAttackable? _target;
     private int _patrolIndex;
+    private int _tickCounter;
     private DateTime _nextAttackUtc;
-    private DateTime _retreatUntilUtc;
-    private DateTime _ignoreStructuresUntilUtc;
     private DateTime _nextRegenUtc;
-    private Point _retreatGoal;
     private int _pathFailures;
 
     /// <summary>Initializes a new instance of the <see cref="MobaGoldenIntelligence"/> class.</summary>
-    /// <param name="tier">The tier of the monster.</param>
     /// <param name="home">The spot it guards (or starts from).</param>
     /// <param name="guard">Whether it stands on its spot (otherwise it patrols).</param>
     /// <param name="patrol">The points it walks, in order, when it patrols.</param>
-    public MobaGoldenIntelligence(MobaGolden.Tier tier, Point home, bool guard, IReadOnlyList<Point>? patrol)
+    public MobaGoldenIntelligence(Point home, bool guard, IReadOnlyList<Point>? patrol)
     {
-        this._tier = tier;
         this._home = home;
         this._guard = guard || patrol is null || patrol.Count == 0;
         this._patrol = patrol;
@@ -66,18 +60,6 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
     public override void RegisterHit(IAttacker attacker)
     {
         // Not calling the base: its own AI must stay idle, this class decides.
-        if (attacker is Monster structure && MobaStructures.IsStructure(structure))
-        {
-            var now = DateTime.UtcNow;
-            this._retreatUntilUtc = now + RetreatTime;
-            this._ignoreStructuresUntilUtc = now + IgnoreStructuresTime;
-            this._target = null;
-            var from = this.Monster.Position;
-            var dx = from.X - structure.Position.X;
-            var dy = from.Y - structure.Position.Y;
-            var length = Math.Max(1.0, Math.Sqrt((dx * dx) + (dy * dy)));
-            this._retreatGoal = MobaLayout.NearestWalkable(from.X + (dx / length * 14), from.Y + (dy / length * 14));
-        }
     }
 
     /// <inheritdoc />
@@ -133,19 +115,10 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
             return;
         }
 
+        this._tickCounter++;
         var now = DateTime.UtcNow;
-        if (now < this._retreatUntilUtc)
-        {
-            if (!monster.IsWalking)
-            {
-                await this._walker.TravelAsync(monster, this._retreatGoal).ConfigureAwait(false);
-            }
-
-            return;
-        }
-
         var position = monster.Position;
-        if (this._target is { } current && !this.IsValidTarget(current, now))
+        if (this._target is { } current && !IsValidTarget(monster, current))
         {
             this._target = null;
         }
@@ -155,7 +128,11 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
             this._target = null;
         }
 
-        this._target ??= this.FindTarget(map, position, now);
+        if (this._target is null && (monster.Observers.Count > 0 || this._tickCounter % UnobservedScanEvery == 0))
+        {
+            this._target = FindTarget(monster, map, position);
+        }
+
         if (this._target is { } target)
         {
             await this.FightAsync(map, target).ConfigureAwait(false);
@@ -173,9 +150,9 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
         }
     }
 
-    private bool IsValidTarget(IAttackable target, DateTime now)
+    private static bool IsValidTarget(Monster self, IAttackable target)
     {
-        if (!target.IsAlive || !target.IsActive() || target.CurrentMap != this.Monster.CurrentMap || ReferenceEquals(target, this.Monster) || MobaGolden.IsGolden(target))
+        if (!target.IsAlive || !target.IsActive() || target.CurrentMap != self.CurrentMap || ReferenceEquals(target, self) || MobaGolden.IsGolden(target))
         {
             return false;
         }
@@ -185,7 +162,7 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
             case Player player:
                 return player.IsMobaClone && !player.IsInvisible && !player.IsAtSafezone();
             case Monster monster when MobaStructures.IsStructure(monster):
-                return now >= this._ignoreStructuresUntilUtc;
+                return true;
             case Monster monster:
                 return MobaTeams.GetTeam(monster) != MobaTeam.None;
             default:
@@ -193,21 +170,21 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
         }
     }
 
-    private IAttackable? FindTarget(GameMap map, Point position, DateTime now)
+    private static IAttackable? FindTarget(Monster self, GameMap map, Point position)
     {
-        var radius = this._tier == MobaGolden.Tier.Great ? 12 : 9;
+        var radius = MobaGolden.TierOf(self) == MobaGolden.Tier.Great ? 12 : 9;
         IAttackable? best = null;
         var bestScore = double.MaxValue;
         foreach (var candidate in map.GetAttackablesInRange(position, radius))
         {
-            if (!this.IsValidTarget(candidate, now))
+            if (!IsValidTarget(self, candidate))
             {
                 continue;
             }
 
             // Champions first, then minions and summons, structures last.
             var distance = candidate.GetDistanceTo(position);
-            var score = distance + (candidate is Player ? 0 : MobaStructures.IsStructure(candidate) ? 40 : 6);
+            var score = distance + (candidate is Player ? 0 : MobaStructures.IsStructure(candidate) ? 25 : 6);
             if (score < bestScore)
             {
                 bestScore = score;
@@ -221,6 +198,7 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
     private async ValueTask FightAsync(GameMap map, IAttackable target)
     {
         var monster = this.Monster;
+        var tier = MobaGolden.TierOf(monster);
         var reach = monster.Definition.AttackRange + (MobaStructures.IsStructure(target) ? 2 : 0);
         if (target.GetDistanceTo(monster.Position) <= reach)
         {
@@ -233,11 +211,11 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
             var now = DateTime.UtcNow;
             if (now >= this._nextAttackUtc)
             {
-                this._nextAttackUtc = now + TimeSpan.FromSeconds(MobaGolden.AttackSecondsOf(this._tier));
+                this._nextAttackUtc = now + TimeSpan.FromSeconds(MobaGolden.AttackSecondsOf(tier));
                 await monster.AttackAsync(target).ConfigureAwait(false);
-                if (this._tier >= MobaGolden.Tier.Large && target is Player)
+                if (tier >= MobaGolden.Tier.Large && target is Player)
                 {
-                    await this.CleaveAsync(map, target).ConfigureAwait(false);
+                    await this.CleaveAsync(map, target, tier).ConfigureAwait(false);
                 }
             }
 
@@ -259,9 +237,9 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
     }
 
     /// <summary>The big golden monsters hit the other champions around the target too.</summary>
-    private async ValueTask CleaveAsync(GameMap map, IAttackable target)
+    private async ValueTask CleaveAsync(GameMap map, IAttackable target, MobaGolden.Tier tier)
     {
-        var factor = this._tier == MobaGolden.Tier.Great ? 0.6 : 0.4;
+        var factor = tier == MobaGolden.Tier.Great ? 0.6 : 0.4;
         foreach (var other in map.GetAttackablesInRange(target.Position, 3).OfType<Player>().Where(p => p.IsMobaClone && p.IsAlive && !ReferenceEquals(p, target) && !p.IsAtSafezone()).ToList())
         {
             await other.AttackByAsync(this.Monster, null, false, factor).ConfigureAwait(false);
@@ -296,16 +274,16 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
 
     private async ValueTask PatrolAsync(Point position)
     {
-        var monster = this._patrol is { } route && route.Count > 0 ? this.Monster : null;
-        if (monster is null)
+        if (this._patrol is not { Count: > 0 } route)
         {
             return;
         }
 
-        var goal = this._patrol![Math.Min(this._patrolIndex, this._patrol.Count - 1)];
+        var monster = this.Monster;
+        var goal = route[Math.Min(this._patrolIndex, route.Count - 1)];
         if (Distance(position, goal) <= 3)
         {
-            if (this._patrolIndex < this._patrol.Count - 1)
+            if (this._patrolIndex < route.Count - 1)
             {
                 this._patrolIndex++;
             }
@@ -313,7 +291,7 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
             return;
         }
 
-        if (!monster.IsWalking && !await this._walker.TravelAsync(monster, goal).ConfigureAwait(false) && this._patrolIndex < this._patrol.Count - 1)
+        if (!monster.IsWalking && !await this._walker.TravelAsync(monster, goal).ConfigureAwait(false) && this._patrolIndex < route.Count - 1)
         {
             this._patrolIndex++;
         }

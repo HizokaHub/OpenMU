@@ -142,6 +142,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             await SendSummonAsync(connection, player).ConfigureAwait(false);
             await SendSummonSizesAsync(connection, players, map).ConfigureAwait(false);
             await SendExtraPetsAsync(connection, player, players, map).ConfigureAwait(false);
+            await SendGoldenAsync(connection, map).ConfigureAwait(false);
         }
     }
 
@@ -219,6 +220,69 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The golden invasion for the clients: <c>C1 len D5 2E count [ keyLo keyHi percent ] * count</c> (the size of the growing dragons, in percent of a grown one) and
+    /// <c>C1 len D5 2F count [ team x y radius burning ] * count</c> (the cities: the circle around each nexus, burning while golden monsters are in it).
+    /// Sent only while the invasion lasts.
+    /// </summary>
+    private static async ValueTask SendGoldenAsync(IConnection connection, GameMap map)
+    {
+        if (!MobaGolden.HasStarted(map))
+        {
+            return;
+        }
+
+        var sizes = MobaGolden.GrowthSizes(map);
+        var sizesLength = 5 + (sizes.Count * 3);
+        int WriteSizes()
+        {
+            var span = connection.Output.GetSpan(sizesLength)[..sizesLength];
+            span[0] = 0xC1;
+            span[1] = (byte)sizesLength;
+            span[2] = PacketCode;
+            span[3] = 0x2E;
+            span[4] = (byte)sizes.Count;
+            var offset = 5;
+            foreach (var (key, percent) in sizes)
+            {
+                span[offset] = (byte)(key & 0xFF);
+                span[offset + 1] = (byte)(key >> 8);
+                span[offset + 2] = percent;
+                offset += 3;
+            }
+
+            return sizesLength;
+        }
+
+        await connection.SendAsync(WriteSizes).ConfigureAwait(false);
+
+        var cities = MobaGolden.Cities(map);
+        var citiesLength = 5 + (cities.Count * 5);
+        int WriteCities()
+        {
+            var span = connection.Output.GetSpan(citiesLength)[..citiesLength];
+            span[0] = 0xC1;
+            span[1] = (byte)citiesLength;
+            span[2] = PacketCode;
+            span[3] = 0x2F;
+            span[4] = (byte)cities.Count;
+            var offset = 5;
+            foreach (var (team, center, radius, burning) in cities)
+            {
+                span[offset] = (byte)team;
+                span[offset + 1] = center.X;
+                span[offset + 2] = center.Y;
+                span[offset + 3] = radius;
+                span[offset + 4] = burning ? (byte)1 : (byte)0;
+                offset += 5;
+            }
+
+            return citiesLength;
+        }
+
+        await connection.SendAsync(WriteCities).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -18,10 +18,12 @@ using MUnique.OpenMU.Pathfinding;
 /// <summary>
 /// The invasion of the golden monsters (2026-10-24, designed with the user): at minute 22 of the match the golden dragons fly over the map for a minute
 /// (a visual only), then the whole jungle is extinguished and its places are taken by golden monsters, stronger than the jungle ones: goblins where the
-/// first camps were, up to the Great Golden Dragons where Kundun and Selupan stood (one in each half). Golden goblins also patrol the lanes and stand in the
-/// bases. They attack everything (champions, minions, summons, structures) except each other; a golden which a turret hits retreats for a few seconds. The
-/// invasion lasts to the end of the match: the jungle does not come back. Killing the dragon of a half pays its team (EXP, gold, items by damage, a
-/// blessing and, for two minutes, a golden monster in each of its waves).
+/// first camps were, up to the Great Golden Dragons where Kundun and Selupan stood (one in each half). Golden goblins also patrol the lanes, stand in the
+/// bases (the "city": the circle around the nexus which holds its first three turrets) and, in clusters, around the jungle spots. Young golden dragons
+/// are scattered at random over the map and grow for three minutes into Great Golden Dragons. They attack everything (champions, minions, summons,
+/// structures) except each other; two goblins are enough to bring a whole turret down. The invasion lasts to the end of the match: the jungle does not
+/// come back. Killing a Great Golden Dragon pays its team (EXP, gold, items by damage, loot, a blessing and, for two minutes, a golden monster in each of
+/// its waves).
 /// </summary>
 public static class MobaGolden
 {
@@ -31,7 +33,7 @@ public static class MobaGolden
         /// <summary>Goblins and the like: where the first jungle camps were, in the lanes and in the bases.</summary>
         Small = 1,
 
-        /// <summary>Titans, Derkons, Lizard Kings...</summary>
+        /// <summary>Titans, Derkons, Lizard Kings... and the growing dragons while they are young.</summary>
         Medium = 2,
 
         /// <summary>The golden knights, golems and devils: where the mini-bosses were.</summary>
@@ -47,27 +49,38 @@ public static class MobaGolden
     /// <summary>Strength of the reinforcement over a lane creep (life and damage).</summary>
     public const float ReinforcementPower = 4f;
 
+    /// <summary>Seconds the golden dragons fly over the map before the invaders appear.</summary>
+    public const int FlyoverSeconds = 60;
+
+    /// <summary>Seconds a young golden dragon takes to grow into a Great Golden Dragon.</summary>
+    public const int GrowSeconds = 180;
+
+    /// <summary>Young golden dragons scattered over the map when the invasion begins.</summary>
+    public const int YoungDragonCount = 6;
+
+    /// <summary>Share of the size (client scale) of a Great Golden Dragon which a newborn has.</summary>
+    public const double NewbornSize = 0.35;
+
+    /// <summary>Tiles around a jungle spot over which the extra goblins of the spot are spread.</summary>
+    public const int ClusterRadius = 5;
+
+    /// <summary>Share of the life of a champion which a hit of Kundun or Selupan takes at a factor of 1 (their skills use 1.0 to 2.0): about four to five hits.</summary>
+    public const double EpicBossHitShare = 0.18;
+
     /// <summary>How long the waves of the winning team carry the reinforcement.</summary>
     public static readonly TimeSpan ReinforcementTime = TimeSpan.FromMinutes(2);
 
     /// <summary>How long the blessing of the winning team lasts.</summary>
     public static readonly TimeSpan BlessingTime = TimeSpan.FromMinutes(3);
 
-    /// <summary>Seconds the golden dragons fly over the map before the invaders appear.</summary>
-    public const int FlyoverSeconds = 60;
-
-    /// <summary>Gets or sets when, after the start of the match, the invasion begins.</summary>
-    public static TimeSpan StartAfter { get; set; } = TimeSpan.FromMinutes(22);
-
-    /// <summary>What the game knows about a golden monster.</summary>
-    /// <param name="Name">Its name.</param>
-    /// <param name="Number">The monster number (the client draws the model of that number).</param>
-    /// <param name="Tier">Its tier.</param>
-    /// <param name="Designations">Designations of the server configuration to clone it from (the first which exists).</param>
-    public sealed record Spec(string Name, short Number, Tier Tier, params string[] Designations);
-
-    /// <summary>The numbers of the golden goblins which patrol the lanes.</summary>
+    /// <summary>The golden goblin, which patrols the lanes and fills the clusters.</summary>
     public static readonly Spec Goblin = new("Golden Goblin", 78, Tier.Small, "Golden Goblin");
+
+    /// <summary>Where the dragon of the blue half stands (where Kundun stood).</summary>
+    public static readonly Point BlueDragonSpot = new(59, 114);
+
+    /// <summary>Where the dragon of the red half stands (where Selupan stood).</summary>
+    public static readonly Point RedDragonSpot = new(175, 140);
 
     private static readonly Spec[] SmallSpecs =
     {
@@ -102,32 +115,38 @@ public static class MobaGolden
 
     private static readonly Spec ReinforcementSpec = new("Golden Iron Knight", ReinforcementNumber, Tier.Large, "Golden Titan", "Tantallos");
 
-    /// <summary>Where the dragon of the blue half stands (where Kundun stood).</summary>
-    public static readonly Point BlueDragonSpot = new(59, 114);
-
-    /// <summary>Where the dragon of the red half stands (where Selupan stood).</summary>
-    public static readonly Point RedDragonSpot = new(175, 140);
-
     private static readonly IDropGenerator NoDrops = new NoDropGenerator();
 
     private static readonly ConditionalWeakTable<Monster, GoldenInfo> Registry = new();
 
     private static readonly ConditionalWeakTable<Monster, object> BossShares = new();
 
-    /// <summary>Share of the life of a champion which a hit of Kundun or Selupan takes at a factor of 1 (their skills use 1.0 to 2.0): about four to five hits.</summary>
-    public const double EpicBossHitShare = 0.18;
+    private static readonly Dictionary<GameMap, State> States = new();
+
+    /// <summary>Gets or sets when, after the start of the match, the invasion begins.</summary>
+    public static TimeSpan StartAfter { get; set; } = TimeSpan.FromMinutes(22);
+
+    /// <summary>What the game knows about a golden monster.</summary>
+    /// <param name="Name">Its name.</param>
+    /// <param name="Number">The monster number (the client draws the model of that number).</param>
+    /// <param name="Tier">Its tier.</param>
+    /// <param name="Designations">Designations of the server configuration to clone it from (the first which exists).</param>
+    public sealed record Spec(string Name, short Number, Tier Tier, params string[] Designations);
 
     /// <summary>Makes a jungle boss (Kundun, Selupan) hit champions for a share of their life like the golden monsters do (the fight scales with the level of the champions).</summary>
     /// <param name="boss">The boss.</param>
     /// <param name="share">The share of the life of a champion which a hit takes.</param>
     public static void MarkBoss(Monster boss, double share) => BossShares.AddOrUpdate(boss, share);
 
-    private static readonly Dictionary<GameMap, State> States = new();
-
     /// <summary>Whether the object is a golden monster of the invasion (they have no team, but every team is their enemy).</summary>
     /// <param name="candidate">The object.</param>
     /// <returns><see langword="true"/> for the invaders.</returns>
     public static bool IsGolden(object? candidate) => candidate is Monster m && Registry.TryGetValue(m, out _);
+
+    /// <summary>The tier a golden monster fights as now (a growing dragon is a medium monster until it is grown).</summary>
+    /// <param name="monster">The monster.</param>
+    /// <returns>The tier (small for anything which is not a golden monster).</returns>
+    public static Tier TierOf(Monster monster) => Registry.TryGetValue(monster, out var info) ? info.EffectiveTier : Tier.Small;
 
     /// <summary>Whether the invasion of the map has begun (the jungle must not come back then).</summary>
     /// <param name="map">The map.</param>
@@ -163,6 +182,60 @@ public static class MobaGolden
         }
     }
 
+    /// <summary>The growing dragons of the map: their object id and their size in percent of the size of a grown one (the clients scale the model).</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The sizes.</returns>
+    public static IReadOnlyList<(ushort Key, byte Percent)> GrowthSizes(GameMap map)
+    {
+        var result = new List<(ushort, byte)>();
+        foreach (var monster in LiveMonsters(map))
+        {
+            if (Registry.TryGetValue(monster, out var info) && info.GrowStartUtc is not null)
+            {
+                result.Add((monster.Id, (byte)Math.Round(100 * (NewbornSize + ((1 - NewbornSize) * info.Growth)))));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>The cities of the map: the circle around each nexus which holds its first three turrets, and whether golden monsters are in it now (the clients set the scenery on fire).</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The cities.</returns>
+    public static IReadOnlyList<(MobaTeam Team, Point Center, byte Radius, bool Burning)> Cities(GameMap map)
+    {
+        if (!HasStarted(map))
+        {
+            return Array.Empty<(MobaTeam, Point, byte, bool)>();
+        }
+
+        var live = LiveMonsters(map);
+        var result = new List<(MobaTeam, Point, byte, bool)>();
+        foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
+        {
+            var center = MobaLayout.NexusOf(team);
+            var radius = CityRadiusOf(team);
+            result.Add((team, center, (byte)Math.Min(radius, 255), live.Any(m => m.Position.EuclideanDistanceTo(center) <= radius)));
+        }
+
+        return result;
+    }
+
+    /// <summary>The radius of the city of a team: the distance from its nexus to the farthest of the base turrets of its three lanes.</summary>
+    /// <param name="team">The team.</param>
+    /// <returns>The radius in tiles.</returns>
+    public static int CityRadiusOf(MobaTeam team)
+    {
+        var nexus = MobaLayout.NexusOf(team);
+        var radius = 0.0;
+        foreach (var lane in MobaLayout.Towers.Where(t => t.Team == team && t.Tier == 2).GroupBy(t => t.Lane))
+        {
+            radius = Math.Max(radius, lane.Min(t => t.Position.EuclideanDistanceTo(nexus)));
+        }
+
+        return (int)Math.Ceiling(radius > 0 ? radius + 2 : 30);
+    }
+
     /// <summary>The share of the maximum life of a champion which one hit of a golden monster of the tier takes (the Great Golden Dragon kills in four hits).</summary>
     /// <param name="tier">The tier.</param>
     /// <returns>The share.</returns>
@@ -174,18 +247,29 @@ public static class MobaGolden
         _ => 0.06,
     };
 
-    /// <summary>The share of the maximum life of a turret one hit of a golden monster of the tier takes (a nexus takes 40 % of it).</summary>
+    /// <summary>The share of the maximum life of a turret one hit of a golden monster of the tier takes (a nexus takes 40 % of it): two goblins bring a turret down in about half a minute.</summary>
     /// <param name="tier">The tier.</param>
     /// <returns>The share.</returns>
     public static double StructureShareOf(Tier tier) => tier switch
     {
-        Tier.Great => 0.03,
-        Tier.Large => 0.015,
-        Tier.Medium => 0.01,
-        _ => 0.006,
+        Tier.Great => 0.12,
+        Tier.Large => 0.08,
+        Tier.Medium => 0.06,
+        _ => 0.045,
     };
 
-    /// <summary>The life of a golden monster of the tier before the level scaling shared with the jungle (Kundun has 90,000).</summary>
+    /// <summary>The share of its own life which a hit of a turret takes from a golden monster of the tier (so that the goblins outlast the turret they attack).</summary>
+    /// <param name="tier">The tier.</param>
+    /// <returns>The share.</returns>
+    public static double TurretShareOf(Tier tier) => tier switch
+    {
+        Tier.Great => 0.004,
+        Tier.Large => 0.008,
+        Tier.Medium => 0.015,
+        _ => 0.025,
+    };
+
+    /// <summary>The life of a golden monster of the tier before the level scaling shared with the jungle (Kundun has 200,000).</summary>
     /// <param name="tier">The tier.</param>
     /// <returns>The base life.</returns>
     public static float BaseHealthOf(Tier tier) => tier switch
@@ -228,15 +312,23 @@ public static class MobaGolden
         _ => (140, 220, 4),
     };
 
-    /// <summary>Called by the damage calculation: the damage a golden monster deals to a defender (null when the attacker is not one).</summary>
+    /// <summary>Called by the damage calculation: the damage a golden monster (or a boss) deals to a defender, or a turret deals to a golden monster.</summary>
     /// <param name="attacker">The attacker.</param>
     /// <param name="defender">The defender.</param>
     /// <param name="factor">The damage factor of the attack (cleaves use less than 1).</param>
-    /// <param name="damage">The damage when it is a golden monster.</param>
-    /// <returns><see langword="true"/> when the attacker is a golden monster and <paramref name="damage"/> was set.</returns>
+    /// <param name="damage">The damage when a rule applies.</param>
+    /// <returns><see langword="true"/> when a rule applies and <paramref name="damage"/> was set.</returns>
     public static bool TryGetHitDamage(Monster attacker, IAttackable defender, double factor, out int damage)
     {
         damage = 0;
+
+        // A turret against a golden monster: a small share of the life of the invader.
+        if (defender is Monster goldenDefender && Registry.TryGetValue(goldenDefender, out var defenderInfo) && MobaStructures.IsStructure(attacker))
+        {
+            damage = (int)Math.Max(1, defender.Attributes[Stats.MaximumHealth] * TurretShareOf(defenderInfo.EffectiveTier));
+            return true;
+        }
+
         if (!Registry.TryGetValue(attacker, out var info))
         {
             if (BossShares.TryGetValue(attacker, out var share) && share is double bossShare && defender is Player)
@@ -260,7 +352,7 @@ public static class MobaGolden
         if (defender is Player)
         {
             // Champions: a share of their life, softened by their damage reduction (the items still count).
-            raw = max * HitShareOf(info.Tier) * (0.92 + (Random.Shared.NextDouble() * 0.16));
+            raw = max * info.HitShare * (0.92 + (Random.Shared.NextDouble() * 0.16));
             var decrement = defender.Attributes[Stats.DamageReceiveDecrement];
             if (decrement > 0)
             {
@@ -269,8 +361,7 @@ public static class MobaGolden
         }
         else if (defender is Monster monster && MobaStructures.IsStructure(monster))
         {
-            var share = StructureShareOf(info.Tier) * (MobaStructures.GetStructureType(monster) == MobaStructureType.Nexus ? 0.4 : 1.0);
-            raw = max * share;
+            raw = max * info.StructureShare * (MobaStructures.GetStructureType(monster) == MobaStructureType.Nexus ? 0.4 : 1.0);
         }
         else if (defender is Monster { SummonedBy: not null })
         {
@@ -296,7 +387,7 @@ public static class MobaGolden
         return spec is null ? null : CloneDefinition(gameContext, spec);
     }
 
-    /// <summary>Checks every minute whether the invasion must begin.</summary>
+    /// <summary>Checks whether the invasion must begin.</summary>
     /// <param name="gameContext">The game context.</param>
     /// <param name="map">The arena map.</param>
     /// <param name="arena">The arena of the match.</param>
@@ -377,6 +468,48 @@ public static class MobaGolden
         state.Monsters.Clear();
     }
 
+    /// <summary>Gives a champion the blessing of the dragon: +12 % damage and 8 % less damage taken.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="duration">How long it lasts.</param>
+    /// <param name="cancel">Cancels it early (the match ended).</param>
+    public static void Bless(Player champion, TimeSpan duration, CancellationToken cancel)
+    {
+        if (champion.Attributes is not { } attributes)
+        {
+            return;
+        }
+
+        var damage = new SimpleElement(1.12f, AggregateType.Multiplicate);
+        var shield = new SimpleElement(0.92f, AggregateType.Multiplicate);
+        attributes.AddElement(damage, Stats.AttackDamageIncrease);
+        attributes.AddElement(shield, Stats.DamageReceiveDecrement);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(duration, cancel).ConfigureAwait(false);
+            }
+            catch
+            {
+                // the match ended
+            }
+
+            attributes.RemoveElement(damage, Stats.AttackDamageIncrease);
+            attributes.RemoveElement(shield, Stats.DamageReceiveDecrement);
+        });
+    }
+
+    /// <summary>The token which is cancelled when the invasion of the map ends (for the effects which last).</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The token.</returns>
+    public static CancellationToken TokenOf(GameMap map)
+    {
+        lock (States)
+        {
+            return States.TryGetValue(map, out var state) ? state.Cancel.Token : CancellationToken.None;
+        }
+    }
+
     private static IEnumerable<Spec> AllSpecs()
         => SmallSpecs.Concat(MediumSpecs).Concat(LargeSpecs).Append(GreatDragon).Append(ReinforcementSpec);
 
@@ -426,16 +559,21 @@ public static class MobaGolden
 
             Log(gameContext, $"[MOBA-GOLDEN] invasion: {removed} jungle monsters burned, {spawned} golden monsters spawned.");
 
-            // They grow with the match like the jungle bosses do.
+            // They grow with the match like the jungle bosses do, and the young dragons grow up.
             while (!state.Cancel.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(20), state.Cancel.Token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(5), state.Cancel.Token).ConfigureAwait(false);
                 var level = MobaJungle.BossLevel(MobaArena.Of(map));
                 foreach (var monster in state.Monsters.ToArray().Where(m => m.IsAlive))
                 {
                     if (Registry.TryGetValue(monster, out var info))
                     {
-                        ApplyStats(monster, info.Tier, level, healToFull: false);
+                        if (info.Refresh())
+                        {
+                            monster.Definition.AttackRange = (byte)RangeOf(info.EffectiveTier);
+                        }
+
+                        ApplyStats(monster, info, level, healToFull: false);
                     }
                 }
             }
@@ -455,7 +593,15 @@ public static class MobaGolden
         var arena = MobaArena.Of(map);
         var level = MobaJungle.BossLevel(arena);
 
-        // 1. Where the jungle camps were: the golden monster of the same rank.
+        async ValueTask Add(Spec spec, Point position, Direction direction, bool guard, IReadOnlyList<Point>? patrol, bool young = false)
+        {
+            if (await SpawnAsync(map, gameContext, state, spec, position, direction, level, guard, patrol, young).ConfigureAwait(false))
+            {
+                count++;
+            }
+        }
+
+        // 1. Where the jungle camps were: the golden monster of the same rank, and a cluster of goblins spread around the spot.
         var spotIndex = 0;
         foreach (var spot in MobaJungle.Spots)
         {
@@ -470,23 +616,41 @@ public static class MobaGolden
 
                 var spec = PickSpec(TierOf(member.Kind), spotIndex + memberIndex++);
                 var slot = member.Slot;
-                if (await SpawnAsync(map, gameContext, state, spec, new Point(slot.X, slot.Y), slot.Direction, level, guard: true, patrol: null).ConfigureAwait(false))
-                {
-                    count++;
-                }
+                await Add(spec, new Point(slot.X, slot.Y), slot.Direction, true, null).ConfigureAwait(false);
+            }
+
+            for (var i = 0; i < 3; i++)
+            {
+                var angle = (Math.PI * 2 * i / 3) + (spotIndex * 0.7);
+                var radius = ClusterRadius - 1 + (i % 2);
+                await Add(Goblin, MobaLayout.NearestWalkable(spot.X + (Math.Cos(angle) * radius), spot.Y + (Math.Sin(angle) * radius)), Direction.South, true, null).ConfigureAwait(false);
             }
         }
 
         // 2. One Great Golden Dragon in each half.
         foreach (var spot in new[] { BlueDragonSpot, RedDragonSpot })
         {
-            if (await SpawnAsync(map, gameContext, state, GreatDragon, spot, Direction.South, level, guard: true, patrol: null).ConfigureAwait(false))
-            {
-                count++;
-            }
+            await Add(GreatDragon, spot, Direction.South, true, null).ConfigureAwait(false);
         }
 
-        // 3. Goblins which patrol the lanes towards the enemy base, and goblins in each base.
+        // 3. Young dragons at random places of the map, far from the bases; they grow for three minutes.
+        var rng = new Random();
+        var placed = new List<Point>();
+        for (var attempt = 0; attempt < 400 && placed.Count < YoungDragonCount; attempt++)
+        {
+            var candidate = MobaLayout.NearestWalkable(rng.Next(24, 232), rng.Next(40, 216));
+            if (candidate.EuclideanDistanceTo(MobaLayout.NexusOf(MobaTeam.Blue)) < 50
+                || candidate.EuclideanDistanceTo(MobaLayout.NexusOf(MobaTeam.Red)) < 50
+                || placed.Any(p => p.EuclideanDistanceTo(candidate) < 25))
+            {
+                continue;
+            }
+
+            placed.Add(candidate);
+            await Add(GreatDragon, candidate, Direction.South, true, null, young: true).ConfigureAwait(false);
+        }
+
+        // 4. Goblins which patrol the lanes towards the enemy base, in groups spread over a radius.
         var middleOnly = MobaFormats.MiddleLaneOnly(arena.Format);
         for (var lane = 0; lane < MobaLayout.LaneCount; lane++)
         {
@@ -498,41 +662,39 @@ public static class MobaGolden
             var towardsRed = MobaLayout.WaypointsFor(MobaTeam.Blue, lane);
             var towardsBlue = MobaLayout.WaypointsFor(MobaTeam.Red, lane);
             var length = MobaLayout.LengthOf(towardsRed);
-            for (var group = 0; group < 3; group++)
+            for (var group = 0; group < 5; group++)
             {
-                var fraction = 0.25 + (0.25 * group);
+                var fraction = 0.12 + (0.19 * group);
                 var forRed = group % 2 == 0;
                 var route = forRed ? towardsRed : towardsBlue;
-                var arc = forRed ? length * fraction : length * (1 - fraction);
+                var arc = length * fraction;
                 var (cx, cy, _, _) = MobaLayout.PointAtArc(towardsRed, arc);
-                for (var i = 0; i < 3; i++)
+                var ahead = route.Where(w => forRed ? MobaLayout.ArcOf(towardsRed, w.X, w.Y) > arc : MobaLayout.ArcOf(towardsRed, w.X, w.Y) < arc).ToList();
+                if (ahead.Count == 0)
                 {
-                    var start = MobaLayout.NearestWalkable(cx + ((i - 1) * 1.5), cy + ((group + i) % 2));
-                    var ahead = route.Where(w => forRed ? MobaLayout.ArcOf(towardsRed, w.X, w.Y) > arc : MobaLayout.ArcOf(towardsRed, w.X, w.Y) < arc).ToList();
-                    if (ahead.Count == 0)
-                    {
-                        ahead.Add(route[^1]);
-                    }
+                    ahead.Add(route[^1]);
+                }
 
-                    if (await SpawnAsync(map, gameContext, state, Goblin, start, Direction.South, level, guard: false, patrol: ahead).ConfigureAwait(false))
-                    {
-                        count++;
-                    }
+                for (var i = 0; i < 4; i++)
+                {
+                    var angle = (Math.PI / 2 * i) + group;
+                    var start = MobaLayout.NearestWalkable(cx + (Math.Cos(angle) * 2.5), cy + (Math.Sin(angle) * 2.5));
+                    await Add(Goblin, start, Direction.South, false, ahead).ConfigureAwait(false);
                 }
             }
         }
 
+        // 5. The cities: golden monsters spread at random over the circle around each nexus which holds its first three turrets.
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
         {
             var nexus = MobaLayout.NexusOf(team);
-            for (var i = 0; i < 4; i++)
+            var cityRadius = CityRadiusOf(team);
+            for (var i = 0; i < 14; i++)
             {
-                var angle = (Math.PI / 2) * i;
-                var start = MobaLayout.NearestWalkable(nexus.X + (Math.Cos(angle) * 12), nexus.Y + (Math.Sin(angle) * 12));
-                if (await SpawnAsync(map, gameContext, state, SmallSpecs[i % SmallSpecs.Length], start, Direction.South, level, guard: true, patrol: null).ConfigureAwait(false))
-                {
-                    count++;
-                }
+                var angle = rng.NextDouble() * Math.PI * 2;
+                var distance = 8 + (rng.NextDouble() * Math.Max(1, cityRadius - 10));
+                var start = MobaLayout.NearestWalkable(nexus.X + (Math.Cos(angle) * distance), nexus.Y + (Math.Sin(angle) * distance));
+                await Add(i % 5 == 0 ? PickSpec(Tier.Medium, i + (int)team) : SmallSpecs[i % SmallSpecs.Length], start, Direction.South, true, null).ConfigureAwait(false);
             }
         }
 
@@ -557,7 +719,7 @@ public static class MobaGolden
         return specs[Math.Abs(index) % specs.Length];
     }
 
-    private static async ValueTask<bool> SpawnAsync(GameMap map, IGameContext gameContext, State state, Spec spec, Point position, Direction direction, int level, bool guard, IReadOnlyList<Point>? patrol)
+    private static async ValueTask<bool> SpawnAsync(GameMap map, IGameContext gameContext, State state, Spec spec, Point position, Direction direction, int level, bool guard, IReadOnlyList<Point>? patrol, bool young)
     {
         var definition = CloneDefinition(gameContext, spec);
         if (definition is null)
@@ -565,7 +727,9 @@ public static class MobaGolden
             return false;
         }
 
-        var health = BaseHealthOf(spec.Tier) * MobaWaveSpawner.CreepHealthMultiplierAt(level);
+        var info = new GoldenInfo(spec.Tier, spec, young);
+        definition.AttackRange = (byte)RangeOf(info.EffectiveTier);
+        var health = info.BaseHealth * MobaWaveSpawner.CreepHealthMultiplierAt(level);
         var area = new MonsterSpawnArea
         {
             GameMap = map.Definition,
@@ -580,9 +744,8 @@ public static class MobaGolden
             MaximumHealthOverride = (int)health,
         };
 
-        var intelligence = new MobaGoldenIntelligence(spec.Tier, position, guard, patrol);
+        var intelligence = new MobaGoldenIntelligence(position, guard, patrol);
         var monster = new Monster(area, definition, map, NoDrops, intelligence, gameContext.PlugInManager, gameContext.PathFinderPool);
-        var info = new GoldenInfo(spec.Tier, spec);
         Registry.AddOrUpdate(monster, info);
         var damage = new System.Collections.Concurrent.ConcurrentDictionary<Player, double>();
         monster.DamageReceived += (attacker, amount) =>
@@ -594,8 +757,8 @@ public static class MobaGolden
         };
 
         monster.Initialize();
-        ApplyStats(monster, spec.Tier, level, healToFull: true);
-        monster.Died += (_, death) => _ = OnDiedAsync(map, gameContext, state, monster, spec, death, damage);
+        ApplyStats(monster, info, level, healToFull: true);
+        monster.Died += (_, death) => _ = OnDiedAsync(map, gameContext, state, monster, info, death, damage);
         await map.AddAsync(monster).ConfigureAwait(false);
         monster.OnSpawn();
         state.Monsters.Add(monster);
@@ -603,11 +766,11 @@ public static class MobaGolden
         return true;
     }
 
-    private static void ApplyStats(Monster monster, Tier tier, int level, bool healToFull)
+    private static void ApplyStats(Monster monster, GoldenInfo info, int level, bool healToFull)
     {
         var attributes = monster.Attributes;
         var fraction = attributes[Stats.MaximumHealth] > 0 ? attributes[Stats.CurrentHealth] / attributes[Stats.MaximumHealth] : 1f;
-        var health = BaseHealthOf(tier) * MobaWaveSpawner.CreepHealthMultiplierAt(level);
+        var health = info.BaseHealth * MobaWaveSpawner.CreepHealthMultiplierAt(level);
         var damageMultiplier = MobaWaveSpawner.CreepDamageMultiplierAt(level);
         SetAbsolute(monster, Stats.MaximumHealth, health);
         attributes[Stats.CurrentHealth] = healToFull ? health : health * fraction;
@@ -624,7 +787,7 @@ public static class MobaGolden
         monster.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
     }
 
-    private static async Task OnDiedAsync(GameMap map, IGameContext gameContext, State state, Monster monster, Spec spec, DeathInformation death, IReadOnlyDictionary<Player, double> damage)
+    private static async Task OnDiedAsync(GameMap map, IGameContext gameContext, State state, Monster monster, GoldenInfo info, DeathInformation death, IReadOnlyDictionary<Player, double> damage)
     {
         try
         {
@@ -634,17 +797,19 @@ public static class MobaGolden
                 return;
             }
 
-            var (exp, gold, points) = RewardOf(spec.Tier);
+            var tier = info.EffectiveTier;
+            var (exp, gold, points) = RewardOf(tier);
             await MobaSummons.NoteKillAsync(map, death, points).ConfigureAwait(false);
             if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { IsMobaClone: true } killer)
             {
                 return;
             }
 
+            killer.MobaState.GoldenKills++;
             await MobaExperience.GrantAsync(killer, MobaJungle.ScaledExp(exp, killer.MobaLevel), "golden").ConfigureAwait(false);
             await MobaGold.GrantAsync(killer, gold, "golden").ConfigureAwait(false);
             var team = MobaTeams.GetTeam(killer);
-            if (spec.Tier >= Tier.Large && team != MobaTeam.None)
+            if (tier >= Tier.Large && team != MobaTeam.None)
             {
                 var mates = (await gameContext.GetPlayersAsync().ConfigureAwait(false))
                     .Concat(MobaBotPlayer.All)
@@ -657,7 +822,8 @@ public static class MobaGolden
                 }
             }
 
-            switch (spec.Tier)
+            await MobaGoldenLoot.DropForKillAsync(map, tier, monster, killer, damage).ConfigureAwait(false);
+            switch (tier)
             {
                 case Tier.Great:
                     await MobaJungleDrops.DropSplitItemsAsync(map, (11, 12), monster, death, damage, "golden-dragon").ConfigureAwait(false);
@@ -701,7 +867,7 @@ public static class MobaGolden
             .ToList();
         foreach (var member in members)
         {
-            Bless(member, state);
+            Bless(member, BlessingTime, state.Cancel.Token);
             await member.ShowBlueMessageAsync($"[MOBA] ¡{killer.Name} derrotó a un Gran Dragón Dorado! Bendición dorada durante {BlessingTime.TotalMinutes:0} min y un monstruo dorado en cada oleada durante {ReinforcementTime.TotalMinutes:0} min.").ConfigureAwait(false);
             await member.InvokeViewPlugInAsync<IMobaBannerPlugIn>(p => p.ShowBannerAsync("¡BENDICIÓN DEL DRAGÓN DORADO!", 5000)).ConfigureAwait(false);
         }
@@ -709,35 +875,56 @@ public static class MobaGolden
         Log(gameContext, $"[MOBA-GOLDEN] {killer.Name} killed a Great Golden Dragon: blessing for {members.Count} champion(s) of {team}.");
     }
 
-    /// <summary>+12 % damage, 8 % less damage taken for <see cref="BlessingTime"/>.</summary>
-    private static void Bless(Player champion, State state)
+    /// <summary>The state of one golden monster: its tier and, for the young dragons, how grown it is.</summary>
+    private sealed class GoldenInfo
     {
-        if (champion.Attributes is not { } attributes)
+        private Tier _effective;
+
+        public GoldenInfo(Tier tier, Spec spec, bool young)
         {
-            return;
+            this.Tier = tier;
+            this.Spec = spec;
+            this.GrowStartUtc = young ? DateTime.UtcNow : null;
+            this._effective = young ? Tier.Medium : tier;
         }
 
-        var damage = new SimpleElement(1.12f, AggregateType.Multiplicate);
-        var shield = new SimpleElement(0.92f, AggregateType.Multiplicate);
-        attributes.AddElement(damage, Stats.AttackDamageIncrease);
-        attributes.AddElement(shield, Stats.DamageReceiveDecrement);
-        _ = Task.Run(async () =>
+        public Tier Tier { get; }
+
+        public Spec Spec { get; }
+
+        public DateTime? GrowStartUtc { get; }
+
+        /// <summary>Gets how grown a young dragon is, 0 (newborn) to 1 (grown); 1 for everybody else.</summary>
+        public double Growth => this.GrowStartUtc is { } start ? Math.Clamp((DateTime.UtcNow - start).TotalSeconds / GrowSeconds, 0, 1) : 1;
+
+        public Tier EffectiveTier => this._effective;
+
+        public float BaseHealth => this.GrowStartUtc is null
+            ? BaseHealthOf(this.Tier)
+            : (float)(BaseHealthOf(Tier.Medium) + ((BaseHealthOf(Tier.Great) - BaseHealthOf(Tier.Medium)) * this.Growth));
+
+        public double HitShare => this.GrowStartUtc is null
+            ? HitShareOf(this.Tier)
+            : HitShareOf(Tier.Medium) + ((HitShareOf(Tier.Great) - HitShareOf(Tier.Medium)) * this.Growth);
+
+        public double StructureShare => this.GrowStartUtc is null
+            ? StructureShareOf(this.Tier)
+            : StructureShareOf(Tier.Medium) + ((StructureShareOf(Tier.Great) - StructureShareOf(Tier.Medium)) * this.Growth);
+
+        /// <summary>Updates the effective tier of a growing dragon.</summary>
+        /// <returns><see langword="true"/> if the tier changed (it is grown now).</returns>
+        public bool Refresh()
         {
-            try
+            var tier = this.Growth >= 1 ? this.Tier : Tier.Medium;
+            if (tier == this._effective)
             {
-                await Task.Delay(BlessingTime, state.Cancel.Token).ConfigureAwait(false);
-            }
-            catch
-            {
-                // the match ended
+                return false;
             }
 
-            attributes.RemoveElement(damage, Stats.AttackDamageIncrease);
-            attributes.RemoveElement(shield, Stats.DamageReceiveDecrement);
-        });
+            this._effective = tier;
+            return true;
+        }
     }
-
-    private sealed record GoldenInfo(Tier Tier, Spec Spec);
 
     private sealed class State
     {
