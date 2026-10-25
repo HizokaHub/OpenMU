@@ -1925,7 +1925,7 @@ Decisiones nuevas del usuario y cómo quedaron:
 - **Registro:** inserta en `data."Account"` con BCrypt (verificado: hash `$2a$11$`, mismo formato que el juego), código de seguridad de 7 dígitos, límite 3 cuentas/hora/IP, usuario `[A-Za-z0-9]{4,10}` sin distinguir mayúsculas.
 - **Estado del servidor:** sondeo TCP al puerto del juego + tabla `moba.server_status` (jugadores y partidas en curso, si existe).
 - **Ranking:** puntos = 25·victorias + 5·partidas + kills + 0,5·asistencias; pestañas Puntos/Victorias/Kills/KDA/Cazadragones/Nivel. Solo muestra nombres de personaje (nunca el usuario de la cuenta).
-- **Esquema opcional `moba`** (`tools/moba-ranking-schema.sql`): **NO aplicado** (hace falta plan + `pg_dump` + confirmación del usuario). El servidor ya lo detecta solo (`MobaRankingSink`, comprueba `to_regclass` cada minuto) y empieza a registrar partidas en cuanto exista. Hasta entonces el ranking muestra «se activa con la primera partida».
+- **Esquema opcional `moba`** (`tools/moba-ranking-schema.sql`): **APLICADO el 2026-10-25** (backup `backups/backup_antes_ranking_20261025_1800.dump`, ignorado por git; deshacer con `drop schema moba cascade;`). El servidor ya lo detecta solo (`MobaRankingSink`, comprueba `to_regclass` cada minuto) y empieza a registrar partidas en cuanto exista. Verificado: el servidor escribe `moba.server_status` cada 15 s; la vista `player_stats` calcula bien los puntos (prueba con fila revertida). **Falta validar el registro de una partida completa jugando.**
 - `?shot` en la URL: modo captura (sin animaciones de aparición); solo para previsualizar.
 
 ### Alojamiento para más jugadores (decidido: **tu PC + VPN**, gratis, no es web pública)
@@ -1933,4 +1933,4 @@ Decisiones nuevas del usuario y cómo quedaron:
 - VPN tipo Tailscale/ZeroTier; cada amigo instala la VPN y el cliente. El servidor debe arrancar con `-resolveIp:<IP de la VPN>` (no `loopback`).
 - Puertos del juego 44405/44406 y 55901–55906 (chat 55980). **Nunca** exponer el 5000 (admin) ni PostgreSQL. Riesgo de CGNAT si se abriera a internet sin VPN.
 - Todos los amigos eligen el **mismo** game server de la lista. En el cliente: `config.ini` con `ServerIP` cambiado y sin credenciales guardadas (carpeta ~1,1 GB; zip sin `MuError.log` en `portal/downloads/EclipseArena-cliente.zip`).
-- **Pendiente:** instalar/configurar la VPN (pedir permiso antes de descargar nada), construir el zip del cliente, aplicar el esquema `moba` (plan + `pg_dump` + confirmación), reiniciar el servidor para compilar `Startup` con el sink (el usuario cierra su cliente antes).
+- **Pendiente:** instalar/configurar la VPN (pedir permiso antes de descargar nada) y construir el zip del cliente. El esquema `moba` ya está aplicado y el servidor reiniciado con el sink (2026-10-25).
