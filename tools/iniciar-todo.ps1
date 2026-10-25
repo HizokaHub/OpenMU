@@ -11,6 +11,9 @@
       5. Portal web en el puerto 8080.
     Lo que ya este corriendo se deja como esta (no se reinicia).
 
+    -AprobarAmigos <min>  Ademas lanza tools\zt-auto-approve.ps1 durante <min> minutos (ventana minimizada) para que los
+              amigos que se unen a la red ZeroTier queden autorizados solos. Necesita el token en %USERPROFILE%\.zerotier-token.
+              Termina sola al acabar la ventana; -Parar la corta antes.
     -Estado   Solo informa: no arranca ni detiene nada.
     -Parar    Detiene el portal y apaga el servidor con limpieza (Ctrl+C + confirmacion, como a mano). Se niega si hay
               jugadores conectados, salvo con -Forzar. Los procesos se identifican por su PUERTO (nunca por nombre).
@@ -28,6 +31,7 @@ param(
     [switch]$Estado,
     [switch]$Forzar,
     [switch]$SinPortal,
+    [int]$AprobarAmigos = 0,
     [string]$VpnIp = '172.27.71.8',
     [string]$NetworkId = '3efa5cb78ac86a4b'
 )
@@ -112,6 +116,16 @@ function Test-Postgres {
     return $false
 }
 
+# La aprobacion automatica se identifica por el PID guardado, comprobando ademas que ese PID sea de zt-auto-approve.
+$aprobarPidFile = Join-Path $logDir 'zt-auto-approve.pid'
+function Get-PidAprobacion {
+    if (-not (Test-Path $aprobarPidFile)) { return $null }
+    $id = [int](Get-Content $aprobarPidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$id" -ErrorAction SilentlyContinue
+    if ($p -and $p.CommandLine -match 'zt-auto-approve') { return $id }
+    return $null
+}
+
 function Get-EstadoPortal {
     try { return Invoke-RestMethod -Uri "http://127.0.0.1:$portalPort/api/status" -TimeoutSec 5 } catch { return $null }
 }
@@ -122,6 +136,8 @@ function Show-Estado {
     if ($pidJuego) { Ok "Servidor del juego corriendo (PID $pidJuego, puerto $gamePort)" } else { Mal "Servidor del juego parado (nadie escucha en $gamePort)" }
     if ($pidPortal) { Ok "Portal corriendo (PID $pidPortal, puerto $portalPort)" } else { Mal "Portal parado (nadie escucha en $portalPort)" }
     $st = if ($pidPortal) { Get-EstadoPortal } else { $null }
+    $pidAprob = Get-PidAprobacion
+    if ($pidAprob) { Ok "Aprobacion automatica de amigos ACTIVA (PID $pidAprob)" } else { Write-Host '  [--]    Aprobacion automatica de amigos inactiva' }
     if ($st) { Write-Host ("  Jugadores: {0}   En partida: {1}   Servidor visible desde el portal: {2}" -f $st.players, $st.inMatch, $st.online) }
 }
 
@@ -150,6 +166,10 @@ if ($Parar) {
         }
         if (-not $st) { Aviso 'No pude consultar cuantos jugadores hay (portal parado o sin esquema moba); sigo con la parada.' }
     }
+
+    $pidAprob = Get-PidAprobacion
+    if ($pidAprob) { Stop-Process -Id $pidAprob -Force -ErrorAction SilentlyContinue; Ok "Aprobacion automatica detenida (PID $pidAprob)" }
+    Remove-Item $aprobarPidFile -Force -ErrorAction SilentlyContinue
 
     if ($pidPortal) {
         Stop-Process -Id $pidPortal -ErrorAction SilentlyContinue
@@ -207,7 +227,22 @@ elseif (Get-PidDelPuerto $portalPort) {
     else { Mal "El portal no abrio el puerto $portalPort en 30 s. Revisa logs\portal.log y logs\portal.err.log"; exit 1 }
 }
 
+if ($AprobarAmigos -gt 0) {
+    Paso 'Aprobacion automatica de amigos'
+    $tokenFile = Join-Path $env:USERPROFILE '.zerotier-token'
+    if (Get-PidAprobacion) { Ok "Ya estaba activa (PID $(Get-PidAprobacion)); no la toco." }
+    elseif (-not ($env:ZEROTIER_TOKEN -or (Test-Path $tokenFile))) { Aviso "Falta el token de ZeroTier ($tokenFile): no activo la aprobacion automatica." }
+    else {
+        New-Item -ItemType Directory -Force $logDir | Out-Null
+        $script = Join-Path $PSScriptRoot 'zt-auto-approve.ps1'
+        $p = Start-Process powershell.exe -WindowStyle Minimized -PassThru `
+            -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Minutes', $AprobarAmigos
+        Set-Content $aprobarPidFile $p.Id
+        Ok "Aprobacion automatica activa durante $AprobarAmigos min (PID $($p.Id)); termina sola."
+    }
+}
+
 Paso 'Resumen'
 Show-Estado
 Write-Host "`n  Web para los amigos (solo dentro de la VPN): http://${VpnIp}:$portalPort" -ForegroundColor Green
-Write-Host '  Amigos nuevos: .\tools\zt-auto-approve.ps1 -Minutes 60   |   Parar todo: .\tools\iniciar-todo.ps1 -Parar'
+Write-Host '  Amigos nuevos: .\tools\iniciar-todo.ps1 -AprobarAmigos 60   |   Parar todo: .\tools\iniciar-todo.ps1 -Parar'
