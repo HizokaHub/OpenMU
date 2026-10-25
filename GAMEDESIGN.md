@@ -1965,3 +1965,15 @@ Decisiones nuevas del usuario y cómo quedaron:
 **Contenido futuro (a decidir con el usuario):** mapas nuevos (p. ej. **Atlans**, bajo el agua) y otra modalidad de juego (se elige entre los dos); importar **God of Darkness**; economía de stats de la Fase 2 (puntos por nivel + escalado por raza); curva de oro por fase y variantes de ítems; marca de eventos con los temas «Arena Dorada» y «Kalima Clash».
 
 **Lanzamiento público (opción B, después de la beta):** VPS, backups y monitoreo; repos privados nuevos (aún NO hecho; pedir confirmación antes); HTTPS y CAPTCHA en el registro; anti-trampa (niebla en servidor, validar paquetes `D5`, quitar `/moba*` a jugadores); moderación; cobros solo por cosméticos o donaciones; firmar el instalador.
+
+## Sesión 2026-10-25 (noche): script único «iniciar todo» (hecho; ciclo completo del servidor pendiente de probar)
+
+- **`tools/iniciar-todo.ps1`** (no pide administrador): sin parámetros comprueba y arranca todo; lo que ya corre no se reinicia.
+  1. ZeroTier: servicio activo, red `3efa5cb78ac86a4b` en `OK` y con la IP `172.27.71.8` (si no, se niega a seguir).
+  2. PostgreSQL escuchando en 5432.
+  3. Firewall: regla «Eclipse Arena (ZeroTier)» activa. Se lee con `netsh` porque `Get-NetFirewallRule` **no ve las reglas sin administrador**. Solo avisa (la crea `tools/open-firewall-zerotier.ps1`, con UAC).
+  4. Servidor: `MUnique.OpenMU.Startup.exe -autostart -resolveIp:172.27.71.8` en ventana minimizada, registro en `logs\servidor.log`; espera al puerto 44406 (hasta 120 s).
+  5. Portal: `portal\bin\Debug\net10.0\MuMobaPortal.exe` con directorio de trabajo `portal\`; registro en `logs\portal.log`; espera al 8080.
+- **`-Estado`** solo informa (incluye jugadores y partidas en curso vía `/api/status`). **`-SinPortal`** arranca solo el juego. **`-Parar`** detiene el portal y apaga el servidor con **Ctrl+C + confirmación** (como a mano; lo envía `tools/enviar-ctrlc.ps1` en un PowerShell hijo con `AttachConsole`), con respaldo a parada forzada tras 45 s; **se niega si hay jugadores conectados** salvo `-Forzar`. Los procesos se identifican siempre por **puerto**, nunca por nombre.
+- Los registros viven en `logs\` (el anterior se guarda como `*_prev.log`; `*.log` ya está en `.gitignore`).
+- **Probado:** `-Estado` y el arranque del portal (servidor ya corriendo). **Sin probar:** arranque en frío del servidor y `-Parar` completo (requiere cerrar el cliente del usuario antes de reiniciar el servidor).
