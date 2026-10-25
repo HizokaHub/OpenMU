@@ -1943,3 +1943,25 @@ Decisiones nuevas del usuario y cómo quedaron:
 - **Sin firmar:** Windows SmartScreen mostrará «Windows protegió tu PC» (Más información → Ejecutar de todas formas); firmar el instalador cuesta dinero.
 - **Instalador probado (2026-10-25):** instalación silenciosa en una carpeta temporal en el PC del servidor: 14.165 archivos, `config.ini` con la IP 172.27.71.8 y sin usuario guardado, sin `MuError.log`/`MuClient.lib`, DLL de VC++ presentes, permiso de escritura para Usuarios, ID de nodo copiado al portapapeles (`2cbb37155c`) y desinstalación limpia (el desinstalador sale de la red: se volvió a unir con `zerotier-cli join` y recuperó la IP 172.27.71.8). **Sin probar:** descarga e instalación de ZeroTier por el instalador y las DLL de VC++ en un PC limpio (aquí ZeroTier ya estaba instalado), y la ventana final con el ID (la prueba fue en silencio).
 - **Pendiente:** probar con un amigo real (conexión de punta a punta por la VPN); el portal y el servidor no arrancan solos con Windows (hay que levantarlos a mano); sin HTTPS ni CAPTCHA en el registro.
+
+## Resumen de la sesión 2026-10-25 y hoja de ruta (cierre)
+
+**Hecho esta sesión (todo en `moba/phase1` de openmu-aram):**
+- Tienda v2 y skills de invocación (ver secciones anteriores; sin probar en juego).
+- **Portal web «Eclipse Arena»** (`portal/`): portada, registro, cómo jugar, ranking, perfil, noticias; 3 temas (eclipse, gold, kalima).
+- **Ranking:** esquema `moba` aplicado a la BD (con `pg_dump` previo) y servidor reiniciado con `MobaRankingSink`; **falta ver registrarse una partida completa jugando**.
+- **Alojamiento:** ZeroTier (red `3efa5cb78ac86a4b`, IP del servidor 172.27.71.8), firewall abierto solo para esa red, servidor con `-resolveIp:172.27.71.8`, portal en `:8080`.
+- **Instalador** `EclipseArena-Setup.exe` (Inno Setup): cliente + DLL de VC++ + ZeroTier + unión a la red + ID al portapapeles. Probado en el PC del servidor (silencioso); **falta probarlo en un PC limpio**.
+- **Aprobación automática de amigos:** `tools/zt-auto-approve.ps1` (ventana de tiempo, token solo en el PC del servidor). Probada de punta a punta con el propio PC.
+
+**Pendiente para empezar la beta con amigos (A):**
+1. Probar el instalador + aprobación automática con un amigo real (el usuario avisará).
+2. Arranque cómodo: el servidor y el portal **no arrancan solos**; falta un script único «iniciar todo» (servidor con `-resolveIp:172.27.71.8`, portal, comprobación de ZeroTier y del firewall) y su parada limpia.
+3. Probar en juego lo anotado sin validar: dorados, tienda v2, skills de invocación, mascotas, botín.
+4. Que alguien que se desconecta o queda AFK sea sustituido por un bot (hoy no) y que los bots usen 4 skills.
+
+**Pendientes de calidad ya anotados:** icono del HUD de la mascota activa; aura dorada y contador de dorados en el marcador; defensa de minions contra dorados; puntos dorados en el minimapa; medir la CPU con ~150 cerebros dorados; título del panel de la tienda por página; colisiones de la invocación con murallas.
+
+**Contenido futuro (a decidir con el usuario):** mapas nuevos (p. ej. **Atlans**, bajo el agua) y otra modalidad de juego (se elige entre los dos); importar **God of Darkness**; economía de stats de la Fase 2 (puntos por nivel + escalado por raza); curva de oro por fase y variantes de ítems; marca de eventos con los temas «Arena Dorada» y «Kalima Clash».
+
+**Lanzamiento público (opción B, después de la beta):** VPS, backups y monitoreo; repos privados nuevos (aún NO hecho; pedir confirmación antes); HTTPS y CAPTCHA en el registro; anti-trampa (niebla en servidor, validar paquetes `D5`, quitar `/moba*` a jugadores); moderación; cobros solo por cosméticos o donaciones; firmar el instalador.
