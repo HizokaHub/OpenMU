@@ -10,14 +10,15 @@ using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// GM command <c>/mobagolden</c> to try the golden invasion without waiting for minute 22: <c>start</c> begins it with the fly-over (60 s),
+/// GM command <c>/mobagolden</c> to try the golden invasion without waiting for minute 22 (the automatic start at minute 22 is off until the invasion is
+/// released: <c>autoon|autooff</c> switches it): <c>start</c> begins it with the fly-over (60 s),
 /// <c>now</c> without it (the invaders appear in 3 s), <c>stop</c> removes the invaders, <c>list</c> counts them and <c>dragon</c> goes to the Great Golden Dragon of
 /// the half of the caller.
 /// </summary>
 [Guid("2B7E4D90-3A15-4C68-B0E9-5D1F8A6C7E33")]
 [PlugIn]
 [Display(Name = "MOBA: golden invasion command", Description = "GM command '/mobagolden <start|now|stop|list|dragon>'.")]
-[ChatCommandHelp(Command, "Golden invasion: /mobagolden start | now | stop | list | dragon.", typeof(MobaGoldenChatCommandArgs), CharacterStatus.GameMaster)]
+[ChatCommandHelp(Command, "Golden invasion: /mobagolden start | now | stop | list | dragon | autoon | autooff.", typeof(MobaGoldenChatCommandArgs), CharacterStatus.GameMaster)]
 public class MobaGoldenChatCommandPlugIn : ChatCommandPlugInBase<MobaGoldenChatCommandArgs>
 {
     private const string Command = "/mobagolden";
@@ -43,6 +44,11 @@ public class MobaGoldenChatCommandPlugIn : ChatCommandPlugInBase<MobaGoldenChatC
                 var seconds = arguments.What!.Trim().Equals("now", StringComparison.OrdinalIgnoreCase) ? 3 : MobaGolden.FlyoverSeconds;
                 var started = await MobaGolden.StartAsync(map, player.GameContext, seconds).ConfigureAwait(false);
                 await player.ShowBlueMessageAsync(started ? $"[dorados] La invasión empieza (los invasores en {seconds} s)." : "[dorados] La invasión ya empezó.").ConfigureAwait(false);
+                break;
+            case "autoon":
+            case "autooff":
+                MobaGolden.AutoStartEnabled = arguments.What!.Trim().Equals("autoon", StringComparison.OrdinalIgnoreCase);
+                await player.ShowBlueMessageAsync($"[dorados] Inicio automático al minuto 22: {(MobaGolden.AutoStartEnabled ? "ACTIVADO" : "desactivado")}.").ConfigureAwait(false);
                 break;
             case "stop":
                 await MobaGolden.StopAsync(map).ConfigureAwait(false);

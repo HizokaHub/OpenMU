@@ -12,11 +12,10 @@ using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
-/// The loot of the golden monsters (2026-10-24): five "golden gems" which look like the jewels of the game (their name in the item is the one of the jewel; the
-/// message that comes with the drop says what they do) and are used with the right click in the inventory. A <b>golden chest</b> (Jewel of Creation) gives a
-/// random reward, a <b>golden jewel</b> (Jewel of Bless) adds one level to the worst equipped item (up to +12), a <b>reviving elixir</b> (Jewel of Soul) is used
-/// by itself the moment its owner dies (the respawn is instant), a <b>golden ward</b> (Jewel of Life) places a free vision ward and a <b>golden clock</b>
-/// (Jewel of Chaos) ends every cooldown of the champion.
+/// The loot of the golden monsters (2026-10-25): five items of the game used with the right click in the inventory (the message that comes with the drop says
+/// what each one does). The <b>golden chest</b> (Box of Kundun +5) gives a random reward, the <b>golden stone</b> (Higher Refine Stone) adds one level to the worst
+/// equipped item (up to +12), the <b>reviving elixir</b> (Cherry Blossom Wine) is used by itself the moment its owner dies (the respawn is instant), the
+/// <b>golden ward</b> (Life Stone) places a free vision ward and the <b>golden branch</b> (Golden Cherry Blossom Branch) ends every cooldown of the champion.
 /// </summary>
 public static class MobaGoldenLoot
 {
@@ -42,16 +41,16 @@ public static class MobaGoldenLoot
         Clock,
     }
 
-    /// <summary>The name of the item definition which represents a kind of loot.</summary>
+    /// <summary>The item (group, number and level) which represents a kind of loot.</summary>
     /// <param name="kind">The kind.</param>
-    /// <returns>The name.</returns>
-    public static string DefinitionNameOf(Kind kind) => kind switch
+    /// <returns>The item.</returns>
+    public static (byte Group, short Number, byte Level) ItemOf(Kind kind) => kind switch
     {
-        Kind.Chest => "Jewel of Creation",
-        Kind.Jewel => "Jewel of Bless",
-        Kind.Elixir => "Jewel of Soul",
-        Kind.Ward => "Jewel of Life",
-        _ => "Jewel of Chaos",
+        Kind.Chest => (14, 11, 12),   // Box of Kundun +5
+        Kind.Jewel => (14, 44, 0),    // Higher Refine Stone
+        Kind.Elixir => (14, 85, 0),   // Cherry Blossom Wine
+        Kind.Ward => (13, 11, 0),     // Life Stone
+        _ => (14, 90, 0),             // Golden Cherry Blossom Branch
     };
 
     /// <summary>The name the players know a kind of loot by.</summary>
@@ -60,10 +59,10 @@ public static class MobaGoldenLoot
     public static string LabelOf(Kind kind) => kind switch
     {
         Kind.Chest => "Cofre dorado",
-        Kind.Jewel => "Joya dorada",
+        Kind.Jewel => "Piedra dorada",
         Kind.Elixir => "Elixir de reaparición",
         Kind.Ward => "Ward dorado",
-        _ => "Reloj dorado",
+        _ => "Rama dorada",
     };
 
     /// <summary>What the loot does, for the message of the drop.</summary>
@@ -83,10 +82,15 @@ public static class MobaGoldenLoot
     /// <returns>The kind, or <see langword="null"/>.</returns>
     public static Kind? KindOf(Item? item)
     {
-        var name = item?.Definition?.Name;
+        if (item?.Definition is not { } definition)
+        {
+            return null;
+        }
+
         foreach (var kind in Enum.GetValues<Kind>())
         {
-            if (string.Equals(name, DefinitionNameOf(kind), StringComparison.OrdinalIgnoreCase))
+            var (group, number, _) = ItemOf(kind);
+            if (definition.Group == group && definition.Number == number)
             {
                 return kind;
             }
@@ -139,16 +143,17 @@ public static class MobaGoldenLoot
     /// <returns>A task.</returns>
     public static async ValueTask DropAsync(GameMap map, Kind kind, Point at, Player champion)
     {
-        var definition = champion.GameContext.Configuration.Items.FirstOrDefault(d => string.Equals(d.Name, DefinitionNameOf(kind), StringComparison.OrdinalIgnoreCase));
+        var (group, number, level) = ItemOf(kind);
+        var definition = champion.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == group && d.Number == number);
         if (definition is null)
         {
             return;
         }
 
-        var item = new TemporaryItem { Definition = definition, Durability = 1 };
+        var item = new TemporaryItem { Definition = definition, Durability = 1, Level = (byte)Math.Min(level, definition.MaximumItemLevel) };
         var coordinates = map.Terrain.GetRandomCoordinate(at, 3);
         await map.AddAsync(new DroppedItem(item, coordinates, map, null, new object[] { champion })).ConfigureAwait(false);
-        await champion.ShowBlueMessageAsync($"[MOBA] Te cayó un {LabelOf(kind)} ({definition.Name}): {HintOf(kind)}.").ConfigureAwait(false);
+        await champion.ShowBlueMessageAsync($"[MOBA] Te cayó: {LabelOf(kind)} ({definition.Name}). {HintOf(kind)}.").ConfigureAwait(false);
     }
 
     /// <summary>The right click of a loot item in the inventory.</summary>
@@ -185,7 +190,7 @@ public static class MobaGoldenLoot
             case Kind.Clock:
                 await EndCooldownsAsync(player).ConfigureAwait(false);
                 await ConsumeAsync(player, item).ConfigureAwait(false);
-                await player.ShowBlueMessageAsync("[MOBA] ¡Reloj dorado! Todos tus enfriamientos terminaron.").ConfigureAwait(false);
+                await player.ShowBlueMessageAsync("[MOBA] ¡Rama dorada! Todos tus enfriamientos terminaron.").ConfigureAwait(false);
                 return true;
             case Kind.Jewel:
                 if (await UpgradeWorstItemAsync(player).ConfigureAwait(false))
@@ -276,7 +281,7 @@ public static class MobaGoldenLoot
         attributes.ItemPowerUps.Add(target, player.GameContext.ItemPowerUpFactory.GetPowerUps(target, attributes).ToList());
         await player.InvokeViewPlugInAsync<IItemUpgradedPlugIn>(p => p.ItemUpgradedAsync(target)).ConfigureAwait(false);
         player.OnAppearanceChanged();
-        await player.ShowBlueMessageAsync($"[MOBA] ¡Joya dorada! {target.Definition?.Name} sube a +{target.Level}.").ConfigureAwait(false);
+        await player.ShowBlueMessageAsync($"[MOBA] ¡Piedra dorada! {target.Definition?.Name} sube a +{target.Level}.").ConfigureAwait(false);
         return true;
     }
 

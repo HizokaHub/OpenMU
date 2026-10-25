@@ -56,6 +56,16 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
         this._timer ??= new Timer(_ => this.SafeTick(), null, TickInterval + phase, TickInterval);
     }
 
+    /// <summary>A companion found a target: this monster joins the fight if it has none (the alert is passed on).</summary>
+    /// <param name="target">The target.</param>
+    public void Assist(IAttackable target)
+    {
+        if (this._target is null && this.Monster.IsAlive && IsValidTarget(this.Monster, target))
+        {
+            this._target = target;
+        }
+    }
+
     /// <inheritdoc />
     public override void RegisterHit(IAttacker attacker)
     {
@@ -131,6 +141,10 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
         if (this._target is null && (monster.Observers.Count > 0 || this._tickCounter % UnobservedScanEvery == 0))
         {
             this._target = FindTarget(monster, map, position);
+            if (this._target is not null)
+            {
+                MobaGolden.CallAllies(monster, this._target);
+            }
         }
 
         if (this._target is { } target)
@@ -172,7 +186,7 @@ public sealed class MobaGoldenIntelligence : BasicMonsterIntelligence
 
     private static IAttackable? FindTarget(Monster self, GameMap map, Point position)
     {
-        var radius = MobaGolden.TierOf(self) == MobaGolden.Tier.Great ? 12 : 9;
+        var radius = MobaGolden.AlertRadiusOf(MobaGolden.TierOf(self));
         IAttackable? best = null;
         var bestScore = double.MaxValue;
         foreach (var candidate in map.GetAttackablesInRange(position, radius))

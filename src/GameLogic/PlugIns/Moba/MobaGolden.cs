@@ -123,8 +123,17 @@ public static class MobaGolden
 
     private static readonly Dictionary<GameMap, State> States = new();
 
+    /// <summary>Tiles around a golden monster whose companions join its fight when it finds a target (the alert is passed on).</summary>
+    public const int CallRadius = 8;
+
     /// <summary>Gets or sets when, after the start of the match, the invasion begins.</summary>
     public static TimeSpan StartAfter { get; set; } = TimeSpan.FromMinutes(22);
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the invasion begins by itself at <see cref="StartAfter"/>. It is off until the invasion is released as an
+    /// update of the MOBA (the GM command <c>/mobagolden start|now</c> starts it anyway, and <c>/mobagolden autoon|autooff</c> changes this at run time).
+    /// </summary>
+    public static bool AutoStartEnabled { get; set; }
 
     /// <summary>What the game knows about a golden monster.</summary>
     /// <param name="Name">Its name.</param>
@@ -132,6 +141,27 @@ public static class MobaGolden
     /// <param name="Tier">Its tier.</param>
     /// <param name="Designations">Designations of the server configuration to clone it from (the first which exists).</param>
     public sealed record Spec(string Name, short Number, Tier Tier, params string[] Designations);
+
+    /// <summary>A golden monster found a target: the golden monsters within <see cref="CallRadius"/> tiles of it which have none join the fight.</summary>
+    /// <param name="caller">The monster that found the target.</param>
+    /// <param name="target">The target.</param>
+    public static void CallAllies(Monster caller, IAttackable target)
+    {
+        if (caller.CurrentMap is not { } map)
+        {
+            return;
+        }
+
+        foreach (var ally in LiveMonsters(map))
+        {
+            if (!ReferenceEquals(ally, caller)
+                && ally.Position.EuclideanDistanceTo(caller.Position) <= CallRadius
+                && Registry.TryGetValue(ally, out var info))
+            {
+                info.Brain?.Assist(target);
+            }
+        }
+    }
 
     /// <summary>Makes a jungle boss (Kundun, Selupan) hit champions for a share of their life like the golden monsters do (the fight scales with the level of the champions).</summary>
     /// <param name="boss">The boss.</param>
@@ -291,6 +321,16 @@ public static class MobaGolden
         _ => 1.4,
     };
 
+    /// <summary>Tiles around itself in which a golden monster notices champions, minions and structures (the alert radius).</summary>
+    /// <param name="tier">The tier.</param>
+    /// <returns>The radius.</returns>
+    public static int AlertRadiusOf(Tier tier) => tier switch
+    {
+        Tier.Great => 16,
+        Tier.Large => 14,
+        _ => 12,
+    };
+
     /// <summary>Attack range in tiles of the tier.</summary>
     /// <param name="tier">The tier.</param>
     /// <returns>The range.</returns>
@@ -394,7 +434,8 @@ public static class MobaGolden
     /// <returns>A task.</returns>
     public static async ValueTask TickAsync(IGameContext gameContext, GameMap map, MobaArena arena)
     {
-        if (arena.IsPreMatch
+        if (!AutoStartEnabled
+            || arena.IsPreMatch
             || arena.MatchStartUtc == DateTime.MinValue
             || arena.Elapsed < StartAfter
             || !MobaFormats.HasJungle(arena.Format)
@@ -745,6 +786,7 @@ public static class MobaGolden
         };
 
         var intelligence = new MobaGoldenIntelligence(position, guard, patrol);
+        info.Brain = intelligence;
         var monster = new Monster(area, definition, map, NoDrops, intelligence, gameContext.PlugInManager, gameContext.PathFinderPool);
         Registry.AddOrUpdate(monster, info);
         var damage = new System.Collections.Concurrent.ConcurrentDictionary<Player, double>();
@@ -893,6 +935,8 @@ public static class MobaGolden
         public Spec Spec { get; }
 
         public DateTime? GrowStartUtc { get; }
+
+        public MobaGoldenIntelligence? Brain { get; set; }
 
         /// <summary>Gets how grown a young dragon is, 0 (newborn) to 1 (grown); 1 for everybody else.</summary>
         public double Growth => this.GrowStartUtc is { } start ? Math.Clamp((DateTime.UtcNow - start).TotalSeconds / GrowSeconds, 0, 1) : 1;

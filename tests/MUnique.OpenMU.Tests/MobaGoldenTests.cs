@@ -82,13 +82,13 @@ public class MobaGoldenTests
     }
 
     /// <summary>
-    /// Every kind of golden loot is a different jewel, and the Great Golden Dragon always drops a chest.
+    /// Every kind of golden loot is a different item, and the Great Golden Dragon always drops a chest.
     /// </summary>
     [Test]
     public void TheLootIsDistinctAndTheDragonAlwaysDropsAChest()
     {
-        var names = Enum.GetValues<MobaGoldenLoot.Kind>().Select(MobaGoldenLoot.DefinitionNameOf).ToList();
-        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count));
+        var items = Enum.GetValues<MobaGoldenLoot.Kind>().Select(k => (MobaGoldenLoot.ItemOf(k).Group, MobaGoldenLoot.ItemOf(k).Number)).ToList();
+        Assert.That(items.Distinct().Count(), Is.EqualTo(items.Count));
         Assert.That(MobaGoldenLoot.ChancesOf(MobaGolden.Tier.Great).Any(c => c.Kind == MobaGoldenLoot.Kind.Chest && c.Chance >= 1.0), Is.True);
         Assert.That(MobaGoldenLoot.KindOf(null), Is.Null);
     }
