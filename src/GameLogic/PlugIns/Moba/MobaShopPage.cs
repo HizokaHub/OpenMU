@@ -9,4 +9,5 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// </summary>
 /// <param name="Name">The menu text.</param>
 /// <param name="Categories">The catalog categories shown on the page, in display order.</param>
-public sealed record MobaShopPage(string Name, IReadOnlyList<MobaShopCategory> Categories);
+/// <param name="Tier">When set, only the entries of that tier are shown.</param>
+public sealed record MobaShopPage(string Name, IReadOnlyList<MobaShopCategory> Categories, MobaShopTier? Tier = null);

@@ -83,7 +83,7 @@ public class MobaShopTests
             {
                 Assert.That(items, Is.Not.Empty, name);
                 Assert.That(overflow, Is.Zero, name);
-                Assert.That(cells, Is.GreaterThanOrEqualTo(20), name + " is nearly empty");
+                Assert.That(cells, Is.GreaterThanOrEqualTo(10), name + " is nearly empty");
                 Assert.That(items.Select(i => i.ItemSlot).Distinct().Count(), Is.EqualTo(items.Count), name + " slots");
             });
         }
@@ -150,7 +150,7 @@ public class MobaShopTests
         Assert.That(problems, Is.Empty);
     }
 
-    /// <summary>Shop shields carry 1 / 2 / 4 MOBA options by tier, and a dropped shield rolls 1 or 2 of the four.</summary>
+    /// <summary>Shop shields carry 1 / 2 / 2 MOBA options by tier (no gold at tier 3), and a dropped shield rolls 1 or 2 of them.</summary>
     [Test]
     public void ShieldOptionsGrowWithTierAndDropsRollOne()
     {
@@ -163,7 +163,7 @@ public class MobaShopTests
         {
             Assert.That(legendary.Options, Is.EqualTo(new[] { ((byte)2, (byte)10) }));
             Assert.That(grandSoul.Options, Is.EqualTo(new[] { ((byte)2, (byte)15), ((byte)3, (byte)15) }));
-            Assert.That(guardian.Options, Is.EqualTo(new[] { ((byte)2, (byte)20), ((byte)3, (byte)25), ((byte)4, (byte)10), ((byte)5, (byte)10) }));
+            Assert.That(guardian.Options, Is.EqualTo(new[] { ((byte)2, (byte)20), ((byte)3, (byte)25) }), "tier 3 has no gold options");
         });
 
         // A rolled drop (level 9, not a shop level) gets 1 or 2 distinct options.

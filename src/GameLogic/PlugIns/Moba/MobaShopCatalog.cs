@@ -37,8 +37,11 @@ public static class MobaShopCatalog
     public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
         new MobaShopPage("Consumibles, Accesorios y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Wings }),
-        new MobaShopPage("Armas y Sets (recursos)", new[] { MobaShopCategory.Weapons, MobaShopCategory.SetsSustain }),
-        new MobaShopPage("Sets", new[] { MobaShopCategory.Sets }),
+        new MobaShopPage("Armas", new[] { MobaShopCategory.Weapons }),
+        new MobaShopPage("Sets - Tier 1", new[] { MobaShopCategory.Sets }, MobaShopTier.T1),
+        new MobaShopPage("Sets - Tier 2", new[] { MobaShopCategory.Sets }, MobaShopTier.T2),
+        new MobaShopPage("Sets - Tier 3", new[] { MobaShopCategory.Sets }, MobaShopTier.T3),
+        new MobaShopPage("Sets de recursos", new[] { MobaShopCategory.SetsSustain }),
         new MobaShopPage("Mascotas y Escudos", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand }),
     };
 
@@ -84,11 +87,13 @@ public static class MobaShopCatalog
         // Sets: 2 mixes (standard tanky / aggressive reflect) at T1 and T2, one at T3, on the
         // "Sets" page; the resource mix of T1/T2 goes on its own "Sets (recursos)" page (a
         // set is 22 cells and the merchant grid holds 120, so 3 mixes x 2 tiers + T3 don't fit).
-        void Set(MobaFamily family, short setNumber, MobaShopTier tier)
+        // The second set of a tier ("alternate") has a different identity: tank (Bulwark) and speed / resources (Utility)
+        // instead of the Standard / Aggressive mixes, and no resource page of its own.
+        void Set(MobaFamily family, short setNumber, MobaShopTier tier, bool alternate = false)
         {
-            var variants = tier == MobaShopTier.T3
-                ? new[] { MobaShopVariant.Standard }
-                : new[] { MobaShopVariant.Standard, MobaShopVariant.Aggressive };
+            var variants = alternate
+                ? (tier == MobaShopTier.T3 ? new[] { MobaShopVariant.Bulwark } : new[] { MobaShopVariant.Bulwark, MobaShopVariant.Utility })
+                : (tier == MobaShopTier.T3 ? new[] { MobaShopVariant.Standard } : new[] { MobaShopVariant.Standard, MobaShopVariant.Aggressive });
             foreach (var variant in variants)
             {
                 for (var group = HelmGroup; group <= BootsGroup; group++)
@@ -97,7 +102,7 @@ public static class MobaShopCatalog
                 }
             }
 
-            if (tier != MobaShopTier.T3)
+            if (tier != MobaShopTier.T3 && !alternate)
             {
                 for (var group = HelmGroup; group <= BootsGroup; group++)
                 {
@@ -169,6 +174,23 @@ public static class MobaShopCatalog
         Set(MobaFamily.RageFighter, 60, MobaShopTier.T1);          // Storm Hard
         Set(MobaFamily.RageFighter, 61, MobaShopTier.T2);          // Piercing
         Set(MobaFamily.RageFighter, 73, MobaShopTier.T3);          // Phoenix Soul
+
+        // Second sets of each tier (2026-10-25): a different set with a tank / speed identity. Sets which a class cannot wear are skipped when resolving.
+        Set(MobaFamily.Wizard, 35, MobaShopTier.T1, alternate: true);        // Eclipse
+        Set(MobaFamily.Wizard, 22, MobaShopTier.T2, alternate: true);        // Dark Soul
+        Set(MobaFamily.Wizard, 52, MobaShopTier.T3, alternate: true);        // Hades
+        Set(MobaFamily.Knight, 34, MobaShopTier.T1, alternate: true);        // Ashcrow
+        Set(MobaFamily.Knight, 16, MobaShopTier.T2, alternate: true);        // Black Dragon
+        Set(MobaFamily.Knight, 45, MobaShopTier.T3, alternate: true);        // Titan
+        Set(MobaFamily.Elf, 36, MobaShopTier.T1, alternate: true);           // Iris
+        Set(MobaFamily.Elf, 24, MobaShopTier.T2, alternate: true);           // Red Spirit
+        Set(MobaFamily.Elf, 49, MobaShopTier.T3, alternate: true);           // Seraphim
+        Set(MobaFamily.DarkLord, 25, MobaShopTier.T1, alternate: true);      // Light Plate
+        Set(MobaFamily.DarkLord, 38, MobaShopTier.T2, alternate: true);      // Glorious
+        Set(MobaFamily.DarkLord, 51, MobaShopTier.T3, alternate: true);      // Paewang
+        Set(MobaFamily.Summoner, 40, MobaShopTier.T1, alternate: true);      // Red Wing
+        Set(MobaFamily.Summoner, 44, MobaShopTier.T2, alternate: true);      // Lilium
+        Set(MobaFamily.RageFighter, 59, MobaShopTier.T1, alternate: true);   // Sacred
 
         // --- Wings ---
         Wing(MobaFamily.Wizard, 12, 1, MobaShopTier.T1);           // Wings of Heaven

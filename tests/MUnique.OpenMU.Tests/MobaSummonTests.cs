@@ -129,4 +129,19 @@ public class MobaSummonTests
             Assert.That(MobaSummons.DamageMultiplierAt(10, 3, level + 1), Is.GreaterThan(MobaSummons.DamageMultiplierAt(10, 3, level)));
         }
     }
+
+    /// <summary>
+    /// Every appearance of the creature has one or two skills, and the ranged ones keep their distance.
+    /// </summary>
+    [Test]
+    public void EveryCreatureHasOneOrTwoSkills()
+    {
+        for (short appearance = 30; appearance <= 36; appearance++)
+        {
+            Assert.That(MobaSummonSkills.NamesOf(appearance).Length, Is.InRange(1, 2), appearance.ToString());
+        }
+
+        Assert.That(MobaSummonSkills.ReachOf(35, 2), Is.GreaterThanOrEqualTo(6), "Bali shoots from afar");
+        Assert.That(MobaSummonSkills.ReachOf(31, 2), Is.EqualTo(2), "the golem fights in melee");
+    }
 }

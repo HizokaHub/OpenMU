@@ -24,9 +24,15 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     /// <summary>Tiles around the one it watches (the owner when it follows, itself when controlled) in which it picks fights.</summary>
     private const int AcquireRange = 7;
 
+    /// <summary>Tiles in which a creature which holds its post (commanded or released) looks for enemies.</summary>
+    private const int HoldRange = 10;
+
     /// <summary>Tiles from the owner past which a summon which follows gives up a chase.</summary>
     private const int LeashRange = 12;
 
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Dictionary<string, DateTime> _skillReadyAt = new();
+    private short _appearance;
     private Timer? _timer;
     private int _ticking;
     private IAttackable? _attackOrder;
@@ -50,6 +56,37 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
 
     /// <summary>Gets a value indicating whether the owner left it holding its post (it neither follows nor is commanded).</summary>
     public bool Stay => this.Owner.MobaSummonStay;
+
+    /// <summary>Gets or sets until when the creature attacks twice as fast (the goblin's skill).</summary>
+    public DateTime HasteUntilUtc { get; set; }
+
+    /// <summary>Gets a token which is cancelled when the creature is gone (for the effects of its skills).</summary>
+    public CancellationToken Token => this._cts.Token;
+
+    /// <summary>Checks and arms the cooldown of one of the skills of the creature.</summary>
+    /// <param name="name">The skill.</param>
+    /// <param name="cooldownSeconds">Its cooldown.</param>
+    /// <returns><see langword="true"/> if it was ready (the cooldown starts now).</returns>
+    public bool Ready(string name, double cooldownSeconds)
+    {
+        var now = DateTime.UtcNow;
+        if (this._skillReadyAt.TryGetValue(name, out var readyAt) && now < readyAt)
+        {
+            return false;
+        }
+
+        this._skillReadyAt[name] = now + TimeSpan.FromSeconds(cooldownSeconds);
+        return true;
+    }
+
+    /// <summary>The enemies (champions, minions, summons; not structures) around a point.</summary>
+    /// <param name="center">The point.</param>
+    /// <param name="radius">The radius in tiles.</param>
+    /// <returns>The enemies.</returns>
+    public IEnumerable<IAttackable> EnemiesAround(Point center, int radius)
+        => this.Monster.CurrentMap is { } map
+            ? map.GetAttackablesInRange(center, radius).Where(a => !MobaStructures.IsStructure(a) && this.IsValidEnemy(a)).ToList()
+            : Enumerable.Empty<IAttackable>();
 
     /// <summary>Gets the point the summon was ordered to walk to, if any.</summary>
     public Point? MoveOrder => this._moveOrder;
@@ -108,6 +145,7 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     {
         this._timer?.Dispose();
         this._timer = null;
+        this._cts.Cancel();
         base.Dispose(managed);
     }
 
@@ -206,6 +244,15 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
 
         var holdsPost = this.Controlled || this.Stay;
         var watchCenter = holdsPost ? position : this.Owner.Position;
+        // A creature which holds its post and is hurt with enemy champions all around falls back to its owner instead of dying on the spot.
+        if (holdsPost && !this.Controlled && this.Stay
+            && monster.Attributes[Stats.CurrentHealth] < monster.Attributes[Stats.MaximumHealth] * 0.3f
+            && this.EnemiesAround(position, AcquireRange).Count(e => e is Player) >= 2)
+        {
+            await this.FollowOwnerAsync(map, position).ConfigureAwait(false);
+            return;
+        }
+
         var target = this._retaliateTarget ?? this.FindEnemy(map, watchCenter, position);
         if (target is not null && (holdsPost || Distance(target.Position, this.Owner.Position) <= LeashRange))
         {
@@ -241,7 +288,12 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     private async ValueTask FightAsync(IAttackable target, int attackRange)
     {
         var monster = this.Monster;
-        var reach = attackRange <= 2 ? attackRange + 1 : attackRange;
+        if (this._appearance == 0)
+        {
+            this._appearance = MobaSummons.AppearanceOf(this.Owner);
+        }
+
+        var reach = MobaSummonSkills.ReachOf(this._appearance, attackRange <= 2 ? attackRange + 1 : attackRange);
         if (Distance(monster.Position, target.Position) <= reach)
         {
             if (monster.IsWalking)
@@ -252,8 +304,17 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
             if (DateTime.UtcNow >= this._nextAttackUtc)
             {
                 var delay = monster.Definition.AttackDelay;
-                this._nextAttackUtc = DateTime.UtcNow + (delay > TimeSpan.FromMilliseconds(800) ? delay : TimeSpan.FromMilliseconds(1200));
-                await monster.AttackAsync(target).ConfigureAwait(false);
+                var seconds = (delay > TimeSpan.FromMilliseconds(800) ? delay : TimeSpan.FromMilliseconds(1200)).TotalSeconds;
+                if (DateTime.UtcNow < this.HasteUntilUtc)
+                {
+                    seconds *= 0.5;
+                }
+
+                this._nextAttackUtc = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
+                if (!await MobaSummonSkills.TryUseAsync(this, target, this._appearance, MobaSummons.RankOf(this.Owner)).ConfigureAwait(false))
+                {
+                    await monster.AttackAsync(target).ConfigureAwait(false);
+                }
             }
 
             return;
@@ -276,9 +337,12 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     private IAttackable? FindEnemy(GameMap map, Point center, Point self)
     {
         // Champions and minions of the other team; the structures are only attacked on an order (a lone summon under a turret dies).
-        return map.GetAttackablesInRange(center, AcquireRange)
-            .Where(a => !MobaStructures.IsStructure(a) && this.IsValidEnemy(a) && MobaVision.CanTarget(this.Owner, a))
-            .OrderBy(a => Distance(a.Position, self))
+        // What is near the creature counts even where the team has no vision, and the choice weighs the options: a wounded champion first,
+        // then the closest champion, then minions, so a creature left alone at a post fights what is worth fighting.
+        var radius = this.Controlled || this.Stay ? HoldRange : AcquireRange;
+        return map.GetAttackablesInRange(center, radius)
+            .Where(a => !MobaStructures.IsStructure(a) && this.IsValidEnemy(a) && (Distance(a.Position, self) <= AcquireRange || MobaVision.CanTarget(this.Owner, a)))
+            .OrderBy(a => Distance(a.Position, self) + (a is Player ? 0 : 4) - (a.Attributes[Stats.CurrentHealth] < a.Attributes[Stats.MaximumHealth] * 0.4f ? 3 : 0))
             .FirstOrDefault();
     }
 }

@@ -92,4 +92,15 @@ public class MobaGoldenTests
         Assert.That(MobaGoldenLoot.ChancesOf(MobaGolden.Tier.Great).Any(c => c.Kind == MobaGoldenLoot.Kind.Chest && c.Chance >= 1.0), Is.True);
         Assert.That(MobaGoldenLoot.KindOf(null), Is.Null);
     }
+
+    /// <summary>
+    /// Gold bonuses only exist in the first two tiers of the items.
+    /// </summary>
+    [Test]
+    public void ItemsGiveNoGoldAtTierThree()
+    {
+        var traits = MobaItemTraits.TooltipTraits.Where(t => t.Kind is 4 or 5).ToList();
+        Assert.That(traits, Is.Not.Empty);
+        Assert.That(traits.All(t => t.Percent is 5 or 10), Is.True, "only the 5 % and 10 % gold traits of tiers 1 and 2 are left");
+    }
 }

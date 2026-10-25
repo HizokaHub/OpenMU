@@ -331,9 +331,9 @@ public static class MobaShop
     /// <param name="overflow">The number of catalog items which didn't fit on the grid.</param>
     /// <returns>The items of the page.</returns>
     public static IReadOnlyList<Item> BuildPageItems(GameConfiguration configuration, CharacterClass characterClass, int page, out int overflow)
-        => BuildItems(configuration, characterClass, MobaShopCatalog.Pages[page].Categories, out overflow);
+        => BuildItems(configuration, characterClass, MobaShopCatalog.Pages[page].Categories, out overflow, MobaShopCatalog.Pages[page].Tier);
 
-    private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow)
+    private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow, MobaShopTier? tier = null)
     {
         EnsureTierPrices(configuration);
         MobaPets.EnsureConfigured(configuration);
@@ -341,7 +341,7 @@ public static class MobaShop
         MobaItemTraits.EnsureShopShieldOptions(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries
-            .Where(e => categories.Contains(e.Category) && (e.Families is null || e.Families.Contains(family)))
+            .Where(e => categories.Contains(e.Category) && (tier is null || e.Tier == tier) && (e.Families is null || e.Families.Contains(family)))
             .Select(e => (Entry: e, Definition: configuration.Items.FirstOrDefault(d => d.Group == e.Group && d.Number == e.Number)))
             .Where(c => c.Definition is not null && IsUsableBy(c.Definition, characterClass))
             .OrderBy(c => categories.ToList().IndexOf(c.Entry.Category))
@@ -434,7 +434,7 @@ public static class MobaShop
     private static (Dictionary<(byte, short), long> Prices, double Scale) BuildTierPrices(GameConfiguration configuration)
     {
         var entries = MobaShopCatalog.Entries
-            .Where(e => e.Category != MobaShopCategory.Consumables && e.Quantity == 1 && e.Variant == MobaShopVariant.Standard)
+            .Where(e => e.Category != MobaShopCategory.Consumables && e.Quantity == 1)
             .Select(e => (Entry: e, Definition: configuration.Items.FirstOrDefault(d => d.Group == e.Group && d.Number == e.Number)))
             .Where(c => c.Definition is not null)
             .ToList();
@@ -615,6 +615,40 @@ public static class MobaShop
             [Stats.ManaAfterMonsterKillMultiplier] = 6,
             [Stats.MoneyAmountRate] = 6,
         },
+        [MobaShopVariant.Bulwark] = new()
+        {
+            [Stats.ArmorDamageDecrease] = 1,
+            [Stats.MaximumHealth] = 1,
+            [Stats.DefenseRatePvm] = 2,
+            [Stats.DamageReflection] = 3,
+            [Stats.PhysicalBaseDmgIncrease] = 4,
+            [Stats.WizardryBaseDmgIncrease] = 4,
+            [Stats.MaximumMana] = 5,
+            [Stats.PhysicalBaseDmg] = 5,
+            [Stats.WizardryBaseDmg] = 5,
+            [Stats.ExcellentDamageChance] = 6,
+            [Stats.AttackSpeedAny] = 6,
+            [Stats.HealthAfterMonsterKillMultiplier] = 7,
+            [Stats.ManaAfterMonsterKillMultiplier] = 7,
+            [Stats.MoneyAmountRate] = 8,
+        },
+        [MobaShopVariant.Utility] = new()
+        {
+            [Stats.AttackSpeedAny] = 1,
+            [Stats.ExcellentDamageChance] = 1,
+            [Stats.MaximumMana] = 2,
+            [Stats.ManaAfterMonsterKillMultiplier] = 2,
+            [Stats.MaximumHealth] = 3,
+            [Stats.DefenseRatePvm] = 3,
+            [Stats.PhysicalBaseDmgIncrease] = 4,
+            [Stats.WizardryBaseDmgIncrease] = 4,
+            [Stats.PhysicalBaseDmg] = 5,
+            [Stats.WizardryBaseDmg] = 5,
+            [Stats.HealthAfterMonsterKillMultiplier] = 6,
+            [Stats.ArmorDamageDecrease] = 6,
+            [Stats.DamageReflection] = 7,
+            [Stats.MoneyAmountRate] = 8,
+        },
         [MobaShopVariant.Sustain] = new()
         {
             [Stats.HealthAfterMonsterKillMultiplier] = 1,
@@ -643,6 +677,8 @@ public static class MobaShop
         [MobaShopVariant.Standard] = new[] { Stats.MaximumHealth, Stats.DefenseIgnoreChance },
         [MobaShopVariant.Aggressive] = new[] { Stats.DefenseIgnoreChance, Stats.FullyReflectDamageAfterHitChance },
         [MobaShopVariant.Sustain] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance },
+        [MobaShopVariant.Bulwark] = new[] { Stats.MaximumHealth, Stats.FullyRecoverHealthAfterHitChance },
+        [MobaShopVariant.Utility] = new[] { Stats.DefenseIgnoreChance, Stats.MaximumHealth },
     };
 
     /// <summary>The (level, option level, luck, excellent count) tuple a full-price tier guarantees.</summary>
@@ -728,7 +764,8 @@ public static class MobaShop
             item.ItemOptions.Add(new ItemOptionLink { ItemOption = luckOption });
         }
 
-        var excellentOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent)
+        // The "full" tier (all six options, T3) leaves the Zen bonus out: gold is for the first two tiers, by then the loadout is nearly complete.
+        var excellentOptions = possibleOptions.Where(o => o.OptionType == ItemOptionTypes.Excellent && (excellent < 6 || o.PowerUpDefinition?.TargetAttribute != Stats.MoneyAmountRate))
             .OrderBy(o => o.PowerUpDefinition?.TargetAttribute is { } attribute && ExcellentPickPriority[ExcellentPickPriority.ContainsKey(variant) ? variant : MobaShopVariant.Standard].TryGetValue(attribute, out var priority) ? priority : int.MaxValue)
             .ThenBy(o => o.Number)
             .Take(excellent);

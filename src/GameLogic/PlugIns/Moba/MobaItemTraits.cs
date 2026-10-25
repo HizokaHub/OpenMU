@@ -19,7 +19,7 @@ using MUnique.OpenMU.DataModel.Entities;
 /// <item><description>Off-hand (shield / book): up to four options by tier - T1 CC resistance 10 %; T2 CC 15 % and
 /// cooldown reduction 15 %; T3 all four (CC 20 %, cooldown 25 %, assist gold 10 %, passive gold 10 %). Shields
 /// dropped by creeps carry 1 (70 %) or 2 (30 %) random ones of the four at the size of their tier.</description></item>
-/// <item><description>Rings: <b>gold per assist</b> (5 / 10 / 15 % each); pendant: <b>passive gold</b> (5 / 10 / 15 %).</description></item>
+/// <item><description>Rings: <b>gold per assist</b> (5 / 10 % each); pendant: <b>passive gold</b> (5 / 10 %). Tier 3 pieces have no gold (the loadout is nearly complete by then).</description></item>
 /// </list>
 /// </summary>
 public static class MobaItemTraits
@@ -30,7 +30,8 @@ public static class MobaItemTraits
     private static readonly double[] AntiHealByTier = { 0, 0.10, 0.20, 0.30 };
     private static readonly double[] CcResistByTier = { 0, 0.05, 0.10, 0.15 };
     private static readonly double[] CooldownByTier = { 0, 0.06, 0.12, 0.20 };
-    private static readonly double[] GoldByTier = { 0, 0.05, 0.10, 0.15 };
+    // Gold bonuses only exist in tiers 1 and 2 (2026-10-25): at tier 3 the loadout is nearly complete and gold has nothing left to buy.
+    private static readonly double[] GoldByTier = { 0, 0.05, 0.10, 0 };
     private static readonly double[] SdPierceByTier = { 0, 0.05, 0.10, 0.15 };
     private static readonly double[] SdBypassByTier = { 0, 0.03, 0.06, 0.10 };
     private static readonly double[] SdGuardByTier = { 0, 0.02, 0.04, 0.06 };
@@ -51,7 +52,7 @@ public static class MobaItemTraits
     // Size of each shield option by tier (index 1..3). The cooldown of T1 and the gold of T1 / T2 only appear on drops.
     private static readonly double[] ShieldCcByTier = { 0, 0.10, 0.15, 0.20 };
     private static readonly double[] ShieldCooldownByTier = { 0, 0.05, 0.15, 0.25 };
-    private static readonly double[] ShieldGoldByTier = { 0, 0.05, 0.08, 0.10 };
+    private static readonly double[] ShieldGoldByTier = { 0, 0.05, 0.08, 0 };
 
     private static readonly ConditionalWeakTable<Player, AntiHealState> AntiHeals = new();
 
@@ -195,7 +196,7 @@ public static class MobaItemTraits
             }
 
             var count = Rand.NextRandomBool(0.7) ? 1 : 2;
-            var kinds = ShieldKinds.OrderBy(_ => Rand.NextDouble()).Take(count).OrderBy(k => k).ToArray();
+            var kinds = ShieldKinds.Where(k => SizeOf(k, (int)tier) > 0).OrderBy(_ => Rand.NextDouble()).Take(count).OrderBy(k => k).ToArray();
             var options = kinds.Select(k => (k, SizeOf(k, (int)tier))).ToArray();
             ShieldRegistry[key] = options;
             RolledShields.AddOrUpdate(item, new ShieldOptionSet(options));
@@ -219,7 +220,7 @@ public static class MobaItemTraits
         });
 
     private static (byte Kind, byte Percent)[] DefaultShieldOptions(int tier)
-        => ShieldKinds.Take(tier switch { 1 => 1, 2 => 2, _ => 4 }).Select(k => (k, SizeOf(k, tier))).ToArray();
+        => ShieldKinds.Take(tier switch { 1 => 1, 2 => 2, _ => 4 }).Select(k => (k, SizeOf(k, tier))).Where(o => o.Item2 > 0).ToArray();
 
     /// <summary>The size (fraction) of one shield option of the champion's equipped off-hand item.</summary>
     private static double ShieldOptionOf(Player champion, byte kind)
@@ -287,7 +288,7 @@ public static class MobaItemTraits
                 _ => null,
             };
 
-            if (trait is { } t)
+            if (trait is { } t && t.Table[tier] > 0)
             {
                 var type = (ushort)((entry.Group * 512) + entry.Number);
                 traits.TryAdd(type, new Views.Moba.MobaItemTrait(type, t.Kind, (byte)Math.Round(t.Table[tier] * 100)));

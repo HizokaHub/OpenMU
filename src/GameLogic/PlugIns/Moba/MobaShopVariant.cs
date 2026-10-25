@@ -25,4 +25,10 @@ public enum MobaShopVariant
     /// on wings.
     /// </summary>
     Sustain,
+
+    /// <summary>Tank mix (damage reduction, life, defense rate): the second set of a tier.</summary>
+    Bulwark,
+
+    /// <summary>Speed and resource mix (attack speed, critical, mana): the second set of a tier.</summary>
+    Utility,
 }

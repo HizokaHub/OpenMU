@@ -154,6 +154,12 @@ public static class MobaSummons
     public static int RankOf(Player owner)
         => owner.SelectedCharacter?.LearnedSkills.FirstOrDefault(e => e.Skill is { } s && MobaLoadouts.IsCreatureSummon((short)s.Number))?.Level ?? 0;
 
+    /// <summary>Gets the appearance (the skill number 30-36 of the creature) the champion picked.</summary>
+    /// <param name="owner">The champion.</param>
+    /// <returns>The skill number; the goblin when it has none.</returns>
+    public static short AppearanceOf(Player owner)
+        => (short)(owner.SelectedCharacter?.LearnedSkills.FirstOrDefault(e => e.Skill is { } s && MobaLoadouts.IsCreatureSummon((short)s.Number))?.Skill?.Number ?? 30);
+
     /// <summary>Gets the summon of the champion, if it is alive.</summary>
     /// <param name="owner">The champion.</param>
     /// <returns>The monster and its brain, or <see langword="null"/>.</returns>
@@ -237,6 +243,8 @@ public static class MobaSummons
             default:
                 owner.MobaSummonControl = false;
                 owner.MobaSummonStay = true;
+                summon.Brain.ClearOrders();
+                await summon.Monster.StopWalkingAsync().ConfigureAwait(false);
                 message = "[MOBA] La invocación se queda donde está defendiendo su puesto (ataca lo que tenga cerca, no a las torres). Z para llamarla.";
                 break;
         }
