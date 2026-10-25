@@ -351,7 +351,7 @@ public static class AttackableExtensions
                 }
 
                 // The crit multiplies before the per-hit cap and the burst brake (it used to run after the cap).
-                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0), mobaCrit ? PlugIns.Moba.MobaCombatStats.CritMultiplier : 1.0);
+                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0), mobaCrit ? PlugIns.Moba.MobaBuffPower.CritMultiplierOf(mobaAtk) : 1.0);
             }
         }
 

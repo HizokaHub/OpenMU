@@ -100,6 +100,21 @@ public class MobaLoadoutTests
     }
 
     /// <summary>
+    /// Expansion of Wizardry and Increase Critical Damage grow with the rank of the caster and do nothing while inactive.
+    /// </summary>
+    [Test]
+    public void BuffPowerGrowsWithTheRank()
+    {
+        Assert.That(MobaBuffPower.SpellFactorForRank(0), Is.EqualTo(1.0));
+        Assert.That(MobaBuffPower.SpellFactorForRank(1), Is.EqualTo(1.08).Within(1e-9));
+        Assert.That(MobaBuffPower.SpellFactorForRank(5), Is.EqualTo(1.16).Within(1e-9));
+        Assert.That(MobaBuffPower.SpellFactorForRank(9), Is.EqualTo(1.16).Within(1e-9));
+        Assert.That(MobaBuffPower.CritBonusForRank(0), Is.EqualTo(0.0));
+        Assert.That(MobaBuffPower.CritBonusForRank(1), Is.EqualTo(0.15).Within(1e-9));
+        Assert.That(MobaBuffPower.CritBonusForRank(5), Is.EqualTo(0.35).Within(1e-9));
+    }
+
+    /// <summary>
     /// Too few, too many, repeated or foreign skills are refused.
     /// </summary>
     [Test]

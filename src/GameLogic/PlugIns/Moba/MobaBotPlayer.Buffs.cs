@@ -42,7 +42,7 @@ public sealed partial class MobaBotPlayer
     private static readonly short[] UpkeepBuffs = { 77, 233 };
 
     /// <summary>Self buffs raised when enemies are near or the bot is fighting: Soul Barrier, Swell Life, Increase Critical Damage, Damage Reflection and the Rage Fighter's three.</summary>
-    private static readonly short[] FightBuffs = { 16, 48, 64, 218, 266, 267, 268 };
+    private static readonly short[] FightBuffs = { 16, 48, 64, 217, 266, 267, 268 };
 
     private static readonly TimeSpan BuffRetry = TimeSpan.FromSeconds(4);
 
@@ -97,7 +97,7 @@ public sealed partial class MobaBotPlayer
                 }
             }
 
-            if (this.Has(217) && c.HpPct >= BerserkerMinHp && await this.CastBuffAsync(217, this, c.Now).ConfigureAwait(false))
+            if (this.Has(218) && c.HpPct >= BerserkerMinHp && await this.CastBuffAsync(218, this, c.Now).ConfigureAwait(false))
             {
                 return true;
             }

@@ -193,6 +193,12 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
 
         if (skill.Target == SkillTarget.ImplicitParty)
         {
+            // MOBA: the team plays the part of the party (the clones of a match form none).
+            if (player.IsMobaClone && PlugIns.Moba.MobaTeams.GetTeam(player) != PlugIns.Moba.MobaTeam.None)
+            {
+                return PlugIns.Moba.MobaPartyBuffs.TargetsOf(player);
+            }
+
             if (player.Party != null)
             {
                 return player.Party.PartyList.OfType<IAttackable>().Where(p => player.Observers.Contains((IWorldObserver)p));
@@ -333,6 +339,7 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
                 if (skill.SkillType == SkillType.Buff)
                 {
                     await target.ApplyMagicEffectAsync(player, skillEntry).ConfigureAwait(false);
+                    PlugIns.Moba.MobaBuffPower.NoteApplied(player, target, skillEntry);
                     success = true;
                 }
                 else if (skill.SkillType == SkillType.Regeneration)

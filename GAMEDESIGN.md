@@ -1987,7 +1987,7 @@ Decisiones nuevas del usuario y cómo quedaron:
 
 ### Hecho: bots con 4 skills y buffs (compilado, 1039/1039 pruebas; sin validar en juego; servidor sin reiniciar)
 - `MobaLoadouts.BotPicksFor(clase)` = las **4 primeras** de `DefaultFor` (`BotSkillCount = 4`); `MobaBotChatCommandPlugIn.SpawnAsync` las pasa a `BuildForClassAsync(..., loadout)`, así que **todos los bots** (`/mobafight`, relleno de colas, salas con bots) nacen con 4 ataques + los buffs de la clase (+1 invocación del Elfa), igual que un jugador. El **dummy de entrenamiento** conserva el kit completo.
-- **`MobaBotPlayer.Buffs.cs`** (`TickBuffsAsync`, desde `TickUtilityAsync`, máximo 1 buff por segundo): lanza los buffs **por el mismo manejador de skills que un humano** (maná ×3, cooldown, rango, efecto, animación), nunca mientras canaliza el recall. Reglas: *mantenimiento* (Infinity Arrow 77, Expansion 233) fuera de combate con maná ≥ 60 %; *combate* (Soul Barrier 16, Swell Life 48, Increase Critical Damage 64, Damage Reflection 218, RF 266-268; Berserker 217 solo con vida ≥ 60 %; Defense 18 con vida < 65 %) con enemigos cerca o en combate y maná ≥ 30 %; *Elfa*: Heal 26 al aliado (o a sí misma) con vida < 60 %, Recovery 234 con escudo < 40 %, Greater Damage 28 y Greater Defense 27 a sí misma y a los aliados a ≤ 6 casillas que no tengan el efecto. Si el manejador rechaza el hechizo (zona segura, rango, visión, maná) reintenta a los 4 s.
+- **`MobaBotPlayer.Buffs.cs`** (`TickBuffsAsync`, desde `TickUtilityAsync`, máximo 1 buff por segundo): lanza los buffs **por el mismo manejador de skills que un humano** (maná ×3, cooldown, rango, efecto, animación), nunca mientras canaliza el recall. Reglas: *mantenimiento* (Infinity Arrow 77, Expansion 233) fuera de combate con maná ≥ 60 %; *combate* (Soul Barrier 16, Swell Life 48, Increase Critical Damage 64, Damage Reflection 217, RF 266-268; Berserker 218 solo con vida ≥ 60 %; Defense 18 con vida < 65 %) con enemigos cerca o en combate y maná ≥ 30 %; *Elfa*: Heal 26 al aliado (o a sí misma) con vida < 60 %, Recovery 234 con escudo < 40 %, Greater Damage 28 y Greater Defense 27 a sí misma y a los aliados a ≤ 6 casillas que no tengan el efecto. Si el manejador rechaza el hechizo (zona segura, rango, visión, maná) reintenta a los 4 s.
 - **Arreglo de PvP en `TargetedSkillDefaultPlugin`:** las skills de ayuda (`MobaLoadouts.IsBuff`) ya **no se pueden lanzar sobre un enemigo** (antes `TargetRestriction = Player` dejaba a una Elfa curar o potenciar a un campeón rival).
 
 ### Auditoría de buffs (lectura de código; **falta confirmarla en juego**)
@@ -2000,8 +2000,8 @@ La partida usa el daño de la tabla `MobaSkillDamage` (base por rango y escala p
 | Heal (26) / Recovery (234) | vida / escudo actual (+ `ScaleHealing`) + escudo 12 % | **Funciona** | Aliado explícito |
 | Soul Barrier (16) | reduce hasta 90 % el daño a cambio de maná por golpe | **Funciona** (vive antes de `MobaDefense`) | Solo uno mismo |
 | Defense (18, BK) | `DamageReceiveDecrement` ×0,5 durante 4 s + escudo 15 % | **Funciona** (muy fuerte) | Solo uno mismo |
-| Damage Reflection (218) | `Stats.DamageReflection` | Funciona (lo lee `Player.cs`) | Solo uno mismo |
-| Berserker (217) | daño físico mín/máx y multiplicador de magia, −40 % de vida máx. | Funciona | Solo uno mismo |
+| Damage Reflection (217) | `Stats.DamageReflection` | Funciona (lo lee `Player.cs`) | Solo uno mismo |
+| Berserker (218) | daño físico mín/máx y multiplicador de magia, −40 % de vida máx. | Funciona | Solo uno mismo |
 | Swell Life (48), Increase Health/Block, Ignore Defense (RF) | vida máx. / VIT / bloqueo / ignorar defensa | **Sin confirmar** (la vida máxima del clon podría venir de la curva MOBA; el bloqueo es `DefenseRatePvm`) | Son de *party* (ver abajo) |
 | **Expansion of Wizardry (233)** | `MinimumWizBaseDmg` | **Muerto**: `MobaSkillDamage` pisa `GetBaseDmg` y no lee ese atributo | Solo uno mismo |
 | **Increase Critical Damage (64, DL)** | `CriticalDamageBonus` | **Casi muerto**: el golpe crítico del MOBA se tira después de calcular el daño y no suma ese bono (solo cuenta en «excelente» físico) | Es de *party* |
@@ -2013,3 +2013,52 @@ La partida usa el daño de la tabla `MobaSkillDamage` (base por rango y escala p
 
 ### Pendiente: control del campeón AFK por un aliado (a diseñar con el usuario)
 La toma de control **no se hizo el 2026-10-21** porque el cliente solo maneja su propio campeón (cámara, HUD y skills van atados a su `Player`). Opciones evaluadas en la conversación del 2026-10-25: orden remota cooperativa (el aliado manda ir/atacar y el campeón ausente ejecuta con sus propias skills), cambio de cuerpo (reconectar como el ausente, lo que deja al propio campeón del aliado como fantasma) o control completo de un segundo campeón (rediseño de cámara/HUD).
+
+## Sesión 2026-10-25 (noche, 3): buffs compartidos con el equipo, efecto real de Expansion y Crítico, tabla de buffs y diseños pendientes de aprobación
+
+**Respuestas del usuario:** (1) el control del AFK debe ser **como el de la Elfa a su invocación** (modo + clic derecho), con las **skills del controlado en el HUD con el estilo propio y su enfriamiento** (como la previsualización de skills); (2) los buffs que se pueden compartir deben **compartirse con todo el equipo como si fuera un party, respetando distancias**; (3) los **ítems** deben distinguir el tipo de personaje (BK: vida, regeneración, durabilidad, resistencia; mago: maná y magia) para que se sienta el PvP Elfa vs BK o BK vs SM; (4) tabla de **cada buff** con recomendaciones de CD, y lo mismo para el **teletransporte**; (5) dar **efecto real** a Expansion y a Increase Critical Damage; (6) probar en juego queda pendiente.
+
+### Hecho (compilado, 1040 pruebas; sin validar en juego; servidor sin reiniciar)
+- **Buffs de party → equipo (`MobaPartyBuffs`)**: en `TargetedSkillDefaultPlugin.DetermineTargets`, una skill `ImplicitParty` lanzada por un campeón con equipo alcanza al **lanzador y a los compañeros vivos a ≤ 10 casillas** (`RangeTiles`; fuera de ese radio no reciben nada, igual que un miembro de party fuera de pantalla). También fija `NearbyPartyMemberCount` del lanzador (el «+ vida por miembro cercano» de Swell Life). Afecta a Swell Life (48), Increase Critical Damage (64), Increase Health (267) e Increase Block (268). Ignore Defense (266), Soul Barrier, Defense, Expansion, Berserker, Reflection e Infinity Arrow siguen siendo personales. Los bots usan el mismo manejador, así que lo comparten también.
+- **Efecto real (`MobaBuffPower`)**: el rango del buff **del lanzador** se recuerda en quien lo recibe (`NoteApplied`, tras aplicar el efecto) y solo vale mientras el efecto mágico siga activo. **Expansion of Wizardry**: daño de las skills × (1,08 + 0,02 por rango adicional) → 1,08 a 1,16 (en `MobaSkillDamage.GetSkillBaseDamage`). **Increase Critical Damage**: el multiplicador del crítico (1,75) sube +0,15 a +0,35 según el rango (en `AttackableExtensions`, la rama del crítico del MOBA); como el buff es de equipo, lo disfrutan los compañeros que lo reciben.
+- **Corrección de números**: Damage Reflection es la skill **217** y Berserker la **218** (no al revés); el código de los bots ya usa los correctos.
+
+### Tabla de buffs: valores actuales y recomendación (PENDIENTE DE APROBAR; nada de esto está aplicado)
+Hoy casi todos usan el cooldown por defecto (6,5 → 4,5 s del rango 1 al 5) y las duraciones de MU Online (de 30 a 1800 s), que no tienen sentido en un MOBA: un buff de 30 minutos se lanza una vez y se olvida. Criterio de la propuesta: los buffs de **combate** duran poco y su CD es mayor que la duración (un uptime del 40-60 %), los de **equipo** tienen CD más largo, los de **curación** son instantáneos con CD corto y los de **utilidad** de larga duración se mantienen. Maná = coste de MU × 3 (ya aplicado). El CD va de rango 1 a rango 5; el modo de aplicarlo es `MobaBuffs.EnsureConfigured` (duraciones en la configuración en memoria, como `MobaPets`) y la tabla `PerRankSeconds` de `MobaCooldowns`.
+
+| Skill | Clase | Efecto en el MOBA | Dur. actual | CD actual | Dur. propuesta | CD propuesto (r1→r5) | Maná MU→MOBA | Objetivo |
+|---|---|---|---|---|---|---|---|---|
+| 16 Soul Barrier | SM/GM | −daño (10 %+ hasta 90 %) pagando maná por golpe + escudo 22 % | 60 s | 6,5→4,5 | 12 s | 28→20 | 70→210 | Uno mismo |
+| 233 Expansion of Wizardry | SM/GM | +8…16 % daño de skills | 1800 s | 6,5→4,5 | 20 s | 45→35 | 200→600 | Uno mismo |
+| 18 Defense | BK/MG/DL | −50 % daño recibido + escudo 15 % | 4 s | 6,5→4,5 | 4 s | 24→16 | 30→90 | Uno mismo |
+| 48 Swell Life | BK | + vida máx. (+ por aliado cercano) | 60 s | 6,5→4,5 | 20 s | 40→30 | 22→66 | **Equipo ≤ 10** |
+| 26 Heal | Elfa | cura + escudo 12 % | instantáneo | 10→6 | — | 10→6 (igual) | 20→60 | Aliado ≤ 6 |
+| 27 Greater Defense | Elfa | defensa plana + escudo 18 % | 60 s | 14→10 | 10 s | 18→12 | 30→90 | Aliado ≤ 6 |
+| 28 Greater Damage | Elfa | daño plano | 60 s | 14→10 | 10 s | 18→12 | 40→120 | Aliado ≤ 6 |
+| 234 Recovery | Elfa | recupera escudo | instantáneo | 6,5→4,5 | — | 14→9 | 40→120 | Aliado ≤ 6 |
+| 77 Infinity Arrow | Elfa | sin consumo de munición | 600 s | 6,5→4,5 | 600 s | 20 (utilidad) | 50→150 | Uno mismo |
+| 64 Increase Critical Damage | DL | crítico +0,15…0,35 | 60 s | 6,5→4,5 | 12 s | 30→22 | 50→150 | **Equipo ≤ 10** |
+| 217 Damage Reflection | Invocador | refleja 30-60 % | 30 s | 6,5→4,5 | 8 s | 30→22 | 40→120 | Uno mismo |
+| 218 Berserker | Invocador | + daño de magia, −40 % vida máx. | 30 s | 6,5→4,5 | 12 s | 40→30 | 100→300 | Uno mismo |
+| 266 Ignore Defense | RF | prob. de ignorar defensa | 60 s | 6,5→4,5 | 10 s | 30→22 | 50→150 | Uno mismo |
+| 267 Increase Health | RF | + VIT | 60 s | 6,5→4,5 | 20 s | 40→30 | 50→150 | **Equipo ≤ 10** |
+| 268 Increase Block | RF | + bloqueo (solo PvM: **sin efecto en PvP** hasta decidir) | 60 s | 6,5→4,5 | 15 s | 30→22 | 50→150 | **Equipo ≤ 10** |
+| Pergamino de teletransporte (ítem 14,10) | todas | canal de 5 s hasta un minion aliado; se interrumpe al recibir golpe | — | **5 min globales** para todos los pergaminos | canal 5 s | **4 min** (propuesta; hoy 5) | consume el ítem | Uno mismo |
+
+- **Teletransporte:** la skill de clase «Teleport» del Mago (6/15) **no está en el kit**; el único teletransporte es el pergamino. Hoy: canal de 5 s (como el recall), se interrumpe al recibir daño, solo a un minion aliado de carril (15 s para elegirlo) y 5 min de espera compartida entre pergaminos (`MobaTeleport`). Propuesta: 4 min y mostrar la espera en el HUD como una skill más.
+- **Pendiente de decisión (marcado en la tabla):** Increase Block no sirve en PvP (usa la defensa contra monstruos); proponer cambiarlo por «+ resistencia a control» o reducir el daño recibido, o retirarlo.
+
+### Diseño pendiente de aprobar: ítems por arquetipo de clase
+**Situación:** los ítems de la tienda son ítems nativos de MU con opciones excelentes elegidas por **variante** (Standard, Aggressive, Bulwark, Utility, Sustain: `ExcellentPickPriority`) y rasgos MOBA por **tier** (`MobaItemTraits`: anti-curación, resistencia a control, enfriamiento, oro), **iguales para todas las clases**. Lo único que distingue clases es qué ítem nativo se vende a cada una.
+**Propuesta (a refinar contigo):** añadir un **arquetipo** por familia y que decida qué da cada ranura (peso por variante):
+- **Bruiser/tanque (Blade Knight, Rage Fighter; en parte Dark Lord):** vida máx., **regeneración de vida por segundo**, **durabilidad** (reducción de daño plana de `MobaDefense`), resistencia a control y reflejo; casi nada de maná.
+- **Mago (Soul Master, Invocador; Magic Gladiator a medias):** **maná máx., regeneración de maná, potencia de hechizos** y escudo (SD); poca vida.
+- **Elfa:** velocidad de ataque, crítico, alcance y **potencia de curación/buffs**; vida media.
+- **Dark Lord:** híbrido por mando (vida + daño de equipo/mascotas).
+Cambios concretos: (1) `ExcellentPickPriority` e ítems/Set por **(arquetipo × variante)**; (2) estadísticas nuevas en `MobaItemTraits` que hoy no existen: *regeneración de vida/s*, *regeneración de maná*, *potencia de hechizos %* y *potencia de curación %*; (3) tooltips del cliente con esos rasgos; (4) tabla de precios por arquetipo. Resultado esperado: Elfa vs BK = daño a distancia contra bruiser que se cura y resiste; BK vs SM = el mago revienta si se le acerca y se queda sin maná, el BK aguanta y regenera.
+
+### Diseño pendiente de aprobar: control del campeón AFK por un aliado (estilo invocación de la Elfa)
+**Flujo (calcado de la invocación):** a los 15 s de inactividad (o desconexión) el aliado ve «X está inactivo — pulsa **V** para controlarlo»; **V** activa el *modo mando* sobre ese campeón (el más cercano si hay varios). Con el modo activo: **clic derecho** en el suelo → el campeón ausente va allí; en un enemigo → lo ataca; en el **minimapa** → va a ese punto; **V** otra vez lo suelta (se queda donde está guardando su puesto); si **el dueño vuelve a dar una orden recupera el control** al instante («X volvió»). Mientras alguien lo controla **no hace falta el recall automático**.
+**Skills (lo nuevo):** junto a la franja de la invocación aparece la **barra de skills del controlado** con el estilo propio del HUD: sus 4 skills + buffs con icono, rango, maná y **enfriamiento (barra circular como la previsualización)**; teclas **F1-F4** (skills) y **F5-F8** (buffs) lanzan sobre el objetivo bajo el cursor / el enemigo marcado, usando **sus** rangos, maná y enfriamientos (el servidor lanza con el manejador normal de skills del campeón controlado, no con el del aliado). Los bots no usan este modo.
+**Servidor:** `MobaTakeover` (elegibilidad, dueño del control, liberación cuando el dueño vuelve o el controlador muere/sale), paquetes `D5 2D` (modo, C→S), `D5 2E` (orden: caminar/atacar/skill n sobre objetivo o punto), `D5 2F` (estado S→C ~1 s: nombre, clase, vida/maná, skills con rango y enfriamiento restante). **Cliente:** ventana `MobaPuppetBar` (barra de skills del controlado + marcador en el minimapa), entrada en `ZzzInterface` como el modo X de la invocación.
+**Preguntas abiertas:** (a) ¿V y F1-F8 te van bien o prefieres otras teclas? (b) ¿Puede controlar **cualquier** aliado inactivo o solo si el dueño está desconectado? (c) ¿Un solo controlador por campeón (el primero gana) o varios? (d) ¿Qué ve el aliado del controlado: solo vida/maná o también el retrato?
