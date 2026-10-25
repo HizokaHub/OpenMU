@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ranking</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<header class="page-head">
+  <div class="wrap">
+    <h1>Ranking</h1>
+    <p>Los mejores campeones de la arena. Los puntos: 25 por victoria, 5 por partida, 1 por kill y ½ por asistencia.</p>
+  </div>
+</header>
+
+<main class="wrap" style="margin-bottom:100px">
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <input class="search" id="q" type="search" placeholder="Buscar jugador…">
+  </div>
+  <div id="board"></div>
+  <div class="pager" id="pager"></div>
+</main>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'ranking', title: 'Ranking' });
+  const SORTS = [['points', 'Puntos'], ['wins', 'Victorias'], ['kills', 'Kills'], ['kda', 'KDA'], ['golden', 'Cazadragones'], ['level', 'Nivel']];
+  let sort = 'points', page = 1, q = '';
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = SORTS.map(s => '<button class="tab" data-s="' + s[0] + '">' + s[1] + '</button>').join('');
+  const mark = () => tabs.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.s === sort));
+  tabs.onclick = e => { const b = e.target.closest('.tab'); if (b) { sort = b.dataset.s; page = 1; load(); } };
+  let timer;
+  document.getElementById('q').oninput = e => { clearTimeout(timer); timer = setTimeout(() => { q = e.target.value.trim(); page = 1; load(); }, 300); };
+
+  async function load() {
+    mark();
+    const board = document.getElementById('board');
+    let data;
+    try { data = await Site.api('/ranking?sort=' + sort + '&page=' + page + '&q=' + encodeURIComponent(q)); }
+    catch (e) { board.innerHTML = '<div class="empty"><b>No se pudo cargar</b>Inténtalo de nuevo en un momento.</div>'; return; }
+    if (!data.ready) { board.innerHTML = '<div class="empty"><b>El ranking se activa con la primera partida</b>Juega una partida completa y aparecerás aquí.</div>'; document.getElementById('pager').innerHTML = ''; return; }
+    if (!data.rows.length) { board.innerHTML = '<div class="empty"><b>Sin resultados</b>' + (q ? 'Nadie coincide con «' + Site.esc(q) + '».' : 'Todavía no hay partidas registradas.') + '</div>'; document.getElementById('pager').innerHTML = ''; return; }
+    board.innerHTML = '<table class="rank"><thead><tr><th>#</th><th>Jugador</th><th class="num hide-m">Partidas</th><th class="num">Victorias</th><th class="num hide-m">K / D / A</th><th class="num hide-m">Dragones</th><th class="num">Puntos</th></tr></thead><tbody>'
+      + data.rows.map(r => '<tr class="' + (r.position <= 3 ? 'top' + r.position : '') + '"><td class="pos">' + r.position + '</td>'
+        + '<td><a class="who" href="/jugador.html?name=' + encodeURIComponent(r.name) + '"><img src="' + Site.classIcon(r.classIndex) + '" alt=""><span>' + Site.esc(r.name) + '<small>' + Site.className(r.classIndex) + ' · nivel máx. ' + r.bestLevel + '</small></span></a></td>'
+        + '<td class="num hide-m">' + r.matches + '</td><td class="num">' + r.wins + ' <small style="color:var(--muted)">(' + Math.round(100 * r.wins / Math.max(1, r.matches)) + '%)</small></td>'
+        + '<td class="num hide-m">' + Site.fmt(r.kills) + ' / ' + Site.fmt(r.deaths) + ' / ' + Site.fmt(r.assists) + '</td><td class="num hide-m">' + r.goldenKills + '</td>'
+        + '<td class="num points">' + Site.fmt(r.points) + '</td></tr>').join('')
+      + '</tbody></table>';
+    const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
+    document.getElementById('pager').innerHTML = pages > 1
+      ? '<button class="btn ghost" ' + (page <= 1 ? 'disabled' : '') + ' id="prev">‹ Anterior</button><span style="align-self:center;color:var(--muted)">Página ' + page + ' de ' + pages + '</span><button class="btn ghost" ' + (page >= pages ? 'disabled' : '') + ' id="next">Siguiente ›</button>' : '';
+    const prev = document.getElementById('prev'), next = document.getElementById('next');
+    if (prev) prev.onclick = () => { page--; load(); scrollTo({ top: 0, behavior: 'smooth' }); };
+    if (next) next.onclick = () => { page++; load(); scrollTo({ top: 0, behavior: 'smooth' }); };
+  }
+  load();
+})();
+</script>
+</body>
+</html>

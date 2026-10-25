@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Noticias</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<header class="page-head"><div class="wrap"><h1>Noticias</h1><p>Parches, eventos y novedades del servidor.</p></div></header>
+<main class="wrap" style="margin-bottom:100px"><div class="news-grid" id="news"></div></main>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'news', title: 'Noticias' });
+  try {
+    const news = await Site.api('/news');
+    document.getElementById('news').innerHTML = news.length ? news.map(n =>
+      '<article class="news"><time>' + Site.esc(n.date) + '</time>' + (n.tag ? '<span class="tag">' + Site.esc(n.tag) + '</span>' : '') + '<h3>' + Site.esc(n.title) + '</h3><p>' + Site.esc(n.text) + '</p></article>').join('')
+      : '<div class="empty"><b>Sin noticias todavía</b>Vuelve pronto.</div>';
+  } catch (e) { document.getElementById('news').innerHTML = '<div class="empty"><b>No se pudieron cargar las noticias</b></div>'; }
+})();
+</script>
+</body>
+</html>

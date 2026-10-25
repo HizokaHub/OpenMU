@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crear cuenta</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<header class="page-head">
+  <div class="wrap">
+    <h1>Crear cuenta</h1>
+    <p>Un minuto y estás dentro. Es gratis.</p>
+  </div>
+</header>
+
+<main class="narrow">
+  <div class="panel" id="formPanel">
+    <div class="alert" id="alert"></div>
+    <form id="form" autocomplete="off" novalidate>
+      <div class="field">
+        <label for="login">Usuario</label>
+        <input id="login" type="text" maxlength="10" placeholder="4 a 10 letras o números" autocomplete="off" spellcheck="false">
+        <div class="hint" id="loginHint">Es el que usarás para entrar al juego.</div>
+      </div>
+      <div class="field">
+        <label for="pass">Contraseña</label>
+        <input id="pass" type="password" maxlength="20" placeholder="4 a 20 caracteres" autocomplete="new-password">
+        <div class="hint" id="passHint"></div>
+      </div>
+      <div class="field">
+        <label for="pass2">Repite la contraseña</label>
+        <input id="pass2" type="password" maxlength="20" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="email">Correo (opcional)</label>
+        <input id="email" type="email" maxlength="60" placeholder="para avisarte de novedades">
+      </div>
+      <p class="hint" style="margin-bottom:18px">Al crear la cuenta aceptas que este es un servidor privado de MU Online hecho por fans, sin fines de lucro, y que tu progreso puede reiniciarse durante la beta.</p>
+      <button class="btn primary" id="submit" type="submit" style="width:100%;justify-content:center">Crear cuenta</button>
+    </form>
+  </div>
+
+  <div class="panel success" id="done" style="display:none">
+    <h2>¡Cuenta <em>creada</em>!</h2>
+    <p style="color:var(--muted)">Usuario: <b id="doneLogin" style="color:var(--text)"></b></p>
+    <p style="margin-top:18px">Tu <b>código de seguridad</b> (te lo piden para borrar personajes). Guárdalo:</p>
+    <div class="code" id="doneCode"></div>
+    <p style="color:var(--muted);font-size:14px">No volveremos a mostrarlo.</p>
+    <p style="margin-top:22px"><a class="btn primary" href="/jugar.html">Siguiente: cómo entrar al juego</a></p>
+  </div>
+</main>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'register', title: 'Crear cuenta' });
+  const $ = id => document.getElementById(id);
+  if (!Site.config.registrationEnabled) { $('alert').textContent = 'El registro está cerrado por ahora.'; $('alert').classList.add('show'); $('submit').disabled = true; }
+
+  let timer;
+  $('login').addEventListener('input', () => {
+    clearTimeout(timer);
+    const v = $('login').value.trim();
+    const hint = $('loginHint');
+    if (!v) { hint.className = 'hint'; hint.textContent = 'Es el que usarás para entrar al juego.'; return; }
+    if (!/^[A-Za-z0-9]{4,10}$/.test(v)) { hint.className = 'hint err'; hint.textContent = 'De 4 a 10 letras o números, sin espacios ni símbolos.'; return; }
+    hint.className = 'hint'; hint.textContent = 'Comprobando…';
+    timer = setTimeout(async () => {
+      try {
+        const r = await Site.api('/check?login=' + encodeURIComponent(v));
+        hint.className = 'hint ' + (r.available ? 'ok' : 'err');
+        hint.textContent = r.available ? '✔ Disponible' : (r.reason || 'No disponible');
+      } catch (e) { hint.className = 'hint'; hint.textContent = ''; }
+    }, 350);
+  });
+
+  $('pass').addEventListener('input', () => {
+    const v = $('pass').value;
+    $('passHint').className = 'hint ' + (v.length >= 4 ? 'ok' : '');
+    $('passHint').textContent = v.length ? (v.length >= 4 ? '✔ Longitud correcta' : 'Mínimo 4 caracteres') : '';
+  });
+
+  $('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const alertBox = $('alert');
+    alertBox.classList.remove('show');
+    const fail = text => { alertBox.textContent = text; alertBox.classList.add('show'); };
+    if ($('pass').value !== $('pass2').value) { fail('Las contraseñas no coinciden.'); return; }
+    $('submit').disabled = true;
+    try {
+      const r = await Site.api('/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: $('login').value.trim(), password: $('pass').value, email: $('email').value.trim() }),
+      });
+      $('doneLogin').textContent = r.login;
+      $('doneCode').textContent = r.securityCode;
+      $('formPanel').style.display = 'none';
+      $('done').style.display = '';
+      scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      fail(err.status === 429 ? 'Demasiados intentos desde tu conexión. Prueba más tarde.' : err.message);
+      $('submit').disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

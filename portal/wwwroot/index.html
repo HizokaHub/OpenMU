@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es" data-theme="gold">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eclipse Arena · MU MOBA Online</title>
+  <meta name="description" content="Eclipse Arena: un MOBA 5 contra 5 sobre MU Online. Héroes, skills, invasión de dragones dorados y ranking. Servidor privado de MU hecho por fans.">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="bg" style="background-image:url('/img/shot-fight.jpg')"></div>
+  <canvas id="embers"></canvas>
+  <div class="wrap">
+    <div>
+      <div class="eyebrow" id="subtitle">MU MOBA · ONLINE</div>
+      <h1 id="title">Eclipse Arena</h1>
+      <p class="tagline" id="tagline">Cuando cae la noche, empieza la guerra.</p>
+      <div class="actions">
+        <a class="btn primary" href="/registro.html">Crear cuenta</a>
+        <a class="btn ghost" href="/jugar.html">Cómo jugar</a>
+      </div>
+      <div class="status-pill" data-status><span class="dot"></span><span>Comprobando servidor…</span></div>
+      <p class="mu-note">⚔ Es un <b>servidor privado de MU Online</b>: el motor y los héroes de MU, con un modo MOBA nuevo creado por fans.</p>
+    </div>
+    <div class="hero-card">
+      <img src="/img/shot-blast.jpg" alt="Combate en la arena">
+      <div class="cap"><span>Combate real en el servidor</span><span>●&nbsp;En vivo</span></div>
+    </div>
+  </div>
+  <div class="scroll-hint">Descubre más</div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">El modo</div>
+      <h2>Un MOBA <em>hecho a la medida</em> de MU Online</h2>
+      <p>Todo lo que ya conoces de MU, con la estrategia de una arena de equipos: líneas, torretas, jungla, oro y niveles dentro de cada partida.</p>
+    </div>
+    <div class="cards">
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M14.5 6.5 18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/></svg></div>
+        <h3>5 contra 5</h3><p>Salas privadas con clave, invitaciones de party, bots para completar equipos y revancha al terminar.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></div>
+        <h3>Skills estilo LoL</h3><p>Sube de nivel en cada partida, reparte puntos en 4 habilidades y tus buffs, y elige tu equipo en la tienda.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-6 7 6v11M9 21v-6h6v6"/></svg></div>
+        <h3>Tienda y sets</h3><p>Tres tiers de equipo, sets alternativos por clase, alas, mascotas y escudos con opciones únicas del modo.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 4 6 6 6 11a6 6 0 0 1-12 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4 0-7 2-10z"/></svg></div>
+        <h3>Invasión de dragones dorados</h3><p>Al minuto 22 la jungla arde y llegan los invasores: dragones que crecen, goblins en los carriles y botín legendario.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Los campeones</div>
+      <h2>Siete héroes, <em>siete estilos</em></h2>
+      <p>Tus clases de siempre, rediseñadas para el combate por equipos.</p>
+    </div>
+    <div class="heroes" id="heroes"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div class="reveal">
+      <div class="eyebrow">El campo de batalla</div>
+      <h2>Tres líneas, una <em>jungla viva</em></h2>
+      <p style="color:var(--muted);margin-top:14px;font-size:18px">Defiende tu base, empuja las líneas y elige cuándo cazar en la jungla. Cada torre que cae abre el camino hacia el nexo enemigo.</p>
+      <ul class="checks">
+        <li><span><b>Minimapa táctico</b>Torres, minions y campeones en tiempo real.</span></li>
+        <li><span><b>Jungla con jefes</b>Kundun, Selupan, Medusa y más: derrótalos para ganar ventaja.</span></li>
+        <li><span><b>Invocaciones y mascotas</b>La Elfa dirige su criatura; el Dark Lord lleva caballo y cuervo.</span></li>
+      </ul>
+    </div>
+    <img class="map reveal" src="/img/minimap.png" alt="Minimapa de la arena">
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Galería</div>
+      <h2>Así se <em>juega</em></h2>
+    </div>
+    <div class="gallery reveal">
+      <figure class="wide"><img src="/img/shot-fight.jpg" alt="Pelea en equipo"><figcaption>Pelea en equipo</figcaption></figure>
+      <figure class="wide"><img src="/img/shot-blast.jpg" alt="Habilidades"><figcaption>Habilidades y escudos</figcaption></figure>
+      <figure><img src="/img/shot-lane.jpg" alt="Línea central"><figcaption>La línea central</figcaption></figure>
+      <figure><img src="/img/shot-skirmish.jpg" alt="Escaramuza"><figcaption>Escaramuza en la jungla</figcaption></figure>
+      <figure><img src="/img/shot-fight.jpg" alt="Combate" style="object-position:20% 40%"><figcaption>Cuerpo a cuerpo</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Novedades</div>
+      <h2>Lo último del <em>servidor</em></h2>
+    </div>
+    <div class="news-grid" id="news"></div>
+    <p style="text-align:center;margin-top:30px"><a class="btn ghost" href="/noticias.html">Todas las noticias</a></p>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap reveal">
+    <h2>¿Listo para <em>la arena</em>?</h2>
+    <p>Crea tu cuenta en un minuto y entra a tu primera partida.</p>
+    <a class="btn primary" href="/registro.html">Crear cuenta gratis</a>
+  </div>
+</section>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'home' });
+  document.getElementById('title').textContent = Site.config.name;
+  if (Site.config.subtitle) document.getElementById('subtitle').textContent = Site.config.subtitle;
+  if (Site.config.tagline) document.getElementById('tagline').textContent = Site.config.tagline;
+  document.getElementById('heroes').innerHTML = CLASSES.map((c, i) =>
+    '<div class="hcard reveal"><img src="' + Site.classIcon(i) + '" alt="' + Site.esc(c.name) + '"><h4>' + Site.esc(c.name) + '</h4><div class="role">' + Site.esc(c.role) + '</div><p>' + Site.esc(c.text) + '</p></div>').join('');
+  try {
+    const news = (await Site.api('/news')).slice(0, 3);
+    document.getElementById('news').innerHTML = news.map(n =>
+      '<article class="news reveal"><time>' + Site.esc(n.date) + '</time>' + (n.tag ? '<span class="tag">' + Site.esc(n.tag) + '</span>' : '') + '<h3>' + Site.esc(n.title) + '</h3><p>' + Site.esc(n.text) + '</p></article>').join('');
+  } catch (e) { /* sin noticias */ }
+  document.querySelectorAll('.reveal:not(.in)').forEach(el => { const r = el.getBoundingClientRect(); if (r.top < innerHeight) el.classList.add('in'); });
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+  document.querySelectorAll('.reveal:not(.in)').forEach(el => io.observe(el));
+  Site.lightbox();
+})();
+</script>
+</body>
+</html>

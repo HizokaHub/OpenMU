@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cómo jugar</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<header class="page-head">
+  <div class="wrap">
+    <h1>Cómo jugar</h1>
+    <p>De cero a tu primera partida en cinco pasos.</p>
+  </div>
+</header>
+
+<main class="wrap" style="max-width:860px;margin-bottom:100px">
+  <div class="status-pill" data-status style="margin:0 auto 34px;display:flex;width:max-content"><span class="dot"></span><span>Comprobando servidor…</span></div>
+  <ol class="steps">
+    <li><div><h3>Crea tu cuenta</h3><p>Entra en <a href="/registro.html">Crear cuenta</a>, elige usuario y contraseña, y guarda tu código de seguridad.</p></div></li>
+    <li><div><h3>Descarga el cliente</h3><p id="downloadText">Descarga el cliente de Eclipse Arena, descomprímelo y abre <span class="mono">Main.exe</span>. Solo Windows.</p><p style="margin-top:10px" id="downloadBtn"></p></div></li>
+    <li><div><h3>Conecta con el servidor</h3><p>Si el juego te pide la dirección, usa <span class="mono" id="serverAddr">…</span>. Tu cliente ya viene configurado si lo descargas de aquí.</p></div></li>
+    <li><div><h3>Crea un personaje y busca al Maestro de la Arena</h3><p>Elige tu clase, entra a Lorencia y habla con el <b>Maestro de la Arena</b>: abre el navegador de salas.</p></div></li>
+    <li><div><h3>Crea o únete a una sala</h3><p>Elige formato (1v1, 3v3, 5v5 o ARAM), invita a tu party o pon una clave, marca <b>Listo</b> y a pelear. Si faltan jugadores, los bots completan el equipo.</p></div></li>
+  </ol>
+
+  <div class="sec-head" style="margin-top:80px">
+    <div class="eyebrow">Dentro de la partida</div>
+    <h2>Lo <em>básico</em></h2>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>Sube de nivel</h3><p>Matar minions, monstruos y rivales te da EXP. Cada nivel te da puntos para tus 4 habilidades; los buffs de tu clase suben en los niveles 5, 10, 15, 20, 25 y 30.</p></div>
+    <div class="card"><h3>Compra equipo</h3><p>Con el oro de la partida, vuelve a tu base y compra en la tienda: tres tiers de sets, armas, alas, mascotas y escudos.</p></div>
+    <div class="card"><h3>Destruye el nexo</h3><p>Empuja las líneas con tus minions, derriba torretas y tira el nexo enemigo. Cuidado con la jungla y con la invasión dorada del minuto 22.</p></div>
+  </div>
+</main>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'play', title: 'Cómo jugar' });
+  document.getElementById('serverAddr').textContent = Site.config.serverHost + ':' + Site.config.serverPort;
+  document.getElementById('downloadBtn').innerHTML = Site.config.downloadAvailable
+    ? '<a class="btn primary" href="/download">Descargar cliente</a>'
+    : '<span class="hint">El cliente se publicará pronto: pídeselo al administrador.</span>';
+})();
+</script>
+</body>
+</html>

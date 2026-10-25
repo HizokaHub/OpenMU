@@ -1901,3 +1901,36 @@ Decisiones nuevas del usuario y cómo quedaron:
 - **Skills de las invocaciones:** cada criatura usa **1 o 2 skills** en lugar del ataque básico (la segunda desde el rango 3 de la skill de invocación): Goblin *Rapidez* (ataca el doble de rápido 6 s); Stone Golem *Golpe sísmico* (área + aturdimiento) y *Piel de piedra* (mitad de daño recibido 5 s); Assassin *Puñalada* (2× + sangrado) y *Salto* (se lanza hacia el objetivo); Elite Yeti *Aliento helado* (área + aturdimiento) y *Piel de escarcha* (cura); Dark Knight *Tajo giratorio* (área) y *Grito de guerra* (+30 % daño 6 s); Bali *Bola de fuego* (a distancia, con quemadura); Soldier *Disparo múltiple* (3 objetivos). Código en `MobaSummonSkills`; las animaciones son las de los números de skill que el cliente ya tiene.
 - **Invocación que se queda en un sitio:** al soltarla con X ahora se detiene y descarta la orden de caminar; busca enemigos en 10 tiles (antes 7), cuenta lo que tiene a 7 tiles aunque el equipo no lo vea, elige por valor (campeón herido primero, luego el campeón más cercano, luego minions) y, si está por debajo del 30 % de vida con 2 o más campeones enemigos cerca, retrocede hacia su dueña.
 - **Pendiente:** el título del panel no dice la página; lo de «choca con murallas» de la invocación no se tocó (la ruta usa la misma malla que los minions); ver en pantalla la tienda con varias páginas.
+
+## Portal web, marca y alojamiento (2026-10-25; portal compilado y probado en local, ranking sin activar)
+
+### Marca elegida: **Eclipse Arena** · «MU MOBA · ONLINE»
+
+- **Nombre:** Eclipse Arena. **Subtítulo siempre visible:** «MU MOBA · ONLINE». **Eslogan:** «Cuando cae la noche, empieza la guerra.»
+- **Obligatorio en la web:** decir que es un **servidor privado de MU Online hecho por fans, sin fines de lucro y sin afiliación con Webzen** (aviso bajo el héroe de la portada, en el pie de todas las páginas y en el registro). Se configura en `portal/appsettings.json` → `Portal.Notice`.
+- **Paleta (tema `eclipse`):** fondo `#07070F` · morado profundo `#2A1458` · violeta `#9B7BFF` · cian `#7DF9FF` · rosa `#FF6BD6`. Títulos en mayúsculas (Bahnschrift), degradado cian→violeta→rosa.
+
+### Modelos de marca reservados (ya implementados como temas de la web; se activan con `Portal.Theme` o `?theme=`)
+
+| Modelo | Tema | Eslogan | Paleta | Uso previsto |
+|---|---|---|---|---|
+| **MU MOBA – Arena Dorada** | `gold` | «Cinco contra cinco. Un solo trono.» | `#0B0907` · `#3B2A0C` · `#A8741A` · `#F1C24A` · `#FFF3C4` | Eventos (p. ej. la invasión de dragones dorados) o una arena de tema dorado |
+| **Kalima Clash – Arena de Leyendas** | `kalima` | «Dragones dorados. Héroes de siempre.» | `#0C0505` · `#4A0F14` · `#9A1D1D` · `#E0763A` · `#FFD9A1` | Eventos / arenas de fuego y bronce |
+
+- **Plan del usuario:** usarlos para **eventos o nuevas arenas**. Se piensan **mapas nuevos** (p. ej. **Atlans, bajo el agua**) y **otra modalidad de juego** que se elegirá entre los dos más adelante. Cada arena nueva puede llevar su tema/logo propio sin tocar el resto del portal (basta un `data-theme` nuevo en `site.css`).
+
+### Portal (`portal/`, proyecto ASP.NET Core independiente)
+
+- Lee la BD del juego; **no** toca el esquema de OpenMU. Páginas: portada (imágenes reales del juego, héroes, minimapa, galería, novedades), `registro`, `jugar`, `ranking`, `jugador?name=`, `noticias` (`portal/news.json`). Puerto 8080 (`appsettings.json`).
+- **Registro:** inserta en `data."Account"` con BCrypt (verificado: hash `$2a$11$`, mismo formato que el juego), código de seguridad de 7 dígitos, límite 3 cuentas/hora/IP, usuario `[A-Za-z0-9]{4,10}` sin distinguir mayúsculas.
+- **Estado del servidor:** sondeo TCP al puerto del juego + tabla `moba.server_status` (jugadores y partidas en curso, si existe).
+- **Ranking:** puntos = 25·victorias + 5·partidas + kills + 0,5·asistencias; pestañas Puntos/Victorias/Kills/KDA/Cazadragones/Nivel. Solo muestra nombres de personaje (nunca el usuario de la cuenta).
+- **Esquema opcional `moba`** (`tools/moba-ranking-schema.sql`): **NO aplicado** (hace falta plan + `pg_dump` + confirmación del usuario). El servidor ya lo detecta solo (`MobaRankingSink`, comprueba `to_regclass` cada minuto) y empieza a registrar partidas en cuanto exista. Hasta entonces el ranking muestra «se activa con la primera partida».
+- `?shot` en la URL: modo captura (sin animaciones de aparición); solo para previsualizar.
+
+### Alojamiento para más jugadores (decidido: **tu PC + VPN**, gratis, no es web pública)
+
+- VPN tipo Tailscale/ZeroTier; cada amigo instala la VPN y el cliente. El servidor debe arrancar con `-resolveIp:<IP de la VPN>` (no `loopback`).
+- Puertos del juego 44405/44406 y 55901–55906 (chat 55980). **Nunca** exponer el 5000 (admin) ni PostgreSQL. Riesgo de CGNAT si se abriera a internet sin VPN.
+- Todos los amigos eligen el **mismo** game server de la lista. En el cliente: `config.ini` con `ServerIP` cambiado y sin credenciales guardadas (carpeta ~1,1 GB; zip sin `MuError.log` en `portal/downloads/EclipseArena-cliente.zip`).
+- **Pendiente:** instalar/configurar la VPN (pedir permiso antes de descargar nada), construir el zip del cliente, aplicar el esquema `moba` (plan + `pg_dump` + confirmación), reiniciar el servidor para compilar `Startup` con el sink (el usuario cierra su cliente antes).

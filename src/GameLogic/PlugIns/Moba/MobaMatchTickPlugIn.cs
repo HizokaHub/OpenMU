@@ -77,6 +77,14 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
         await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
 
+        // State of the server for the web (players online, champions in a match).
+        if (MobaMatchRecorder.StatusSink is not null)
+        {
+            var online = await gameContext.GetPlayersAsync().ConfigureAwait(false);
+            var humans = online.Where(p => p is not MobaBotPlayer && p.Account?.IsBot != true).ToList();
+            MobaMatchRecorder.ReportStatus("game", humans.Count, humans.Count(p => p.IsMobaClone));
+        }
+
         var now = DateTime.UtcNow;
         if ((now - this._lastDripUtc).TotalSeconds < MobaLevels.PassiveTickSeconds)
         {

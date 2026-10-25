@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jugador</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<header class="page-head"><div class="wrap"><h1 id="h">Jugador</h1></div></header>
+<main class="wrap" style="margin-bottom:100px;max-width:960px" id="main"></main>
+
+<script src="/js/site.js"></script>
+<script>
+(async () => {
+  await Site.mount({ id: 'ranking', title: 'Jugador' });
+  const name = new URLSearchParams(location.search).get('name') || '';
+  const main = document.getElementById('main');
+  document.getElementById('h').textContent = name || 'Jugador';
+  let data;
+  try { data = await Site.api('/player/' + encodeURIComponent(name)); }
+  catch (e) { main.innerHTML = '<div class="empty"><b>' + Site.esc(e.message) + '</b><a href="/ranking.html">Volver al ranking</a></div>'; return; }
+  const p = data.player;
+  const kda = ((Number(p.kills) + Number(p.assists)) / Math.max(1, Number(p.deaths))).toFixed(2);
+  main.innerHTML = '<div class="panel profile-head"><img src="' + Site.classIcon(p.classIndex) + '" alt="">'
+    + '<div><h1>' + Site.esc(p.name) + '</h1><p style="color:var(--muted);font-size:18px">' + Site.className(p.classIndex) + ' · última partida ' + Site.ago(p.lastMatch) + '</p></div></div>'
+    + '<div class="stat-grid">'
+    + stat(Site.fmt(p.points), 'Puntos') + stat(p.matches, 'Partidas') + stat(p.wins + ' (' + Math.round(100 * p.wins / Math.max(1, p.matches)) + '%)', 'Victorias')
+    + stat(Site.fmt(p.kills), 'Kills') + stat(Site.fmt(p.deaths), 'Muertes') + stat(Site.fmt(p.assists), 'Asistencias') + stat(kda, 'KDA')
+    + stat(p.bestLevel, 'Nivel máximo') + stat(Site.fmt(p.creepScore), 'Minions') + stat(p.goldenKills, 'Dorados')
+    + '</div><div class="sec-head" style="margin:40px 0 20px;text-align:left"><h2 style="font-size:32px">Últimas <em>partidas</em></h2></div>'
+    + '<table class="rank"><thead><tr><th>Resultado</th><th>Héroe</th><th class="num">K / D / A</th><th class="num hide-m">Nivel</th><th class="num hide-m">Minions</th><th class="num hide-m">Duración</th><th class="num">Cuándo</th></tr></thead><tbody>'
+    + data.recent.map(m => '<tr><td class="' + (m.won ? 'win' : 'lose') + '">' + (m.won ? 'VICTORIA' : 'DERROTA') + (m.goldenInvasion ? ' <span class="tag">dorados</span>' : '') + '</td>'
+      + '<td><span class="who"><img src="' + Site.classIcon(m.classIndex) + '" alt=""><span>' + Site.className(m.classIndex) + '</span></span></td>'
+      + '<td class="num">' + m.kills + ' / ' + m.deaths + ' / ' + m.assists + '</td><td class="num hide-m">' + m.level + '</td><td class="num hide-m">' + m.creepScore + '</td>'
+      + '<td class="num hide-m">' + Site.duration(m.seconds) + '</td><td class="num">' + Site.ago(m.endedAt) + '</td></tr>').join('')
+    + '</tbody></table>';
+  function stat(v, l) { return '<div class="stat"><b>' + Site.esc(v) + '</b><span>' + l + '</span></div>'; }
+})();
+</script>
+</body>
+</html>

@@ -56,6 +56,9 @@ public static class MobaMatchEnder
         var arenaPlayers = await GetArenaPlayersAsync(map, gameContext).ConfigureAwait(false);
         var summary = MobaMatchResults.Build(arenaPlayers, winner, MobaArena.Of(map).Elapsed);
 
+        // The ranking of the web (when the host installed it): taken now, before the invasion and the arena are cleared.
+        MobaMatchRecorder.RecordMatch(arenaPlayers, winner, MobaArena.Of(map).Elapsed, MobaArena.Of(map).Format.ToString(), MobaGolden.HasStarted(map));
+
         // Everything the match left on the map goes now (bots included: they have no owner to eject, or they would idle
         // in the empty arena); the map itself waits for the players to be sent away (see FinishAsync).
         MobaWavePeriodicSpawner.Stop(map);

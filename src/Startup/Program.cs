@@ -333,6 +333,17 @@ internal sealed class Program : IDisposable
         await host.StartAsync().ConfigureAwait(false);
         stopwatch.Stop();
         this._logger.Information("Host started, elapsed time: {elapsed}", stopwatch.Elapsed);
+
+        // The ranking of the web (the "moba" schema is optional, see tools/moba-ranking-schema.sql).
+        try
+        {
+            var connectionString = new ConfigFileDatabaseConnectionStringProvider().GetConnectionSetting(typeof(EntityDataContext)).ConnectionString;
+            MobaRankingSink.Install(connectionString ?? throw new InvalidOperationException("No connection string."), this._logger);
+        }
+        catch (Exception ex)
+        {
+            this._logger.Warning(ex, "The ranking sink could not be installed.");
+        }
         this._logger.Information("Admin Panel bound to urls: {urls}", string.Join("; ", host.Urls));
         return host;
     }
