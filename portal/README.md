@@ -19,7 +19,7 @@ Escucha en `http://0.0.0.0:8080` (cambiar en `appsettings.json` → `Urls`). Deb
 | `ConnectionString` | Base de datos `openmu`. |
 | `ServerHost`, `ServerPort` | Dirección que se muestra a los jugadores y que se sondea para el estado (en VPN: la IP de la VPN). |
 | `RegistrationEnabled`, `RegistrationsPerHourPerIp` | Registro abierto y límite por IP. |
-| `DownloadFile` | Zip del cliente servido en `/download` (si no existe, la web lo avisa). |
+| `DownloadFile` | Instalador del cliente servido en `/download` (`tools/build-installer.ps1`; si no existe, la web lo avisa). |
 | `NewsFile` | Noticias (`news.json`: `date`, `tag`, `title`, `text`). |
 
 ## Ranking

@@ -17,11 +17,11 @@
 <main class="wrap" style="max-width:860px;margin-bottom:100px">
   <div class="status-pill" data-status style="margin:0 auto 34px;display:flex;width:max-content"><span class="dot"></span><span>Comprobando servidor…</span></div>
   <ol class="steps">
-    <li><div><h3>Crea tu cuenta</h3><p>Entra en <a href="/registro.html">Crear cuenta</a>, elige usuario y contraseña, y guarda tu código de seguridad.</p></div></li>
-    <li><div><h3>Descarga el cliente</h3><p id="downloadText">Descarga el cliente de Eclipse Arena, descomprímelo y abre <span class="mono">Main.exe</span>. Solo Windows.</p><p style="margin-top:10px" id="downloadBtn"></p></div></li>
-    <li><div><h3>Conecta con el servidor</h3><p>Si el juego te pide la dirección, usa <span class="mono" id="serverAddr">…</span>. Tu cliente ya viene configurado si lo descargas de aquí.</p></div></li>
-    <li><div><h3>Crea un personaje y busca al Maestro de la Arena</h3><p>Elige tu clase, entra a Lorencia y habla con el <b>Maestro de la Arena</b>: abre el navegador de salas.</p></div></li>
-    <li><div><h3>Crea o únete a una sala</h3><p>Elige formato (1v1, 3v3, 5v5 o ARAM), invita a tu party o pon una clave, marca <b>Listo</b> y a pelear. Si faltan jugadores, los bots completan el equipo.</p></div></li>
+    <li><div><h3>Instala el juego</h3><p>El administrador te pasa el instalador (esta web solo abre una vez dentro de la red; aquí lo tienes para reinstalar o actualizar). Ábrelo: copia el juego, instala <b>ZeroTier</b> (la red privada del servidor) y te conecta solo. Solo Windows; necesita permiso de administrador. Si Windows muestra «Windows protegió tu PC», pulsa <b>Más información → Ejecutar de todas formas</b> (el instalador no está firmado).</p><p style="margin-top:10px" id="downloadBtn"></p></div></li>
+    <li><div><h3>Pide que te aprueben</h3><p>Al terminar, el instalador te muestra tu <b>ID de ZeroTier</b> y lo copia al portapapeles. Envíaselo al administrador: en cuanto te apruebe ya estás en la red.</p></div></li>
+    <li><div><h3>Crea tu cuenta</h3><p>Entra en <a href="/registro.html">Crear cuenta</a>, elige usuario y contraseña, y guarda tu código de seguridad. (Esta web solo se abre cuando ya estás aprobado.)</p></div></li>
+    <li><div><h3>Abre Eclipse Arena</h3><p>Usa el acceso directo del escritorio, entra con tu cuenta y elige el servidor de la lista. El juego ya apunta a <span class="mono" id="serverAddr">…</span>.</p></div></li>
+    <li><div><h3>Busca al Maestro de la Arena</h3><p>Crea tu personaje, entra a Lorencia y habla con el <b>Maestro de la Arena</b>: elige formato (1v1, 3v3, 5v5 o ARAM), crea o únete a una sala, marca <b>Listo</b> y a pelear. Si faltan jugadores, los bots completan el equipo.</p></div></li>
   </ol>
 
   <div class="sec-head" style="margin-top:80px">
@@ -41,8 +41,8 @@
   await Site.mount({ id: 'play', title: 'Cómo jugar' });
   document.getElementById('serverAddr').textContent = Site.config.serverHost + ':' + Site.config.serverPort;
   document.getElementById('downloadBtn').innerHTML = Site.config.downloadAvailable
-    ? '<a class="btn primary" href="/download">Descargar cliente</a>'
-    : '<span class="hint">El cliente se publicará pronto: pídeselo al administrador.</span>';
+    ? '<a class="btn primary" href="/download">Descargar instalador</a>'
+    : '<span class="hint">El instalador se publicará pronto: pídeselo al administrador.</span>';
 })();
 </script>
 </body>

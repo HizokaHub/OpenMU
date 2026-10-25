@@ -268,7 +268,7 @@ app.MapGet("/download", (PortalOptions o) =>
 {
     var path = Path.Combine(app.Environment.ContentRootPath, o.DownloadFile);
     return File.Exists(path)
-        ? Results.File(path, "application/zip", Path.GetFileName(path), enableRangeProcessing: true)
+        ? Results.File(path, path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? "application/zip" : "application/octet-stream", Path.GetFileName(path), enableRangeProcessing: true)
         : Results.NotFound(new { error = "El cliente todavía no está disponible para descargar." });
 });
 
@@ -313,7 +313,7 @@ internal sealed partial class PortalOptions
 
     public int RegistrationsPerHourPerIp { get; set; } = 3;
 
-    public string DownloadFile { get; set; } = "downloads/EclipseArena-cliente.zip";
+    public string DownloadFile { get; set; } = "downloads/EclipseArena-Setup.exe";
 
     public string NewsFile { get; set; } = "news.json";
 }
