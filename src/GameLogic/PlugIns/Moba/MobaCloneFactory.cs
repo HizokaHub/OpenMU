@@ -95,9 +95,10 @@ public static class MobaCloneFactory
     /// <param name="player">The player whose persistence context / game context is used.</param>
     /// <param name="characterClass">The class of the clone.</param>
     /// <param name="name">The clone's name.</param>
+    /// <param name="loadout">The attacks the clone gets (it gets the class buffs besides); <see langword="null"/> gives the whole class kit.</param>
     /// <returns>The clone character.</returns>
-    public static ValueTask<Character> BuildForClassAsync(Player player, CharacterClass characterClass, string name)
-        => BuildCloneCoreAsync(player, characterClass, name, 0, CharacterStatus.Normal, null);
+    public static ValueTask<Character> BuildForClassAsync(Player player, CharacterClass characterClass, string name, IReadOnlyList<short>? loadout = null)
+        => BuildCloneCoreAsync(player, characterClass, name, 0, CharacterStatus.Normal, loadout);
 
     private static async ValueTask<Character> BuildCloneCoreAsync(Player player, CharacterClass characterClass, string name, byte slot, CharacterStatus status, IReadOnlyList<short>? loadout)
     {

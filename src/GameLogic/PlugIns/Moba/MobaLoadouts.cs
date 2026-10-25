@@ -225,6 +225,17 @@ public static class MobaLoadouts
     /// <returns>The skill numbers.</returns>
     public static IReadOnlyList<short> DefaultFor(byte classNumber) => DefaultPicks[FamilyOf(classNumber)].Take(MobaLoadoutStore.MaxSkills).ToArray();
 
+    /// <summary>How many attacks a bot champion gets (a player picks 4 to 6).</summary>
+    public const int BotSkillCount = 4;
+
+    /// <summary>
+    /// The attacks of a bot champion: the first <see cref="BotSkillCount"/> of the class defaults. Like any champion it gets the
+    /// buffs of its class besides (see <see cref="BuffsFor"/>).
+    /// </summary>
+    /// <param name="classNumber">The character class number.</param>
+    /// <returns>The skill numbers.</returns>
+    public static IReadOnlyList<short> BotPicksFor(byte classNumber) => DefaultPicks[FamilyOf(classNumber)].Take(BotSkillCount).ToArray();
+
     private static Family FamilyOf(byte classNumber) => classNumber switch
     {
         0 or 2 or 3 => Family.Wizard,

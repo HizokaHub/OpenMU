@@ -959,6 +959,9 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
 
         this._nextUtilityUtc = c.Now + TimeSpan.FromSeconds(1);
 
+        // The class buffs: one cast per second at most.
+        await this.TickBuffsAsync(c).ConfigureAwait(false);
+
         // Aegis (skill 210, the skill of the equipped shield / book): in a fight, as soon as it is no longer healthy.
         if ((c.EnemyChampsInRange.Count > 0 || c.InCombat) && c.HpPct < 0.8f
             && this.SkillList?.GetSkill((ushort)MobaShieldSkills.ShieldSkillNumber) is { Skill: { } aegis } aegisEntry

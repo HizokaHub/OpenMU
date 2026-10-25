@@ -1980,3 +1980,36 @@ Decisiones nuevas del usuario y cómo quedaron:
 - **`-AprobarAmigos <min>`** (añadido): `iniciar-todo.ps1 -AprobarAmigos 60` lanza además `zt-auto-approve.ps1` durante esos minutos (ventana minimizada, PID en `logs\zt-auto-approve.pid`, verificado contra la línea de comandos antes de matarlo). Exige el token en `%USERPROFILE%\.zerotier-token`; `-Parar` y `-Estado` lo contemplan. Probado: arranca, se ve en `-Estado` y se detiene.
 - **El servidor NO lo levanta el instalador**: el instalador del amigo solo instala el cliente + ZeroTier y se une a la red; el servidor corre en el PC del administrador y hay que arrancarlo (`iniciar-todo.ps1`). Idea pendiente (no hecha, requiere decisión): arranque automático con Windows mediante una tarea programada.
 - **Arranque automático (2026-10-25):** `tools/instalar-autoarranque.ps1` crea la tarea programada «Eclipse Arena - iniciar todo» (solo tu usuario, **sin elevar**, sin UAC): al iniciar sesión espera 60 s y ejecuta `iniciar-todo.ps1` (oculto); si falla, Windows reintenta 5 veces cada minuto. No reinicia lo que ya corra. Quitar: `.\tools\instalar-autoarranque.ps1 -Quitar`. Probada ejecutándola a mano (resultado 0, sin tocar los procesos). **Sin probar con un reinicio real.** Solo arranca si hay sesión iniciada en Windows (el servidor usa una ventana de consola).
+
+## Sesión 2026-10-25 (noche, 2): bots con 4 skills + buffs, auditoría de buffs en PvP, y control del AFK por un aliado (decisión del usuario)
+
+**Decisiones del usuario:** (1) al jugador AFK/desconectado **no lo controla un bot: lo controla otro jugador de la partida** (el diseño original «el primer input de un compañero gana el control»; sustituye la idea del reemplazo por bot); (2) **los bots** llevan **4 skills + todos los buffs de su clase**; (3) hay que **auditar los buffs**: cuánto funcionan en PvP y cuáles se comparten con otros personajes.
+
+### Hecho: bots con 4 skills y buffs (compilado, 1039/1039 pruebas; sin validar en juego; servidor sin reiniciar)
+- `MobaLoadouts.BotPicksFor(clase)` = las **4 primeras** de `DefaultFor` (`BotSkillCount = 4`); `MobaBotChatCommandPlugIn.SpawnAsync` las pasa a `BuildForClassAsync(..., loadout)`, así que **todos los bots** (`/mobafight`, relleno de colas, salas con bots) nacen con 4 ataques + los buffs de la clase (+1 invocación del Elfa), igual que un jugador. El **dummy de entrenamiento** conserva el kit completo.
+- **`MobaBotPlayer.Buffs.cs`** (`TickBuffsAsync`, desde `TickUtilityAsync`, máximo 1 buff por segundo): lanza los buffs **por el mismo manejador de skills que un humano** (maná ×3, cooldown, rango, efecto, animación), nunca mientras canaliza el recall. Reglas: *mantenimiento* (Infinity Arrow 77, Expansion 233) fuera de combate con maná ≥ 60 %; *combate* (Soul Barrier 16, Swell Life 48, Increase Critical Damage 64, Damage Reflection 218, RF 266-268; Berserker 217 solo con vida ≥ 60 %; Defense 18 con vida < 65 %) con enemigos cerca o en combate y maná ≥ 30 %; *Elfa*: Heal 26 al aliado (o a sí misma) con vida < 60 %, Recovery 234 con escudo < 40 %, Greater Damage 28 y Greater Defense 27 a sí misma y a los aliados a ≤ 6 casillas que no tengan el efecto. Si el manejador rechaza el hechizo (zona segura, rango, visión, maná) reintenta a los 4 s.
+- **Arreglo de PvP en `TargetedSkillDefaultPlugin`:** las skills de ayuda (`MobaLoadouts.IsBuff`) ya **no se pueden lanzar sobre un enemigo** (antes `TargetRestriction = Player` dejaba a una Elfa curar o potenciar a un campeón rival).
+
+### Auditoría de buffs (lectura de código; **falta confirmarla en juego**)
+La partida usa el daño de la tabla `MobaSkillDamage` (base por rango y escala por STR/AGI/LDR/ENE total) y **después** la tubería estándar de OpenMU: defensa, bonos planos, Soul Barrier, `DamageReceiveDecrement`, y al final `MobaDefense.Apply`. Un buff funciona en PvP solo si cambia un atributo que esa tubería lee.
+
+| Buff | Qué toca | En el MOBA | Se comparte |
+|---|---|---|---|
+| Greater Damage (28) | `GreaterDamageBonus`, suma **plana** tras restar la defensa | **Funciona** (efecto pequeño frente a la tabla) | Objetivo explícito: cualquier aliado (ahora solo aliados) |
+| Greater Defense (27) | `GreaterDefenseBonus`, defensa plana + escudo temporal 18 % | **Funciona** | Igual que arriba |
+| Heal (26) / Recovery (234) | vida / escudo actual (+ `ScaleHealing`) + escudo 12 % | **Funciona** | Aliado explícito |
+| Soul Barrier (16) | reduce hasta 90 % el daño a cambio de maná por golpe | **Funciona** (vive antes de `MobaDefense`) | Solo uno mismo |
+| Defense (18, BK) | `DamageReceiveDecrement` ×0,5 durante 4 s + escudo 15 % | **Funciona** (muy fuerte) | Solo uno mismo |
+| Damage Reflection (218) | `Stats.DamageReflection` | Funciona (lo lee `Player.cs`) | Solo uno mismo |
+| Berserker (217) | daño físico mín/máx y multiplicador de magia, −40 % de vida máx. | Funciona | Solo uno mismo |
+| Swell Life (48), Increase Health/Block, Ignore Defense (RF) | vida máx. / VIT / bloqueo / ignorar defensa | **Sin confirmar** (la vida máxima del clon podría venir de la curva MOBA; el bloqueo es `DefenseRatePvm`) | Son de *party* (ver abajo) |
+| **Expansion of Wizardry (233)** | `MinimumWizBaseDmg` | **Muerto**: `MobaSkillDamage` pisa `GetBaseDmg` y no lee ese atributo | Solo uno mismo |
+| **Increase Critical Damage (64, DL)** | `CriticalDamageBonus` | **Casi muerto**: el golpe crítico del MOBA se tira después de calcular el daño y no suma ese bono (solo cuenta en «excelente» físico) | Es de *party* |
+| Infinity Arrow (77) | no gasta munición | Funciona como utilidad (no sube daño) | Solo uno mismo |
+
+- **Compartir:** los buffs de objetivo `ImplicitParty` (Swell Life, Increase Critical Damage, Increase Health/Block del RF) usan `player.Party`. Los clones de la partida **no forman party** (ningún código del MOBA la crea) → hoy solo se aplican a quien los lanza, aunque en MU afecten a todo el party. Solo el **grupo de skills explícitas del Elfa** llega a los aliados.
+- **Otros hallazgos:** los buffs sin tabla propia de cooldown usan el valor por defecto (6,5 → 4,5 s), muy corto para efectos de 30-60 s; Expansion cuesta 200 de maná ×3.
+- **Propuestas pendientes de decisión:** (a) hacer que los buffs `ImplicitParty` alcancen a **los aliados del equipo a ≤ N casillas** en el MOBA (en vez de depender del party); (b) dar vida a Expansion y a Increase Critical Damage (que sumen a `MobaSkillDamage` / al multiplicador crítico) o retirarlos del kit; (c) tabla de cooldowns y duraciones propia para todos los buffs; (d) confirmar en juego Swell Life / Increase Health y el bloqueo del RF.
+
+### Pendiente: control del campeón AFK por un aliado (a diseñar con el usuario)
+La toma de control **no se hizo el 2026-10-21** porque el cliente solo maneja su propio campeón (cámara, HUD y skills van atados a su `Player`). Opciones evaluadas en la conversación del 2026-10-25: orden remota cooperativa (el aliado manda ir/atacar y el campeón ausente ejecuta con sus propias skills), cambio de cuerpo (reconectar como el ausente, lo que deja al propio campeón del aliado como fantasma) o control completo de un segundo campeón (rediseño de cámara/HUD).

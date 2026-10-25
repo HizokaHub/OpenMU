@@ -112,6 +112,14 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             return;
         }
 
+        // MOBA: the helpful skills (Heal, Greater Damage, Greater Defense, Recovery, ...) are for the caster's own side: the
+        // restriction "any player" would let an Elf heal or empower an enemy champion.
+        if (player.IsMobaClone && target != player && skill.SkillType is SkillType.Buff or SkillType.Regeneration
+            && PlugIns.Moba.MobaLoadouts.IsBuff((short)skill.Number) && PlugIns.Moba.MobaTeams.AreEnemies(player, target))
+        {
+            return;
+        }
+
         if (!player.IsInRange(target.Position, skill.Range + 2))
         {
             // target position might be out of sync so we send the current coordinates to the client again.

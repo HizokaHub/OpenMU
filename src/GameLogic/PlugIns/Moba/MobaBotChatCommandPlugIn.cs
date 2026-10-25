@@ -148,7 +148,7 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
                 name = name[..10];
             }
 
-            var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name).ConfigureAwait(false);
+            var clone = await MobaCloneFactory.BuildForClassAsync(caller, characterClass, name, MobaLoadouts.BotPicksFor(characterClass.Number)).ConfigureAwait(false);
             var account = caller.PersistenceContext.CreateNew<Account>();
             account.LoginName = $"#bot_{name}";
 

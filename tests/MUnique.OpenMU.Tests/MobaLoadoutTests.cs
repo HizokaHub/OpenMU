@@ -70,6 +70,36 @@ public class MobaLoadoutTests
     }
 
     /// <summary>
+    /// A bot gets exactly four attacks, all of them skills a player could pick (no buffs, no summons).
+    /// </summary>
+    [Test]
+    public void BotsGetFourPickableAttacks()
+    {
+        foreach (var number in ClassNumbers)
+        {
+            var picks = MobaLoadouts.BotPicksFor(number);
+            Assert.That(picks, Has.Count.EqualTo(MobaLoadouts.BotSkillCount), $"class {number}");
+            Assert.That(picks.Distinct().Count(), Is.EqualTo(picks.Count), $"class {number}");
+            Assert.That(picks.Except(MobaLoadouts.SelectableFor(number)), Is.Empty, $"class {number}");
+        }
+    }
+
+    /// <summary>
+    /// Every class with buffs reports them as buffs, so the bots (which cast the class buffs) and the Elf's "own side only" rule see the same set.
+    /// </summary>
+    [Test]
+    public void ClassBuffsAreBuffs()
+    {
+        foreach (var number in ClassNumbers)
+        {
+            Assert.That(MobaLoadouts.BuffsFor(number).All(MobaLoadouts.IsBuff), Is.True, $"class {number}");
+        }
+
+        // The Elf helps its side with these; none of them is an attack a player can pick.
+        Assert.That(MobaLoadouts.BuffsFor(10), Is.SupersetOf(new short[] { 26, 27, 28, 77, 234 }));
+    }
+
+    /// <summary>
     /// Too few, too many, repeated or foreign skills are refused.
     /// </summary>
     [Test]
