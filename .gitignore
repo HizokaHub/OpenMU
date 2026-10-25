@@ -337,3 +337,6 @@ src/Network/Packets/**/ClientToServerPackets*.cs
 src/Network/Packets/**/ServerToClientPackets*.cs
 src/Network/Packets/**/ConnectionExtensions.cs
 src/Web/Map/wwwroot/js/MUnique.OpenMU.Web.Map.js
+
+# Cliente empaquetado para los jugadores (1 GB, se genera con tools/build-client-package.ps1)
+portal/downloads/
