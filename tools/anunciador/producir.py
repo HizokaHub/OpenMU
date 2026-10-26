@@ -2,6 +2,7 @@
 
 Uso: python -I producir2.py <carpeta_voz_cruda> <carpeta_salida> [clave ...]
 """
+import os
 import sys
 import wave
 from pathlib import Path
@@ -14,7 +15,24 @@ PEAK = 0.92
 TARGET_RMS_DB = -17.0
 DURACION_MAX_DEFECTO = 3.4          # segundos; las voces de partida o de objetivo gordo pueden durar mas
 DURACION_MAX = {'victory': 6.0, 'defeat': 5.2, 'match_start': 5.0, 'ace': 4.6, 'legendary': 4.2, 'penta': 4.2, 'golden_flyover': 5.2, 'golden_invaders': 4.8, 'dragon_ally': 4.6, 'dragon_enemy': 4.4}
+# Topes del estilo de impacto (palabras alargadas + golpe): son mas largos.
+DURACION_MAX_IMPACTO = {'first_blood': 4.4, 'double': 4.2, 'triple': 4.4, 'quadra': 4.8, 'penta': 5.8, 'spree': 4.2, 'shutdown': 4.0, 'dominating': 4.6, 'unstoppable': 4.8, 'legendary': 5.4}
 RNG = np.random.default_rng(5252)
+
+# Procesado de la voz segun el motor que la genero (variable de entorno VOZ_ESTILO): Helena es plana y necesita mucho caracter;
+# Piper ya es natural y solo se engrosa un poco.
+ESTILOS_VOZ = {
+    "helena": {"tono": 0.84, "pecho": 0.60, "pecho_g": 0.55, "aire_g": 0.18, "grano_g": 0.06, "drive": 2.4, "doble_g": 0.30},
+    "piper": {"tono": 0.91, "pecho": 0.70, "pecho_g": 0.30, "aire_g": 0.08, "grano_g": 0.0, "drive": 1.5, "doble_g": 0.22},
+}
+ESTILO_VOZ = ESTILOS_VOZ[os.environ.get("VOZ_ESTILO", "helena")]
+
+# Perfil de sala/EQ de la voz normal (variable VOZ_PERFIL): "clasico" es el de los sonidos instalados (v4); "claro" tiene menos eco y mas presencia.
+PERFILES_SALA = {
+    "clasico": {"pecho_eq": 0.50, "presencia_eq": 0.30, "corte_graves": 70, "eco": 0.16, "sala_seg": 2.4, "sala_wet": 0.26},
+    "claro": {"pecho_eq": 0.35, "presencia_eq": 0.50, "corte_graves": 90, "eco": 0.05, "sala_seg": 1.6, "sala_wet": 0.11},
+}
+PERFIL_SALA = PERFILES_SALA[os.environ.get("VOZ_PERFIL", "clasico")]
 
 
 # ------------------------------------------------------------------ utilidades
@@ -282,31 +300,31 @@ def voz(ruta):
         datos = signal.resample_poly(datos, SR, tasa)
     x = norm(trim(datos), 0.9)
 
-    principal = resample(x, 0.84)                       # cuerpo: voz grave de gigante
-    sub = lp(resample(x, 0.60), 700) * 0.55             # capa de pecho, muy grave
-    aire = hp(resample(x, 1.10), 2800) * 0.18           # presencia / aire
+    principal = resample(x, ESTILO_VOZ['tono'])                       # cuerpo: voz grave de gigante
+    sub = lp(resample(x, ESTILO_VOZ['pecho']), 700) * ESTILO_VOZ['pecho_g']             # capa de pecho, muy grave
+    aire = hp(resample(x, 1.10), 2800) * ESTILO_VOZ['aire_g']           # presencia / aire
     n = max(len(principal), len(sub), len(aire))
     mezcla = pad(principal, n) + pad(sub, n) + pad(aire, n)
 
     # grano "demoniaco": copia aplastada (reduccion de muestreo + cuantizacion), muy baja
     grano = np.repeat(mezcla[::4], 4)[:n]
     grano = np.round(grano * 24) / 24
-    mezcla += 0.06 * bp(grano, 350, 3000)
+    mezcla += ESTILO_VOZ['grano_g'] * bp(grano, 350, 3000)
 
     # doble voz (chorus corto) para ancho y carácter
-    doble = pad(resample(mezcla, 0.992), n) * 0.30
+    doble = pad(resample(mezcla, 0.992), n) * ESTILO_VOZ['doble_g']
     mezcla = mezcla + np.concatenate([np.zeros(int(0.022 * SR)), doble])[:n]
 
     # ecualizacion: pecho, presencia, recorte de aire digital
-    mezcla = mezcla + 0.5 * lp(mezcla, 220) + 0.30 * bp(mezcla, 2000, 4200)
-    mezcla = lp(hp(mezcla, 70), 11000)
-    mezcla = soft(norm(mezcla, 0.8), 2.4)
+    mezcla = mezcla + PERFIL_SALA['pecho_eq'] * lp(mezcla, 220) + PERFIL_SALA['presencia_eq'] * bp(mezcla, 2000, 4200)
+    mezcla = lp(hp(mezcla, PERFIL_SALA['corte_graves']), 11000)
+    mezcla = soft(norm(mezcla, 0.8), ESTILO_VOZ['drive'])
     mezcla = compress(mezcla, 0.28, 3.5)
 
     # eco corto + sala
-    eco = np.concatenate([np.zeros(int(0.13 * SR)), mezcla])[:n] * 0.16
+    eco = np.concatenate([np.zeros(int(0.13 * SR)), mezcla])[:n] * PERFIL_SALA['eco']
     mezcla = pad(mezcla, n) + eco
-    mezcla = hall(mezcla, 2.4, 0.26, 0.02)
+    mezcla = hall(mezcla, PERFIL_SALA['sala_seg'], PERFIL_SALA['sala_wet'], 0.02)
     return norm(trim(mezcla, 0.003), 0.95)
 
 
@@ -503,21 +521,24 @@ def envolvente_voz(v, suavizado=0.06):
 
 def mezclar(nombre, ruta_voz):
     efecto, t_voz = RECETAS[nombre]()
-    v = voz(ruta_voz)
+    return finalizar(nombre, efecto, voz(ruta_voz), t_voz, 0.55)
+
+
+def finalizar(nombre, efecto, v, t_voz, duck, ganancia_voz=1.15, sala=0.12, topes=None):
     total = max(len(efecto), int((t_voz + 0.0) * SR) + len(v)) + int(0.2 * SR)
     efecto = pad(efecto, total)
     cobertura = np.zeros(total)
     i = int(t_voz * SR)
     cobertura[i:i + len(v)] = envolvente_voz(v)
     cobertura = np.convolve(cobertura, np.ones(int(0.08 * SR)) / int(0.08 * SR), mode="same")
-    efecto = efecto * (1 - 0.55 * cobertura)         # la voz "se abre paso" bajando el fondo
+    efecto = efecto * (1 - duck * cobertura)         # la voz "se abre paso" bajando el fondo
     mezcla = efecto * 0.85
-    mezcla = place(mezcla, v, t_voz, 1.15)
-    mezcla = hall(mezcla, 2.2, 0.12, 0.0)
+    mezcla = place(mezcla, v, t_voz, ganancia_voz)
+    mezcla = hall(mezcla, 2.2, sala, 0.0)
     mezcla = lp(hp(mezcla, 28), 11000)
     mezcla = compress(mezcla, 0.35, 2.6, 0.01, 0.2)
     mezcla = trim(mezcla, 0.004)
-    tope = int(DURACION_MAX.get(nombre, DURACION_MAX_DEFECTO) * SR)
+    tope = int((topes or DURACION_MAX).get(nombre, DURACION_MAX_DEFECTO) * SR)
     if len(mezcla) > tope:
         mezcla = mezcla[:tope]
         corte = int(0.5 * SR)
@@ -531,6 +552,121 @@ def mezclar(nombre, ruta_voz):
     f = int(0.25 * SR)
     mezcla[-f:] *= np.linspace(1, 0, f)
     return mezcla
+
+
+# ------------------------------------------------------------------ voz con impacto (kills y rachas en ingles)
+#
+# En vez de repetir silabas, la frase se parte en dos: la primera palabra se alarga mientras sube un riser; un golpe seco y la
+# palabra final cae como un martillazo grave (capa de gruñido una octava abajo, distorsion, cola de sala larga y ecos lanzados).
+# Antes de la primera palabra entra un "barrido inverso" (la cola de sala al reves) que aspira hacia la voz. Cuanto mayor es el
+# poder (1..5), mas grave, mas larga la cola y mas ecos.
+
+PODER = {
+    "first_blood": 2, "double": 2, "triple": 3, "quadra": 4, "penta": 5,
+    "spree": 2, "shutdown": 3, "dominating": 3, "unstoppable": 4, "legendary": 5,
+}
+# Segundo del efecto en que cae el golpe (ver las recetas): la palabra final debe caer ahi.
+T_GOLPE = {
+    "first_blood": 0.55, "double": 0.62, "triple": 0.68, "quadra": 0.74, "penta": 0.80,
+    "spree": 0.18, "shutdown": 0.05, "dominating": 0.36, "unstoppable": 0.54, "legendary": 0.72,
+}
+HUECO_PARTES = 0.12      # silencio entre la palabra alargada y el golpe
+DUCK_IMPACTO = 0.45      # cuanto baja el fondo bajo la voz (menos que en las frases normales: el golpe debe oirse)
+
+
+def leer_crudo(ruta):
+    with wave.open(str(ruta)) as w:
+        datos = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768.0
+        tasa = w.getframerate()
+        if w.getnchannels() > 1:
+            datos = datos.reshape(-1, w.getnchannels()).mean(axis=1)
+    if tasa != SR:
+        datos = signal.resample_poly(datos, SR, tasa)
+    return norm(trim(datos), 0.9)
+
+
+def voz_seca(x, tono, pecho_g, aire_g, grano_g, drive, doble_g):
+    """La cadena de voz de voz() sin la sala: cuerpo, pecho, aire, grano, doble voz, EQ, saturacion y compresion."""
+    principal = resample(x, tono)
+    sub = lp(resample(x, 0.70), 700) * pecho_g
+    aire = hp(resample(x, 1.10), 2800) * aire_g
+    n = max(len(principal), len(sub), len(aire))
+    mezcla = pad(principal, n) + pad(sub, n) + pad(aire, n)
+    grano = np.round(np.repeat(mezcla[::4], 4)[:n] * 24) / 24
+    mezcla += grano_g * bp(grano, 350, 3000)
+    doble = pad(resample(mezcla, 0.992), n) * doble_g
+    mezcla = mezcla + np.concatenate([np.zeros(int(0.022 * SR)), doble])[:n]
+    mezcla = mezcla + 0.35 * lp(mezcla, 220) + 0.50 * bp(mezcla, 2000, 4200)
+    mezcla = lp(hp(mezcla, 90), 11000)
+    mezcla = soft(norm(mezcla, 0.8), drive)
+    return norm(compress(mezcla, 0.28, 3.5), 0.9)
+
+
+def hall_mojado(x, seg):
+    """Solo la cola de la sala (sin la señal seca)."""
+    n = int(SR * seg)
+    t = np.arange(n) / SR
+    ir = hp(lp(RNG.standard_normal(n) * np.exp(-t * (6.5 / seg) * 1.6), 3800), 180)
+    ir /= np.max(np.abs(ir))
+    return norm(signal.fftconvolve(x, ir), np.max(np.abs(x)))
+
+
+def barrido_inverso(x, seg=1.0):
+    cola = hall_mojado(x, seg)
+    return cola[::-1] * np.linspace(0, 1, len(cola)) ** 1.5
+
+
+def ecos_lanzados(x, poder):
+    gain = 0.07 + 0.015 * poder
+    retardos = [(0.22, gain)] + ([(0.44, gain * 0.5)] if poder >= 4 else [])
+    y = np.concatenate([x, np.zeros(int(0.9 * SR))])
+    base = lp(x, 2600)
+    for d, g in retardos:
+        y = place(y, base, d, g)
+    return y
+
+
+def palabra_final(x, poder):
+    tono = 0.88 - 0.01 * poder
+    p = voz_seca(x, tono, 0.40, 0.08, 0.04, 2.0, 0.12) * 1.2
+    gruñido = lp(resample(x, 0.52), 480) * (0.14 + 0.02 * poder)
+    p = p + pad(gruñido, len(p))
+    p = hall(p, 1.5 + 0.12 * poder, 0.14, 0.0)
+    return ecos_lanzados(p, poder)
+
+
+def palabra_inicial(x, poder):
+    p = voz_seca(x, 0.93 - 0.005 * poder, 0.25, 0.10, 0.0, 1.5, 0.12)
+    return hall(p, 1.2, 0.07, 0.01), p
+
+
+def voz_impacto(partes, poder):
+    """Pista de voz y el segundo de la pista en que cae el golpe."""
+    pista = np.zeros(int(0.1 * SR))
+    if len(partes) == 2:
+        inicial, seca = palabra_inicial(partes[0], poder)
+        barrido = barrido_inverso(seca, 0.8) * 0.28
+        pista = place(pista, barrido, 0.0, 1.0)
+        t_inicial = len(barrido) / SR
+        pista = place(pista, inicial, t_inicial, 1.0)
+        t_golpe = t_inicial + len(seca) / SR + HUECO_PARTES
+        return place(pista, palabra_final(partes[1], poder), t_golpe, 1.0), t_golpe
+    seca = voz_seca(partes[0], 0.90 - 0.01 * poder, 0.35, 0.08, 0.02, 1.8, 0.12) * 1.2
+    barrido = barrido_inverso(seca, 0.8) * 0.28
+    pista = place(pista, barrido, 0.0, 1.0)
+    t_golpe = len(barrido) / SR - 0.05
+    return place(pista, palabra_final(partes[0], poder), t_golpe, 1.0), t_golpe
+
+
+def mezclar_impacto(nombre, carpeta):
+    efecto, _ = RECETAS[nombre]()
+    partes = [leer_crudo(ruta) for ruta in (carpeta / f"{nombre}_1.wav", carpeta / f"{nombre}_2.wav") if ruta.exists()]
+    pista, t_golpe_pista = voz_impacto(partes, PODER[nombre])
+    desfase = T_GOLPE[nombre] - t_golpe_pista       # segundo del efecto en que empieza la pista de voz
+    if desfase < 0:
+        efecto = np.concatenate([np.zeros(int(-desfase * SR)), efecto])
+        desfase = 0.0
+    return finalizar(nombre, efecto, pista, desfase, DUCK_IMPACTO, 1.5, 0.05, DURACION_MAX_IMPACTO)
 
 
 def escribir(ruta, x):
@@ -550,10 +686,13 @@ def main():
         if solo and nombre not in solo:
             continue
         ruta = crudo / f"{nombre}.wav"
-        if not ruta.exists():
+        if nombre in PODER and (crudo / f"{nombre}_1.wav").exists():
+            y = mezclar_impacto(nombre, crudo)
+        elif ruta.exists():
+            y = mezclar(nombre, ruta)
+        else:
             print("falta", nombre)
             continue
-        y = mezclar(nombre, ruta)
         escribir(salida / f"{nombre}.wav", y)
         print(f"{nombre}.wav  {len(y) / SR:.2f} s  pico {np.max(np.abs(y)):.2f}")
 
