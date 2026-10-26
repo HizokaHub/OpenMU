@@ -60,8 +60,8 @@ public static class MobaLoadouts
         // Dark Wizard / Soul Master / Grand Master - full spell kit + buffs.
         // Energy Ball, Fire Ball, Lightning, Power Wave, Poison, Ice, Evil Spirit, Meteorite, Ice Storm,
         // Flame, Twister, Hellfire, Aqua Beam, Cometfall, Inferno, Decay, Nova, Lance, Plasma Storm,
-        // Soul Barrier, Expansion of Wizardry
-        [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76, 16, 233 },
+        // Soul Barrier, Expansion of Wizardry, Teleport (a short jump, listed with the buffs: see MobaBlink)
+        [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76, 16, 233, 6 },
         // Blade Knight - full melee kit + buffs.
         // Falling Slash, Lunge, Uppercut, Cyclone, Slash, Twisting Slash, Rageful Blow, Death Stab, Strike of Destruction,
         // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm, Defense, Swell Life
@@ -91,7 +91,7 @@ public static class MobaLoadouts
     // The buffs of every class: the champion always has them, they are not part of the picks.
     private static readonly HashSet<short> Buffs = new()
     {
-        16, 233,                    // Soul Barrier, Expansion of Wizardry
+        16, 233, 6,                 // Soul Barrier, Expansion of Wizardry, Teleport (Soul Master)
         18, 48,                     // Defense, Swell Life
         26, 27, 28, 77, 234,        // Heal, Greater Defense, Greater Damage, Infinity Arrow, Recovery
         64,                         // Dark Lord: Increase Critical Damage

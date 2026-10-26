@@ -338,6 +338,7 @@ public static class MobaShop
         EnsureTierPrices(configuration);
         MobaPets.EnsureConfigured(configuration);
         MobaShieldSkills.EnsureConfigured(configuration);
+        MobaBuffs.EnsureConfigured(configuration);
         MobaItemTraits.EnsureShopShieldOptions(configuration);
         var family = MobaPassives.FamilyOf(characterClass.Number);
         var candidates = MobaShopCatalog.Entries

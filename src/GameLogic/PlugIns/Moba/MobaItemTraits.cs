@@ -111,7 +111,8 @@ public static class MobaItemTraits
             MaxCcResist,
             CcResistByTier[MobaItemPower.TierIn(champion, InventoryConstants.ArmorSlot, MobaShopCategory.Sets)]
             + CcResistByTier[MobaItemPower.TierIn(champion, InventoryConstants.PantsSlot, MobaShopCategory.Sets)]
-            + ShieldOptionOf(champion, KindCc));
+            + ShieldOptionOf(champion, KindCc)
+            + MobaBuffPower.CcResistBonusOf(champion));
 
     /// <summary>The skill cooldown reduction of the gloves and boots.</summary>
     /// <param name="champion">The champion.</param>

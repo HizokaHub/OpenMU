@@ -26,6 +26,9 @@ public static class MobaBuffPower
     /// <summary>Increase Critical Damage (Lord Emperor): the skill number.</summary>
     public const short IncreaseCriticalDamage = 64;
 
+    /// <summary>Increase Block (Rage Fighter): the skill number. It gives crowd-control resistance in a match (the vanilla block only counts against monsters).</summary>
+    public const short IncreaseBlock = 268;
+
     /// <summary>Spell damage bonus of Expansion at rank 1; every rank adds <see cref="ExpansionPerRank"/>.</summary>
     private const double ExpansionBase = 0.08;
 
@@ -35,6 +38,11 @@ public static class MobaBuffPower
     private const double CritBase = 0.15;
 
     private const double CritPerRank = 0.05;
+
+    /// <summary>Crowd-control resistance of Increase Block at rank 1; every rank adds <see cref="CcResistPerRank"/>.</summary>
+    private const double CcResistBase = 0.10;
+
+    private const double CcResistPerRank = 0.04;
 
     private static readonly ConditionalWeakTable<Player, ConcurrentDictionary<short, int>> Ranks = new();
 
@@ -105,4 +113,14 @@ public static class MobaBuffPower
     /// <param name="rank">The rank of the buff, 0 when it is not active.</param>
     /// <returns>0 when not active, else 0.15 (rank 1) to 0.35 (rank 5).</returns>
     public static double CritBonusForRank(int rank) => rank <= 0 ? 0.0 : CritBase + (CritPerRank * (Math.Min(rank, MobaSkills.SkillLevelCap) - 1));
+
+    /// <summary>The crowd-control resistance Increase Block gives the champion right now.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>0 when not active, else 0.10 (rank 1) to 0.26 (rank 5).</returns>
+    public static double CcResistBonusOf(Player champion) => CcResistForRank(RankOn(champion, IncreaseBlock));
+
+    /// <summary>The crowd-control resistance of Increase Block at a rank.</summary>
+    /// <param name="rank">The rank of the buff, 0 when it is not active.</param>
+    /// <returns>0 when not active, else 0.10 (rank 1) to 0.26 (rank 5).</returns>
+    public static double CcResistForRank(int rank) => rank <= 0 ? 0.0 : CcResistBase + (CcResistPerRank * (Math.Min(rank, MobaSkills.SkillLevelCap) - 1));
 }

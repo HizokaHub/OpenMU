@@ -30,7 +30,7 @@ public class MobaSkillRankTests
     /// </summary>
     /// <param name="classNumber">The class number.</param>
     /// <param name="expected">The points per milestone.</param>
-    [TestCase((byte)2, 2)]   // Soul Master: 2 buffs
+    [TestCase((byte)2, 3)]   // Soul Master: 3 buffs (Soul Barrier, Expansion, Teleport)
     [TestCase((byte)6, 2)]   // Blade Knight: 2 buffs
     [TestCase((byte)12, 2)]  // Magic Gladiator: 1 buff
     [TestCase((byte)16, 2)]  // Dark Lord: 2 buffs

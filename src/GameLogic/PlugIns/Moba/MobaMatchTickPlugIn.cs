@@ -68,6 +68,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Fountains: capture channels, ownership, allied healing.
         await MobaFountains.TickAsync(gameContext).ConfigureAwait(false);
 
+        // The green aura of the blacksmith in each base: 20 % of life, mana and shield per second.
+        await MobaBaseAura.TickAsync(gameContext).ConfigureAwait(false);
+
         // The walls which close the side lanes of the middle-lane-only formats: the clients mirror them.
         await MobaLaneWalls.TickAsync(gameContext).ConfigureAwait(false);
 

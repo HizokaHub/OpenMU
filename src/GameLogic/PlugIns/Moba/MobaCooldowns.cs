@@ -72,10 +72,23 @@ public static class MobaCooldowns
         [35] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
         [36] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
 
-        // --- Sustain / buffs: long, and shrink noticeably as ranked ---
-        [26] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },   // Heal
-        [28] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Damage
-        [27] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Greater Defense
+        // --- Buffs (2026-10-25): they last 45-130 s (see MobaBuffs), so the wait is longer than the effect; ranking shortens it ---
+        [6] = new[] { 32.0, 29.0, 26.0, 23.0, 20.0 },   // Teleport (a jump of up to 6 tiles)
+        [26] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },      // Heal (instant)
+        [234] = new[] { 14.0, 12.5, 11.0, 10.0, 9.0 },  // Recovery (instant)
+        [16] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Soul Barrier
+        [233] = new[] { 120.0, 112.0, 105.0, 97.0, 90.0 }, // Expansion of Wizardry
+        [18] = new[] { 70.0, 65.0, 60.0, 55.0, 50.0 },  // Defense
+        [48] = new[] { 120.0, 112.0, 105.0, 97.0, 90.0 }, // Swell Life (team)
+        [27] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Greater Defense
+        [28] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Greater Damage
+        [77] = new[] { 60.0, 55.0, 50.0, 45.0, 40.0 },  // Infinity Arrow
+        [64] = new[] { 90.0, 85.0, 78.0, 72.0, 65.0 },  // Increase Critical Damage (team)
+        [217] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 }, // Damage Reflection
+        [218] = new[] { 90.0, 85.0, 78.0, 72.0, 65.0 }, // Berserker
+        [266] = new[] { 70.0, 65.0, 60.0, 55.0, 50.0 }, // Ignore Defense
+        [267] = new[] { 120.0, 112.0, 105.0, 97.0, 90.0 }, // Increase Health (team)
+        [268] = new[] { 90.0, 85.0, 78.0, 72.0, 65.0 }, // Increase Block (team)
     };
 
     /// <summary>Gets the cooldown in seconds of a skill at a rank (1..5), as used by balance models.</summary>

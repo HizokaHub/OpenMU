@@ -40,6 +40,7 @@ public class WizardTeleportAction
             && player.CurrentMap!.Terrain.WalkMap[target.X, target.Y]
             && !player.CurrentMap.Terrain.SafezoneMap[target.X, target.Y]
             && player.IsInRange(target, skill.Range)
+            && PlugIns.Moba.MobaBlink.Allows(player, target)
             && CanPlayerBeTeleported(player)
             && await player.TryConsumeForSkillAsync(skillEntry).ConfigureAwait(false))
         {
