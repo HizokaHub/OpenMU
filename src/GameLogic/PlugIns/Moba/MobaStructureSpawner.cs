@@ -262,7 +262,11 @@ public static class MobaStructureSpawner
         InfoByStructure.AddOrUpdate(turret, new StructureInfo(tier, lane));
 
         var enemyTeam = team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
-        turret.Died += (_, _) => _ = SafeGrantTeamExpAsync(map, enemyTeam, MobaLevels.TurretKillExp, "turret");
+        turret.Died += (_, _) =>
+        {
+            _ = SafeGrantTeamExpAsync(map, enemyTeam, MobaLevels.TurretKillExp, "turret");
+            _ = MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.TurretDestroyed, (byte)team).AsTask();
+        };
 
         await map.AddAsync(turret).ConfigureAwait(false);
         turret.OnSpawn();

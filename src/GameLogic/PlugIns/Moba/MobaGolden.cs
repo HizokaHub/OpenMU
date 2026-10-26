@@ -474,6 +474,7 @@ public static class MobaGolden
             await champion.InvokeViewPlugInAsync<IMobaGoldenFlyoverPlugIn>(p => p.ShowFlyoverAsync(flyoverSeconds * 1000)).ConfigureAwait(false);
         }
 
+        await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.GoldenFlyover, 0).ConfigureAwait(false);
         _ = RunAsync(map, gameContext, state, flyoverSeconds);
         return true;
     }
@@ -598,6 +599,7 @@ public static class MobaGolden
                 await champion.InvokeViewPlugInAsync<IMobaBannerPlugIn>(p => p.ShowBannerAsync("¡LOS INVASORES DORADOS HAN LLEGADO!", 5000)).ConfigureAwait(false);
             }
 
+            await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.GoldenInvaders, 0).ConfigureAwait(false);
             Log(gameContext, $"[MOBA-GOLDEN] invasion: {removed} jungle monsters burned, {spawned} golden monsters spawned.");
 
             // They grow with the match like the jungle bosses do, and the young dragons grow up.
@@ -914,6 +916,7 @@ public static class MobaGolden
             await member.InvokeViewPlugInAsync<IMobaBannerPlugIn>(p => p.ShowBannerAsync("¡BENDICIÓN DEL DRAGÓN DORADO!", 5000)).ConfigureAwait(false);
         }
 
+        await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.GreatDragonSlain, (byte)team, killer.Name).ConfigureAwait(false);
         Log(gameContext, $"[MOBA-GOLDEN] {killer.Name} killed a Great Golden Dragon: blessing for {members.Count} champion(s) of {team}.");
     }
 

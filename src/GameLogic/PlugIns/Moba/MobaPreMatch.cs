@@ -139,6 +139,7 @@ public static class MobaPreMatch
             await MobaJungle.EnsureStartedAsync(map, gameContext).ConfigureAwait(false);
             MobaWavePeriodicSpawner.Start(map, gameContext, TimeSpan.FromSeconds(MobaWavePeriodicSpawner.DefaultIntervalSeconds));
             await TellChampionsAsync(map, gameContext, "[MOBA] ¡Comienza la partida!", "¡COMIENZA LA PARTIDA!").ConfigureAwait(false);
+            await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.MatchStart, 0).ConfigureAwait(false);
             logger.LogInformation("[MOBA-QUEUE] match started on arena {Arena}.", map.Id.ToString()[..8]);
         }
         catch (Exception ex)

@@ -190,6 +190,7 @@ public static class MobaExperience
 
             // Any death breaks the victim's own kill streak, not just one at an enemy champion's hands.
             MobaGold.ResetStreak(victim);
+            MobaAnnouncer.NoteDeath(victim);
 
             if (MobaSummons.CreditedChampion(map.GetObject(death.KillerId)) is not { } killer
                 || !killer.IsMobaClone
@@ -226,6 +227,7 @@ public static class MobaExperience
             }
 
             await MobaGold.GrantChampionKillAsync(killer, victim, assisters).ConfigureAwait(false);
+            await MobaAnnouncer.NoteChampionKillAsync(map, killer, victim).ConfigureAwait(false);
         }
         catch
         {

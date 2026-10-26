@@ -79,6 +79,10 @@ public static class MobaMatchEnder
                 : playerTeam == winner ? "VICTORIA" : "DERROTA";
 
             await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(banner, MessageType.GoldenCenter)).ConfigureAwait(false);
+            if (playerTeam != MobaTeam.None)
+            {
+                await MobaAnnouncer.AnnounceToAsync(player, playerTeam == winner ? MobaAnnouncement.Victory : MobaAnnouncement.Defeat, (byte)winner).ConfigureAwait(false);
+            }
             await player.ShowBlueMessageAsync($"[MOBA] Nexo {(losingTeam == MobaTeam.Blue ? "azul" : "rojo")} destruido - gana el equipo {winnerEs}. Volverás a Lorencia al pulsar el botón de la tabla de resultados o en {ReturnSeconds} s.").ConfigureAwait(false);
         }
 

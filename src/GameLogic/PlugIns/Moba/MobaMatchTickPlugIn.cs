@@ -123,6 +123,10 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         if (mobaChampions.Count > 0)
         {
             await MobaGolden.TickAsync(gameContext, arenaMap, arena).ConfigureAwait(false);
+            if (!arena.IsPreMatch)
+            {
+                await MobaAnnouncer.TickAsync(arenaMap).ConfigureAwait(false);
+            }
         }
 
         await this.ReapIfAbandonedAsync(gameContext, arenaMap, arena, mobaChampions.Count, now).ConfigureAwait(false);
