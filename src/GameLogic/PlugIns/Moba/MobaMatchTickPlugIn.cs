@@ -77,6 +77,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Anti-AFK: idle champions are announced to their team and then sent to their base.
         await MobaAfk.TickAsync(gameContext).ConfigureAwait(false);
 
+        // Which disconnected teammates each champion may control (the panel of the control mode).
+        await MobaPuppet.TickStatusAsync(gameContext).ConfigureAwait(false);
+
         // Periodic PvP observability sheets ([MOBA-CHAMP], [MOBA-ECON], [MOBA-WAVE], [MOBA-STRUCT]).
         await MobaTelemetry.TickAsync(gameContext).ConfigureAwait(false);
 

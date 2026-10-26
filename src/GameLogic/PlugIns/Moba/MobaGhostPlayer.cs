@@ -134,6 +134,7 @@ public sealed class MobaGhostPlayer : OfflinePlayer
         }
 
         var result = (MobaVitals.Capture(ghost), ghost.Position);
+        await MobaPuppet.OnOwnerReturnedAsync(state).ConfigureAwait(false);
         state.Ghost = null;
         await ghost.DisconnectAsync().ConfigureAwait(false);
         return result;

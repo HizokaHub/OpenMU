@@ -104,6 +104,12 @@ public sealed class MobaChampionState
     /// disconnected, or <see langword="null"/> while the human is connected.
     /// </summary>
     public Player? Ghost { get; set; }
+
+    /// <summary>
+    /// Gets or sets the teammate who controls this champion while its player is away (see <see cref="MobaPuppet"/>); only a
+    /// <see cref="MobaGhostPlayer"/> can be controlled, so it is <see langword="null"/> for a champion with a player.
+    /// </summary>
+    public Player? Controller { get; set; }
 }
 
 /// <summary>

@@ -82,6 +82,42 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 7 && span[3] == 0x31)
+        {
+            // C1 07 D5 31 action keyLo keyHi: control a disconnected teammate (1 = take it / release it if it is the controlled one, 0 = release).
+            if (span[4] == 0)
+            {
+                await MobaPuppet.ReleaseAsync(player, null).ConfigureAwait(false);
+            }
+            else
+            {
+                await MobaPuppet.SelectAsync(player, (ushort)(span[5] | (span[6] << 8))).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        if (span.Length >= 9 && span[3] == 0x32)
+        {
+            // C1 09 D5 32 kind x y keyLo keyHi: an order for the controlled teammate (1 walk to the tile, 2 attack the object).
+            await MobaPuppet.OrderAsync(player, span[4], span[5], span[6], (ushort)(span[7] | (span[8] << 8))).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 10 && span[3] == 0x33)
+        {
+            // C1 0A D5 33 skillLo skillHi keyLo keyHi x y: a skill of the controlled teammate, on an object (key) or on a tile.
+            await MobaPuppet.CastAsync(player, (short)(span[4] | (span[5] << 8)), (ushort)(span[6] | (span[7] << 8)), span[8], span[9]).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 4 && span[3] == 0x34)
+        {
+            // C1 04 D5 34: the recall (key B) of the controlled teammate.
+            await MobaPuppet.RecallAsync(player).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 5 && span[3] == 0x27)
         {
             // C1 05 D5 27 mode: the keys of the summon: 1 = command it (X), 0 = release it where it stands (X again), 2 = call it back (Z).
