@@ -42,6 +42,8 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     private const int CreepHeaderLength = 7;
     private const int CreepEntrySize = 3;
     private const int MaxCreepDots = 400;
+    private const byte GoldenDotsSubCode = 0x31;
+    private const int MaxGoldenDots = 400;
 
     /// <summary>Cap so the C1 length byte never overflows (5 + n*5 &lt;= 255).</summary>
     private const int MaxEntries = 48;
@@ -283,6 +285,49 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
         }
 
         await connection.SendAsync(WriteCities).ConfigureAwait(false);
+        await SendGoldenDotsAsync(connection, map).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The living golden monsters for the minimap dots and the counter of the scoreboard: <c>C2 hi lo D5 31 count(u16 LE) [ x y tier ] * count</c>
+    /// (tier as <see cref="MobaGolden.Tier"/>: 1 small ... 4 Great Golden Dragon). They are sent to everybody: the invasion is public knowledge.
+    /// </summary>
+    private static async ValueTask SendGoldenDotsAsync(IConnection connection, GameMap map)
+    {
+        var dots = new List<(byte X, byte Y, byte Tier)>();
+        foreach (var monster in MobaGolden.LiveMonsters(map))
+        {
+            dots.Add((monster.Position.X, monster.Position.Y, (byte)MobaGolden.TierOf(monster)));
+            if (dots.Count >= MaxGoldenDots)
+            {
+                break;
+            }
+        }
+
+        var length = CreepHeaderLength + (dots.Count * CreepEntrySize);
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC2;
+            span[1] = (byte)(length >> 8);
+            span[2] = (byte)(length & 0xFF);
+            span[3] = PacketCode;
+            span[4] = GoldenDotsSubCode;
+            span[5] = (byte)(dots.Count & 0xFF);
+            span[6] = (byte)(dots.Count >> 8);
+            var offset = CreepHeaderLength;
+            foreach (var (x, y, tier) in dots)
+            {
+                span[offset] = x;
+                span[offset + 1] = y;
+                span[offset + 2] = tier;
+                offset += CreepEntrySize;
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
     }
 
     /// <summary>
