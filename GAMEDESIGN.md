@@ -2265,3 +2265,54 @@ Auditoría hecha leyendo este documento (no se probó nada en juego). Criterio: 
 - **Sonidos propios (`tools/anunciador/ping_sounds.py` → `Data/Sound/MobaPing/`, 13 WAV):** campana, alarma, caída, ascenso, estela, cuerno con timbal, doble pulso, sonar, interrogación, sonar grave, y tres de la rueda.
 - **A validar en juego:** (1) que `G`/`Alt` + clic haga ping sin caminar ni abrir ventanas y que `V`/`Ctrl` + clic dé precaución; (2) la rueda: aparece a los ~180 ms, centrada en el clic y dentro de la pantalla, elige por dirección y el clic derecho cancela; (3) ping en el minimapa; (4) que el compañero vea el icono en el sitio correcto del suelo (proyección con `CollisionPosition`: si queda desplazado hay que ajustar la altura `HEIGHT_ABOVE_GROUND`) y la flecha en el borde; (5) límite de 5 pings; (6) **la cuña de daño apunta hacia el atacante** (el sentido de giro se dedujo del código del minimapa: si sale al revés, invertir `RendererDegrees` en `MobaPingArt.cpp`); (7) **Alt** puede activar el menú del sistema de Windows (comprobar); (8) volumen de los sonidos de ping.
 - **Posibles mejoras:** ping con voz del anunciador («Enemigo desaparecido»…), ping sobre un campeón enemigo/objetivo (marcar el objetivo), repetir el último ping con tecla, atajos configurables, atenuar el brillo de la cuña con la vida baja.
+
+## Diseño PENDIENTE DE APROBAR: inhibidores y super-minions (propuesto 2026-10-26; nada implementado)
+
+**Objetivo:** que las partidas terminen con una estructura de final de partida y no duren 70+ minutos, con la presión de los super-minions al estilo LoL, pero con el mapa y las reglas que ya tenemos.
+
+**Situación actual:** 3 torretas por carril y equipo (exterior → media → base), el nexo es invulnerable hasta que cae un carril entero (sus 3 torretas), oleadas de 6 creeps cada 48 s por carril con vida y daño escalados por el nivel del líder. Las torretas de base están muy cerca del nexo en el carril central (3-4 casillas) y lejos en los laterales.
+
+### Cadena de estructuras propuesta (por carril)
+torreta exterior → torreta media → torreta de base → **inhibidor** → (el nexo se puede atacar).
+
+### Reglas del inhibidor
+| # | Regla | Valor propuesto |
+|---|---|---|
+| 1 | Uno por carril y equipo (3 por equipo; en 1v1 y ARAM solo el central) | detrás de la torreta de base de su carril |
+| 2 | Invulnerable mientras viva la torreta de base de su carril (como el resto de la cadena) | — |
+| 3 | Vida | la de una torreta (15 000 base × multiplicador de fase: T1 ×1, T2 ×1,4, T3 ×2); defensa 40 |
+| 4 | No ataca (es un cristal) | los creeps le quitan el 0,5 % de su vida por golpe, como a las torretas |
+| 5 | Al caer: reaparece a los **5 minutos** | aviso al equipo dueño cuando falten 30 s |
+| 6 | Recompensa al destruirlo | EXP = la de una torreta (220) a los campeones cercanos y **100 de oro a cada campeón** del equipo atacante |
+| 7 | Aviso | banner + voz «Inhibidor destruido» / «Tu inhibidor ha caído» / «Inhibidor restaurado»; en el minimapa un icono con cuenta atrás |
+
+### Regla del nexo (decisión importante, ver preguntas)
+**Recomendado (A):** el nexo solo se puede atacar **mientras haya al menos un inhibidor de su equipo caído**. Si el inhibidor reaparece (5 min) y no se derribó el nexo, vuelve a ser invulnerable. Eso crea una ventana de ataque con tensión, y la partida termina en minutos, no en horas.
+**Alternativa (B):** el nexo se abre una vez caído el primer inhibidor y ya no se vuelve a cerrar (más fácil de cerrar, menos tensión).
+(Hoy se abre al caer un carril entero; la regla A añade un paso: el inhibidor.)
+
+### Super-minions
+| # | Regla | Valor propuesto |
+|---|---|---|
+| 1 | Cuándo salen | con cada oleada, **en el carril del inhibidor enemigo caído**; mientras el inhibidor siga caído |
+| 2 | Cuántos | 1 por oleada en cada carril con inhibidor caído; **2 si los 3 inhibidores del rival están caídos** (en formatos de un solo carril, 1) |
+| 3 | Vida | ×5 la de un creep normal de ese momento (sigue la misma curva por nivel) |
+| 4 | Daño | ×2,5 el de un creep normal (a campeones, creeps y estructuras) |
+| 5 | Defensa | ×2 la de un creep normal |
+| 6 | Tamaño | ×1,35 (con el mismo mecanismo de escala que ya usan la invocación y los dragones dorados) |
+| 7 | Aspecto | una criatura grande de MU por equipo, distinta del resto de la oleada (a elegir viéndolas en juego) |
+| 8 | Al reaparecer el inhibidor | los ya nacidos siguen vivos; no salen nuevos |
+| 9 | Recompensa al matarlos | como 3 creeps (EXP y oro de un creep × 3); cuentan para la racha de la invocación |
+| 10 | Tope | cuentan para el límite de creeps vivos por carril (50) y por equipo (150) |
+
+### Efectos y cosas a tocar
+- **Servidor:** nuevo `MobaInhibitors` (aparece y reaparece, vida por fase, escudos de cadena), `IsShielded` (regla del nexo), enganche en `SpawnLaneWaveAsync` (super-minions), recompensas, eventos del anunciador (`InhibitorDestroyed`, `InhibitorRestored`), tipo de marca nuevo en el minimapa (`MobaMinimapKind`), bots (atacan el inhibidor tras la torreta de base y defienden el suyo), pruebas unitarias de las reglas.
+- **Cliente:** icono del inhibidor y su cuenta atrás en el minimapa, 3-4 voces nuevas del anunciador («Inhibidor destruido», «Tu inhibidor ha caído», «Inhibidor restaurado», «Super-minions»), escala de los super-minions.
+- **Posiciones:** 5 casillas «detrás» de cada torreta de base hacia el nexo (ajustadas a terreno libre); en el carril central la torreta de base está a 3-4 casillas del nexo, así que ahí el inhibidor iría a un lado de la base. Mandaré una imagen del mapa con las posiciones antes de implementarlo.
+- **Esfuerzo y riesgo:** una sesión larga; riesgo medio (cambia la regla del nexo y el ritmo de la partida; hay que calibrar con partidas reales).
+
+### Preguntas a decidir
+1. Regla del nexo: **A (ventana mientras haya un inhibidor caído; recomendada)** o B (se abre y ya).
+2. Tiempo de reaparición del inhibidor: **5 min (recomendado)**, 4 o 6.
+3. Super-minions: **×5 vida, ×2,5 daño (recomendado)**; ¿más fuertes o más débiles?
+4. Recompensa del inhibidor: **EXP de torreta + 100 de oro por campeón (recomendado)**.
