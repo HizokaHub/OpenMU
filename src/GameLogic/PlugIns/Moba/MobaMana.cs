@@ -49,7 +49,7 @@ public static class MobaMana
         var maxCost = MostExpensiveSkillCost(champion);
         var wanted = maxCost / MaxDryWaitSeconds;
         var nodes = Math.Clamp(1.0 + (champion.Attributes?[Stats.ManaRecoveryMultiplier] ?? 0), 1.0, 1.5);
-        return Math.Clamp(wanted, pool * MinRegenPoolShare, pool * MaxRegenPoolShare) * nodes;
+        return Math.Clamp(wanted, pool * MinRegenPoolShare, pool * MaxRegenPoolShare) * nodes * (1.0 + MobaArchetype.ManaRegenOf(champion));
     }
 
     /// <summary>The mana cost (after <see cref="CostMultiplier"/>) of the dearest skill the champion has ranked up.</summary>

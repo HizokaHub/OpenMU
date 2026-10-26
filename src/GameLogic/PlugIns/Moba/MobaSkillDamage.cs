@@ -162,7 +162,7 @@ public static class MobaSkillDamage
             : (DefaultBase, DefaultPerRank, DefaultMaxStatBonus);
 
         var r = Math.Clamp(rank, 1, 5);
-        var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier * (1.0 + MobaMasterTree.StrengthenerBonusOf(champion, skillNumber)) * MobaBuffPower.SpellDamageFactorOf(champion);
+        var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier * (1.0 + MobaMasterTree.StrengthenerBonusOf(champion, skillNumber)) * MobaBuffPower.SpellDamageFactorOf(champion) * MobaArchetype.SpellPowerFactorOf(champion);
 
         // Per-rank stat ratio (LoL AP/AD ratio): the skill scales harder with the primary
         // stat as it is maxed - the table value is the rank-1 ratio, growing to

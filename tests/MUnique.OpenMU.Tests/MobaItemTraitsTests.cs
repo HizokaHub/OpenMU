@@ -14,7 +14,7 @@ public class MobaItemTraitsTests
     [Test]
     public void WeaponAntiHealGrowsWithTier()
     {
-        var byType = MobaItemTraits.TooltipTraits.ToDictionary(t => t.ItemType);
+        var byType = MobaItemTraits.TooltipTraits.Where(t => t.Kind <= 5).ToDictionary(t => t.ItemType);
         Assert.Multiple(() =>
         {
             Assert.That(byType[(5 * 512) + 5], Is.EqualTo(new GameLogic.Views.Moba.MobaItemTrait((5 * 512) + 5, 1, 10)));   // Legendary Staff, T1
@@ -27,7 +27,7 @@ public class MobaItemTraitsTests
     [Test]
     public void EachPieceKindHasItsOwnTrait()
     {
-        var byType = MobaItemTraits.TooltipTraits.ToDictionary(t => t.ItemType);
+        var byType = MobaItemTraits.TooltipTraits.Where(t => t.Kind <= 5).ToDictionary(t => t.ItemType);
         Assert.Multiple(() =>
         {
             Assert.That(byType[(8 * 512) + 3].Kind, Is.EqualTo(2), "armor of the Legendary set");

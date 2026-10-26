@@ -68,6 +68,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // Fountains: capture channels, ownership, allied healing.
         await MobaFountains.TickAsync(gameContext).ConfigureAwait(false);
 
+        // The bonuses of the set pieces by class archetype: life and mana pools, life regeneration.
+        await MobaArchetype.TickAsync(gameContext).ConfigureAwait(false);
+
         // The green aura of the blacksmith in each base: 20 % of life, mana and shield per second.
         await MobaBaseAura.TickAsync(gameContext).ConfigureAwait(false);
 

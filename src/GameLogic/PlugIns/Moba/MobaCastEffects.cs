@@ -106,7 +106,8 @@ public static class MobaCastEffects
 
         if (ShieldSkills.TryGetValue(number, out var shield) && champion.Attributes is { } a)
         {
-            var amount = (float)(a[Stats.MaximumHealth] * shield.MaxHpFraction);
+            var healPower = number is 26 or 27 ? MobaArchetype.HealPowerFactorOf(champion) : 1.0;
+            var amount = (float)(a[Stats.MaximumHealth] * shield.MaxHpFraction * healPower);
             var state = Shields.GetOrCreateValue(champion);
 
             // Refresh: drop the previous grant first.

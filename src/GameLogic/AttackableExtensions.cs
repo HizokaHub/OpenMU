@@ -478,7 +478,7 @@ public static class AttackableExtensions
                 var value = regenerationValue.Value + (skillEntry.Level == 0 ? 0 : regenerationValue.Value * skillEntry.CalculateValue() / 100);
                 if (regeneration.CurrentAttribute == Stats.CurrentHealth)
                 {
-                    value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, value);
+                    value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, value * PlugIns.Moba.MobaArchetype.HealPowerFactorOf(player));
                 }
 
                 target.Attributes[regeneration.CurrentAttribute] = Math.Min(

@@ -99,6 +99,7 @@ public static class MobaProgression
             return;
         }
 
+        MobaArchetype.Reset(champion);
         var level = Math.Clamp(champion.MobaLevel <= 0 ? 1 : champion.MobaLevel, 1, MobaLevels.MaxLevel);
         var (hpMul, _) = RoleTilt(MobaPassives.FamilyOf(champion));
 

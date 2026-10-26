@@ -185,7 +185,8 @@ public static class MobaDefense
             mitigation *= 1.0 - pen;
         }
 
-        var durability = MobaMasterTree.DurabilityDamageReduction * (MobaMasterTree.Fraction(defender, MobaTreeKind.Durability) ?? 0.0);
+        var treeDurability = MobaMasterTree.DurabilityDamageReduction * (MobaMasterTree.Fraction(defender, MobaTreeKind.Durability) ?? 0.0);
+        var durability = 1.0 - ((1.0 - treeDurability) * (1.0 - MobaArchetype.DurabilityOf(defender)));
         var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's

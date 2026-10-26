@@ -276,10 +276,11 @@ public static class MobaItemTraits
 
     private static List<Views.Moba.MobaItemTrait> BuildTooltipTraits()
     {
-        var traits = new Dictionary<ushort, Views.Moba.MobaItemTrait>();
+        var traits = new Dictionary<(ushort Type, byte Kind), Views.Moba.MobaItemTrait>();
         foreach (var entry in MobaShopCatalog.Entries)
         {
             var tier = (int)entry.Tier;
+            var type = (ushort)((entry.Group * 512) + entry.Number);
             (byte Kind, double[] Table)? trait = entry.Category switch
             {
                 MobaShopCategory.Weapons when entry.Quantity == 1 => (1, AntiHealByTier),
@@ -291,12 +292,38 @@ public static class MobaItemTraits
 
             if (trait is { } t && t.Table[tier] > 0)
             {
-                var type = (ushort)((entry.Group * 512) + entry.Number);
-                traits.TryAdd(type, new Views.Moba.MobaItemTrait(type, t.Kind, (byte)Math.Round(t.Table[tier] * 100)));
+                traits.TryAdd((type, t.Kind), new Views.Moba.MobaItemTrait(type, t.Kind, (byte)Math.Round(t.Table[tier] * 100)));
+            }
+
+            foreach (var archetype in ArchetypeTraitsOf(entry))
+            {
+                traits.TryAdd((type, archetype.Kind), archetype);
             }
         }
 
         return traits.Values.ToList();
+    }
+
+    // The bonuses of the archetype of the piece (kinds 6-13, in tenths of a percent): what the piece gives to the class it is sold to.
+    private static IEnumerable<Views.Moba.MobaItemTrait> ArchetypeTraitsOf(MobaShopEntry entry)
+    {
+        const double TenthsPerFraction = 1000.0;
+        if (entry.Families is not { Length: > 0 } families
+            || entry.Category is not (MobaShopCategory.Sets or MobaShopCategory.SetsSustain or MobaShopCategory.Weapons)
+            || (entry.Category == MobaShopCategory.Weapons && entry.Quantity != 1))
+        {
+            yield break;
+        }
+
+        var family = families[0];
+        var isWeapon = entry.Category == MobaShopCategory.Weapons;
+        var key = isWeapon ? MobaArchetype.WeaponKey : entry.Group;
+        var profile = isWeapon ? MobaArchetype.WeaponProfileOf(family, entry.Group, entry.Number) : MobaArchetype.SetProfileOf(family, entry.Number);
+        var type = (ushort)((entry.Group * 512) + entry.Number);
+        foreach (var (kind, value) in MobaArchetype.PieceBonusesOf(family, key, (int)entry.Tier, profile))
+        {
+            yield return new Views.Moba.MobaItemTrait(type, (byte)kind, (byte)Math.Min(byte.MaxValue, Math.Round(value * TenthsPerFraction)));
+        }
     }
 
     private sealed class ShieldOptionSet

@@ -57,7 +57,7 @@ public static class MobaCombatStats
         var fromStats = CritChanceOf(champion);
         var fromItems = champion.Attributes?[Stats.CriticalDamageChance] ?? 0;
         var fromTree = MobaMasterTree.Fraction(champion, MobaTreeKind.Crit) * MaxCritChance;
-        return Math.Clamp(MobaMasterTree.Blend(fromTree, fromStats, fromItems), 0.0, MaxCritChance);
+        return Math.Clamp(MobaMasterTree.Blend(fromTree, fromStats, fromItems) + MobaArchetype.CritChanceOf(champion), 0.0, MaxCritChance);
     }
 
     // --- Life steal / spell vamp ---
