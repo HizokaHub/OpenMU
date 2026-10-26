@@ -2149,3 +2149,75 @@ La propuesta de la sección anterior (arquetipo de clase × variante, con regene
 - **Dorados en minimapa y marcador:** paquete nuevo **`C2 hi lo D5 31 count(u16 LE) [x y tier]`** (`MobaMinimapPeriodicPlugIn.SendGoldenDotsAsync`, ~1 s, solo mientras dura la invasión, a todos los equipos, máx. 400): los dorados vivos con su `MobaGolden.Tier` (1 pequeño … 4 Gran Dragón). El cliente (`World/Moba/MobaGoldenDots`) los dibuja con `MobaMarkers::RenderGoldens` como puntos dorados más grandes cuanto más fuertes (2,4 / 2,4 / 3,2 / 4,2 / 5,4 px de ref.), y en el marcador (TAB) la última línea dice «Dorados vivos: N (grandes y dragones: M)» (M = tier 3 o más).
 - **Para activarlo:** el servidor hay que reiniciarlo (paquete nuevo) y el cliente enlazarlo; el instalador sigue sin regenerar. Antes de eso, cerrar tu cliente.
 - **A validar en juego:** subtítulo de cada página de la tienda (que quepa «Consumibles, Accesorios y Alas»); posición de las insignias frente a la barra de skills y la tira de la invocación; puntos dorados con `/mobagolden now`; línea de dorados en el marcador.
+
+## Recomendaciones para completar y profesionalizar el MOBA (2026-10-26)
+
+Auditoría hecha leyendo este documento (no se probó nada en juego). Criterio: lo que separa un «prototipo que funciona» de un MOBA que se siente profesional es (1) que esté **validado con personas**, (2) que el **jugador reciba información y feedback** (qué pasó, por qué murió, qué pasa en el mapa), (3) que sea **justo** (anti-trampa, sin maphack) y (4) que sea **operable** (backups, actualizaciones, moderación). Lo marcado «no lo encontré en el diseño» puede existir en código sin estar anotado.
+
+### 0. Lo más importante, en orden
+1. **Validar con humanos** todo lo anotado «sin probar» (hoy hay más de 15 sistemas sin ver en pantalla). Cada sistema nuevo sin probar sube el riesgo de que el siguiente bug sea una cadena. Recomiendo **congelar contenido nuevo grande** hasta cerrar una ronda de pruebas con 2-4 amigos.
+2. **Niebla de guerra en el servidor** (`InfoRange` 255: el cliente recibe todo, maphack trivial). Es lo primero que rompe la credibilidad competitiva.
+3. **Feedback de combate y de partida** (killfeed, anunciador, pings, daño recibido): es lo que más «se siente» profesional y casi no cuesta contenido.
+4. **Actualizador del cliente + instalador regenerado**: hoy cada cambio exige reenviar ~570 MB.
+5. **Backups automáticos de la BD** y registro de partidas (también sirve para soporte y balance).
+6. **Decidir y hacer lo legal** (repos privados, aviso «no afiliado», plan de assets) antes de abrir al público.
+
+### 1. Flujo de partida (salas, loadout, AFK, resultados)
+- **Hecho:** salas con nombre/clave/chat/listo/invitar/revancha, loadout 4-6, anti-AFK (aviso 15 s, recall 20 s), control del compañero desconectado, resultados y vuelta a Lorencia, 1v1/3v3/5v5/ARAM.
+- **Recomiendo:** (a) **sin cola** significa depender de que se junten a mano: con ≤ 10 amigos está bien, pero para público hace falta una cola o **buscador rápido** (el código de la cola existe inerte; reactivarlo con bots de relleno); (b) **votación de rendición** (ej. a los 15 min, 4 de 5) para que una partida perdida no dure 70 min (las partidas reales duraron 74 min); (c) **pausa/reconexión**: ya hay control por aliado, falta una cuenta atrás visible del desconectado y devolver el control sin fricción; (d) **modo práctica** contra bots y un **tutorial** de 5 minutos (elegir skills, tienda, minimapa, invocación): el MOBA tiene muchos paneles propios y un jugador nuevo no los descubre solo; (e) **espectador** y, más adelante, **repetición**: no lo encontré en el diseño.
+- **Falta:** advertencias/bloqueos por abandonar (existe en BD pero la cola está apagada: sin cola no se aplican); un **resumen de fin de partida** con gráficas (oro, daño por minuto) además de la tabla.
+
+### 2. Combate y skills
+- **Hecho:** rangos estilo LoL, buffs 45-130 s con cooldown, buffs de equipo, Expansion/Crítico con efecto, Teleport SM con AG, invocación con niveles, mascotas, aura de base, dorados.
+- **Recomiendo:** (a) **hoja de balance única** (una tabla de daño/cooldown/maná por clase, generada desde el código) y una prueba automática que avise si una clase supera por mucho el DPS de otra; hoy el balance está repartido en secciones; (b) **telemetría de balance**: tasa de victoria por clase/skill/ítem a partir de `moba.*` (el esquema ya existe) y mostrarla en el portal; (c) revisar **control (CC)**: un tope global de CC encadenado, para evitar «stun-lock» de 5+ s; (d) **efectos y sonidos propios por skill** (hoy se reutilizan los de MU; las animaciones de Medusa/Fénix/Kundun/Selupan están pendientes); (e) **indicadores de rango/área** al apuntar (círculo de alcance, cono): es lo que más cambia la sensación de control en un MOBA.
+- **Falta:** **Teleport Ally** no existe; **Nova** no se puede lanzar por el control (ver riesgos de Puppet).
+
+### 3. Ítems, tienda y economía
+- **Hecho:** tienda con panel propio, 3 tiers, 2 sets por tier, opciones por arquetipo, sets prestados, oro solo en T1/T2, venta al 70 %.
+- **Recomiendo:** (a) **receta/«build path»**: hoy se compra el set entero; un MOBA profesional deja **comprar por piezas y combinar** (componentes → ítem final) y mostrar «lo siguiente que te alcanza»; (b) **ítems recomendados por clase** al abrir la tienda (pestaña «Sugeridos») y **búsqueda/orden por precio**; (c) **deshacer compra** (30 s) y **ventas con confirmación** para evitar errores caros; (d) **curva de oro por fase** y tope al oro inflado de los bots (anotado); (e) un **registro de compras** por partida para ajustar precios.
+- **Falta:** variantes de ítems y consumibles con cooldown visible en el HUD.
+
+### 4. Mapa, estructuras y objetivos
+- **Hecho:** 3 carriles, 18 torretas, nexo con invulnerabilidad escalonada, 29 spots de jungla, 6 jefes + Selupan, invasión dorada, aura de base, fuentes y tótems.
+- **Recomiendo:** (a) **inhibidores y super-minions** (la auditoría del 19/10 dice que no existen): dan un final de partida con estructura y evitan las partidas de 74 minutos; (b) **rediseño visual del mapa** (hoy es Crywolf reutilizado): es el mayor salto de «aspecto profesional» pero está postergado; mientras tanto, **decorar y señalizar** carriles y bases con los modelos que ya tienes; (c) **calibrar torretas, nexo y fases** para partidas de 35-45 min con datos de partidas reales; (d) **mapa nuevo** (Atlans) solo después de validar el actual: cada mapa multiplica el trabajo de balance.
+- **Falta:** Gaion Kharein; visuales/sonidos de los jefes; decidir si la jungla renace tras la invasión (hoy no).
+
+### 5. Bots
+- **Hecho:** bots con 4 skills + buffs, jungla y objetivos coordinados.
+- **Recomiendo:** **niveles de dificultad** (fácil/normal/difícil con tiempos de reacción distintos), que esquiven al dragón dorado y que **no usen información que no verían**; sirven como relleno mientras el MOBA gana jugadores. El «reemplazo por bot del AFK» quedó descartado (decisión del usuario).
+
+### 6. Visión y niebla
+- **Hecho:** niebla visual en el cliente, wards, minimapa con lo que ve el equipo.
+- **Recomiendo:** la **niebla en el servidor** (solo enviar entidades visibles), con **memoria de último avistamiento** en el cliente; **barredor y ward con cooldown visible** (slots 10 y 11 del HUD ya reservados); **pings** para avisar al equipo («peligro», «ayuda», «voy»): no lo encontré en el diseño.
+
+### 7. HUD y cliente
+- **Hecho:** paneles propios (salas, loadout, resultados, tienda, control del compañero, invocación), minimapa interactivo, marcador (TAB), insignias de mascotas, contador de dorados.
+- **Recomiendo:** (a) **un solo sistema de tema y tamaños** para los paneles (hoy las posiciones están «a ojo»); revisar a **distintas resoluciones y escalas**; (b) **killfeed** arriba a la derecha y **anunciador** de hitos (primera sangre, rachas, pentakill, nexo en peligro, torre caída) con sonido: no lo encontré; (c) **indicador de daño recibido** y de quién te golpeó (flecha direccional); (d) **iconos reales** de mascotas (modelo del ítem) en vez de insignias; (e) **opciones** de teclas, volumen, calidad y mostrar FPS/latencia en pantalla; (f) **accesibilidad**: tamaño de texto y modo daltónico para los equipos azul/rojo.
+
+### 8. Portal web, cuentas y ranking
+- **Hecho:** portada con marca, registro, cómo jugar, ranking, perfil, noticias, temas.
+- **Recomiendo:** **recuperar contraseña** y verificación de correo; **CAPTCHA y HTTPS** (ya anotado); **perfil con historial de partidas** y gráficas; **«jugar ahora» con estado de salas abiertas**; sección **FAQ/reglas/soporte** y **página de estado**; **notas de parche** ligadas al actualizador; moderación con **reportes** y panel.
+- **Falta:** validar que una partida completa llegue al ranking (el sumidero ya está activo).
+
+### 9. Operación, infraestructura y distribución
+- **Hecho:** `iniciar-todo.ps1` (con parada limpia y autoarranque), ZeroTier + instalador + aprobación automática.
+- **Recomiendo (en este orden):** (a) **actualizador del cliente** (descarga solo lo que cambió, con comprobación de hash) y **versión del cliente exigida por el servidor** para no mezclar clientes viejos; (b) **backups automáticos** de PostgreSQL (diario, con retención) y prueba de restauración; (c) **logs rotados** y un **panel de salud** (CPU, memoria, partidas, jugadores) con alertas simples; (d) **pruebas de carga** (3-5 partidas simultáneas; medir con ~150 cerebros dorados); (e) VPS solo cuando lo anterior esté hecho (costo en «Costos reales», confirmar antes).
+- **Falta:** firmar el instalador (cuesta dinero; evita SmartScreen) y probarlo en un PC limpio.
+
+### 10. Anti-trampa y seguridad
+- **Recomiendo:** niebla en servidor (arriba), **validar todos los paquetes C→S `D5`** (rangos, cooldowns, propiedad), **límite de tasa** por jugador, **detección de velocidad/teleport**, y que los comandos `/moba*` queden solo para GM (revisar que ninguno sirva a un jugador). Nunca exponer el panel admin ni PostgreSQL (ya está así).
+
+### 11. Calidad
+- **Hecho:** ~1040 pruebas de servidor, logs de diagnóstico por sistema.
+- **Recomiendo:** **pruebas de integración de punta a punta** (sala → partida con bots → resultados → ranking) que corran con un comando; **lista de verificación por versión** (humo de 10 minutos); **registro de errores del cliente** enviado al servidor (hoy `MuError.log` local); y partidas de prueba **grabadas** para reproducir bugs.
+
+### 12. Legal y monetización (antes de abrir al público)
+- Repos a **privados** (decidido, pendiente de tu confirmación), aviso «no afiliado a Webzen» en web, instalador y juego, **términos y privacidad** simples, y **solo cosméticos/donaciones** (nunca poder). Evitar marcas ajenas en skins (Dragon Ball). Ver «Decisión legal» y «Monetización».
+
+### Qué haría yo ahora (sin gastar dinero)
+1. Tú: ronda de pruebas con la lista del Traspaso (1-2 h). Yo: corregir lo que salga.
+2. Killfeed + anunciador + indicador de daño recibido (cliente; bajo riesgo, alto impacto).
+3. Niebla en servidor (servidor; riesgo medio, mayor impacto en justicia).
+4. Votación de rendición + inhibidores/super-minions (final de partida).
+5. Actualizador del cliente + backups automáticos.
+6. Después: contenido (God of Darkness, economía de stats, Atlans).
