@@ -21,6 +21,9 @@ public enum MobaStructureType
 
     /// <summary>The team nexus - destroying it wins the match.</summary>
     Nexus = 2,
+
+    /// <summary>An inhibitor: one per lane behind the base turret; while it is down the nexus of its team can be attacked and the enemy lane sends super-minions.</summary>
+    Inhibitor = 3,
 }
 
 /// <summary>

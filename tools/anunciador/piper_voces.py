@@ -31,7 +31,12 @@ FRASES = {
     "golden_flyover": "El cielo arde en oro",
     "golden_invaders": "La invasión dorada ha comenzado",
     "dragon_ally": "¡El gran dragón ha caído!",
-    "dragon_enemy": "El enemigo ha matado al dragón",
+    "dragon_enemy": "El enemigo ha matado al dragón",    "inhibitor_ally_lost": "Tu inhibidor ha caído",
+    "inhibitor_enemy_down": "Inhibidor enemigo destruido",
+    "inhibitor_ally_back": "Tu inhibidor ha vuelto",
+    "inhibitor_enemy_back": "El inhibidor enemigo ha vuelto",
+    "super_ally": "Superminions en camino",
+    "super_enemy": "Superminions enemigos",
 }
 
 # Version con ortografia española para las palabras en ingles que la voz española lee peor.

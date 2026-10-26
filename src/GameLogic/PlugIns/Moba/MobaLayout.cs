@@ -26,6 +26,14 @@ public sealed record MobaLane(string Name, IReadOnlyList<Point> Waypoints);
 public sealed record MobaTowerSpec(MobaTeam Team, int Lane, int Tier, Point Position);
 
 /// <summary>
+/// An inhibitor of the MOBA arena (one per lane and team, behind the base turret of the lane).
+/// </summary>
+/// <param name="Team">The team the inhibitor defends.</param>
+/// <param name="Lane">The lane index (0 top, 1 mid, 2 bot).</param>
+/// <param name="Position">The position.</param>
+public sealed record MobaInhibitorSpec(MobaTeam Team, int Lane, Point Position);
+
+/// <summary>
 /// The geometry of the MOBA arena (lanes, turrets, nexuses, shops), read from the embedded
 /// <c>MobaLayout.json</c> exported by <c>tools/moba-map-editor.html</c>. Turrets are generated along
 /// every lane (two pairs per lane and team) so the layout only needs the lanes, nexuses and shops.
@@ -50,9 +58,17 @@ public static class MobaLayout
     /// <summary>Half the distance between the two turrets of a pair, in tiles.</summary>
     public const float PairHalfSpacing = 3f;
 
+    /// <summary>How far behind the base turret of a lane its inhibitor stands, measured along the lane toward the own nexus, in tiles.</summary>
+    public const double InhibitorSetback = 9;
+
     private static readonly string[] LaneNames = { "top", "mid", "bot" };
 
     private static readonly Lazy<Data> Loaded = new(Load);
+
+    private static readonly Lazy<IReadOnlyList<MobaInhibitorSpec>> InhibitorList = new(BuildInhibitors);
+
+    /// <summary>Gets the inhibitors of both teams: on the road of each lane, <see cref="InhibitorSetback"/> tiles behind its base turret toward its nexus.</summary>
+    public static IReadOnlyList<MobaInhibitorSpec> Inhibitors => InhibitorList.Value;
 
     /// <summary>Gets the lanes (top, mid, bot), each from the blue base to the red base.</summary>
     public static IReadOnlyList<MobaLane> Lanes => Loaded.Value.Lanes;
@@ -203,6 +219,30 @@ public static class MobaLayout
         }
 
         return total;
+    }
+
+    private static IReadOnlyList<MobaInhibitorSpec> BuildInhibitors()
+    {
+        var data = Loaded.Value;
+        var avoid = new HashSet<(int, int)>(data.Towers.Select(t => ((int)t.Position.X, (int)t.Position.Y)))
+        {
+            (data.BlueNexus.X, data.BlueNexus.Y),
+            (data.RedNexus.X, data.RedNexus.Y),
+        };
+
+        var result = new List<MobaInhibitorSpec>();
+        foreach (var tower in data.Towers.Where(t => t.Tier == 2))
+        {
+            var lane = data.Lanes[tower.Lane].Waypoints;
+            var arc = ArcOf(lane, tower.Position.X, tower.Position.Y);
+            var target = tower.Team == MobaTeam.Blue ? arc - InhibitorSetback : arc + InhibitorSetback;
+            var (x, y, _, _) = PointAtArc(lane, target);
+            var position = FindClear(data.Terrain, x, y, avoid);
+            avoid.Add((position.X, position.Y));
+            result.Add(new MobaInhibitorSpec(tower.Team, tower.Lane, position));
+        }
+
+        return result;
     }
 
     private static Data Load()

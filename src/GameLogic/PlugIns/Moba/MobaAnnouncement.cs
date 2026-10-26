@@ -69,4 +69,13 @@ public enum MobaAnnouncement : byte
 
     /// <summary>A Great Golden Dragon was slain (the team field is the team that killed it).</summary>
     GreatDragonSlain = 20,
+
+    /// <summary>An inhibitor fell (the team field is the team that lost it).</summary>
+    InhibitorDestroyed = 21,
+
+    /// <summary>An inhibitor is back (the team field is the team that owns it).</summary>
+    InhibitorRestored = 22,
+
+    /// <summary>The first super-minion of a lane was sent (the team field is the team that gets it).</summary>
+    SuperMinions = 23,
 }

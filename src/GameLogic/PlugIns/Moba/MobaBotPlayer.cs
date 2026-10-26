@@ -1552,7 +1552,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
 
         // Do not walk past a LIVE enemy turret without a friendly wave - hold just short of
         // it (this is what keeps a winning team from marching straight into the enemy base).
-        var frontTurret = this.FrontEnemyTurret(map);
+        var frontTurret = this.FrontEnemyTurret(map) ?? this.FrontEnemyInhibitor(map);
         if (frontTurret is not null)
         {
             var turretProgress = this.Progress(frontTurret.Position.X, frontTurret.Position.Y);
@@ -1737,8 +1737,8 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             .Where(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m))
             .ToList();
 
-        // Front enemy turret = the live turret of MY lane closest to my own base.
-        var frontTurret = this.FrontEnemyTurret(map);
+        // Front enemy turret = the live turret of MY lane closest to my own base; once they are down, the inhibitor of my lane takes its place.
+        var frontTurret = this.FrontEnemyTurret(map) ?? this.FrontEnemyInhibitor(map);
         var nexusProgress = this.Progress(enemyNexus.X, enemyNexus.Y);
 
         double limit;
@@ -1869,13 +1869,21 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             .OrderBy(m => this.Progress(m.Position.X, m.Position.Y))
             .FirstOrDefault();
 
-    /// <summary>The front enemy objective of my lane: its nearest live turret, else the enemy nexus.</summary>
+    /// <summary>The live enemy inhibitor of my lane (what I must beat after its turrets).</summary>
+    private NPC.Monster? FrontEnemyInhibitor(GameMap map)
+        => map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<NPC.Monster>()
+            .FirstOrDefault(m => m.IsAlive && MobaTeams.AreEnemies(this, m)
+                && MobaStructures.GetStructureType(m) == MobaStructureType.Inhibitor && MobaStructureSpawner.LaneOf(m) == this._laneNo);
+
+    /// <summary>The front enemy objective of my lane: its nearest live turret, then its inhibitor, then the enemy nexus (once it can be attacked).</summary>
     private NPC.Monster? FrontEnemyObjective(GameMap map)
         => this.FrontEnemyTurret(map)
+            ?? this.FrontEnemyInhibitor(map)
             ?? map.GetAttackablesInRange(new Point(128, 128), 400)
                 .OfType<NPC.Monster>()
                 .FirstOrDefault(m => m.IsAlive && MobaStructures.IsStructure(m) && MobaTeams.AreEnemies(this, m)
-                    && MobaStructures.GetStructureType(m) == MobaStructureType.Nexus);
+                    && MobaStructures.GetStructureType(m) == MobaStructureType.Nexus && !MobaStructureSpawner.IsShielded(m));
 
     /// <summary>
     /// Spends the bot's accrued champion skill points and stat points as it levels, so a

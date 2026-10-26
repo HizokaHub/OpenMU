@@ -198,6 +198,14 @@ public static class MobaWaveSpawner
             composition = composition.Append((MobaGolden.ReinforcementNumber, 1)).ToArray();
         }
 
+        // A fallen enemy inhibitor of this lane: this wave carries super-minions (big and tough, one or two).
+        var superCount = MobaInhibitors.SuperMinionsFor(map, team, laneIndex);
+        if (superCount > 0)
+        {
+            composition = composition.Append((MobaSuperMinions.ModelOf(team), superCount)).ToArray();
+            await MobaInhibitors.AnnounceSuperMinionsOnceAsync(map, team, laneIndex).ConfigureAwait(false);
+        }
+
         var lane = MobaLayout.WaypointsFor(team, laneIndex);
         var terrain = map.Terrain;
         var spawn = lane[0];
@@ -208,7 +216,10 @@ public static class MobaWaveSpawner
         foreach (var (number, count) in composition)
         {
             var golden = number == MobaGolden.ReinforcementNumber;
-            var power = golden ? MobaGolden.ReinforcementPower : 1f;
+            var isSuper = MobaSuperMinions.IsSuperModel(number);
+            var healthPower = golden ? MobaGolden.ReinforcementPower : (isSuper ? MobaSuperMinions.HealthFactor : 1f);
+            var damagePower = golden ? MobaGolden.ReinforcementPower : (isSuper ? MobaSuperMinions.DamageFactor : 1f);
+            var defensePower = isSuper ? MobaSuperMinions.DefenseFactor : 1f;
             var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
             if (baseDefinition is null && !golden)
             {
@@ -252,7 +263,7 @@ public static class MobaWaveSpawner
                     X2 = startPoint.X,
                     Y1 = startPoint.Y,
                     Y2 = startPoint.Y,
-                    MaximumHealthOverride = (int)(CreepHealth * creepHealthMul * power),
+                    MaximumHealthOverride = (int)(CreepHealth * creepHealthMul * healthPower),
                 };
 
                 var intelligence = new MobaLaneCreepIntelligence(creepWaypoints, team);
@@ -266,7 +277,12 @@ public static class MobaWaveSpawner
                     gameContext.PathFinderPool);
 
                 monster.Initialize();
-                ForceCreepStats(monster, creepHealthMul * power, creepDamageMul * power);
+                ForceCreepStats(monster, creepHealthMul * healthPower, creepDamageMul * damagePower, defensePower);
+                if (isSuper)
+                {
+                    MobaSuperMinions.Mark(monster);
+                }
+
                 monster.Died += (sender, death) => _ = OnCreepKilledAsync(map, sender as Monster, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
@@ -299,7 +315,8 @@ public static class MobaWaveSpawner
             var beneficiaryTeam = deadTeam == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
             var deathPosition = creep?.Position ?? default;
             var lastHitter = MobaSummons.CreditedChampion(map.GetObject(death.KillerId));
-            await MobaSummons.NoteKillAsync(map, death, MobaSummons.PointsCreep).ConfigureAwait(false);
+            var worth = MobaSuperMinions.IsSuper(creep) ? MobaSuperMinions.RewardFactor : 1;
+            await MobaSummons.NoteKillAsync(map, death, MobaSummons.PointsCreep * worth).ConfigureAwait(false);
 
             var champions = map.GetAttackablesInRange(deathPosition, MobaLevels.ShareRadius)
                 .OfType<Player>()
@@ -313,19 +330,19 @@ public static class MobaWaveSpawner
                 lastHitterRewarded |= isLastHit;
                 await MobaExperience.GrantAsync(
                     champion,
-                    isLastHit ? MobaLevels.CreepLastHitExp : MobaLevels.CreepProximityExp,
+                    (isLastHit ? MobaLevels.CreepLastHitExp : MobaLevels.CreepProximityExp) * worth,
                     isLastHit ? "creep" : "creep-nearby").ConfigureAwait(false);
                 await MobaGold.GrantAsync(
                     champion,
-                    isLastHit ? MobaGold.CreepLastHitGold : MobaGold.CreepProximityGold,
+                    (isLastHit ? MobaGold.CreepLastHitGold : MobaGold.CreepProximityGold) * worth,
                     isLastHit ? "creep" : "creep-nearby").ConfigureAwait(false);
             }
 
             // Ranged last hit from just outside the proximity radius still gets the full value.
             if (!lastHitterRewarded && lastHitter is { IsMobaClone: true } && MobaTeams.GetTeam(lastHitter) == beneficiaryTeam)
             {
-                await MobaExperience.GrantAsync(lastHitter, MobaLevels.CreepLastHitExp, "creep").ConfigureAwait(false);
-                await MobaGold.GrantAsync(lastHitter, MobaGold.CreepLastHitGold, "creep").ConfigureAwait(false);
+                await MobaExperience.GrantAsync(lastHitter, MobaLevels.CreepLastHitExp * worth, "creep").ConfigureAwait(false);
+                await MobaGold.GrantAsync(lastHitter, MobaGold.CreepLastHitGold * worth, "creep").ConfigureAwait(false);
             }
 
         }
@@ -372,7 +389,7 @@ public static class MobaWaveSpawner
     /// teams' creeps fight identically no matter the base mob. Per-instance attribute
     /// element (AddRaw that cancels the base and sets the target); never the shared config.
     /// </summary>
-    private static void ForceCreepStats(Monster monster, float healthMul, float damageMul)
+    private static void ForceCreepStats(Monster monster, float healthMul, float damageMul, float defenseFactor = 1f)
     {
         // MaximumHealth must match the MaximumHealthOverride we start Health at, or the
         // health-percent the client bar shows is current / base-mob-max (~60) and stays
@@ -380,7 +397,7 @@ public static class MobaWaveSpawner
         SetAbsolute(monster, Stats.MaximumHealth, CreepHealth * healthMul);
         SetAbsolute(monster, Stats.MinimumPhysBaseDmg, CreepMinDamage * damageMul);
         SetAbsolute(monster, Stats.MaximumPhysBaseDmg, CreepMaxDamage * damageMul);
-        SetAbsolute(monster, Stats.DefenseBase, CreepDefense);
+        SetAbsolute(monster, Stats.DefenseBase, CreepDefense * defenseFactor);
         SetAbsolute(monster, Stats.AttackRatePvm, CreepAttackRate);
         SetAbsolute(monster, Stats.DefenseRatePvm, CreepDefenseRate);
 

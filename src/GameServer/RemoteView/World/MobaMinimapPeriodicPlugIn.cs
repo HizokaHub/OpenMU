@@ -96,6 +96,7 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
                 {
                     MobaStructureType.Turret => MobaMinimapKind.Turret,
                     MobaStructureType.Nexus => MobaMinimapKind.Nexus,
+                    MobaStructureType.Inhibitor => MobaMinimapKind.Inhibitor,
                     _ => (byte)0,
                 };
 
@@ -103,6 +104,12 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
                 {
                     entries.Add((kind, (byte)MobaTeams.GetTeam(attackable), (byte)npc.Position.X, (byte)npc.Position.Y, HealthPercent(attackable)));
                 }
+            }
+
+            // The fallen inhibitors (their monsters are dead, so the loop above skipped them): the HP byte carries the seconds left to respawn divided by 2.
+            foreach (var (inhibitorTeam, position, secondsLeft) in MobaInhibitors.DownList(map))
+            {
+                entries.Add(((byte)(MobaMinimapKind.Inhibitor | MobaMinimapKind.InhibitorDownBit), (byte)inhibitorTeam, position.X, position.Y, (byte)Math.Min(secondsLeft / 2, 255)));
             }
 
             foreach (var ward in MobaVision.WardsOf(team, map))
@@ -231,12 +238,9 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     /// </summary>
     private static async ValueTask SendGoldenAsync(IConnection connection, GameMap map)
     {
-        if (!MobaGolden.HasStarted(map))
-        {
-            return;
-        }
-
-        var sizes = MobaGolden.GrowthSizes(map);
+        // The sizes go always (an empty list clears the old ones): the growing golden dragons and the super-minions (135 %) share the packet.
+        var started = MobaGolden.HasStarted(map);
+        var sizes = (started ? MobaGolden.GrowthSizes(map) : Array.Empty<(ushort Key, byte Percent)>()).Concat(MobaSuperMinions.Sizes(map)).ToList();
         var sizesLength = 5 + (sizes.Count * 3);
         int WriteSizes()
         {
@@ -259,6 +263,10 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
         }
 
         await connection.SendAsync(WriteSizes).ConfigureAwait(false);
+        if (!started)
+        {
+            return;
+        }
 
         var cities = MobaGolden.Cities(map);
         var citiesLength = 5 + (cities.Count * 5);

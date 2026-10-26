@@ -28,6 +28,12 @@ public static class MobaMinimapKind
     /// <summary>A ward.</summary>
     public const byte Ward = 4;
 
+    /// <summary>An inhibitor. Bit 7 set = it is down; then the HP byte of the entry holds the seconds left to respawn divided by 2.</summary>
+    public const byte Inhibitor = 5;
+
+    /// <summary>Bit 7 of an inhibitor entry: the inhibitor is down.</summary>
+    public const byte InhibitorDownBit = 0x80;
+
     /// <summary>The highest base class index (Rage Fighter).</summary>
     public const byte MaxBaseClassIndex = 6;
 

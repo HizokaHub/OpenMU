@@ -14,7 +14,7 @@ SR = 44100
 PEAK = 0.92
 TARGET_RMS_DB = -17.0
 DURACION_MAX_DEFECTO = 3.4          # segundos; las voces de partida o de objetivo gordo pueden durar mas
-DURACION_MAX = {'victory': 6.0, 'defeat': 5.2, 'match_start': 5.0, 'ace': 4.6, 'legendary': 4.2, 'penta': 4.2, 'golden_flyover': 5.2, 'golden_invaders': 4.8, 'dragon_ally': 4.6, 'dragon_enemy': 4.4}
+DURACION_MAX = {'victory': 6.0, 'defeat': 5.2, 'match_start': 5.0, 'ace': 4.6, 'legendary': 4.2, 'penta': 4.2, 'golden_flyover': 5.2, 'golden_invaders': 4.8, 'dragon_ally': 4.6, 'dragon_enemy': 4.4, 'inhibitor_ally_lost': 4.2, 'inhibitor_enemy_down': 3.6, 'inhibitor_ally_back': 3.4, 'inhibitor_enemy_back': 3.2, 'super_ally': 4.2, 'super_enemy': 4.0}
 # Topes del estilo de impacto (palabras alargadas + golpe): son mas largos.
 DURACION_MAX_IMPACTO = {'first_blood': 4.4, 'double': 4.2, 'triple': 4.4, 'quadra': 4.8, 'penta': 5.8, 'spree': 4.2, 'shutdown': 4.0, 'dominating': 4.6, 'unstoppable': 4.8, 'legendary': 5.4}
 RNG = np.random.default_rng(5252)
@@ -499,6 +499,52 @@ def r_dragon_enemy():
     return y, 1.3
 
 
+def r_inhibitor_ally_lost():
+    y = np.zeros(int(0.4 * SR))
+    y = place(y, gong(55, 3.4), 0.0, 1.0)
+    y = place(y, sub_drop(1.6, 100, 26, 0.8), 0.0, 1.0)
+    y = place(y, shatter(0.9), 0.0, 0.6)
+    y = place(y, choir([98, 117, 147], 2.4, 0.6, "o"), 0.1, 0.5)
+    return y, 0.35
+
+
+def r_inhibitor_enemy_down():
+    y = np.zeros(int(0.4 * SR))
+    y = place(y, shatter(1.0), 0.0, 0.8)
+    y = impacto(0.05, None, y, 1.4, 62, [98, 147, 196, 294])
+    return y, 0.3
+
+
+def r_inhibitor_ally_back():
+    y = np.zeros(int(0.4 * SR))
+    y = place(y, shimmer(2.2), 0.0, 0.7)
+    y = place(y, choir([196, 247, 294], 2.0, 0.5), 0.0, 0.45)
+    y = place(y, timpani(70, 0.7), 0.5, 0.6)
+    return y, 0.4
+
+
+def r_inhibitor_enemy_back():
+    y = np.zeros(int(0.4 * SR))
+    y = place(y, horn(1.0, 98, 0.5, 0.3), 0.0, 0.7)
+    y = place(y, gong(66, 2.4), 0.2, 0.6)
+    return y, 0.45
+
+
+def r_super_ally():
+    y = np.zeros(int(0.4 * SR))
+    y = place(y, horn(1.3, 98, 0.7, 0.25), 0.0, 0.9)
+    y = place(y, roll(75, 1.0, 12), 0.2, 0.6)
+    y = impacto(1.1, None, y, 1.3, 62, [98, 147, 196])
+    return y, 1.15
+
+
+def r_super_enemy():
+    y = alarm(3)
+    y = place(y, roar(1.2), 0.2, 0.6)
+    y = place(y, sub_drop(1.2, 80, 30, 0.5), 0.0, 0.8)
+    return y, 0.6
+
+
 RECETAS = {
     "first_blood": r_first_blood,
     "double": r_multi(2), "triple": r_multi(3), "quadra": r_multi(4), "penta": r_multi(5),
@@ -509,6 +555,9 @@ RECETAS = {
     "victory": r_victory, "defeat": r_defeat,
     "golden_flyover": r_golden_flyover, "golden_invaders": r_golden_invaders,
     "dragon_ally": r_dragon_ally, "dragon_enemy": r_dragon_enemy,
+    "inhibitor_ally_lost": r_inhibitor_ally_lost, "inhibitor_enemy_down": r_inhibitor_enemy_down,
+    "inhibitor_ally_back": r_inhibitor_ally_back, "inhibitor_enemy_back": r_inhibitor_enemy_back,
+    "super_ally": r_super_ally, "super_enemy": r_super_enemy,
 }
 
 

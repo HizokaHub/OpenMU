@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic.Attributes;
@@ -18,6 +19,11 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public static class MobaStructureSpawner
 {
+    private const int BaseTurretTier = 2;
+    private const int NexusTier = 3;
+    private const int InhibitorTier = 4;
+    private const float InhibitorDefense = 40f;
+
     private const short TurretMonsterNumber = 32; // Stone Golem - reads as a defensive structure.
 
     private const float TurretHealth = 15000f;
@@ -67,7 +73,8 @@ public static class MobaStructureSpawner
         }
 
         var multiplier = StructureHealthMultiplier(tier);
-        foreach (var (monsters, baseHealth) in new[] { (TurretsByMap.TryGetValue(map, out var turretList) ? new[] { turretList } : Array.Empty<List<Monster>>(), TurretHealth), (NexusesByMap.TryGetValue(map, out var nexusList) ? new[] { nexusList } : Array.Empty<List<Monster>>(), NexusHealth) })
+        var inhibitorList = new List<Monster>(MobaInhibitors.EntriesOf(map).Select(e => e.Monster).OfType<Monster>());
+        foreach (var (monsters, baseHealth) in new[] { (TurretsByMap.TryGetValue(map, out var turretList) ? new[] { turretList } : Array.Empty<List<Monster>>(), TurretHealth), (NexusesByMap.TryGetValue(map, out var nexusList) ? new[] { nexusList } : Array.Empty<List<Monster>>(), NexusHealth), (new[] { inhibitorList }, TurretHealth) })
         {
             foreach (var structure in monsters.SelectMany(list => list.ToArray()).Where(m => m.IsAlive))
             {
@@ -100,21 +107,25 @@ public static class MobaStructureSpawner
         bool IsTeamTurret(Monster m, out StructureInfo other)
             => InfoByStructure.TryGetValue(m, out other!) && MobaTeams.GetTeam(m) == team;
 
-        if (info.Tier < 3)
+        if (info.Tier == InhibitorTier)
+        {
+            // An inhibitor is invulnerable while the base turret of its own lane stands.
+            return turrets.Any(m => m.IsAlive && IsTeamTurret(m, out var other) && other.Lane == info.Lane && other.Tier == BaseTurretTier);
+        }
+
+        if (info.Tier < NexusTier)
         {
             // A turret is invulnerable while a turret of a lower tier (further out) of its own lane stands.
             return turrets.Any(m => m.IsAlive && IsTeamTurret(m, out var other) && other.Lane == info.Lane && other.Tier < info.Tier);
         }
 
-        // The nexus is invulnerable until a whole lane of its team has fallen (all of that lane's turrets dead).
+        // The nexus can only be attacked while one of the inhibitors of its team is down (and again protected when it is back). Without inhibitors in the
+        // match (the test commands) the old rule holds: it opens when a whole lane of its team has fallen.
         var teamTurrets = turrets.Where(m => IsTeamTurret(m, out _)).ToArray();
-        if (teamTurrets.Length == 0)
-        {
-            return false;
-        }
-
-        return !teamTurrets.GroupBy(m => { InfoByStructure.TryGetValue(m, out var other); return other!.Lane; })
-            .Any(group => group.All(m => !m.IsAlive));
+        var wholeLaneFallen = teamTurrets.Length == 0
+            || teamTurrets.GroupBy(m => { InfoByStructure.TryGetValue(m, out var other); return other!.Lane; }).Any(group => group.All(m => !m.IsAlive));
+        var map = structure.CurrentMap;
+        return MobaInhibitors.NexusShielded(map is not null && MobaInhibitors.Has(map, team), map is not null && MobaInhibitors.AnyDown(map, team), wholeLaneFallen);
     }
 
     /// <summary>Gets the lane index of a turret (-1 for the nexus or anything that is not a lane turret).</summary>
@@ -318,6 +329,8 @@ public static class MobaStructureSpawner
             }
         }
 
+        // The inhibitors come with the nexuses (the nexus of a team is protected by them).
+        await SpawnInhibitorsAsync(map, gameContext).ConfigureAwait(false);
         return count;
     }
 
@@ -326,6 +339,7 @@ public static class MobaStructureSpawner
     /// <returns>The number of nexuses removed.</returns>
     public static async ValueTask<int> RemoveNexusesAsync(GameMap map)
     {
+        await RemoveInhibitorsAsync(map).ConfigureAwait(false);
         if (!NexusesByMap.TryRemove(map, out var list))
         {
             return 0;
@@ -402,6 +416,178 @@ public static class MobaStructureSpawner
         nexus.OnSpawn();
         intelligence.Start();
         return nexus;
+    }
+
+    /// <summary>Spawns the inhibitors of both teams (one per lane; only the middle one in the single-lane formats).</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="gameContext">The game context.</param>
+    /// <returns>The number of inhibitors spawned.</returns>
+    public static async ValueTask<int> SpawnInhibitorsAsync(GameMap map, IGameContext gameContext)
+    {
+        var middleOnly = MobaFormats.MiddleLaneOnly(MobaArena.Of(map).Format);
+        var count = 0;
+        foreach (var spec in MobaLayout.Inhibitors.Where(i => !middleOnly || i.Lane == MobaLayout.MidLane))
+        {
+            var entry = MobaInhibitors.Register(map, spec.Team, spec.Lane, spec.Position);
+            if (entry.Monster is { IsAlive: true })
+            {
+                continue;
+            }
+
+            if (await SpawnInhibitorAsync(map, gameContext, entry).ConfigureAwait(false))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Removes every inhibitor of the map (and cancels their respawns).</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The number of inhibitors removed.</returns>
+    public static async ValueTask<int> RemoveInhibitorsAsync(GameMap map)
+    {
+        var removed = 0;
+        foreach (var inhibitor in MobaInhibitors.Clear(map))
+        {
+            removed += await DiscardAsync(map, inhibitor).ConfigureAwait(false);
+        }
+
+        return removed;
+    }
+
+    private static async ValueTask<int> DiscardAsync(GameMap map, Monster structure)
+    {
+        MobaStructures.Unmark(structure);
+        MobaTeams.Clear(structure);
+        try
+        {
+            await map.RemoveAsync(structure).ConfigureAwait(false);
+            structure.Dispose();
+            return 1;
+        }
+        catch
+        {
+            // already gone
+            return 0;
+        }
+    }
+
+    private static async ValueTask<bool> SpawnInhibitorAsync(GameMap map, IGameContext gameContext, MobaInhibitors.Entry entry)
+    {
+        var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == NexusBaseMonsterNumber);
+        if (baseDefinition is null)
+        {
+            return false;
+        }
+
+        // Same model as the nexus (a crystal statue), named "Inhibidor".
+        var definition = baseDefinition.Clone(gameContext.Configuration);
+        definition.Number = NexusMonsterNumber;
+        definition.Designation = "Inhibidor";
+        definition.AttackRange = 0;
+        definition.ViewRange = 0;
+        definition.MoveRange = 0;
+        definition.MoveDelay = TimeSpan.FromSeconds(60);
+
+        var area = new MonsterSpawnArea
+        {
+            GameMap = map.Definition,
+            MonsterDefinition = definition,
+            SpawnTrigger = SpawnTrigger.OnceAtEventStart,
+            Quantity = 1,
+            X1 = entry.Position.X,
+            X2 = entry.Position.X,
+            Y1 = entry.Position.Y,
+            Y2 = entry.Position.Y,
+            MaximumHealthOverride = (int)TurretHealth,
+        };
+
+        var intelligence = new MobaStructureIntelligence(entry.Team, MobaStructureType.Inhibitor, attacks: false);
+        var inhibitor = new Monster(
+            area,
+            definition,
+            map,
+            gameContext.DropGenerator,
+            intelligence,
+            gameContext.PlugInManager,
+            gameContext.PathFinderPool);
+
+        inhibitor.Initialize();
+        InfoByStructure.AddOrUpdate(inhibitor, new StructureInfo(InhibitorTier, entry.Lane));
+        SetAbsolute(inhibitor, Stats.MaximumHealth, TurretHealth * StructureHealthMultiplier(MobaArena.Of(map).Phase));
+        SetAbsolute(inhibitor, Stats.DefenseBase, InhibitorDefense);
+
+        entry.Monster = inhibitor;
+        entry.DownUntilUtc = null;
+        entry.SuperMinionsAnnounced = false;
+        inhibitor.Died += (_, _) => _ = OnInhibitorDiedAsync(map, gameContext, entry, inhibitor);
+
+        await map.AddAsync(inhibitor).ConfigureAwait(false);
+        inhibitor.OnSpawn();
+        intelligence.Start();
+        return true;
+    }
+
+    private static async Task OnInhibitorDiedAsync(GameMap map, IGameContext gameContext, MobaInhibitors.Entry entry, Monster dead)
+    {
+        try
+        {
+            if (!ReferenceEquals(entry.Monster, dead) || entry.IsDown)
+            {
+                return;
+            }
+
+            var cancel = new CancellationTokenSource();
+            entry.Respawn = cancel;
+            entry.DownUntilUtc = DateTime.UtcNow.AddSeconds(MobaInhibitors.RespawnSeconds);
+            var attackers = entry.Team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue;
+
+            await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.InhibitorDestroyed, (byte)entry.Team).ConfigureAwait(false);
+            await SafeGrantTeamExpAsync(map, attackers, MobaInhibitors.KillExp, "inhibitor").ConfigureAwait(false);
+            foreach (var champion in await MobaInhibitors.ChampionsOfAsync(gameContext, map, attackers).ConfigureAwait(false))
+            {
+                await MobaGold.GrantAsync(champion, MobaInhibitors.KillGold, "inhibitor", scaleByPhase: false).ConfigureAwait(false);
+            }
+
+            _ = RespawnInhibitorLaterAsync(map, gameContext, entry, cancel.Token);
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    private static async Task RespawnInhibitorLaterAsync(GameMap map, IGameContext gameContext, MobaInhibitors.Entry entry, CancellationToken cancel)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(MobaInhibitors.RespawnSeconds - MobaInhibitors.WarningSeconds), cancel).ConfigureAwait(false);
+            foreach (var champion in await MobaInhibitors.ChampionsOfAsync(gameContext, map, entry.Team).ConfigureAwait(false))
+            {
+                await champion.ShowBlueMessageAsync($"[MOBA] Tu inhibidor reaparece en {MobaInhibitors.WarningSeconds} s.").ConfigureAwait(false);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(MobaInhibitors.WarningSeconds), cancel).ConfigureAwait(false);
+            if (entry.Monster is { } old)
+            {
+                await DiscardAsync(map, old).ConfigureAwait(false);
+            }
+
+            if (await SpawnInhibitorAsync(map, gameContext, entry).ConfigureAwait(false))
+            {
+                await MobaAnnouncer.AnnounceAsync(map, MobaAnnouncement.InhibitorRestored, (byte)entry.Team).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // the match ended or the structures were removed
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     private static async Task SafeEndMatchAsync(GameMap map, IGameContext gameContext, MobaTeam losingTeam)
