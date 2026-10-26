@@ -111,6 +111,12 @@ public enum CharacterClasses : long
     FistMaster = 0b0010_0000_0000_0000_0000_0000_0000,
 
     /// <summary>
+    /// The rune wizard. It is deliberately not part of any of the composite values below, because the class does not exist
+    /// in every configuration (see <see cref="CharacterClassHelper"/>).
+    /// </summary>
+    RuneWizard = 0x1000_0000,
+
+    /// <summary>
     /// All wizards.
     /// </summary>
     AllWizards = DarkWizard | SoulMaster | GrandMaster,

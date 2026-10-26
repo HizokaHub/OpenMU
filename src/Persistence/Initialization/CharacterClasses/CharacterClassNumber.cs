@@ -98,4 +98,10 @@ public enum CharacterClassNumber : byte
     /// The fist master.
     /// </summary>
     FistMaster = 25,
+
+    /// <summary>
+    /// The rune wizard. Imported from Season 21: its class number is the first free slot of the 5-bit class field of the
+    /// appearance packet (<c>28 &lt;&lt; 3 &amp; 0xF8</c>), 26-27 are left free for future second generation classes.
+    /// </summary>
+    RuneWizard = 28,
 }

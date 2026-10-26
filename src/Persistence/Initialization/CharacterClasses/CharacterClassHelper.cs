@@ -32,6 +32,16 @@ public static class CharacterClassHelper
         (CharacterClasses.Summoner, CharacterClassNumber.Summoner),
         (CharacterClasses.FistMaster, CharacterClassNumber.FistMaster),
         (CharacterClasses.RageFighter, CharacterClassNumber.RageFighter),
+        (CharacterClasses.RuneWizard, CharacterClassNumber.RuneWizard),
+    };
+
+    /// <summary>
+    /// The classes which are optional: configurations which were created before they were added don't contain them,
+    /// so a missing class is skipped instead of throwing.
+    /// </summary>
+    private static readonly CharacterClassNumber[] OptionalClasses =
+    {
+        CharacterClassNumber.RuneWizard,
     };
 
     /// <summary>
@@ -99,7 +109,13 @@ public static class CharacterClassHelper
         var characterClasses = gameConfiguration.CharacterClasses;
         foreach (var characterClassNumber in NumberMapping.Where(c => classes.HasFlag(c.Classes)).Select(c => c.Number))
         {
-            yield return characterClasses.First(c => c.Number == (int)characterClassNumber);
+            var characterClass = characterClasses.FirstOrDefault(c => c.Number == (int)characterClassNumber);
+            if (characterClass is null && (ignoreMissing || OptionalClasses.Contains(characterClassNumber)))
+            {
+                continue;
+            }
+
+            yield return characterClass ?? characterClasses.First(c => c.Number == (int)characterClassNumber);
         }
     }
 
