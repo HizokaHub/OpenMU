@@ -26,6 +26,9 @@ public static class MobaCombatDebug
     /// <param name="isCombo">Whether the hit was part of a combo.</param>
     public static void LogHit(IAttacker attacker, Player victim, Skill? skill, HitInfo hit, bool isCombo = false)
     {
+        // The champion's own screen shows where the damage came from (works with the trace switched off).
+        _ = MobaDamageDirection.NoteAsync(attacker, victim, hit).AsTask();
+
         if (!Enabled || !IsMobaInvolved(attacker, victim))
         {
             return;

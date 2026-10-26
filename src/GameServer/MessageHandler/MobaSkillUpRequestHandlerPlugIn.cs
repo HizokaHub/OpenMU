@@ -111,6 +111,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 7 && span[3] == 0x35)
+        {
+            // C1 07 D5 35 kind x y: a ping of the champion (see MobaPing; the team sees it).
+            await MobaPing.HandleAsync(player, span[4], span[5], span[6]).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 4 && span[3] == 0x34)
         {
             // C1 04 D5 34: the recall (key B) of the controlled teammate.
