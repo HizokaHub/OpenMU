@@ -113,6 +113,7 @@ public static class MobaProgression
         SetAbsolute(attributes, Stats.DefensePvm, defense);
 
         MobaMana.DisableNativeRegen(attributes);
+        MobaBlink.PinGauge(champion);
 
         attributes[Stats.CurrentHealth] = attributes[Stats.MaximumHealth];
         attributes[Stats.CurrentMana] = attributes[Stats.MaximumMana];

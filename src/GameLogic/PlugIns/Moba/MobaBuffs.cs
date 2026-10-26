@@ -83,6 +83,8 @@ public static class MobaBuffs
                 SetFlat(effect.DurationPvp, seconds);
             }
 
+            StripGaugeCosts(configuration);
+
             // Defense: a milder cut for a much longer time.
             if (configuration.Skills.FirstOrDefault(s => s.Number == Defense)?.MagicEffectDef is { } defense)
             {
@@ -96,6 +98,24 @@ public static class MobaBuffs
             }
 
             _configuredFor = configuration;
+        }
+    }
+
+    // The AG of a Soul Master is reserved for its Teleport (see MobaBlink): the skills only the Wizard family has ask for none.
+    private static void StripGaugeCosts(GameConfiguration configuration)
+    {
+        foreach (var skill in configuration.Skills)
+        {
+            var wizardOnly = skill.QualifiedCharacters.Count > 0 && skill.QualifiedCharacters.All(c => MobaPassives.FamilyOf(c.Number) == MobaFamily.Wizard);
+            if (!wizardOnly)
+            {
+                continue;
+            }
+
+            foreach (var cost in skill.ConsumeRequirements.Where(r => r.Attribute == Stats.CurrentAbility).ToList())
+            {
+                skill.ConsumeRequirements.Remove(cost);
+            }
         }
     }
 

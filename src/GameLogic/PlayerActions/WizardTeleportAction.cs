@@ -42,12 +42,14 @@ public class WizardTeleportAction
             && player.IsInRange(target, skill.Range)
             && PlugIns.Moba.MobaBlink.Allows(player, target)
             && CanPlayerBeTeleported(player)
-            && await player.TryConsumeForSkillAsync(skillEntry).ConfigureAwait(false))
+            && await player.TryConsumeForSkillAsync(skillEntry).ConfigureAwait(false)
+            && PlugIns.Moba.MobaBlink.PayGauge(player))
         {
             _ = Task.Run(() => player.TeleportAsync(target, skill));
         }
         else
         {
+            await PlugIns.Moba.MobaBlink.TellMissingGaugeAsync(player).ConfigureAwait(false);
             await player.InvokeViewPlugInAsync<ITeleportPlugIn>(p => p.ShowTeleportedAsync()).ConfigureAwait(false);
         }
     }

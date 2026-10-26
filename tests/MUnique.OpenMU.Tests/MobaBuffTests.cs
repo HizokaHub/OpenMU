@@ -36,8 +36,23 @@ public class MobaBuffTests
             Assert.That(MobaCooldowns.SecondsOf(skill, 5), Is.LessThan(MobaCooldowns.SecondsOf(skill, 1)), $"skill {skill}");
         }
 
-        Assert.That(MobaCooldowns.SecondsOf(6, 1), Is.EqualTo(32));
-        Assert.That(MobaCooldowns.SecondsOf(6, 5), Is.EqualTo(20));
+        // The Teleport of the Soul Master only waits one second: its AG gauge is the limit.
+        Assert.That(MobaCooldowns.SecondsOf(6, 1), Is.EqualTo(1));
+        Assert.That(MobaCooldowns.SecondsOf(6, 5), Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// A full AG gauge pays three jumps, the gauge refills a jump in 4.5 seconds and the best accessories bring it to 2.5 seconds.
+    /// </summary>
+    [Test]
+    public void TeleportGaugePaysThreeJumpsAndRefillsBetweenFourAndFiveSeconds()
+    {
+        Assert.That(MobaBlink.GaugePool / MobaBlink.JumpCost, Is.EqualTo(3).Within(1e-6));
+        Assert.That(MobaBlink.JumpCost / MobaBlink.RegenPerSecondFor(Array.Empty<int>()), Is.EqualTo(4.5).Within(1e-6));
+        Assert.That(MobaBlink.JumpCost / MobaBlink.RegenPerSecondFor(new[] { 3, 3, 3 }), Is.EqualTo(2.5).Within(1e-6));
+        Assert.That(MobaBlink.JumpCost / MobaBlink.RegenPerSecondFor(new[] { 1, 1, 1 }), Is.InRange(3.4, 3.6), "tier 1 accessories bring it to about 3.5 s");
+        Assert.That(MobaBlink.AccessoryBonusOf(0), Is.EqualTo(0));
+        Assert.That(MobaBlink.AccessoryBonusOf(3), Is.EqualTo(MobaBlink.AccessoryBonusAtFullTier).Within(1e-9));
     }
 
     /// <summary>

@@ -71,6 +71,9 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
         // The bonuses of the set pieces by class archetype: life and mana pools, life regeneration.
         await MobaArchetype.TickAsync(gameContext).ConfigureAwait(false);
 
+        // The AG gauge of the Soul Masters, which pays their Teleport.
+        await MobaBlink.TickAsync(gameContext).ConfigureAwait(false);
+
         // The green aura of the blacksmith in each base: 20 % of life, mana and shield per second.
         await MobaBaseAura.TickAsync(gameContext).ConfigureAwait(false);
 

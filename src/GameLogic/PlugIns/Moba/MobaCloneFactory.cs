@@ -105,6 +105,7 @@ public static class MobaCloneFactory
         MobaPets.EnsureConfigured(player.GameContext.Configuration);
         MobaShieldSkills.EnsureConfigured(player.GameContext.Configuration);
         MobaBuffs.EnsureConfigured(player.GameContext.Configuration);
+        MobaBorrowedSets.EnsureConfigured(player.GameContext.Configuration);
         var context = player.PersistenceContext;
 
         var clone = context.CreateNew<Character>();

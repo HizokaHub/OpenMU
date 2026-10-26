@@ -75,8 +75,33 @@ public class MobaArchetypeTests
         Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Wizard, 35), Is.EqualTo(MobaPieceProfile.Attack));
         Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Knight, 17), Is.EqualTo(MobaPieceProfile.Recovery));
         Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Knight, 16), Is.EqualTo(MobaPieceProfile.Attack));
-        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.MagicGladiator, 15), Is.EqualTo(MobaPieceProfile.Balanced));
-        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Summoner, 43), Is.EqualTo(MobaPieceProfile.Balanced), "the third tier of the Summoner has one set");
+        // The sets borrowed from another class complete the tiers where a class had a single set.
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.MagicGladiator, 15), Is.EqualTo(MobaPieceProfile.Recovery));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.MagicGladiator, 3), Is.EqualTo(MobaPieceProfile.Attack));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Summoner, 43), Is.EqualTo(MobaPieceProfile.Recovery));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Summoner, 30), Is.EqualTo(MobaPieceProfile.Attack));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.RageFighter, 61), Is.EqualTo(MobaPieceProfile.Recovery));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.RageFighter, 17), Is.EqualTo(MobaPieceProfile.Attack));
+    }
+
+    /// <summary>
+    /// Every class is offered two sets in every tier (a set of its own or borrowed from a related class).
+    /// </summary>
+    [Test]
+    public void EveryClassHasTwoSetsInEveryTier()
+    {
+        foreach (var family in Enum.GetValues<MobaFamily>())
+        {
+            foreach (var tier in new[] { MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T3 })
+            {
+                var sets = MobaShopCatalog.Entries
+                    .Where(e => e.Category == MobaShopCategory.Sets && e.Tier == tier && e.Families is { Length: > 0 } f && f[0] == family)
+                    .Select(e => e.Number)
+                    .Distinct()
+                    .Count();
+                Assert.That(sets, Is.GreaterThanOrEqualTo(2), $"{family} {tier}");
+            }
+        }
     }
 
     /// <summary>

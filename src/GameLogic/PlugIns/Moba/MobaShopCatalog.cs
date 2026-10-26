@@ -192,6 +192,14 @@ public static class MobaShopCatalog
         Set(MobaFamily.Summoner, 44, MobaShopTier.T2, alternate: true);      // Lilium
         Set(MobaFamily.RageFighter, 59, MobaShopTier.T1, alternate: true);   // Sacred
 
+        // Sets borrowed from another class (2026-10-25, decided with the user): where a class has a single set in a tier, it also wears a set of a related
+        // class so that every class is offered two sets in every tier. The Magic Gladiator can be a mage (sets of the Soul Master) or a tank (sets of the
+        // Blade Knight); the Summoner is a mage; the Rage Fighter is a fighter (sets of the Blade Knight). See MobaBorrowedSets.
+        foreach (var (borrower, setNumber, tier) in MobaBorrowedSets.All)
+        {
+            Set(borrower, setNumber, tier, alternate: true);
+        }
+
         // --- Wings ---
         Wing(MobaFamily.Wizard, 12, 1, MobaShopTier.T1);           // Wings of Heaven
         Wing(MobaFamily.Wizard, 12, 4, MobaShopTier.T2);           // Wings of Soul

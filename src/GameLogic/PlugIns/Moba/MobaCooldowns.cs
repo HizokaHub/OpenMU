@@ -73,7 +73,7 @@ public static class MobaCooldowns
         [36] = new[] { 45.0, 40.0, 35.0, 30.0, 25.0 },
 
         // --- Buffs (2026-10-25): they last 45-130 s (see MobaBuffs), so the wait is longer than the effect; ranking shortens it ---
-        [6] = new[] { 32.0, 29.0, 26.0, 23.0, 20.0 },   // Teleport (a jump of up to 6 tiles)
+        [6] = new[] { 1.0, 1.0, 1.0, 1.0, 1.0 },        // Teleport (a jump of up to 6 tiles): the AG gauge limits it, see MobaBlink
         [26] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },      // Heal (instant)
         [234] = new[] { 14.0, 12.5, 11.0, 10.0, 9.0 },  // Recovery (instant)
         [16] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Soul Barrier

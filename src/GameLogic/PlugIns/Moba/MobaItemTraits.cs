@@ -42,6 +42,9 @@ public static class MobaItemTraits
     /// <summary>Highest total cooldown reduction (gloves + boots + shield).</summary>
     public const double MaxCooldownReduction = 0.65;
 
+    /// <summary>The tooltip kind of the AG regeneration of the accessories (whole percent), which pays the Teleport of the Soul Master.</summary>
+    public const byte GaugeRegenKind = 14;
+
     private const byte KindCc = 2;
     private const byte KindCooldown = 3;
     private const byte KindAssistGold = 4;
@@ -293,6 +296,11 @@ public static class MobaItemTraits
             if (trait is { } t && t.Table[tier] > 0)
             {
                 traits.TryAdd((type, t.Kind), new Views.Moba.MobaItemTrait(type, t.Kind, (byte)Math.Round(t.Table[tier] * 100)));
+            }
+
+            if (entry.Category == MobaShopCategory.Accessories && MobaBlink.AccessoryBonusOf(tier) > 0)
+            {
+                traits.TryAdd((type, GaugeRegenKind), new Views.Moba.MobaItemTrait(type, GaugeRegenKind, (byte)Math.Round(MobaBlink.AccessoryBonusOf(tier) * 100)));
             }
 
             foreach (var archetype in ArchetypeTraitsOf(entry))
