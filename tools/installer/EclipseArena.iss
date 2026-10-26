@@ -9,6 +9,9 @@
 #ifndef ConfigFile
   #error Falta /DConfigFile
 #endif
+#ifndef StateFile
+  #error Falta /DStateFile
+#endif
 #ifndef CrtDir
   #error Falta /DCrtDir
 #endif
@@ -24,6 +27,9 @@
 #ifndef AppVersion
   #define AppVersion "1.0"
 #endif
+
+; Lo que abren los accesos directos: el actualizador (muestra su ventana y lanza Main.exe al terminar).
+#define Launcher "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """"{app}\Actualizar.ps1"""""
 
 #define ZtUrl "https://download.zerotier.com/RELEASES/1.16.2/dist/ZeroTierOne.msi"
 #define ZtSha256 "42514072b0fe44b8f66e0395bcd23a0b1d1642c28ed00831f1527b2f41b14670"
@@ -61,17 +67,24 @@ Name: "{app}"; Permissions: users-modify
 [Files]
 Source: "{#ClientDir}\*"; DestDir: "{app}"; Excludes: "MuError.log,MuClient.lib,config.ini,config.ini.template"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#ConfigFile}"; DestDir: "{app}"; DestName: "config.ini"; Flags: ignoreversion
+; lo que queda instalado, para que el actualizador solo baje lo que cambie en las versiones siguientes
+Source: "{#StateFile}"; DestDir: "{app}\actualizador"; DestName: "instalado.json"; Flags: ignoreversion
 Source: "{#CrtDir}\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#CrtDir}\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#CrtDir}\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Eclipse Arena"; Filename: "{app}\Main.exe"; WorkingDir: "{app}"
+; el acceso directo abre el actualizador, que baja lo nuevo (si hay) y despues lanza Main.exe
+Name: "{group}\Eclipse Arena"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "{#Launcher}"; IconFilename: "{app}\Main.exe"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar Eclipse Arena"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Eclipse Arena"; Filename: "{app}\Main.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\Eclipse Arena"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "{#Launcher}"; IconFilename: "{app}\Main.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\Main.exe"; WorkingDir: "{app}"; Description: "Abrir Eclipse Arena ahora"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "{#Launcher}"; WorkingDir: "{app}"; Description: "Abrir Eclipse Arena ahora"; Flags: nowait postinstall skipifsilent runasoriginaluser
+
+[UninstallDelete]
+; los archivos que baja el actualizador no estan en el registro del instalador
+Type: filesandordirs; Name: "{app}"
 
 [UninstallRun]
 Filename: "{commonpf32}\ZeroTier\One\zerotier-cli.bat"; Parameters: "leave {#NetworkId}"; Flags: runhidden; RunOnceId: "LeaveEclipseNetwork"

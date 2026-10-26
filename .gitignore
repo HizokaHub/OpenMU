@@ -340,3 +340,6 @@ src/Web/Map/wwwroot/js/MUnique.OpenMU.Web.Map.js
 
 # Cliente empaquetado para los jugadores (1 GB, se genera con tools/build-client-package.ps1)
 portal/downloads/
+
+# Archivos del actualizador del cliente (blobs por hash, se generan con tools/publicar-cliente.ps1)
+portal/updates/

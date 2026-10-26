@@ -35,6 +35,24 @@ app.Use(async (context, next) =>
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// The client updater (tools/cliente/Actualizar.ps1) reads /updates/version.json and /updates/manifest.json, and downloads the files of the client
+// from /updates/blobs/<sha256>. They are written by tools/publicar-cliente.ps1 into portal/updates. A blob never changes (its name is its hash).
+var updatesDirectory = Path.Combine(app.Environment.ContentRootPath, "updates");
+Directory.CreateDirectory(updatesDirectory);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(updatesDirectory),
+    RequestPath = "/updates",
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
+    OnPrepareResponse = response =>
+    {
+        response.Context.Response.Headers.CacheControl = response.Context.Request.Path.StartsWithSegments("/updates/blobs")
+            ? "public, max-age=31536000, immutable"
+            : "no-cache";
+    },
+});
+
 var api = app.MapGroup("/api").RequireRateLimiting("api");
 
 api.MapGet("/config", (PortalOptions o) => new

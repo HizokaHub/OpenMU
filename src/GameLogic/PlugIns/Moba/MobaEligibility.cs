@@ -24,6 +24,11 @@ public static class MobaEligibility
     /// <returns>The reason it may not enter, or <see langword="null"/> if it is eligible.</returns>
     public static string? Check(Player player, Character character)
     {
+        if (MobaClientBuild.Check(player) is { } outdated)
+        {
+            return outdated;
+        }
+
         var level = player.Attributes is { } attributes ? (int)attributes[Stats.Level] : 0;
         return Check(level, character.CharacterClass?.IsMasterClass ?? false);
     }

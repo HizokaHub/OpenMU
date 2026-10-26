@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameServer.MessageHandler;
 
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.PlugIns;
@@ -108,6 +109,15 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
         {
             // C1 0A D5 33 skillLo skillHi keyLo keyHi x y: a skill of the controlled teammate, on an object (key) or on a tile.
             await MobaPuppet.CastAsync(player, (short)(span[4] | (span[5] << 8)), (ushort)(span[6] | (span[7] << 8)), span[8], span[9]).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 8 && span[3] == 0x36)
+        {
+            // C1 08 D5 36 build(u32 LE): the build number of the client (see MobaClientBuild); sent right after connecting.
+            var build = BitConverter.ToUInt32(span.Slice(4, 4));
+            MobaClientBuild.Report(player, build);
+            player.Logger.LogInformation("[MOBA-CLIENT] build {Build} (minimum {Minimum})", build, MobaClientBuild.Minimum);
             return;
         }
 

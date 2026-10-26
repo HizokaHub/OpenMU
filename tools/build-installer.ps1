@@ -14,7 +14,8 @@ param(
     [int]$ServerPort = 44406,
     [string]$NetworkId = '3efa5cb78ac86a4b',
     [string]$ClientDir = 'C:\Users\aruiz\Proyectos\mu-main\out\build\windows-x64\src\Release',
-    [string]$Version = (Get-Date -Format 'yyyy.MM.dd')
+    [string]$Version = (Get-Date -Format 'yyyy.MM.dd'),
+    [string]$Notas = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,8 +45,15 @@ $cfg = $cfg -replace '(?m)^ServerPort=.*$', "ServerPort=$ServerPort"
 $configFile = Join-Path $work 'config.ini'
 [System.IO.File]::WriteAllText($configFile, $cfg, (New-Object System.Text.UTF8Encoding($false)))
 
+# Publica esta version del cliente para el actualizador (manifiesto + archivos por hash en portal\updates) y guarda
+# lo que queda instalado (actualizador\instalado.json): el instalador lo incluye para que la primera vez no haya que descargar nada.
+# publicar-cliente.ps1 tambien deja Actualizar.ps1 y eclipse-build.txt dentro de la carpeta del cliente.
+$stateFile = Join-Path $work 'instalado.json'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'publicar-cliente.ps1') -ClientDir $ClientDir -GuardarEstadoEn $stateFile -Notas $Notas
+if ($LASTEXITCODE -ne 0) { throw "publicar-cliente.ps1 fallo con codigo $LASTEXITCODE" }
+
 New-Item -ItemType Directory -Force $outDir | Out-Null
-& $iscc "/DClientDir=$ClientDir" "/DConfigFile=$configFile" "/DCrtDir=$($crt.FullName)" "/DOutDir=$outDir" `
+& $iscc "/DClientDir=$ClientDir" "/DConfigFile=$configFile" "/DStateFile=$stateFile" "/DCrtDir=$($crt.FullName)" "/DOutDir=$outDir" `
     "/DServerIP=$ServerIP" "/DNetworkId=$NetworkId" "/DAppVersion=$Version" (Join-Path $here 'installer\EclipseArena.iss')
 if ($LASTEXITCODE -ne 0) { throw "ISCC fallo con codigo $LASTEXITCODE" }
 
