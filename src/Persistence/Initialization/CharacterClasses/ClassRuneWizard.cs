@@ -26,15 +26,16 @@ internal partial class CharacterClassInitialization
     /// <summary>
     /// Creates the rune wizard.
     /// </summary>
+    /// <param name="canGetCreated">If set to <c>true</c>, players can create characters of this class.</param>
     /// <returns>The created character class.</returns>
     /// <remarks>
     /// The class is a magician: its attack, defense, health, mana and shield formulas are the ones of the dark wizard.
     /// The base stats and the growth per level of the real class are not part of the Season 21 client files,
     /// so they are a placeholder which has to be tuned (see GAMEDESIGN.md, "Rune Wizard").
     /// </remarks>
-    internal CharacterClass CreateRuneWizard()
+    internal CharacterClass CreateRuneWizard(bool canGetCreated = true)
     {
-        var result = this.CreateDarkWizard(CharacterClassNumber.RuneWizard, "Rune Wizard", false, null, true);
+        var result = this.CreateDarkWizard(CharacterClassNumber.RuneWizard, "Rune Wizard", false, null, canGetCreated);
         result.CreationAllowedFlag = RuneWizardCreationAllowedFlag;
         result.LevelRequirementByCreation = RuneWizardLevelRequirementByCreation;
         return result;

@@ -27,14 +27,15 @@ public static class RuneWizardClassFactory
     /// </summary>
     /// <param name="context">The persistence context which creates the entities.</param>
     /// <param name="gameConfiguration">The game configuration.</param>
+    /// <param name="canGetCreated">If set to <c>true</c>, players can create characters of this class.</param>
     /// <returns>The existing or newly created class.</returns>
-    public static CharacterClass AddTo(IContext context, GameConfiguration gameConfiguration)
+    public static CharacterClass AddTo(IContext context, GameConfiguration gameConfiguration, bool canGetCreated = true)
     {
         if (gameConfiguration.CharacterClasses.FirstOrDefault(c => c.Number == ClassNumber) is { } existing)
         {
             return existing;
         }
 
-        return new CharacterClassInitialization(context, gameConfiguration).CreateRuneWizard();
+        return new CharacterClassInitialization(context, gameConfiguration).CreateRuneWizard(canGetCreated);
     }
 }

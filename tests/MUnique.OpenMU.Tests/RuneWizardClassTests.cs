@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
+using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameServer.RemoteView;
 using MUnique.OpenMU.Persistence.Initialization.CharacterClasses;
 using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
@@ -109,5 +110,47 @@ public class RuneWizardClassTests
 
         Assert.That(data[0] & 0xF8, Is.EqualTo(RuneWizardNumber << 3));
         Assert.That(this._configuration.CharacterClasses.Any(c => c.Number == RuneWizardNumber), Is.False);
+    }
+
+    /// <summary>
+    /// The preview adds the class in memory, without being able to get created, and lets it use the skills and items of the dark wizard.
+    /// </summary>
+    [Test]
+    public void PreviewAllowsDarkWizardSkillsAndItems()
+    {
+        var darkWizardSkills = this._configuration.Skills.Where(s => s.QualifiedCharacters.Any(c => c.Number == 0)).ToList();
+        var darkWizardItems = this._configuration.Items.Where(i => i.QualifiedCharacters.Any(c => c.Number == 0)).ToList();
+        Assert.That(darkWizardSkills, Is.Not.Empty);
+        Assert.That(darkWizardItems, Is.Not.Empty);
+
+        var memoryContext = new InMemoryPersistenceContextProvider().CreateNewContext();
+        var runeWizard = RuneWizardPreview.Apply(memoryContext, this._configuration);
+
+        Assert.That(runeWizard.CanGetCreated, Is.False);
+        Assert.That(darkWizardSkills.All(s => s.QualifiedCharacters.Contains(runeWizard)), Is.True);
+        Assert.That(darkWizardItems.All(i => i.QualifiedCharacters.Contains(runeWizard)), Is.True);
+
+        var knightSkill = this._configuration.Skills.First(s => s.QualifiedCharacters.Count > 0 && s.QualifiedCharacters.All(c => c.Number is 4 or 6 or 7));
+        Assert.That(knightSkill.QualifiedCharacters.Contains(runeWizard), Is.False, "only what the dark wizard uses");
+    }
+
+    /// <summary>
+    /// A MOBA clone of the rune wizard gets the wizard family kit (skills and the starter staff), like a bot placed with <c>/mobabot ... rw</c>.
+    /// </summary>
+    [Test]
+    public void MobaCloneGetsTheWizardKit()
+    {
+        var context = this._contextProvider.CreateNewContext();
+        var runeWizard = RuneWizardPreview.Apply(context, this._configuration);
+
+        var clone = context.CreateNew<Character>();
+        clone.CharacterClass = runeWizard;
+        clone.Inventory = context.CreateNew<ItemStorage>();
+        MobaLoadouts.Apply(context, this._configuration, clone, runeWizard);
+
+        Assert.That(clone.LearnedSkills.Count, Is.GreaterThan(4));
+        Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
+        Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.Wizard));
+        Assert.That(MobaBotChatCommandPlugIn.ResolveClassNumber("rw"), Is.EqualTo(RuneWizardNumber));
     }
 }

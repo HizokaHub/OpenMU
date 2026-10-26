@@ -63,6 +63,7 @@ public class MobaBotChatCommandPlugIn : ChatCommandPlugInBase<MobaBotChatCommand
         "dim" or "dimensionmaster" => 23,
         "rf" or "ragefighter" or "rage" => 24,
         "fm" or "fistmaster" => 25,
+        "rw" or "rune" or "runewizard" => 28,
         _ => byte.TryParse(value, out var n) ? n : (byte?)null,
     };
 
