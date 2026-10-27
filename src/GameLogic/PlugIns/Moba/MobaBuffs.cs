@@ -106,7 +106,7 @@ public static class MobaBuffs
     {
         foreach (var skill in configuration.Skills)
         {
-            var wizardOnly = skill.QualifiedCharacters.Count > 0 && skill.QualifiedCharacters.All(c => MobaPassives.FamilyOf(c.Number) == MobaFamily.Wizard);
+            var wizardOnly = skill.QualifiedCharacters.Count > 0 && skill.QualifiedCharacters.All(c => MobaPassives.FamilyOf(c.Number) is MobaFamily.Wizard or MobaFamily.RuneWizard);
             if (!wizardOnly)
             {
                 continue;

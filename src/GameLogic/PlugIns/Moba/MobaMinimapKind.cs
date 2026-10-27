@@ -37,6 +37,12 @@ public static class MobaMinimapKind
     /// <summary>The highest base class index (Rage Fighter).</summary>
     public const byte MaxBaseClassIndex = 6;
 
+    /// <summary>The first class number of the rune wizard family (28, 30 and 31). The client has no portrait for it yet, so it shows the Dark Wizard's.</summary>
+    public const byte FirstRuneWizardClassNumber = 28;
+
+    /// <summary>The last class number of the rune wizard family.</summary>
+    public const byte LastRuneWizardClassNumber = 31;
+
     private const byte KindMask = 0x0F;
     private const byte ClassMask = 0x07;
     private const int ClassShift = 4;
@@ -49,7 +55,8 @@ public static class MobaMinimapKind
     /// </summary>
     /// <param name="classNumber">The character class number.</param>
     /// <returns>The base class index, clamped to 0..<see cref="MaxBaseClassIndex"/>.</returns>
-    public static byte BaseClassIndex(byte classNumber) => (byte)Math.Min(classNumber >> 2, MaxBaseClassIndex);
+    public static byte BaseClassIndex(byte classNumber)
+        => classNumber is >= FirstRuneWizardClassNumber and <= LastRuneWizardClassNumber ? (byte)0 : (byte)Math.Min(classNumber >> 2, MaxBaseClassIndex);
 
     /// <summary>Packs the KIND byte of a minimap entry.</summary>
     /// <param name="kind">The entry kind (<see cref="Champion"/>, <see cref="Turret"/>, <see cref="Nexus"/>, <see cref="Ward"/>).</param>

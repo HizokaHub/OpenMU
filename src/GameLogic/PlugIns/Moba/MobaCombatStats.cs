@@ -88,7 +88,7 @@ public static class MobaCombatStats
     public static int AttackRangeOf(MobaFamily family) => family switch
     {
         MobaFamily.Elf => 6,
-        MobaFamily.Wizard or MobaFamily.Summoner => 6,
+        MobaFamily.Wizard or MobaFamily.Summoner or MobaFamily.RuneWizard => 6,
         MobaFamily.MagicGladiator => 3,
         MobaFamily.DarkLord => 4,
         _ => 2, // Knight, RageFighter

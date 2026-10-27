@@ -55,7 +55,7 @@ public class MobaMinimapKindTests
     [Test]
     public void UnknownClassesAreClamped()
     {
-        foreach (var classNumber in new byte[] { 28, 32, 100, 255 })
+        foreach (var classNumber in new byte[] { 32, 100, 255 })
         {
             Assert.That(MobaMinimapKind.BaseClassIndex(classNumber), Is.EqualTo(MobaMinimapKind.MaxBaseClassIndex), $"class {classNumber}");
             var packed = MobaMinimapKind.Pack(MobaMinimapKind.Champion, classNumber, false);

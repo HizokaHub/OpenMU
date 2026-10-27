@@ -76,7 +76,7 @@ public static class MobaProgression
         MobaFamily.Knight or MobaFamily.RageFighter => (1.30f, 1.02),          // bruiser-tank front line (melee: no free poke, gets kited - hits as hard as a caster)
         MobaFamily.DarkLord => (1.15f, 0.95),                                  // tanky utility
         MobaFamily.Elf => (0.90f, 1.08),                                       // ranged carry - safety IS the payoff, damage only a touch above neutral
-        MobaFamily.Wizard or MobaFamily.Summoner => (0.90f, 1.10),            // burst / DoT casters
+        MobaFamily.Wizard or MobaFamily.Summoner or MobaFamily.RuneWizard => (0.90f, 1.10),            // burst / DoT casters
         _ => (1.00f, 1.00),                                                    // Magic Gladiator - neutral
     };
 

@@ -30,6 +30,9 @@ public enum MobaFamily
 
     /// <summary>Rage Fighter / Fist Master.</summary>
     RageFighter,
+
+    /// <summary>Rune Wizard (imported from Season 21).</summary>
+    RuneWizard,
 }
 
 /// <summary>
@@ -57,6 +60,7 @@ public static class MobaPassives
         16 or 17 => MobaFamily.DarkLord,
         20 or 22 or 23 => MobaFamily.Summoner,
         24 or 25 => MobaFamily.RageFighter,
+        28 or 30 or 31 => MobaFamily.RuneWizard,
         _ => MobaFamily.Wizard,
     };
 
@@ -111,6 +115,9 @@ public static class MobaPassives
                     break;
                 case MobaFamily.Summoner when skill is not null:
                     MobaSpiritEchoPassive.OnSpellHit(champion, victim, hit);
+                    break;
+                case MobaFamily.RuneWizard when skill is not null:
+                    MobaRuneMarkPassive.OnSpellHit(champion, victim, hit);
                     break;
             }
 

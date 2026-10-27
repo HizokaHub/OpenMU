@@ -1194,7 +1194,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         // Peel: if an allied carry near me is low and someone is on them, switch to that attacker.
         var alliedCarryUnderThreat = c.AllyChampsNear
             .Where(ally => !ReferenceEquals(ally, this)
-                           && MobaPassives.FamilyOf(ally) is MobaFamily.Elf or MobaFamily.Wizard or MobaFamily.Summoner
+                           && MobaPassives.FamilyOf(ally) is MobaFamily.Elf or MobaFamily.Wizard or MobaFamily.Summoner or MobaFamily.RuneWizard
                            && (ally.Attributes?[Stats.CurrentHealth] ?? 1f) / Math.Max(1f, ally.Attributes?[Stats.MaximumHealth] ?? 1f) < 0.4f)
             .SelectMany(ally => MobaCombatLog.RecentAttackersOf(ally, TimeSpan.FromSeconds(2)).OfType<Player>())
             .FirstOrDefault(atk => atk.IsAlive && MobaTeams.AreEnemies(this, atk) && atk.GetDistanceTo(c.Pos) <= AcquireRangeTiles);
@@ -2028,6 +2028,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         [MobaFamily.RageFighter] = new short[] { 263, 262, 261, 55, 56, 60 },
         [MobaFamily.Elf] = new short[] { 51, 235, 52, 24, 67, 76 },
         [MobaFamily.Wizard] = new short[] { 39, 2, 3, 5, 9, 8 },
+        [MobaFamily.RuneWizard] = new short[] { 2, 9, 11, 3, 7, 17 },
         [MobaFamily.Summoner] = new short[] { 238, 237, 214, 215, 230, 45 },
         [MobaFamily.DarkLord] = new short[] { 65, 64, 60, 62, 66, 3 },
     };

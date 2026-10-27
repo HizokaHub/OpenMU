@@ -278,6 +278,14 @@ public static class MobaShopCatalog
         Consumable(7, MobaShopTier.T3, level: 0, quantity: 3); // Potion of Bless (damage buff)
         Consumable(7, MobaShopTier.T3, level: 1, quantity: 3); // Potion of Soul (attack speed buff)
 
+        // The Rune Wizard is a magician: until its own Season 21 sets and weapons are imported it is sold everything the Wizard is
+        // (staffs, shields, wings and the two sets of every tier), as its own entries so that the vendor groups them by family.
+        var runeWizardEntries = entries
+            .Where(e => e.Families is { Length: 1 } && e.Families[0] == MobaFamily.Wizard)
+            .Select(e => e with { Families = new[] { MobaFamily.RuneWizard } })
+            .ToList();
+        entries.AddRange(runeWizardEntries);
+
         return entries;
     }
 }

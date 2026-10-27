@@ -123,6 +123,7 @@ public static class MobaArchetype
         [MobaFamily.RageFighter] = (BruiserRecovery, BruiserAttack),
         [MobaFamily.Wizard] = (CasterRecovery, CasterAttack),
         [MobaFamily.Summoner] = (CasterRecovery, CasterAttack),
+        [MobaFamily.RuneWizard] = (CasterRecovery, CasterAttack),
         [MobaFamily.Elf] = (ElfRecovery, ElfAttack),
         [MobaFamily.DarkLord] = (DarkLordRecovery, DarkLordAttack),
         [MobaFamily.MagicGladiator] = (GladiatorRecovery, GladiatorAttack),

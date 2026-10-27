@@ -34,6 +34,7 @@ public static class MobaLoadouts
         DarkLord,
         Summoner,
         RageFighter,
+        RuneWizard,
     }
 
     private readonly record struct WeaponSpec(byte Group, short Number, byte Slot);
@@ -48,6 +49,7 @@ public static class MobaLoadouts
         [Family.DarkLord] = new[] { new WeaponSpec(2, 8, 1) },                                 // Battle Scepter (sets IsScepterEquipped for Force / Fire Burst)
         [Family.Summoner] = new[] { new WeaponSpec(5, 0, 1) },                                 // Skull Staff / stick
         [Family.RageFighter] = new[] { new WeaponSpec(0, 32, 1) },                             // Sacred Glove (sets IsGloveWeaponEquipped for RF skills)
+        [Family.RuneWizard] = new[] { new WeaponSpec(5, 0, 1) },                               // Skull Staff (the Season 21 rune mace is not imported yet)
     };
 
     // Testing loadout: EVERY castable damage / area / CC skill the family has, so all of a
@@ -86,6 +88,11 @@ public static class MobaLoadouts
         // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash,
         // Ignore Defense, Increase Health, Increase Block
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
+        // Rune Wizard - provisional kit made of Season 6 skills until its own (Season 21) skills and effects are imported:
+        // Magic Arrow = Energy Ball, Plasma Ball = Power Wave, Lightning Storm = Meteorite, Rune Phrase = Evil Spirit,
+        // Burst = Expansion of Wizardry; plus Fire Ball, Ice, Flame and Lightning to pick from, and Soul Barrier.
+        // Haste (attack speed) needs a buff of its own and is not in the kit yet.
+        [Family.RuneWizard] = new short[] { 17, 11, 2, 9, 4, 3, 7, 5, 233, 16 },
     };
 
     // The buffs of every class: the champion always has them, they are not part of the picks.
@@ -119,6 +126,7 @@ public static class MobaLoadouts
         [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 22 },
         [Family.Summoner] = new short[] { 214, 215, 223, 224, 225, 230 },
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265 },
+        [Family.RuneWizard] = new short[] { 17, 11, 2, 9, 3, 7 },
     };
 
     /// <summary>
@@ -245,6 +253,7 @@ public static class MobaLoadouts
         16 or 17 => Family.DarkLord,
         20 or 22 or 23 => Family.Summoner,
         24 or 25 => Family.RageFighter,
+        28 or 30 or 31 => Family.RuneWizard,
         _ => Family.Wizard,
     };
 }

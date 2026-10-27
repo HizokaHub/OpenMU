@@ -150,7 +150,7 @@ public class RuneWizardClassTests
 
         Assert.That(clone.LearnedSkills.Count, Is.GreaterThan(4));
         Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
-        Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.Wizard));
+        Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.RuneWizard));
         Assert.That(MobaBotChatCommandPlugIn.ResolveClassNumber("rw"), Is.EqualTo(RuneWizardNumber));
     }
 }
