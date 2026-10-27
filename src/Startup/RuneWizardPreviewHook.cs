@@ -6,13 +6,17 @@ namespace MUnique.OpenMU.Startup;
 
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Configuration;
-using MUnique.OpenMU.Persistence.InMemory;
+using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.Persistence.Initialization.CharacterClasses;
 
 /// <summary>
 /// Adds the rune wizard class to the configuration in memory when the server is started with the
 /// <see cref="EnvironmentVariable"/> environment variable set to <c>1</c> (see <see cref="RuneWizardPreview"/>). Nothing is written to the database.
 /// </summary>
+/// <remarks>
+/// The configuration's collections only accept entities of the persistence provider in use, so the entities are created by a context
+/// of the provider which is never saved (and is disposed right away).
+/// </remarks>
 internal static class RuneWizardPreviewHook
 {
     /// <summary>
@@ -24,8 +28,9 @@ internal static class RuneWizardPreviewHook
     /// Adds the class if the preview is enabled and the configuration doesn't contain it yet.
     /// </summary>
     /// <param name="gameConfiguration">The configuration of the game server which is about to start.</param>
+    /// <param name="contextProvider">The persistence context provider, which creates the entities.</param>
     /// <param name="logger">The logger.</param>
-    internal static void ApplyIfEnabled(GameConfiguration? gameConfiguration, ILogger logger)
+    internal static void ApplyIfEnabled(GameConfiguration? gameConfiguration, IPersistenceContextProvider contextProvider, ILogger logger)
     {
         if (gameConfiguration is null || Environment.GetEnvironmentVariable(EnvironmentVariable) != "1")
         {
@@ -37,8 +42,8 @@ internal static class RuneWizardPreviewHook
             return;
         }
 
-        using var memoryContext = new InMemoryPersistenceContextProvider().CreateNewContext();
-        var runeWizard = RuneWizardPreview.Apply(memoryContext, gameConfiguration);
+        using var unsavedContext = contextProvider.CreateNewContext();
+        var runeWizard = RuneWizardPreview.Apply(unsavedContext, gameConfiguration);
         logger.LogWarning("Rune wizard preview: the class {Number} exists in memory only (nothing is saved to the database).", runeWizard.Number);
     }
 }
