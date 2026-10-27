@@ -44,43 +44,48 @@ public class Storage : IStorage
         this._slotOffset = slotOffset;
         this._boxOffset = boxOffset;
 
-        var lastSlot = numberOfSlots + slotOffset - 1;
-        List<Item>? unfittingItems = null;
-        this.ItemStorage.Items
-            .Where(item => item.ItemSlot <= lastSlot && item.ItemSlot >= slotOffset)
-            .Where(item => item.Definition is not null)
-            .ForEach(item =>
-            {
-                if (!this.AddItemInternal((byte)(item.ItemSlot - slotOffset), item))
-                {
-                    (unfittingItems ??= new()).Add(item);
-                }
-            });
-
-        if (unfittingItems is null)
+        // Several merchants of the same definition (for example the wandering merchants and the ones of a map being initialized at the same time)
+        // share one item storage, whose list this constructor enumerates and may modify: serialize the construction.
+        lock (itemStorage)
         {
-            return;
-        }
-
-        // we first try to add them.
-        for (var index = unfittingItems.Count - 1; index >= 0; index--)
-        {
-            var item = unfittingItems[index];
-            var freeSlot = this.CheckInvSpace(item);
-
-            if (freeSlot is not null && this.ContainsSlot(freeSlot.Value) && this.AddItem(freeSlot.Value, item))
-            {
-                unfittingItems.RemoveAt(index);
-                if (this.ItemStorage.Items.Count(i => item == i) > 1)
+            var lastSlot = numberOfSlots + slotOffset - 1;
+            List<Item>? unfittingItems = null;
+            this.ItemStorage.Items
+                .Where(item => item.ItemSlot <= lastSlot && item.ItemSlot >= slotOffset)
+                .Where(item => item.Definition is not null)
+                .ForEach(item =>
                 {
-                    this.ItemStorage.Items.Remove(item);
+                    if (!this.AddItemInternal((byte)(item.ItemSlot - slotOffset), item))
+                    {
+                        (unfittingItems ??= new()).Add(item);
+                    }
+                });
+
+            if (unfittingItems is null)
+            {
+                return;
+            }
+
+            // we first try to add them.
+            for (var index = unfittingItems.Count - 1; index >= 0; index--)
+            {
+                var item = unfittingItems[index];
+                var freeSlot = this.CheckInvSpace(item);
+
+                if (freeSlot is not null && this.ContainsSlot(freeSlot.Value) && this.AddItem(freeSlot.Value, item))
+                {
+                    unfittingItems.RemoveAt(index);
+                    if (this.ItemStorage.Items.Count(i => item == i) > 1)
+                    {
+                        this.ItemStorage.Items.Remove(item);
+                    }
                 }
             }
-        }
 
-        if (unfittingItems.Count > 0)
-        {
-            throw new ArgumentException($"Some items do not fit into the storage: {string.Join(';', unfittingItems)}");
+            if (unfittingItems.Count > 0)
+            {
+                throw new ArgumentException($"Some items do not fit into the storage: {string.Join(';', unfittingItems)}");
+            }
         }
     }
 
