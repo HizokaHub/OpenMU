@@ -49,6 +49,12 @@ public static class MobaGolden
     /// <summary>Strength of the reinforcement over a lane creep (life and damage).</summary>
     public const float ReinforcementPower = 4f;
 
+    /// <summary>The share of a normal structure hit which the nexus takes from a golden monster (2026-10-27: it fell in seconds to the monsters of its city with 0.4).</summary>
+    public const double NexusShareFactor = 0.04;
+
+    /// <summary>Golden monsters standing in the city of each base when the invasion begins.</summary>
+    public const int CityPopulation = 8;
+
     /// <summary>Seconds the golden dragons fly over the map before the invaders appear.</summary>
     public const int FlyoverSeconds = 60;
 
@@ -401,7 +407,7 @@ public static class MobaGolden
         }
         else if (defender is Monster monster && MobaStructures.IsStructure(monster))
         {
-            raw = max * info.StructureShare * (MobaStructures.GetStructureType(monster) == MobaStructureType.Nexus ? 0.4 : 1.0);
+            raw = max * info.StructureShare * (MobaStructures.GetStructureType(monster) == MobaStructureType.Nexus ? NexusShareFactor : 1.0);
         }
         else if (defender is Monster { SummonedBy: not null })
         {
@@ -732,7 +738,7 @@ public static class MobaGolden
         {
             var nexus = MobaLayout.NexusOf(team);
             var cityRadius = CityRadiusOf(team);
-            for (var i = 0; i < 14; i++)
+            for (var i = 0; i < CityPopulation; i++)
             {
                 var angle = rng.NextDouble() * Math.PI * 2;
                 var distance = 8 + (rng.NextDouble() * Math.Max(1, cityRadius - 10));

@@ -156,13 +156,13 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
     }
 
     /// <summary>
-    /// The creature of the Elf for her HUD and minimap: <c>C1 0C D5 29 present mode(0 follows, 1 commanded, 2 holds its post) keyLo keyHi hp% x y rank</c>
-    /// (present 0 = she has none). Sent to every champion; the ones without a summon get the short "none" once in a while,
+    /// The creature of the Elf for her HUD and minimap: <c>C1 0C D5 29 present mode(0 follows, 1 commanded, 2 holds its post) keyLo keyHi hp% x y rank level progress% appearance cooldown1 cooldown2</c>
+    /// (present 0 = she has none; the appearance is the skill number 30-36 and the cooldowns are in tenths of a second). Sent to every champion; the ones without a summon get the short "none" once in a while,
     /// which also clears a stale icon.
     /// </summary>
     private static async ValueTask SendSummonAsync(IConnection connection, Player player)
     {
-        const int Length = 14;
+        const int Length = 17;
         var summon = MobaSummons.Of(player);
         if (summon is null && !player.MobaSummonControl && MobaLoadouts.SummonsFor(player.SelectedCharacter?.CharacterClass?.Number ?? 0).Count == 0)
         {
@@ -186,6 +186,9 @@ public class MobaMinimapPeriodicPlugIn : IPeriodicTaskPlugIn
             span[11] = (byte)MobaSummons.RankOf(player);
             span[12] = (byte)Math.Clamp(player.MobaSummonLevel, 1, MobaSummons.MaxSummonLevel);
             span[13] = (byte)MobaSummons.ProgressPercent(player);
+            span[14] = summon is null ? (byte)0 : (byte)MobaSummons.AppearanceOf(player);
+            span[15] = summon is null ? (byte)0 : MobaSummons.CooldownTenths(player, 0);
+            span[16] = summon is null ? (byte)0 : MobaSummons.CooldownTenths(player, 1);
             return Length;
         }
 

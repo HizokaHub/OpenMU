@@ -62,11 +62,11 @@ internal sealed class PlayerMapTransitions
 
             await player.ForEachWorldObserverAsync<IShowSkillAnimationPlugIn>(p => p.ShowSkillAnimationAsync(player, player, teleportSkill, true), true).ConfigureAwait(false);
 
-            await Task.Delay(300).ConfigureAwait(false);
+            await Task.Delay(player.IsMobaClone ? 120 : 300).ConfigureAwait(false);
 
             await player.ForEachWorldObserverAsync<IObjectsOutOfScopePlugIn>(p => p.ObjectsOutOfScopeAsync(player.GetAsEnumerable()), false).ConfigureAwait(false);
 
-            await Task.Delay(1500).ConfigureAwait(false);
+            await Task.Delay(player.IsMobaClone ? 220 : 1500).ConfigureAwait(false);
 
             if (player.IsAlive)
             {

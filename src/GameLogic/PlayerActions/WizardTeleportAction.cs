@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions;
 
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Pathfinding;
 
@@ -31,6 +32,12 @@ public class WizardTeleportAction
     /// <param name="target">The target.</param>
     public async ValueTask TryTeleportWithSkillAsync(Player player, Point target)
     {
+        if (player.IsMobaClone)
+        {
+            await TryMobaBlinkAsync(player, target).ConfigureAwait(false);
+            return;
+        }
+
         // todo: additional checks:
         //  - During castle siege, can't teleport over the non-destroyed gates (simple y-axis check)
         if (!player.IsAtSafezone()
@@ -78,6 +85,53 @@ public class WizardTeleportAction
         {
             _ = Task.Run(() => targetPlayer.TeleportAsync(target, skill));
         }
+    }
+
+    /// <summary>
+    /// The Teleport skill in a MOBA match (see <see cref="PlugIns.Moba.MobaBlink"/>): a jump to the tile clicked, shortened to the range of the skill when
+    /// it was clicked farther away; it ignores the safezone flags of the map (the bases are not one for the jumps, the rules are the ones of the MOBA) and
+    /// always answers, so the client never stays hidden in its teleport animation. Says in the server log why a jump was refused.
+    /// </summary>
+    private static async ValueTask TryMobaBlinkAsync(Player player, Point requested)
+    {
+        var skillEntry = player.SkillList?.GetSkill(TeleportSkillId);
+        var target = requested;
+        string? refusal = null;
+        if (!player.IsActive() || player.CurrentMap is null)
+        {
+            refusal = "the champion is not active";
+        }
+        else if (skillEntry?.Skill is null)
+        {
+            refusal = "the champion has no Teleport skill";
+        }
+        else if (!PlugIns.Moba.MobaBlink.TryClampTarget(player, requested, skillEntry.Skill.Range, out target))
+        {
+            refusal = $"no walkable tile towards {requested}";
+        }
+        else if (!PlugIns.Moba.MobaBlink.Allows(player, target))
+        {
+            refusal = "pre-match, enemy base or no AG";
+        }
+        else if (!CanPlayerBeTeleported(player))
+        {
+            refusal = "crowd control";
+        }
+        else if (!await player.TryConsumeForSkillAsync(skillEntry).ConfigureAwait(false))
+        {
+            refusal = "not enough mana";
+        }
+
+        if (refusal is null && skillEntry?.Skill is { } skill)
+        {
+            PlugIns.Moba.MobaBlink.PayGauge(player);
+            _ = Task.Run(() => player.TeleportAsync(target, skill));
+            return;
+        }
+
+        player.Logger.LogInformation("[MOBA-BLINK] {Player} cannot teleport to {Target}: {Reason}.", player, requested, refusal);
+        await PlugIns.Moba.MobaBlink.TellMissingGaugeAsync(player).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<ITeleportPlugIn>(p => p.ShowTeleportedAsync()).ConfigureAwait(false);
     }
 
     private static bool CanPlayerBeTeleported(Player player)

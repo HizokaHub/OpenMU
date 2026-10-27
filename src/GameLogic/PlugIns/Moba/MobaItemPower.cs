@@ -63,7 +63,7 @@ public static class MobaItemPower
             return 0;
         }
 
-        var entry = MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == category && e.Group == definition.Group && e.Number == definition.Number);
+        var entry = MobaShopCatalog.Entries.FirstOrDefault(e => (e.Category == category || (category == MobaShopCategory.Sets && e.Category == MobaShopCategory.SetsSustain)) && e.Group == definition.Group && e.Number == definition.Number);
         return entry is null ? 0 : (int)entry.Tier;
     }
 

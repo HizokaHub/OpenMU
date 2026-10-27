@@ -107,6 +107,47 @@ public static class MobaBlink
         return !MobaBaseAura.Contains(enemy, target.X, target.Y);
     }
 
+    /// <summary>
+    /// The tile a jump lands on: the clicked one, or - when it is farther than the range of the skill - the last walkable tile of the line towards it
+    /// within the range (a click too far still makes a jump of the full range instead of being refused).
+    /// </summary>
+    /// <param name="player">The player who casts it.</param>
+    /// <param name="requested">The tile clicked.</param>
+    /// <param name="range">The range of the skill in tiles.</param>
+    /// <param name="target">The tile to jump to.</param>
+    /// <returns><see langword="false"/> if no walkable tile is reachable (the target is the requested one then).</returns>
+    public static bool TryClampTarget(Player player, Point requested, int range, out Point target)
+    {
+        target = requested;
+        if (player.CurrentMap?.Terrain is not { } terrain)
+        {
+            return false;
+        }
+
+        var from = player.Position;
+        var dx = requested.X - from.X;
+        var dy = requested.Y - from.Y;
+        var distance = Math.Sqrt((dx * dx) + (dy * dy));
+        var reach = Math.Min(distance, Math.Max(1, range));
+        if (distance < 0.5)
+        {
+            return false;
+        }
+
+        for (var step = (int)Math.Floor(reach); step >= 1; step--)
+        {
+            var x = (int)Math.Round(from.X + (dx / distance * step));
+            var y = (int)Math.Round(from.Y + (dy / distance * step));
+            if (x >= 0 && y >= 0 && x < terrain.WalkMap.GetLength(0) && y < terrain.WalkMap.GetLength(1) && terrain.WalkMap[x, y])
+            {
+                target = new Point((byte)x, (byte)y);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Takes the AG of the jump from the gauge (called once the jump was paid in mana and started).</summary>
     /// <param name="player">The player who jumps.</param>
     /// <returns>Always <see langword="true"/>: the gauge was checked by <see cref="Allows"/>.</returns>

@@ -142,6 +142,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 8 && span[3] == 0x38)
+        {
+            // C1 08 D5 38 slot keyLo keyHi: a skill of the summon (key 1 or 2 of the control mode) on the object under the cursor (0xFFFF = none).
+            await MobaSummons.CastSkillAsync(player, span[4], (ushort)(span[5] | (span[6] << 8))).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 9 && span[3] == 0x28)
         {
             // C1 09 D5 28 kind x y keyLo keyHi: an order for the summon (1 walk to the tile, 2 attack the object).

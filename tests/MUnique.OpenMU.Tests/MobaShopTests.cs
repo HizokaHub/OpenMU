@@ -54,6 +54,40 @@ public class MobaShopTests
         Assert.That(missing, Is.Empty);
     }
 
+    /// <summary>A set is sold once: no set repeats for a class (with other option mixes), and a set number is in the same tier for every class.</summary>
+    [Test]
+    public void EverySetIsSoldOnce()
+    {
+        var sets = MobaShopCatalog.Entries.Where(e => e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain && e.Families is { Length: > 0 }).ToList();
+        var repeated = sets
+            .GroupBy(e => (Family: e.Families![0], e.Group, e.Number))
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.Key.Family} set {g.Key.Number} piece {g.Key.Group} x{g.Count()}")
+            .ToList();
+        Assert.That(repeated, Is.Empty);
+
+        var tiersOfASet = sets.GroupBy(e => e.Number).Where(g => g.Select(e => e.Tier).Distinct().Count() > 1).Select(g => $"set {g.Key}").ToList();
+        Assert.That(tiersOfASet, Is.Empty);
+    }
+
+    /// <summary>The champion of every family can wear the armour of every set the shop lists for it (the Magic Gladiator has no helm, the Rage Fighter no pants in its own sets).</summary>
+    /// <param name="classNumber">The class number.</param>
+    [TestCaseSource(nameof(FamilyClassNumbers))]
+    public void EveryListedSetCanBeWorn(byte classNumber)
+    {
+        MobaBorrowedSets.EnsureConfigured(this._gameConfiguration);
+        var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+        var family = MobaPassives.FamilyOf(classNumber);
+        var unwearable = MobaShopCatalog.Entries
+            .Where(e => e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain && e.Families is { Length: > 0 } && e.Families[0] == family)
+            .Where(e => e.Group == 8)
+            .Where(e => this._gameConfiguration.Items.FirstOrDefault(d => d.Group == e.Group && d.Number == e.Number) is not { } definition || !definition.QualifiedCharacters.Contains(characterClass))
+            .Select(e => $"{characterClass.Name}: set {e.Number} (armor) is not wearable")
+            .ToList();
+
+        Assert.That(unwearable, Is.Empty);
+    }
+
     /// <summary>Every family sees items on every menu page, they all fit on the merchant grid and no page is nearly empty.</summary>
     /// <param name="classNumber">The class number.</param>
     [TestCaseSource(nameof(FamilyClassNumbers))]

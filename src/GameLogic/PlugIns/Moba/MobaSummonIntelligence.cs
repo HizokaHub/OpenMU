@@ -41,6 +41,7 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
     private DateTime _nextAttackUtc;
     private readonly MobaRouteWalker _walker = new();
     private int _moveFailures;
+    private int _pendingSlot = -1;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MobaSummonIntelligence"/> class.
@@ -77,6 +78,64 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
 
         this._skillReadyAt[name] = now + TimeSpan.FromSeconds(cooldownSeconds);
         return true;
+    }
+
+    /// <summary>Seconds until a skill of the creature is ready again (0 when it is ready).</summary>
+    /// <param name="name">The skill.</param>
+    /// <returns>The seconds.</returns>
+    public double RemainingSeconds(string name)
+        => this._skillReadyAt.TryGetValue(name, out var readyAt) ? Math.Max(0, (readyAt - DateTime.UtcNow).TotalSeconds) : 0;
+
+    /// <summary>
+    /// The owner orders one of the skills of the creature (keys 1 and 2 of the control mode). A skill without target is cast at once; one with a target
+    /// is cast on the target of the order (or the nearest enemy when there is none), walking up to it first when it is too far.
+    /// </summary>
+    /// <param name="slot">The skill (0 or 1).</param>
+    /// <param name="target">The target under the cursor of the owner, if any.</param>
+    /// <returns>A message for the owner when the skill could not be used, otherwise <see langword="null"/>.</returns>
+    public async ValueTask<string?> OrderSkillAsync(int slot, IAttackable? target)
+    {
+        if (this._appearance == 0)
+        {
+            this._appearance = MobaSummons.AppearanceOf(this.Owner);
+        }
+
+        var skills = MobaSummonSkills.SkillsOf(this._appearance);
+        if (slot < 0 || slot >= skills.Count)
+        {
+            return null;
+        }
+
+        var skill = skills[slot];
+        if (MobaSummons.RankOf(this.Owner) < skill.MinRank)
+        {
+            return $"[MOBA] {skill.Name}: la tienes desde el rango {skill.MinRank} de la skill de invocación.";
+        }
+
+        var remaining = this.RemainingSeconds(skill.Key);
+        if (remaining > 0)
+        {
+            return $"[MOBA] {skill.Name}: en enfriamiento ({Math.Ceiling(remaining):0} s).";
+        }
+
+        if (skill.Self)
+        {
+            this.Ready(skill.Key, skill.CooldownSeconds);
+            await MobaSummonSkills.CastAsync(this, this._appearance, slot, null).ConfigureAwait(false);
+            return null;
+        }
+
+        target ??= this._attackOrder is { } ordered && this.IsValidEnemy(ordered) ? ordered : this.FindEnemy(this.Monster.CurrentMap!, this.Monster.Position, this.Monster.Position);
+        if (target is null || !this.IsValidEnemy(target))
+        {
+            return $"[MOBA] {skill.Name}: no hay un enemigo al que lanzarla.";
+        }
+
+        this._pendingSlot = slot;
+        this._moveOrder = null;
+        this._attackOrder = target;
+        await this.KickAsync(stopWalking: false).ConfigureAwait(false);
+        return null;
     }
 
     /// <summary>The enemies (champions, minions, summons; not structures) around a point.</summary>
@@ -202,6 +261,11 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
         var position = monster.Position;
         var attackRange = Math.Max((int)monster.Definition.AttackRange, 1);
 
+        if (this._attackOrder is null)
+        {
+            this._pendingSlot = -1;
+        }
+
         // 1. An ordered attack wins over everything.
         if (this._attackOrder is { } ordered)
         {
@@ -294,11 +358,32 @@ public sealed class MobaSummonIntelligence : SummonedMonsterIntelligence
         }
 
         var reach = MobaSummonSkills.ReachOf(this._appearance, attackRange <= 2 ? attackRange + 1 : attackRange);
+        var pending = this._pendingSlot >= 0 && this._pendingSlot < MobaSummonSkills.SkillsOf(this._appearance).Count
+            ? MobaSummonSkills.SkillsOf(this._appearance)[this._pendingSlot]
+            : (MobaSummonSkills.SkillInfo?)null;
+        if (pending is { } wanted)
+        {
+            reach = Math.Max(wanted.Range, 1);
+        }
+
         if (Distance(monster.Position, target.Position) <= reach)
         {
             if (monster.IsWalking)
             {
                 await monster.StopWalkingAsync().ConfigureAwait(false);
+            }
+
+            if (pending is { } skill)
+            {
+                // The skill the owner asked for, now that the target is in reach.
+                var slot = this._pendingSlot;
+                this._pendingSlot = -1;
+                if (this.Ready(skill.Key, skill.CooldownSeconds))
+                {
+                    await MobaSummonSkills.CastAsync(this, this._appearance, slot, target).ConfigureAwait(false);
+                    this._nextAttackUtc = DateTime.UtcNow + TimeSpan.FromSeconds(0.8);
+                    return;
+                }
             }
 
             if (DateTime.UtcNow >= this._nextAttackUtc)

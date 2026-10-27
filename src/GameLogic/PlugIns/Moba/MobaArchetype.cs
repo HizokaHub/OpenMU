@@ -390,12 +390,12 @@ public static class MobaArchetype
         public Catalog()
         {
             var alternates = MobaShopCatalog.Entries
-                .Where(e => e.Category == MobaShopCategory.Sets && e.Variant is MobaShopVariant.Bulwark or MobaShopVariant.Utility && e.Families is { Length: > 0 })
+                .Where(e => (e.Category == MobaShopCategory.Sets || e.Category == MobaShopCategory.SetsSustain) && e.Variant is MobaShopVariant.Bulwark or MobaShopVariant.Utility && e.Families is { Length: > 0 })
                 .Select(e => (Family: e.Families![0], e.Tier, e.Number))
                 .Distinct()
                 .ToList();
 
-            foreach (var entry in MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Sets && e.Families is { Length: > 0 }))
+            foreach (var entry in MobaShopCatalog.Entries.Where(e => (e.Category == MobaShopCategory.Sets || e.Category == MobaShopCategory.SetsSustain) && e.Families is { Length: > 0 }))
             {
                 var family = entry.Families![0];
                 var isAlternate = alternates.Any(a => a.Family == family && a.Number == entry.Number);

@@ -73,6 +73,8 @@ public static class MobaSummons
     /// <summary>Defense gained per level of the creature.</summary>
     public const float LevelDefenseBonus = 6f;
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Player, object> TestOwners = new();
+
     // Kill points needed in total to reach level 2, 3, ... 10.
     private static readonly int[] PointsToReach = { 4, 9, 15, 22, 30, 39, 49, 60, 72 };
 
@@ -136,7 +138,7 @@ public static class MobaSummons
             return;
         }
 
-        owner.MobaSummonPoints += points;
+        owner.MobaSummonPoints += IsTesting(owner) ? points * 3 : points;
         var level = LevelForPoints(owner.MobaSummonPoints);
         if (level <= owner.MobaSummonLevel)
         {
@@ -286,6 +288,83 @@ public static class MobaSummons
         }
     }
 
+    /// <summary>The owner casts a skill of the creature (key 1 or 2 of the control mode).</summary>
+    /// <param name="owner">The champion.</param>
+    /// <param name="slot">The skill (0 or 1).</param>
+    /// <param name="targetKey">The object id of the target under the cursor (0xFFFF for none).</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask CastSkillAsync(Player owner, byte slot, ushort targetKey)
+    {
+        if (!owner.IsMobaClone || !owner.MobaSummonControl || Of(owner) is not { } summon || owner.CurrentMap is not { } map)
+        {
+            return;
+        }
+
+        IAttackable? target = null;
+        if (targetKey != ushort.MaxValue
+            && map.GetObject(targetKey) is IAttackable candidate
+            && candidate.IsAlive
+            && MobaTeams.AreEnemies(summon.Monster, candidate)
+            && MobaVision.CanTarget(owner, candidate))
+        {
+            target = candidate;
+        }
+
+        if (await summon.Brain.OrderSkillAsync(slot, target).ConfigureAwait(false) is { } message)
+        {
+            await owner.ShowBlueMessageAsync(message).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The cooldown left of the skills of the creature of the champion, in tenths of a second (for the HUD).</summary>
+    /// <param name="owner">The champion.</param>
+    /// <param name="slot">The skill (0 or 1).</param>
+    /// <returns>The tenths of a second (0 when ready or when there is no such skill).</returns>
+    public static byte CooldownTenths(Player owner, int slot)
+    {
+        if (Of(owner) is not { } summon || slot >= MobaSummonSkills.SkillsOf(AppearanceOf(owner)).Count)
+        {
+            return 0;
+        }
+
+        var skill = MobaSummonSkills.SkillsOf(AppearanceOf(owner))[slot];
+        return (byte)Math.Clamp((int)Math.Ceiling(summon.Brain.RemainingSeconds(skill.Key) * 10), 0, 255);
+    }
+
+    /// <summary>Whether the champion tests its creature (invulnerable, hits harder and earns triple points): dev command <c>/mobainvoca fuerte</c>.</summary>
+    /// <param name="owner">The champion.</param>
+    /// <returns><see langword="true"/> in test mode.</returns>
+    public static bool IsTesting(Player owner) => TestOwners.TryGetValue(owner, out _);
+
+    /// <summary>Switches the test mode of the creature of the champion on or off.</summary>
+    /// <param name="owner">The champion.</param>
+    /// <returns>The new state.</returns>
+    public static bool ToggleTesting(Player owner)
+    {
+        if (IsTesting(owner))
+        {
+            TestOwners.Remove(owner);
+        }
+        else
+        {
+            TestOwners.Add(owner, new object());
+        }
+
+        Refresh(owner);
+        return IsTesting(owner);
+    }
+
+    /// <summary>Sets the level of the creature at once (dev command <c>/mobainvoca nivel N</c>).</summary>
+    /// <param name="owner">The champion.</param>
+    /// <param name="level">The level (1-10).</param>
+    public static void SetLevel(Player owner, int level)
+    {
+        level = Math.Clamp(level, 1, MaxSummonLevel);
+        owner.MobaSummonLevel = level;
+        owner.MobaSummonPoints = level == 1 ? 0 : PointsToReach[level - 2];
+        Refresh(owner);
+    }
+
     /// <summary>Called when the summon is gone (it died, was replaced or the match ended): the control mode ends with it.</summary>
     /// <param name="owner">The champion.</param>
     public static void OnSummonGone(Player owner)
@@ -313,7 +392,7 @@ public static class MobaSummons
         var level = owner.MobaLevel;
         var rank = Math.Max(RankOf(owner), 1);
         var summonLevel = Math.Clamp(owner.MobaSummonLevel, 1, MaxSummonLevel);
-        var damageMul = DamageMultiplierAt(level, rank, summonLevel);
+        var damageMul = DamageMultiplierAt(level, rank, summonLevel) * (IsTesting(owner) ? 4f : 1f);
         var health = HealthAt(level, rank, summonLevel);
         var before = monster.Attributes[Stats.MaximumHealth];
 
@@ -322,6 +401,7 @@ public static class MobaSummons
         SetAbsolute(monster, Stats.MaximumPhysBaseDmg, BaseMaxDamage * damageMul);
         SetAbsolute(monster, Stats.DefenseBase, BaseDefense + (LevelDefenseBonus * (summonLevel - 1)));
         SetAbsolute(monster, Stats.AttackRatePvm, AttackRate);
+        SetAbsolute(monster, Stats.DamageReceiveDecrement, IsTesting(owner) ? 0f : 1f);
         SetAbsolute(monster, Stats.DefenseRatePvm, DefenseRate);
 
         // A summon which grows keeps its wounds (the new life is added), a fresh one starts full.

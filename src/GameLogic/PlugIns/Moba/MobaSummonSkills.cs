@@ -65,6 +65,96 @@ public static class MobaSummonSkills
         _ => Array.Empty<string>(),
     };
 
+    /// <summary>One skill of a creature, as the owner sees it in the control mode.</summary>
+    /// <param name="Key">The name of its cooldown.</param>
+    /// <param name="Name">Its name.</param>
+    /// <param name="CooldownSeconds">Its cooldown.</param>
+    /// <param name="MinRank">The rank of the summon skill from which the creature has it.</param>
+    /// <param name="Self">Whether it needs no target (it affects the creature itself).</param>
+    /// <param name="Range">The tiles to its target from which it is cast.</param>
+    public readonly record struct SkillInfo(string Key, string Name, double CooldownSeconds, int MinRank, bool Self, int Range);
+
+    /// <summary>The skills of an appearance (one or two): the first one is on key 1, the second one on key 2 of the control mode.</summary>
+    /// <param name="appearance">The appearance (skill number 30-36).</param>
+    /// <returns>The skills.</returns>
+    public static IReadOnlyList<SkillInfo> SkillsOf(short appearance) => appearance switch
+    {
+        Goblin => new[] { new SkillInfo("rush", "Rapidez", 14, 1, true, 0) },
+        StoneGolem => new[] { new SkillInfo("quake", "Golpe sísmico", 9, 1, false, 3), new SkillInfo("stoneskin", "Piel de piedra", 20, SecondSkillRank, true, 0) },
+        Assassin => new[] { new SkillInfo("stab", "Puñalada", 7, 1, false, 3), new SkillInfo("leap", "Salto", 10, SecondSkillRank, false, 8) },
+        EliteYeti => new[] { new SkillInfo("frostbreath", "Aliento helado", 10, 1, false, 4), new SkillInfo("frostskin", "Piel de escarcha", 18, SecondSkillRank, true, 0) },
+        DarkKnight => new[] { new SkillInfo("spin", "Tajo giratorio", 7, 1, false, 3), new SkillInfo("warcry", "Grito de guerra", 16, SecondSkillRank, true, 0) },
+        Bali => new[] { new SkillInfo("fireball", "Bola de fuego", 5, 1, false, 7) },
+        Soldier => new[] { new SkillInfo("volley", "Disparo múltiple", 7, 1, false, 6) },
+        _ => Array.Empty<SkillInfo>(),
+    };
+
+    /// <summary>
+    /// Casts one of the skills on the order of the owner (the cooldown is checked and armed by the caller). Returns <see langword="false"/> when the skill needs
+    /// a target and there is none.
+    /// </summary>
+    /// <param name="brain">The brain of the creature.</param>
+    /// <param name="appearance">The appearance.</param>
+    /// <param name="slot">The skill (0 or 1).</param>
+    /// <param name="target">The target, if the skill needs one.</param>
+    /// <returns><see langword="true"/> if the skill was cast.</returns>
+    public static async ValueTask<bool> CastAsync(MobaSummonIntelligence brain, short appearance, int slot, IAttackable? target)
+    {
+        var skills = SkillsOf(appearance);
+        if (slot < 0 || slot >= skills.Count || (!skills[slot].Self && target is null))
+        {
+            return false;
+        }
+
+        try
+        {
+            switch (skills[slot].Key)
+            {
+                case "rush":
+                    Rush(brain);
+                    break;
+                case "quake":
+                    await QuakeAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "stoneskin":
+                    StoneSkin(brain);
+                    break;
+                case "stab":
+                    await StabAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "leap":
+                    await LeapAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "frostbreath":
+                    await FrostBreathAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "frostskin":
+                    Heal(brain.Monster, 0.12f);
+                    break;
+                case "spin":
+                    await SpinAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "warcry":
+                    Empower(brain.Monster, 1.3f, 6, brain.Token);
+                    break;
+                case "fireball":
+                    await FireballAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                case "volley":
+                    await VolleyAsync(brain, target!).ConfigureAwait(false);
+                    break;
+                default:
+                    return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Tries to use a skill instead of the basic attack (called when the creature is about to attack, or is near enough to its target to use one).</summary>
     /// <param name="brain">The brain of the creature.</param>
     /// <param name="target">The target.</param>
@@ -73,6 +163,12 @@ public static class MobaSummonSkills
     /// <returns><see langword="true"/> if a skill replaced the basic attack.</returns>
     public static async ValueTask<bool> TryUseAsync(MobaSummonIntelligence brain, IAttackable target, short appearance, int rank)
     {
+        // The owner who commands the creature casts its skills himself (keys 1 and 2 of the control mode).
+        if (brain.Controlled)
+        {
+            return false;
+        }
+
         try
         {
             var monster = brain.Monster;
@@ -83,21 +179,20 @@ public static class MobaSummonSkills
                 case Goblin:
                     if (brain.Ready("rush", 14))
                     {
-                        brain.HasteUntilUtc = DateTime.UtcNow.AddSeconds(6);
+                        Rush(brain);
                     }
 
                     return false;
                 case StoneGolem:
                     if (second && HealthFraction(monster) < 0.65 && brain.Ready("stoneskin", 20))
                     {
-                        Shield(monster, 0.5f, 5, brain.Token);
+                        StoneSkin(brain);
                         return false;
                     }
 
                     if (distance <= 3 && brain.Ready("quake", 9))
                     {
-                        await ShowSkillAsync(monster, target, EarthShake).ConfigureAwait(false);
-                        await AreaAsync(brain, monster.Position, 3, 1.0, TimeSpan.FromSeconds(0.8)).ConfigureAwait(false);
+                        await QuakeAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -105,19 +200,13 @@ public static class MobaSummonSkills
                 case Assassin:
                     if (second && distance is > 3 and <= 8 && brain.Ready("leap", 10))
                     {
-                        if (monster.CurrentMap is { } map)
-                        {
-                            await monster.MoveAsync(map.Terrain.GetRandomCoordinate(target.Position, 1)).ConfigureAwait(false);
-                        }
-
+                        await LeapAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
                     if (distance <= 3 && brain.Ready("stab", 7))
                     {
-                        await ShowSkillAsync(monster, target, 43).ConfigureAwait(false);
-                        await HitAsync(monster, target, 2.0).ConfigureAwait(false);
-                        Bleed(monster, target, 0.25, 3, brain.Token);
+                        await StabAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -131,8 +220,7 @@ public static class MobaSummonSkills
 
                     if (distance <= 4 && brain.Ready("frostbreath", 10))
                     {
-                        await ShowSkillAsync(monster, target, Ice).ConfigureAwait(false);
-                        await AreaAsync(brain, target.Position, 3, 1.1, TimeSpan.FromSeconds(0.6)).ConfigureAwait(false);
+                        await FrostBreathAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -146,8 +234,7 @@ public static class MobaSummonSkills
 
                     if (distance <= 3 && brain.Ready("spin", 7))
                     {
-                        await ShowSkillAsync(monster, target, Cyclone).ConfigureAwait(false);
-                        await AreaAsync(brain, monster.Position, 3, 1.2, null).ConfigureAwait(false);
+                        await SpinAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -155,9 +242,7 @@ public static class MobaSummonSkills
                 case Bali:
                     if (distance <= 7 && brain.Ready("fireball", 5))
                     {
-                        await ShowSkillAsync(monster, target, FireBall).ConfigureAwait(false);
-                        await HitAsync(monster, target, 1.4).ConfigureAwait(false);
-                        Bleed(monster, target, 0.2, 3, brain.Token);
+                        await FireballAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -165,18 +250,7 @@ public static class MobaSummonSkills
                 case Soldier:
                     if (distance <= 6 && brain.Ready("volley", 7))
                     {
-                        await ShowSkillAsync(monster, target, TripleShot).ConfigureAwait(false);
-                        var victims = brain.EnemiesAround(target.Position, 4).OrderBy(v => v.GetDistanceTo(target.Position)).Take(3).ToList();
-                        if (!victims.Contains(target))
-                        {
-                            victims.Insert(0, target);
-                        }
-
-                        foreach (var victim in victims.Take(3))
-                        {
-                            await HitAsync(monster, victim, 0.9).ConfigureAwait(false);
-                        }
-
+                        await VolleyAsync(brain, target).ConfigureAwait(false);
                         return true;
                     }
 
@@ -189,6 +263,65 @@ public static class MobaSummonSkills
         {
             // best effort: a failing skill falls back to the basic attack
             return false;
+        }
+    }
+
+    private static void Rush(MobaSummonIntelligence brain) => brain.HasteUntilUtc = DateTime.UtcNow.AddSeconds(6);
+
+    private static void StoneSkin(MobaSummonIntelligence brain) => Shield(brain.Monster, 0.5f, 5, brain.Token);
+
+    private static async ValueTask QuakeAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, EarthShake).ConfigureAwait(false);
+        await AreaAsync(brain, brain.Monster.Position, 3, 1.0, TimeSpan.FromSeconds(0.8)).ConfigureAwait(false);
+    }
+
+    private static async ValueTask StabAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, 43).ConfigureAwait(false);
+        await HitAsync(brain.Monster, target, 2.0).ConfigureAwait(false);
+        Bleed(brain.Monster, target, 0.25, 3, brain.Token);
+    }
+
+    private static async ValueTask LeapAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        if (brain.Monster.CurrentMap is { } map)
+        {
+            await brain.Monster.MoveAsync(map.Terrain.GetRandomCoordinate(target.Position, 1)).ConfigureAwait(false);
+        }
+    }
+
+    private static async ValueTask FrostBreathAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, Ice).ConfigureAwait(false);
+        await AreaAsync(brain, target.Position, 3, 1.1, TimeSpan.FromSeconds(0.6)).ConfigureAwait(false);
+    }
+
+    private static async ValueTask SpinAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, Cyclone).ConfigureAwait(false);
+        await AreaAsync(brain, brain.Monster.Position, 3, 1.2, null).ConfigureAwait(false);
+    }
+
+    private static async ValueTask FireballAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, FireBall).ConfigureAwait(false);
+        await HitAsync(brain.Monster, target, 1.4).ConfigureAwait(false);
+        Bleed(brain.Monster, target, 0.2, 3, brain.Token);
+    }
+
+    private static async ValueTask VolleyAsync(MobaSummonIntelligence brain, IAttackable target)
+    {
+        await ShowSkillAsync(brain.Monster, target, TripleShot).ConfigureAwait(false);
+        var victims = brain.EnemiesAround(target.Position, 4).OrderBy(v => v.GetDistanceTo(target.Position)).Take(3).ToList();
+        if (!victims.Contains(target))
+        {
+            victims.Insert(0, target);
+        }
+
+        foreach (var victim in victims.Take(3))
+        {
+            await HitAsync(brain.Monster, victim, 0.9).ConfigureAwait(false);
         }
     }
 

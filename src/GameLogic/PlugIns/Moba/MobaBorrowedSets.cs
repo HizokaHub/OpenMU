@@ -27,8 +27,14 @@ public static class MobaBorrowedSets
         (MobaFamily.MagicGladiator, (short)3, MobaShopTier.T1),   // Legendary (Soul Master): the mage Magic Gladiator
         (MobaFamily.MagicGladiator, (short)17, MobaShopTier.T2),  // Dark Phoenix (Blade Knight): the tank Magic Gladiator
         (MobaFamily.MagicGladiator, (short)30, MobaShopTier.T3),  // Venom Mist (Soul Master)
+        (MobaFamily.Summoner, (short)3, MobaShopTier.T1),         // Legendary (Soul Master)
+        (MobaFamily.Summoner, (short)35, MobaShopTier.T1),        // Eclipse (Soul Master)
+        (MobaFamily.Summoner, (short)18, MobaShopTier.T2),        // Grand Soul (Soul Master)
+        (MobaFamily.Summoner, (short)22, MobaShopTier.T2),        // Dark Soul (Soul Master)
         (MobaFamily.Summoner, (short)30, MobaShopTier.T3),        // Venom Mist (Soul Master)
         (MobaFamily.RageFighter, (short)17, MobaShopTier.T2),     // Dark Phoenix (Blade Knight)
+        (MobaFamily.RageFighter, (short)16, MobaShopTier.T2),     // Black Dragon (Blade Knight)
+        (MobaFamily.RageFighter, (short)21, MobaShopTier.T2),     // Great Dragon (Blade Knight)
         (MobaFamily.RageFighter, (short)29, MobaShopTier.T3),     // Dragon Knight (Blade Knight)
     };
 
