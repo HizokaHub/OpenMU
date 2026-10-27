@@ -12,8 +12,8 @@ using MUnique.OpenMU.DataModel.Configuration;
 /// </summary>
 /// <remarks>
 /// The class is created by <see cref="RuneWizardClassFactory"/> with a context which is never saved, and it can't be created by
-/// players, so nothing reaches the database. It is allowed to use what the dark wizard uses (skills and items), because the rune
-/// wizard is a magician and the ones of its own (Season 21) are not imported yet.
+/// players, so nothing reaches the database. It has its own skills (<see cref="RuneWizardClassFactory.AddSkillsTo"/>); it is still
+/// allowed to wear what the dark wizard wears, because its own items (Season 21) are not imported yet.
 /// </remarks>
 public static class RuneWizardPreview
 {
@@ -25,7 +25,7 @@ public static class RuneWizardPreview
     };
 
     /// <summary>
-    /// Adds the rune wizard to the configuration in memory, and lets it use the skills and items of the dark wizard.
+    /// Adds the rune wizard to the configuration in memory, and gives it its own skills, and lets it wear the items of the dark wizard.
     /// </summary>
     /// <param name="memoryContext">A persistence context which is never saved (an in-memory one).</param>
     /// <param name="gameConfiguration">The game configuration.</param>
@@ -34,13 +34,7 @@ public static class RuneWizardPreview
     {
         var runeWizard = RuneWizardClassFactory.AddTo(memoryContext, gameConfiguration, canGetCreated: false);
 
-        foreach (var skill in gameConfiguration.Skills.Where(s => s.QualifiedCharacters.Any(IsDarkWizard)))
-        {
-            if (!skill.QualifiedCharacters.Contains(runeWizard))
-            {
-                skill.QualifiedCharacters.Add(runeWizard);
-            }
-        }
+        RuneWizardClassFactory.AddSkillsTo(memoryContext, gameConfiguration);
 
         foreach (var item in gameConfiguration.Items.Where(i => i.QualifiedCharacters.Any(IsDarkWizard)))
         {

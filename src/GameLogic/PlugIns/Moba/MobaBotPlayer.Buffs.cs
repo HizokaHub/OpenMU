@@ -41,8 +41,8 @@ public sealed partial class MobaBotPlayer
     /// <summary>Buffs that last minutes (Infinity Arrow 10, Expansion of Wizardry 30): kept up out of a fight.</summary>
     private static readonly short[] UpkeepBuffs = { 77, 233 };
 
-    /// <summary>Self buffs raised when enemies are near or the bot is fighting: Soul Barrier, Swell Life, Increase Critical Damage, Damage Reflection and the Rage Fighter's three.</summary>
-    private static readonly short[] FightBuffs = { 16, 48, 64, 217, 266, 267, 268 };
+    /// <summary>Self buffs raised when enemies are near or the bot is fighting: Soul Barrier, Swell Life, Increase Critical Damage, Damage Reflection, the Rage Fighter's three and the Rune Wizard's Burst and Haste.</summary>
+    private static readonly short[] FightBuffs = { 16, 48, 64, 217, 266, 267, 268, 633, 634 };
 
     private static readonly TimeSpan BuffRetry = TimeSpan.FromSeconds(4);
 

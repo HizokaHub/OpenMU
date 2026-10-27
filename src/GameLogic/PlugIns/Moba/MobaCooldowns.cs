@@ -39,6 +39,8 @@ public static class MobaCooldowns
         // --- Pokes / primary spam abilities: near-flat, tiny drop ---
         [17] = new[] { 2.0, 1.9, 1.8, 1.7, 1.5 },   // Energy Ball
         [11] = new[] { 4.0, 3.75, 3.5, 3.25, 3.0 }, // Power Wave
+        [630] = new[] { 2.0, 1.9, 1.8, 1.7, 1.5 },  // Rune Wizard: Magic Arrow
+        [631] = new[] { 4.0, 3.75, 3.5, 3.25, 3.0 }, // Rune Wizard: Plasma Ball
         [19] = new[] { 2.5, 2.3, 2.1, 1.9, 1.7 },   // Falling Slash
         [23] = new[] { 3.0, 2.75, 2.5, 2.25, 2.0 }, // Slash
         [24] = new[] { 2.0, 1.9, 1.8, 1.7, 1.6 },   // Triple Shot
@@ -59,6 +61,9 @@ public static class MobaCooldowns
         [41] = new[] { 6.0, 5.5, 5.0, 4.5, 4.0 },   // Twisting Slash (spin AoE)
         [7] = new[] { 9.0, 8.25, 7.5, 6.75, 6.0 },  // Ice (slow AoE)
         [9] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },    // Evil Spirit
+        [632] = new[] { 9.0, 8.25, 7.5, 6.75, 6.0 }, // Rune Wizard: Lightning Storm
+        [635] = new[] { 7.0, 6.5, 6.0, 5.5, 5.0 },  // Rune Wizard: Runic Spear
+        [636] = new[] { 11.0, 10.0, 9.0, 8.0, 7.0 }, // Rune Wizard: Rune Phrase
         [46] = new[] { 9.0, 8.0, 7.0, 6.0, 5.0 },   // Starfall (big burst)
         [62] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },  // Earthshake
         [214] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },  // Drain Life
@@ -79,6 +84,8 @@ public static class MobaCooldowns
         [16] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Soul Barrier
         [233] = new[] { 120.0, 112.0, 105.0, 97.0, 90.0 }, // Expansion of Wizardry
         [18] = new[] { 70.0, 65.0, 60.0, 55.0, 50.0 },  // Defense
+        [633] = new[] { 90.0, 85.0, 78.0, 72.0, 65.0 }, // Rune Wizard: Burst
+        [634] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 }, // Rune Wizard: Haste (team)
         [48] = new[] { 120.0, 112.0, 105.0, 97.0, 90.0 }, // Swell Life (team)
         [27] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Greater Defense
         [28] = new[] { 75.0, 70.0, 65.0, 60.0, 55.0 },  // Greater Damage

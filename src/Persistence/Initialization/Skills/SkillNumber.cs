@@ -400,4 +400,29 @@ internal enum SkillNumber
     RecoversSdFully = 616,
     IncreaseTripleDamageChance = 617,
     #endregion
+
+    #region Rune Wizard (imported from Season 21, own numbers because the client table only fits 650)
+
+    /// <summary>The Magic Arrow of the rune wizard.</summary>
+    RuneMagicArrow = 630,
+
+    /// <summary>The Plasma Ball of the rune wizard.</summary>
+    RunePlasmaBall = 631,
+
+    /// <summary>The Lightning Storm of the rune wizard.</summary>
+    RuneLightningStorm = 632,
+
+    /// <summary>The Burst of the rune wizard (more damage for a while).</summary>
+    RuneBurst = 633,
+
+    /// <summary>The Haste of the rune wizard (more attack speed for the party).</summary>
+    RuneHaste = 634,
+
+    /// <summary>The Runic Spear of the rune wizard.</summary>
+    RuneRunicSpear = 635,
+
+    /// <summary>The Rune Phrase of the rune wizard.</summary>
+    RunePhrase = 636,
+
+    #endregion
 }

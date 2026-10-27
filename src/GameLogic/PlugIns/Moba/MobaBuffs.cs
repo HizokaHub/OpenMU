@@ -42,6 +42,8 @@ public static class MobaBuffs
         [16] = 60,    // Soul Barrier
         [233] = 90,   // Expansion of Wizardry
         [18] = 45,    // Defense
+        [633] = 45,   // Rune Wizard: Burst
+        [634] = 60,   // Rune Wizard: Haste
         [48] = 90,    // Swell Life
         [27] = 60,    // Greater Defense
         [28] = 60,    // Greater Damage

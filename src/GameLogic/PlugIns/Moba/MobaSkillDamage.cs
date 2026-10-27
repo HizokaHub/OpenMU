@@ -60,6 +60,8 @@ public static class MobaSkillDamage
     {
         // --- pokes / low: light scaling ---
         [17] = (45, 10, 0.35),   // Energy Ball
+        [630] = (42, 10, 0.35),  // Rune Wizard: Magic Arrow
+        [631] = (62, 14, 0.40),  // Rune Wizard: Plasma Ball
         [11] = (55, 12, 0.40),   // Power Wave
         [60] = (50, 12, 0.40),   // Force
         [66] = (60, 14, 0.40),   // Force Wave
@@ -109,6 +111,8 @@ public static class MobaSkillDamage
         // --- mid-heavy ---
         [2] = (95, 24, 0.60),    // Meteorite
         [13] = (100, 25, 0.60),  // Cometfall
+        [632] = (100, 25, 0.60), // Rune Wizard: Lightning Storm
+        [635] = (92, 23, 0.55),  // Rune Wizard: Runic Spear
         [39] = (100, 24, 0.60),  // Ice Storm
         [52] = (85, 21, 0.50),   // Penetration
         [65] = (110, 28, 0.65),  // Electric Spike
@@ -120,6 +124,7 @@ public static class MobaSkillDamage
 
         // --- heavy hitters: reward investment most ---
         [40] = (120, 30, 0.80),  // Nova (channelled burst)
+        [636] = (125, 30, 0.80), // Rune Wizard: Rune Phrase
         [42] = (115, 28, 0.75),  // Rageful Blow
         [43] = (125, 30, 0.80),  // Death Stab
         [46] = (140, 34, 0.85),  // Starfall

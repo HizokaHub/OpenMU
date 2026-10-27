@@ -61,9 +61,9 @@ public class MobaRuneWizardTests
     {
         var defaults = MobaLoadouts.DefaultFor(28);
         Assert.That(MobaLoadoutStore.Validate(defaults.ToArray(), 28), Is.Null);
-        Assert.That(MobaLoadouts.SelectableFor(28).Count, Is.GreaterThanOrEqualTo(MobaLoadoutStore.MaxSkills + 2));
+        Assert.That(MobaLoadouts.SelectableFor(28).Count, Is.GreaterThan(MobaLoadoutStore.MaxSkills));
         Assert.That(MobaLoadouts.SelectableFor(28).Where(MobaLoadouts.IsBuff), Is.Empty);
-        Assert.That(MobaLoadouts.BuffsFor(28), Is.EquivalentTo(new short[] { 233, 16 }), "Burst (Expansion of Wizardry) and Soul Barrier");
+        Assert.That(MobaLoadouts.BuffsFor(28), Is.EquivalentTo(new short[] { 633, 634 }), "Burst and Haste");
         Assert.That(MobaLoadouts.BotPicksFor(28).Count, Is.EqualTo(MobaLoadouts.BotSkillCount));
     }
 

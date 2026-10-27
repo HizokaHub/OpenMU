@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.Persistence.Initialization.CharacterClasses;
 
 using MUnique.OpenMU.DataModel.Configuration;
+using MUnique.OpenMU.Persistence.Initialization.Skills;
 
 /// <summary>
 /// Adds the rune wizard class (imported from Season 21) to an existing game configuration.
@@ -23,6 +24,16 @@ public static class RuneWizardClassFactory
     public static byte ClassNumber => (byte)CharacterClassNumber.RuneWizard;
 
     /// <summary>
+    /// Gets the number of the first skill which only the rune wizard has.
+    /// </summary>
+    public static short FirstSkillNumber => (short)SkillNumber.RuneMagicArrow;
+
+    /// <summary>
+    /// Gets the number of the last skill which only the rune wizard has.
+    /// </summary>
+    public static short LastSkillNumber => (short)SkillNumber.RunePhrase;
+
+    /// <summary>
     /// Adds the rune wizard to the game configuration, if it doesn't contain it yet.
     /// </summary>
     /// <param name="context">The persistence context which creates the entities.</param>
@@ -37,5 +48,21 @@ public static class RuneWizardClassFactory
         }
 
         return new CharacterClassInitialization(context, gameConfiguration).CreateRuneWizard(canGetCreated);
+    }
+
+    /// <summary>
+    /// Adds the skills of the rune wizard (<see cref="FirstSkillNumber"/> to <see cref="LastSkillNumber"/>) to the game
+    /// configuration, if they aren't there yet. The class has to be in the configuration already.
+    /// </summary>
+    /// <param name="context">The persistence context which creates the entities.</param>
+    /// <param name="gameConfiguration">The game configuration.</param>
+    public static void AddSkillsTo(IContext context, GameConfiguration gameConfiguration)
+    {
+        if (gameConfiguration.Skills.Any(s => s.Number == FirstSkillNumber))
+        {
+            return;
+        }
+
+        new RuneWizardSkillsInitializer(context, gameConfiguration).Initialize();
     }
 }

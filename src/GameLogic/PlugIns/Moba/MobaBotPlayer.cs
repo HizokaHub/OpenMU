@@ -2028,7 +2028,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         [MobaFamily.RageFighter] = new short[] { 263, 262, 261, 55, 56, 60 },
         [MobaFamily.Elf] = new short[] { 51, 235, 52, 24, 67, 76 },
         [MobaFamily.Wizard] = new short[] { 39, 2, 3, 5, 9, 8 },
-        [MobaFamily.RuneWizard] = new short[] { 2, 9, 11, 3, 7, 17 },
+        [MobaFamily.RuneWizard] = new short[] { 636, 632, 635, 631, 630 },
         [MobaFamily.Summoner] = new short[] { 238, 237, 214, 215, 230, 45 },
         [MobaFamily.DarkLord] = new short[] { 65, 64, 60, 62, 66, 3 },
     };

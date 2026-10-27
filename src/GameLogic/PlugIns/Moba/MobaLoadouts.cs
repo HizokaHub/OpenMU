@@ -88,17 +88,16 @@ public static class MobaLoadouts
         // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash,
         // Ignore Defense, Increase Health, Increase Block
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
-        // Rune Wizard - provisional kit made of Season 6 skills until its own (Season 21) skills and effects are imported:
-        // Magic Arrow = Energy Ball, Plasma Ball = Power Wave, Lightning Storm = Meteorite, Rune Phrase = Evil Spirit,
-        // Burst = Expansion of Wizardry; plus Fire Ball, Ice, Flame and Lightning to pick from, and Soul Barrier.
-        // Haste (attack speed) needs a buff of its own and is not in the kit yet.
-        [Family.RuneWizard] = new short[] { 17, 11, 2, 9, 4, 3, 7, 5, 233, 16 },
+        // Rune Wizard - its own Season 21 skills (numbers 630-636, see RuneWizardSkillsInitializer):
+        // Magic Arrow, Plasma Ball, Lightning Storm, Runic Spear, Rune Phrase, and the buffs Burst (more damage) and Haste (attack speed).
+        [Family.RuneWizard] = new short[] { 630, 631, 632, 635, 636, 633, 634 },
     };
 
     // The buffs of every class: the champion always has them, they are not part of the picks.
     private static readonly HashSet<short> Buffs = new()
     {
         16, 233, 6,                 // Soul Barrier, Expansion of Wizardry, Teleport (Soul Master)
+        633, 634,                   // Rune Wizard: Burst, Haste
         18, 48,                     // Defense, Swell Life
         26, 27, 28, 77, 234,        // Heal, Greater Defense, Greater Damage, Infinity Arrow, Recovery
         64,                         // Dark Lord: Increase Critical Damage
@@ -126,7 +125,7 @@ public static class MobaLoadouts
         [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 22 },
         [Family.Summoner] = new short[] { 214, 215, 223, 224, 225, 230 },
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265 },
-        [Family.RuneWizard] = new short[] { 17, 11, 2, 9, 3, 7 },
+        [Family.RuneWizard] = new short[] { 630, 631, 632, 636, 635 },
     };
 
     /// <summary>

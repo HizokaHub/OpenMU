@@ -113,29 +113,35 @@ public class RuneWizardClassTests
     }
 
     /// <summary>
-    /// The preview adds the class in memory, without being able to get created, and lets it use the skills and items of the dark wizard.
+    /// The preview adds the class in memory, without being able to get created, with skills of its own, and lets it wear the items of the dark wizard.
     /// </summary>
     [Test]
-    public void PreviewAllowsDarkWizardSkillsAndItems()
+    public void PreviewGivesItsOwnSkillsAndTheDarkWizardItems()
     {
-        var darkWizardSkills = this._configuration.Skills.Where(s => s.QualifiedCharacters.Any(c => c.Number == 0)).ToList();
         var darkWizardItems = this._configuration.Items.Where(i => i.QualifiedCharacters.Any(c => c.Number == 0)).ToList();
-        Assert.That(darkWizardSkills, Is.Not.Empty);
         Assert.That(darkWizardItems, Is.Not.Empty);
 
         var memoryContext = new InMemoryPersistenceContextProvider().CreateNewContext();
         var runeWizard = RuneWizardPreview.Apply(memoryContext, this._configuration);
 
         Assert.That(runeWizard.CanGetCreated, Is.False);
-        Assert.That(darkWizardSkills.All(s => s.QualifiedCharacters.Contains(runeWizard)), Is.True);
+        Assert.That(this._configuration.Skills.Any(s => s.QualifiedCharacters.Contains(runeWizard) && s.Number < RuneWizardClassFactory.FirstSkillNumber), Is.False, "no Season 6 skill");
+
+        var ownSkills = this._configuration.Skills.Where(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber).ToList();
+        Assert.That(ownSkills.Count, Is.EqualTo(7));
+        Assert.That(ownSkills.All(s => s.QualifiedCharacters.Count == 1 && s.QualifiedCharacters.Single() == runeWizard), Is.True);
+        Assert.That(ownSkills.Where(s => s.SkillType == SkillType.Buff).All(s => s.MagicEffectDef is not null), Is.True);
         Assert.That(darkWizardItems.All(i => i.QualifiedCharacters.Contains(runeWizard)), Is.True);
 
         var knightSkill = this._configuration.Skills.First(s => s.QualifiedCharacters.Count > 0 && s.QualifiedCharacters.All(c => c.Number is 4 or 6 or 7));
-        Assert.That(knightSkill.QualifiedCharacters.Contains(runeWizard), Is.False, "only what the dark wizard uses");
+        Assert.That(knightSkill.QualifiedCharacters.Contains(runeWizard), Is.False);
+
+        RuneWizardPreview.Apply(memoryContext, this._configuration);
+        Assert.That(this._configuration.Skills.Count(s => s.Number == RuneWizardClassFactory.FirstSkillNumber), Is.EqualTo(1), "idempotent");
     }
 
     /// <summary>
-    /// A MOBA clone of the rune wizard gets the wizard family kit (skills and the starter staff), like a bot placed with <c>/mobabot ... rw</c>.
+    /// A MOBA clone of the rune wizard gets its own kit (skills and the starter staff), like a bot placed with <c>/mobabot ... rw</c>.
     /// </summary>
     [Test]
     public void MobaCloneGetsTheWizardKit()
@@ -148,7 +154,8 @@ public class RuneWizardClassTests
         clone.Inventory = context.CreateNew<ItemStorage>();
         MobaLoadouts.Apply(context, this._configuration, clone, runeWizard);
 
-        Assert.That(clone.LearnedSkills.Count, Is.GreaterThan(4));
+        Assert.That(clone.LearnedSkills.Count, Is.EqualTo(7));
+        Assert.That(clone.LearnedSkills.All(l => l.Skill!.Number >= RuneWizardClassFactory.FirstSkillNumber), Is.True);
         Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
         Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.RuneWizard));
         Assert.That(MobaBotChatCommandPlugIn.ResolveClassNumber("rw"), Is.EqualTo(RuneWizardNumber));

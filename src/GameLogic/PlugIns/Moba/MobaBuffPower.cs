@@ -23,6 +23,9 @@ public static class MobaBuffPower
     /// <summary>Expansion of Wizardry: the skill number.</summary>
     public const short ExpansionOfWizardry = 233;
 
+    /// <summary>Burst (Rune Wizard): the skill number. Like Expansion it raises the spell damage of the champion.</summary>
+    public const short RuneBurst = 633;
+
     /// <summary>Increase Critical Damage (Lord Emperor): the skill number.</summary>
     public const short IncreaseCriticalDamage = 64;
 
@@ -33,6 +36,11 @@ public static class MobaBuffPower
     private const double ExpansionBase = 0.08;
 
     private const double ExpansionPerRank = 0.02;
+
+    /// <summary>Spell damage bonus of Burst at rank 1 (it only lasts 45 seconds and is for the caster); every rank adds <see cref="BurstPerRank"/>.</summary>
+    private const double BurstBase = 0.12;
+
+    private const double BurstPerRank = 0.03;
 
     /// <summary>Extra crit multiplier of Increase Critical Damage at rank 1 (the crit is 1.75x); every rank adds <see cref="CritPerRank"/>.</summary>
     private const double CritBase = 0.15;
@@ -97,7 +105,7 @@ public static class MobaBuffPower
     /// <summary>The factor Expansion of Wizardry puts on the damage of the skills of the champion (1 = not active).</summary>
     /// <param name="champion">The attacking champion.</param>
     /// <returns>The factor, 1.08 to 1.16 while the buff lasts.</returns>
-    public static double SpellDamageFactorOf(Player champion) => SpellFactorForRank(RankOn(champion, ExpansionOfWizardry));
+    public static double SpellDamageFactorOf(Player champion) => SpellFactorForRank(RankOn(champion, ExpansionOfWizardry)) * BurstFactorForRank(RankOn(champion, RuneBurst));
 
     /// <summary>The multiplier of a critical hit of the champion: the base plus what Increase Critical Damage adds.</summary>
     /// <param name="champion">The attacking champion.</param>
@@ -108,6 +116,11 @@ public static class MobaBuffPower
     /// <param name="rank">The rank of the buff, 0 when it is not active.</param>
     /// <returns>1 when not active, else 1.08 (rank 1) to 1.16 (rank 5).</returns>
     public static double SpellFactorForRank(int rank) => rank <= 0 ? 1.0 : 1.0 + ExpansionBase + (ExpansionPerRank * (Math.Min(rank, MobaSkills.SkillLevelCap) - 1));
+
+    /// <summary>The spell damage factor of Burst at a rank.</summary>
+    /// <param name="rank">The rank of the buff, 0 when it is not active.</param>
+    /// <returns>1 when not active, else 1.12 (rank 1) to 1.24 (rank 5).</returns>
+    public static double BurstFactorForRank(int rank) => rank <= 0 ? 1.0 : 1.0 + BurstBase + (BurstPerRank * (Math.Min(rank, MobaSkills.SkillLevelCap) - 1));
 
     /// <summary>The extra crit multiplier of Increase Critical Damage at a rank.</summary>
     /// <param name="rank">The rank of the buff, 0 when it is not active.</param>

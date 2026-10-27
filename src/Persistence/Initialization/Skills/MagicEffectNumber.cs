@@ -357,6 +357,16 @@ internal enum MagicEffectNumber : short
     /// </summary>
     IncreaseHealthStrengthener = 155,
 
+    /// <summary>
+    /// The burst effect of the rune wizard.
+    /// </summary>
+    RuneBurst = 168,
+
+    /// <summary>
+    /// The haste effect of the rune wizard.
+    /// </summary>
+    RuneHaste = 169,
+
     #region Artificial effects which are not sent to the client, starting at 200.
 
     /// <summary>
