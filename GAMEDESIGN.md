@@ -2379,3 +2379,7 @@ torreta exterior → torreta media → torreta de base → **inhibidor** → (el
 - **Pruebas:** `RuneWizardClassTests` (las skills son solo del RW, 7 skills, buffs con efecto, idempotencia, el clon del MOBA aprende las 7) y `MobaRuneWizardTests` (buffs 633/634).
 - **Cliente (`mu-main`, rama `rw/phase4`):** filas 630-636 en `skill_eng.bmd` con `tools/rw_skill_bmd.py` (copia el tipo de uso de una skill de S6 y cambia nombre y cifras; icono prestado), `Character/RuneWizardSkills` (qué skills son del RW, cuáles son de área, y la skill de S6 cuya pose y efecto toman prestados mientras no tienen los suyos de S21).
 - **Pendiente:** efectos de nivel B (modelo+textura de S21, comportamiento simple, luz y sonido) que sustituyan a los prestados, icono de buff de Burst/Haste, iconos propios, items y sets propios del RW, retrato, persistencia para el MU normal (fase 2, con plan + `pg_dump`).
+
+## Traspaso del Rune Wizard (2026-10-28)
+
+Para continuar el trabajo del RW en una conversación nueva, **leer primero `docs/RUNE_WIZARD_TRASPASO.md`**: reglas del usuario, ramas, estado, pendientes (siguiente: creación de personajes, que exige migrar la BD con plan + `pg_dump` + confirmación) y el prompt de arranque.
