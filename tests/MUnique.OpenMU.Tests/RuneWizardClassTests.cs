@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
+using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
 using MUnique.OpenMU.GameServer.RemoteView;
 using MUnique.OpenMU.Persistence.Initialization.CharacterClasses;
@@ -160,6 +161,18 @@ public class RuneWizardClassTests
         Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
         Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.RuneWizard));
         Assert.That(MobaBotChatCommandPlugIn.ResolveClassNumber("rw"), Is.EqualTo(RuneWizardNumber));
+    }
+
+    /// <summary>
+    /// The skill range the game logic knows is the one the persistence layer creates.
+    /// </summary>
+    [Test]
+    public void GameLogicKnowsTheOwnSkillRange()
+    {
+        Assert.That(RuneWizardSkills.First, Is.EqualTo(RuneWizardClassFactory.FirstSkillNumber));
+        Assert.That(RuneWizardSkills.Last, Is.EqualTo(RuneWizardClassFactory.LastSkillNumber));
+        Assert.That(RuneWizardSkills.IsOwnSkill(RuneWizardSkills.First), Is.True);
+        Assert.That(RuneWizardSkills.IsOwnSkill((short)(RuneWizardSkills.Last + 1)), Is.False);
     }
 
     /// <summary>

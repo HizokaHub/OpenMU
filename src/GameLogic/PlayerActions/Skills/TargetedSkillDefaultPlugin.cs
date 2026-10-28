@@ -293,8 +293,10 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
         // MOBA mode: many area-damage skills (Triple Shot, Penetration, Twisting Slash,
         // Electric Spike, Multi-Shot, ...) are AreaSkill* type with no MagicEffectDef, so
         // they would only log a warning here and deal nothing. A champion casts every
-        // skill through this handler (packet 0x19), so treat those as damage too.
-        var mobaAreaDamage = player.IsMobaClone
+        // skill through this handler (packet 0x19), so treat those as damage too. The same goes for
+        // the own skills of the rune wizard, whose client casts Magic Arrow on its target (packet 0x19)
+        // in the normal game as well.
+        var mobaAreaDamage = (player.IsMobaClone || RuneWizardSkills.IsOwnSkill(skill.Number))
             && skill.MagicEffectDef is null
             && skill.SkillType is SkillType.AreaSkillAutomaticHits
                 or SkillType.AreaSkillExplicitHits

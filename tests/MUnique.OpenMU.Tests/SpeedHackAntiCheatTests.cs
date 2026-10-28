@@ -67,6 +67,30 @@ public class SpeedHackAntiCheatTests
     }
 
     /// <summary>
+    /// Tests that game master accounts are not checked, so testing skills and stats at will doesn't get them banned.
+    /// </summary>
+    /// <returns>The task.</returns>
+    [Test]
+    public async Task TestGameMasterIsNotBannedAsync()
+    {
+        var player = await CreatePlayerWithSpeedAttributesAsync().ConfigureAwait(false);
+        player.Account!.State = AccountState.GameMaster;
+
+        for (int i = 0; i < 12; i++)
+        {
+            var nextFrom = new Point((byte)(StartPoint.X + i * 2), StartPoint.Y);
+            var nextTo = new Point((byte)(StartPoint.X + i * 2 + 2), StartPoint.Y);
+            player.Position = nextFrom;
+            player.GameContext.FeaturePlugIns.GetPlugIn<SpeedHackDetectPlugIn>()!.SetLastAlertTime(player, DateTime.MinValue);
+            WalkingStep[] steps = [new() { From = nextFrom, To = nextTo, Direction = Direction.East }];
+            await player.WalkToAsync(nextTo, steps).ConfigureAwait(false);
+        }
+
+        Assert.That(player.Account?.State, Is.EqualTo(AccountState.GameMaster));
+        Assert.That(player.GameContext.FeaturePlugIns.GetPlugIn<SpeedHackDetectPlugIn>()!.GetWarningCount(player), Is.EqualTo(0));
+    }
+
+    /// <summary>
     /// Tests that a large walk start offset triggers rubberbanding and doesn't record a speed hack warning.
     /// </summary>
     [Test]

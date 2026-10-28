@@ -36,7 +36,7 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
     /// <inheritdoc/>
     public async ValueTask WalkCheatCheckAsync(Player player, Memory<WalkingStep> steps, SpeedHackCheckEventArgs eventArgs)
     {
-        if (steps.IsEmpty || IsServerControlled(player))
+        if (steps.IsEmpty || IsExempt(player))
         {
             return;
         }
@@ -139,7 +139,7 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
     /// <inheritdoc/>
     public async ValueTask AttackCheatCheckAsync(Player player, SpeedHackCheckEventArgs eventArgs)
     {
-        if (player.Attributes is not { } attributes || IsServerControlled(player))
+        if (player.Attributes is not { } attributes || IsExempt(player))
         {
             return;
         }
@@ -228,6 +228,23 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
             state.LastAlertTime = time;
         }
     }
+
+    /// <summary>
+    /// Determines whether the player is not subject to the speed checks: server controlled players and game masters.
+    /// </summary>
+    /// <param name="player">The player.</param>
+    /// <returns><c>true</c> if the checks are skipped for the player; otherwise, <c>false</c>.</returns>
+    private static bool IsExempt(Player player)
+        => IsServerControlled(player) || IsGameMaster(player);
+
+    /// <summary>
+    /// Determines whether the player's account is a game master account. Game masters test skills and
+    /// stats at will (very high attack speed and the like), so these checks would only ban them.
+    /// </summary>
+    /// <param name="player">The player.</param>
+    /// <returns><c>true</c> if the account is a (visible or invisible) game master account; otherwise, <c>false</c>.</returns>
+    private static bool IsGameMaster(Player player)
+        => player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible;
 
     /// <summary>
     /// Determines whether the player's actions originate on the server instead of a game client.
