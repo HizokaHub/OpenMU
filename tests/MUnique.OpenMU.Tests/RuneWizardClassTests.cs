@@ -13,6 +13,7 @@ using MUnique.OpenMU.GameServer.RemoteView;
 using MUnique.OpenMU.Persistence.Initialization.CharacterClasses;
 using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
 using MUnique.OpenMU.Persistence.InMemory;
+using MUnique.OpenMU.Persistence.Initialization.Updates;
 
 /// <summary>
 /// Tests the rune wizard class (imported from Season 21), which is added to a configuration by <see cref="RuneWizardClassFactory"/>.
@@ -159,5 +160,27 @@ public class RuneWizardClassTests
         Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
         Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.RuneWizard));
         Assert.That(MobaBotChatCommandPlugIn.ResolveClassNumber("rw"), Is.EqualTo(RuneWizardNumber));
+    }
+
+    /// <summary>
+    /// The update plugin adds the creatable class and its seven own skills, and applying it twice changes nothing.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async ValueTask UpdatePlugInAddsCreatableClassAndSkillsAsync()
+    {
+        var context = this._contextProvider.CreateNewConfigurationContext();
+        var update = new AddRuneWizardClassUpdatePlugIn();
+        await update.ApplyUpdateAsync(context, this._configuration).ConfigureAwait(false);
+        await update.ApplyUpdateAsync(context, this._configuration).ConfigureAwait(false);
+
+        var runeWizard = this._configuration.CharacterClasses.Single(c => c.Number == RuneWizardNumber);
+        Assert.That(runeWizard.CanGetCreated, Is.True);
+        Assert.That(runeWizard.HomeMap, Is.Not.Null);
+
+        var ownSkills = this._configuration.Skills.Where(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber).ToList();
+        Assert.That(ownSkills.Count, Is.EqualTo(7));
+        Assert.That(ownSkills.All(s => s.QualifiedCharacters.Single() == runeWizard), Is.True);
+        Assert.That(update.IsMandatory, Is.False, "it is applied on purpose from the admin panel");
     }
 }
