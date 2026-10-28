@@ -67,14 +67,14 @@ public class SpeedHackAntiCheatTests
     }
 
     /// <summary>
-    /// Tests that game master accounts are not checked, so testing skills and stats at will doesn't get them banned.
+    /// Tests that an account listed as never punished still collects the warnings, but is neither banned nor disconnected.
     /// </summary>
     /// <returns>The task.</returns>
     [Test]
-    public async Task TestGameMasterIsNotBannedAsync()
+    public async Task TestNeverPunishedAccountIsWarnedButNotBannedAsync()
     {
         var player = await CreatePlayerWithSpeedAttributesAsync().ConfigureAwait(false);
-        player.Account!.State = AccountState.GameMaster;
+        player.Account!.LoginName = "testgm2";
 
         for (int i = 0; i < 12; i++)
         {
@@ -86,8 +86,8 @@ public class SpeedHackAntiCheatTests
             await player.WalkToAsync(nextTo, steps).ConfigureAwait(false);
         }
 
-        Assert.That(player.Account?.State, Is.EqualTo(AccountState.GameMaster));
-        Assert.That(player.GameContext.FeaturePlugIns.GetPlugIn<SpeedHackDetectPlugIn>()!.GetWarningCount(player), Is.EqualTo(0));
+        Assert.That(player.Account?.State, Is.EqualTo(AccountState.Normal));
+        Assert.That(player.GameContext.FeaturePlugIns.GetPlugIn<SpeedHackDetectPlugIn>()!.GetWarningCount(player), Is.GreaterThan(3));
     }
 
     /// <summary>

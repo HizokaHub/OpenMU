@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns;
 
+using System.Collections.Generic;
 using System.ComponentModel;
 
 /// <summary>
@@ -80,4 +81,10 @@ public class SpeedHackDetectConfiguration
     /// </summary>
     [DefaultValue(60.0)]
     public double AttackSpeedMinIntervalMs { get; set; } = 60.0;
+
+    /// <summary>
+    /// Gets or sets the login names of accounts which are checked and warned like any other, but never banned
+    /// or disconnected (test accounts, so the warnings show what to correct without ending the test).
+    /// </summary>
+    public List<string> NeverPunishedAccounts { get; set; } = new() { "testgm2" };
 }

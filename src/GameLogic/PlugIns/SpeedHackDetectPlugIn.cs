@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlugIns;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -230,21 +231,23 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
     }
 
     /// <summary>
-    /// Determines whether the player is not subject to the speed checks: server controlled players and game masters.
+    /// Determines whether the player is not subject to the speed checks: server controlled players.
     /// </summary>
     /// <param name="player">The player.</param>
     /// <returns><c>true</c> if the checks are skipped for the player; otherwise, <c>false</c>.</returns>
     private static bool IsExempt(Player player)
-        => IsServerControlled(player) || IsGameMaster(player);
+        => IsServerControlled(player);
 
     /// <summary>
-    /// Determines whether the player's account is a game master account. Game masters test skills and
-    /// stats at will (very high attack speed and the like), so these checks would only ban them.
+    /// Determines whether the player's account is listed as never punished: it is checked and warned
+    /// like any other, but a violation never bans or disconnects it.
     /// </summary>
     /// <param name="player">The player.</param>
-    /// <returns><c>true</c> if the account is a (visible or invisible) game master account; otherwise, <c>false</c>.</returns>
-    private static bool IsGameMaster(Player player)
-        => player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible;
+    /// <param name="config">The configuration.</param>
+    /// <returns><c>true</c> if the account must not be banned or disconnected; otherwise, <c>false</c>.</returns>
+    private static bool IsNeverPunished(Player player, SpeedHackDetectConfiguration config)
+        => player.Account?.LoginName is { } loginName
+           && config.NeverPunishedAccounts.Contains(loginName, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Determines whether the player's actions originate on the server instead of a game client.
@@ -275,6 +278,8 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
         bool shouldBan = false;
         bool shouldWarn = false;
         bool shouldDisconnect = false;
+        bool wouldPunish = false;
+        var neverPunished = IsNeverPunished(player, config);
 
         lock (state.Lock)
         {
@@ -293,7 +298,13 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
 
             player.Logger.LogWarning("Speedhack warning issued for player {0}. Total warnings in last hour: {1}", player.Name, state.AlertTimes.Count);
 
-            if (state.AlertTimes.Count > config.MaxWarnings)
+            if (state.AlertTimes.Count > config.MaxWarnings && neverPunished)
+            {
+                // Over the limit, but this account is never punished: the warning stays, the ban doesn't.
+                player.Logger.LogError("Player {0} exceeded speedhack warning limit, but account {1} is never punished: no ban, no disconnect.", player.Name, player.Account?.LoginName);
+                wouldPunish = true;
+            }
+            else if (state.AlertTimes.Count > config.MaxWarnings)
             {
                 if (config.AutoBan)
                 {
@@ -329,6 +340,10 @@ public class SpeedHackDetectPlugIn : IFeaturePlugIn, ISupportCustomConfiguration
         if (shouldBan || shouldDisconnect)
         {
             await player.DisconnectAsync().ConfigureAwait(false);
+        }
+        else if (wouldPunish)
+        {
+            await player.ShowBlueMessageAsync("[Antitrampas] Limite de avisos superado: a otra cuenta la habria baneado. Esta cuenta esta exenta de castigo.").ConfigureAwait(false);
         }
         else if (shouldWarn)
         {
