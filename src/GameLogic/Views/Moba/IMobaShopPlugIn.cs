@@ -48,4 +48,12 @@ public interface IMobaShopPlugIn : IViewPlugIn
     /// <param name="setRoles">The role of every set of the class.</param>
     /// <returns>The task.</returns>
     ValueTask ShowRecommendedAsync(IReadOnlyCollection<MobaShopRecommendation> steps, IReadOnlyCollection<MobaShopSetRole> setRoles);
+
+    /// <summary>
+    /// Sends the "if you buy it" lines of the item of a slot of the shop.
+    /// </summary>
+    /// <param name="slot">The slot of the item in the shop window.</param>
+    /// <param name="lines">The stats which change.</param>
+    /// <returns>The task.</returns>
+    ValueTask ShowPreviewAsync(byte slot, IReadOnlyCollection<MobaShopPreviewLine> lines);
 }

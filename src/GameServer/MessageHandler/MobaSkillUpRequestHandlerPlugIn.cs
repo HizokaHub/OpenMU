@@ -142,6 +142,20 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 5 && span[3] == 0x3B)
+        {
+            // C1 05 D5 3B slot: the "if you buy it" lines of the shop item of that slot.
+            await MobaShop.SendPreviewAsync(player, span[4]).ConfigureAwait(false);
+            return;
+        }
+
+        if (span.Length >= 4 && span[3] == 0x3C)
+        {
+            // C1 04 D5 3C: undo the last purchase of the shop.
+            await MobaShopPreview.UndoLastAsync(player).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 8 && span[3] == 0x38)
         {
             // C1 08 D5 38 slot keyLo keyHi: a skill of the summon (key 1 or 2 of the control mode) on the object under the cursor (0xFFFF = none).

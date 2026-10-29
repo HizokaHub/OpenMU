@@ -54,3 +54,11 @@ public readonly record struct MobaShopRecommendation(byte Page, ushort ItemType,
 /// <param name="ItemType">The client item type of the armor piece of the set.</param>
 /// <param name="Variant">The mix: 0 balanced, 1 offensive, 2 resources, 3 tank, 4 utility (the values of <c>MobaShopVariant</c>).</param>
 public readonly record struct MobaShopSetRole(ushort ItemType, byte Variant);
+
+/// <summary>
+/// One line of the "if you buy it" block of the shop panel: a stat of the champion before and after wearing the item.
+/// </summary>
+/// <param name="Stat">The stat (see <c>MobaShopPreview.Stat</c>).</param>
+/// <param name="Before">The value now.</param>
+/// <param name="After">The value with the item.</param>
+public readonly record struct MobaShopPreviewLine(byte Stat, uint Before, uint After);

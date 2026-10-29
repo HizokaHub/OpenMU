@@ -71,6 +71,7 @@ public class BuyNpcItemAction
             }
 
             targetItem.Durability += storeItem.Durability;
+            PlugIns.Moba.MobaShopPreview.Forget(player);
             await player.InvokeViewPlugInAsync<IItemDurabilityChangedPlugIn>(p => p.ItemDurabilityChangedAsync(targetItem, false)).ConfigureAwait(false);
             await player.InvokeViewPlugInAsync<IBuyNpcItemFailedPlugIn>(p => p.BuyNpcItemFailedAsync()).ConfigureAwait(false);
         }
@@ -96,6 +97,11 @@ public class BuyNpcItemAction
             newItem.ItemSlot = (byte)toSlot;
             await player.InvokeViewPlugInAsync<INpcItemBoughtPlugIn>(p => p.NpcItemBoughtAsync(newItem)).ConfigureAwait(false);
             await player.Inventory.AddItemAsync(newItem).ConfigureAwait(false);
+            if (priceOverride is { } paid)
+            {
+                PlugIns.Moba.MobaShopPreview.NoteBought(player, newItem, paid);
+            }
+
             player.GameContext.PlugInManager.GetPlugInPoint<IItemBoughtFromMerchantPlugIn>()?.ItemBought(player, newItem, storeItem, player.OpenedNpc);
         }
 

@@ -196,6 +196,21 @@ public static class MobaShop
         await SendPricesAsync(player, view).ConfigureAwait(false);
     }
 
+    /// <summary>Answers the request of the "if you buy it" block for the item of a slot of the shop.</summary>
+    /// <param name="player">The player.</param>
+    /// <param name="slot">The slot in the merchant window.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask SendPreviewAsync(Player player, byte slot)
+    {
+        if (!player.IsMobaClone || !TryGetOffer(player, slot, out var item, out _))
+        {
+            return;
+        }
+
+        var lines = MobaShopPreview.LinesFor(player, item);
+        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowPreviewAsync(slot, lines)).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Gets the item the player wants to buy from the currently shown shop category.
     /// </summary>

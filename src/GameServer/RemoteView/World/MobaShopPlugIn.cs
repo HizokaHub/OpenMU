@@ -33,6 +33,8 @@ public class MobaShopPlugIn : IMobaShopPlugIn
     private const byte TraitsSubCode = 0x0A;
     private const byte ShieldOptionsSubCode = 0x0C;
     private const byte RecommendedSubCode = 0x0E;
+    private const byte PreviewSubCode = 0x0F;
+    private const int PreviewEntryLength = 9;
     private const int RecommendedEntryLength = 8;
     private const int TraitEntryLength = 4;
     private const int HeaderLength = 5;
@@ -238,6 +240,43 @@ public class MobaShopPlugIn : IMobaShopPlugIn
                 span[offset++] = (byte)(role.ItemType & 0xFF);
                 span[offset++] = (byte)(role.ItemType >> 8);
                 span[offset++] = role.Variant;
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ShowPreviewAsync(byte slot, IReadOnlyCollection<MobaShopPreviewLine> lines)
+    {
+        if (this._player.Connection is not { Connected: true } connection)
+        {
+            return;
+        }
+
+        // The slot, then per stat: kind, before u32, after u32.
+        var entries = lines.Take(8).ToList();
+        var length = HeaderLength + 2 + (entries.Count * PreviewEntryLength);
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            WriteHeader(span, length, PreviewSubCode);
+            var offset = HeaderLength;
+            span[offset++] = slot;
+            span[offset++] = (byte)entries.Count;
+            foreach (var line in entries)
+            {
+                span[offset++] = line.Stat;
+                foreach (var value in new[] { line.Before, line.After })
+                {
+                    span[offset++] = (byte)(value & 0xFF);
+                    span[offset++] = (byte)((value >> 8) & 0xFF);
+                    span[offset++] = (byte)((value >> 16) & 0xFF);
+                    span[offset++] = (byte)((value >> 24) & 0xFF);
+                }
             }
 
             return length;
