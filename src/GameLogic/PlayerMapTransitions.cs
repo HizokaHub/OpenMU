@@ -244,6 +244,13 @@ internal sealed class PlayerMapTransitions
         player.IsAlive = true;
 
         await player.CurrentMap!.AddAsync(player).ConfigureAwait(false);
+        if (player.IsMobaClone)
+        {
+            // The champion state (skills, level, bar) used to arrive only with the first passive EXP tick, which does not run during the
+            // pre-match countdown: the HUD stayed empty and the client's fog (it needs the level) stayed off. Pushed now, at the entry.
+            await PlugIns.Moba.MobaExperience.PushStateAsync(player).ConfigureAwait(false);
+        }
+
         if (!player.CurrentMap.Terrain.WalkMap[player.SelectedCharacter.PositionX, player.SelectedCharacter.PositionY])
         {
             // The warp starts another map change, which adds the summon again when it completed.

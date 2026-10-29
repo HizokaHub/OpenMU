@@ -15,7 +15,7 @@ using MUnique.OpenMU.GameLogic.Attributes;
 public static class MobaBaseAura
 {
     /// <summary>The radius of the aura in tiles, around the vendor of the team.</summary>
-    public const double RadiusTiles = 8;
+    public const double RadiusTiles = 7;
 
     /// <summary>The fraction of the maximum life, mana and shield recovered per second.</summary>
     public const double Fraction = 0.20;
