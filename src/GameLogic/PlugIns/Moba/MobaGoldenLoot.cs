@@ -19,6 +19,9 @@ using MUnique.OpenMU.Pathfinding;
 /// </summary>
 public static class MobaGoldenLoot
 {
+    /// <summary>The chance a golden goblin drops the perfection jewel.</summary>
+    public const double PerfectionChance = 0.30;
+
     /// <summary>The highest level the golden jewel brings an item to.</summary>
     public const int MaxJewelLevel = 12;
 
@@ -39,6 +42,9 @@ public static class MobaGoldenLoot
 
         /// <summary>Ends the cooldowns.</summary>
         Clock,
+
+        /// <summary>Takes one item to its maximum (see <see cref="MobaPerfection"/>).</summary>
+        Perfection,
     }
 
     /// <summary>The item (group, number and level) which represents a kind of loot.</summary>
@@ -50,6 +56,7 @@ public static class MobaGoldenLoot
         Kind.Jewel => (14, 44, 0),    // Higher Refine Stone
         Kind.Elixir => (14, 85, 0),   // Cherry Blossom Wine
         Kind.Ward => (13, 11, 0),     // Life Stone
+        Kind.Perfection => (14, 13, 0), // Jewel of Bless: dragged onto an item of the inventory
         _ => (14, 90, 0),             // Golden Cherry Blossom Branch
     };
 
@@ -62,6 +69,7 @@ public static class MobaGoldenLoot
         Kind.Jewel => "Piedra dorada",
         Kind.Elixir => "Elixir de reaparición",
         Kind.Ward => "Ward dorado",
+        Kind.Perfection => "Joya de perfección",
         _ => "Rama dorada",
     };
 
@@ -74,6 +82,7 @@ public static class MobaGoldenLoot
         Kind.Jewel => $"clic derecho: +1 al peor ítem equipado (hasta +{MaxJewelLevel})",
         Kind.Elixir => "se usa solo al morir: reapareces al instante",
         Kind.Ward => "clic derecho: un ward gratis donde estás",
+        Kind.Perfection => "arrástrala sobre un ítem de tu inventario: lo lleva a su máximo (nivel, opciones y excelentes)",
         _ => "clic derecho: termina todos tus enfriamientos",
     };
 
@@ -104,7 +113,7 @@ public static class MobaGoldenLoot
     /// <returns>The kinds and their chances.</returns>
     public static IReadOnlyList<(Kind Kind, double Chance)> ChancesOf(MobaGolden.Tier tier) => tier switch
     {
-        MobaGolden.Tier.Small => new[] { (Kind.Chest, 0.03) },
+        MobaGolden.Tier.Small => new[] { (Kind.Perfection, PerfectionChance), (Kind.Chest, 0.03) },
         MobaGolden.Tier.Medium => new[] { (Kind.Chest, 0.08), (Kind.Jewel, 0.05), (Kind.Ward, 0.08) },
         MobaGolden.Tier.Large => new[] { (Kind.Chest, 0.25), (Kind.Jewel, 0.15), (Kind.Clock, 0.10), (Kind.Elixir, 0.10), (Kind.Ward, 0.10) },
         _ => new[] { (Kind.Chest, 1.0), (Kind.Jewel, 0.5), (Kind.Elixir, 0.35), (Kind.Clock, 0.25) },
@@ -186,6 +195,9 @@ public static class MobaGoldenLoot
                     await ConsumeAsync(player, item).ConfigureAwait(false);
                 }
 
+                return true;
+            case Kind.Perfection:
+                await player.ShowBlueMessageAsync("[MOBA] La joya de perfección se arrastra sobre un ítem de tu inventario (sin equipar).").ConfigureAwait(false);
                 return true;
             case Kind.Clock:
                 await EndCooldownsAsync(player).ConfigureAwait(false);

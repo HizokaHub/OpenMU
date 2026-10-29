@@ -32,6 +32,8 @@ public class MobaShopPlugIn : IMobaShopPlugIn
     private const byte PricesSubCode = 0x08;
     private const byte TraitsSubCode = 0x0A;
     private const byte ShieldOptionsSubCode = 0x0C;
+    private const byte RecommendedSubCode = 0x0E;
+    private const int RecommendedEntryLength = 8;
     private const int TraitEntryLength = 4;
     private const int HeaderLength = 5;
     private const int MaxTitleBytes = 64;
@@ -191,6 +193,51 @@ public class MobaShopPlugIn : IMobaShopPlugIn
                     span[offset++] = kind;
                     span[offset++] = percent;
                 }
+            }
+
+            return length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ShowRecommendedAsync(IReadOnlyCollection<MobaShopRecommendation> steps, IReadOnlyCollection<MobaShopSetRole> setRoles)
+    {
+        if (this._player.Connection is not { Connected: true } connection)
+        {
+            return;
+        }
+
+        // Per step: page, type u16, tier, price u32; then the roles: count, per set type u16 + variant.
+        var entries = steps.Take(16).ToList();
+        var roles = setRoles.Take(64).ToList();
+        var length = HeaderLength + 1 + (entries.Count * RecommendedEntryLength) + 1 + (roles.Count * 3);
+
+        int Write()
+        {
+            var span = connection.Output.GetSpan(length)[..length];
+            WriteHeader(span, length, RecommendedSubCode);
+            var offset = HeaderLength;
+            span[offset++] = (byte)entries.Count;
+            foreach (var step in entries)
+            {
+                span[offset++] = step.Page;
+                span[offset++] = (byte)(step.ItemType & 0xFF);
+                span[offset++] = (byte)(step.ItemType >> 8);
+                span[offset++] = step.Tier;
+                span[offset++] = (byte)(step.Price & 0xFF);
+                span[offset++] = (byte)((step.Price >> 8) & 0xFF);
+                span[offset++] = (byte)((step.Price >> 16) & 0xFF);
+                span[offset++] = (byte)((step.Price >> 24) & 0xFF);
+            }
+
+            span[offset++] = (byte)roles.Count;
+            foreach (var role in roles)
+            {
+                span[offset++] = (byte)(role.ItemType & 0xFF);
+                span[offset++] = (byte)(role.ItemType >> 8);
+                span[offset++] = role.Variant;
             }
 
             return length;

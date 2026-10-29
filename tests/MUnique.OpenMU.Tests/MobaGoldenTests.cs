@@ -14,6 +14,28 @@ using NUnit.Framework;
 public class MobaGoldenTests
 {
     /// <summary>
+    /// The goblins of the invasion follow the size of the match, and with the 30 % of the perfection jewel clearing most of them gives every champion 3 or more.
+    /// </summary>
+    /// <param name="champions">The champions of the match.</param>
+    [TestCase(6)]
+    [TestCase(8)]
+    [TestCase(10)]
+    public void TheGoblinsAreEnoughForEveryChampion(int champions)
+    {
+        var goblins = MobaGolden.GoblinBudgetFor(champions);
+        var jewelsPerChampion = goblins * MobaGoldenLoot.PerfectionChance * 0.7 / champions;
+        Assert.That(jewelsPerChampion, Is.GreaterThanOrEqualTo(3.0), "jewels per champion when 70 % of the goblins are killed");
+        Assert.That(MobaGolden.GoblinBudgetFor(8), Is.GreaterThan(MobaGolden.GoblinBudgetFor(6)));
+    }
+
+    /// <summary>The small monsters of the invasion (the goblins) drop the perfection jewel.</summary>
+    [Test]
+    public void TheGoblinsDropThePerfectionJewel()
+    {
+        Assert.That(MobaGoldenLoot.ChancesOf(MobaGolden.Tier.Small), Does.Contain((MobaGoldenLoot.Kind.Perfection, MobaGoldenLoot.PerfectionChance)));
+    }
+
+    /// <summary>
     /// The Great Golden Dragon kills a champion in four hits.
     /// </summary>
     [Test]

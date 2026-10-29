@@ -158,8 +158,9 @@ public static class MobaShop
             return false;
         }
 
+        // 2026-10-28: no text menu any more; the shop panel opens at once on its first page and its tabs ask the server for the other pages.
         Views.Remove(player);
-        await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowMenuAsync(CategoryMenuId, VendorTitle, VendorText, MobaShopCatalog.Pages.Select(p => p.Name).ToList())).ConfigureAwait(false);
+        await SelectOptionAsync(player, CategoryMenuId, MobaShopCatalog.DefaultPage).ConfigureAwait(false);
         return true;
     }
 
@@ -838,6 +839,12 @@ public static class MobaShop
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowPricesAsync(prices.Values, SellPercent)).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowItemTraitsAsync(MobaItemTraits.TooltipTraits)).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowShieldOptionsAsync(MobaItemTraits.ShieldOptionTable)).ConfigureAwait(false);
+        if (player.SelectedCharacter?.CharacterClass is { } characterClass)
+        {
+            var steps = MobaShopGuide.StepsFor(player.GameContext.Configuration, characterClass);
+            var roles = MobaShopGuide.SetRolesFor(characterClass);
+            await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowRecommendedAsync(steps, roles)).ConfigureAwait(false);
+        }
     }
 
     internal static int OptionLevelOf(Item item)

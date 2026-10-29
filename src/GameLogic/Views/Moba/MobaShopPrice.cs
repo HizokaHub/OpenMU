@@ -38,3 +38,19 @@ public readonly record struct MobaItemTrait(ushort ItemType, byte Kind, byte Per
 /// <param name="ExcellentCount">The number of excellent options.</param>
 /// <param name="Options">The options as (kind, percent); kinds as in <see cref="MobaItemTrait"/>.</param>
 public readonly record struct MobaShieldOption(ushort ItemType, byte Level, byte OptionLevel, bool HasLuck, byte ExcellentCount, IReadOnlyList<(byte Kind, byte Percent)> Options);
+
+/// <summary>
+/// One step of the recommended purchase path of the MOBA shop (the "Para ti" tab and the left column of the panel).
+/// </summary>
+/// <param name="Page">The menu page (index into the pages of the catalog) where the item is sold.</param>
+/// <param name="ItemType">The client item type (group * 512 + number); for a set, the armor piece.</param>
+/// <param name="Tier">The tier, 1-3.</param>
+/// <param name="Price">The price of the item (of the whole set for a set).</param>
+public readonly record struct MobaShopRecommendation(byte Page, ushort ItemType, byte Tier, uint Price);
+
+/// <summary>
+/// The role of a set of the shop for the champion (which mix of options its pieces carry), so the panel can label the columns.
+/// </summary>
+/// <param name="ItemType">The client item type of the armor piece of the set.</param>
+/// <param name="Variant">The mix: 0 balanced, 1 offensive, 2 resources, 3 tank, 4 utility (the values of <c>MobaShopVariant</c>).</param>
+public readonly record struct MobaShopSetRole(ushort ItemType, byte Variant);

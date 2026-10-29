@@ -46,9 +46,23 @@ public static class MobaShopCatalog
         new MobaShopPage("Sets - Tier 1", new[] { MobaShopCategory.Sets }, MobaShopTier.T1),
         new MobaShopPage("Sets - Tier 2", new[] { MobaShopCategory.Sets }, MobaShopTier.T2),
         new MobaShopPage("Sets - Tier 3", new[] { MobaShopCategory.Sets }, MobaShopTier.T3),
-        new MobaShopPage("Sets de recursos", new[] { MobaShopCategory.SetsSustain }),
         new MobaShopPage("Mascotas y Escudos", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand }),
     };
+
+    /// <summary>The page of the first tier of sets (the pages of tier 2 and 3 follow).</summary>
+    public const int FirstSetsPage = 2;
+
+    /// <summary>The page which opens when the player talks to the vendor (the client starts on its "Para ti" tab, which needs any page open behind it).</summary>
+    public const int DefaultPage = 0;
+
+    /// <summary>The page of the weapons.</summary>
+    public const int WeaponsPage = 1;
+
+    /// <summary>The page of the wings (it shares the first page with the consumables and the accessories).</summary>
+    public const int WingsPage = 0;
+
+    /// <summary>The page of the shields and the pets.</summary>
+    public const int OffhandPage = 5;
 
     /// <summary>Gets all entries of the catalog.</summary>
     public static IReadOnlyList<MobaShopEntry> Entries { get; } = Build();
@@ -91,14 +105,14 @@ public static class MobaShopCatalog
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.
         // Every set of a class is sold ONCE (2026-10-27, the user did not want the same set repeated with other options): the sets of a class and
         // tier are listed in order and take the option mixes in this order - Standard, Bulwark, Aggressive, Utility, Sustain. Standard / Bulwark /
-        // Aggressive / Utility go on the "Sets - Tier N" page and the Sustain one on "Sets de recursos" (a set is 22 cells and the merchant grid holds
+        // Aggressive / Utility / Sustain all go on the "Sets - Tier N" page (2026-10-28: there is no page of resource sets any more; a set is 24 cells and the merchant grid holds
         // 120). Tier 3 lists two sets (Standard, Bulwark). The same set number is always in the same tier for every class that wears it.
         void Sets(MobaFamily family, MobaShopTier tier, params short[] setNumbers)
         {
             for (var index = 0; index < setNumbers.Length; index++)
             {
                 var variant = SetVariantOrder[index];
-                var category = variant == MobaShopVariant.Sustain ? MobaShopCategory.SetsSustain : MobaShopCategory.Sets;
+                var category = MobaShopCategory.Sets;
                 for (var group = HelmGroup; group <= BootsGroup; group++)
                 {
                     entries.Add(new MobaShopEntry(category, new[] { family }, group, setNumbers[index], tier, Variant: variant));

@@ -54,6 +54,36 @@ public class MobaShopTests
         Assert.That(missing, Is.Empty);
     }
 
+    /// <summary>Every family gets a recommended path of at least five steps, each on a page which exists and in an increasing order of tier.</summary>
+    /// <param name="classNumber">The class number.</param>
+    [TestCaseSource(nameof(FamilyClassNumbers))]
+    public void EveryFamilyHasARecommendedPath(byte classNumber)
+    {
+        var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
+        var steps = MobaShopGuide.StepsFor(this._gameConfiguration, characterClass);
+        Assert.That(steps.Count, Is.GreaterThanOrEqualTo(5), characterClass.Name);
+        Assert.That(steps.All(s => s.Page < MobaShopCatalog.Pages.Count && s.Price > 0), Is.True, characterClass.Name);
+        Assert.That(steps.Select(s => (int)s.Tier), Is.Ordered, characterClass.Name);
+    }
+
+    /// <summary>The perfection jewel takes a tier 1 piece to the full stats of tier 3 and refuses what it cannot improve.</summary>
+    [Test]
+    public void ThePerfectionJewelMaximizesAnItem()
+    {
+        MobaBorrowedSets.EnsureConfigured(this._gameConfiguration);
+        var entry = MobaShopCatalog.Entries.First(e => e.Category == MobaShopCategory.Weapons && e.Tier == MobaShopTier.T1 && e.Quantity == 1);
+        var definition = this._gameConfiguration.Items.First(d => d.Group == entry.Group && d.Number == entry.Number);
+        var item = MobaShop.CreateItem(definition, entry);
+        var full = MobaShop.CreateItem(definition, entry with { Tier = MobaShopTier.T3 });
+        Assert.That(MobaPerfection.TryMaximize(item), Is.Null);
+        Assert.That(item.Level, Is.EqualTo(full.Level));
+        Assert.That(item.ItemOptions.Count, Is.EqualTo(full.ItemOptions.Count));
+        Assert.That(MobaPerfection.TryMaximize(item), Is.Not.Null, "already at the maximum");
+
+        var potion = this._gameConfiguration.Items.First(d => d.Group == 14 && d.Number == 3);
+        Assert.That(MobaPerfection.TryMaximize(new MUnique.OpenMU.GameLogic.TemporaryItem { Definition = potion }), Is.Not.Null);
+    }
+
     /// <summary>A set is sold once: no set repeats for a class (with other option mixes), and a set number is in the same tier for every class.</summary>
     [Test]
     public void EverySetIsSoldOnce()

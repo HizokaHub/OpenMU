@@ -52,8 +52,25 @@ public static class MobaGolden
     /// <summary>The share of a normal structure hit which the nexus takes from a golden monster (2026-10-27: it fell in seconds to the monsters of its city with 0.4).</summary>
     public const double NexusShareFactor = 0.04;
 
-    /// <summary>Golden monsters standing in the city of each base when the invasion begins.</summary>
-    public const int CityPopulation = 8;
+    /// <summary>Golden goblins of the invasion per champion of the match (2026-10-28: with the 30 % of the perfection jewel, clearing most of them gives every champion 3-5 jewels).</summary>
+    public const int GoblinsPerPlayer = 18;
+
+    /// <summary>The fewest golden goblins of an invasion.</summary>
+    public const int MinimumGoblins = 36;
+
+    /// <summary>Share of the goblins which stand in clusters around the places of the jungle camps.</summary>
+    public const double SpotShare = 0.35;
+
+    /// <summary>Share of the goblins which patrol the lanes.</summary>
+    public const double LaneShare = 0.40;
+
+    /// <summary>Share of the goblins which stand in the two cities (the rest of the budget).</summary>
+    public const double CityShare = 0.25;
+
+    /// <summary>The goblins of an invasion for a match of that many champions.</summary>
+    /// <param name="champions">The champions of the match (humans and bots).</param>
+    /// <returns>The number of goblins.</returns>
+    public static int GoblinBudgetFor(int champions) => Math.Max(MinimumGoblins, Math.Max(2, champions) * GoblinsPerPlayer);
 
     /// <summary>Seconds the golden dragons fly over the map before the invaders appear.</summary>
     public const int FlyoverSeconds = 60;
@@ -650,27 +667,20 @@ public static class MobaGolden
             }
         }
 
-        // 1. Where the jungle camps were: the golden monster of the same rank, and a cluster of goblins spread around the spot.
+        // The invasion is golden goblins and golden dragons only (2026-10-28). The number of goblins follows the size of the match so that everybody
+        // can collect several perfection jewels (30 % per goblin).
+        var budget = GoblinBudgetFor((await ChampionsOfAsync(map, gameContext).ConfigureAwait(false)).Count);
+
+        // 1. Clusters of goblins where the jungle camps were.
+        var spots = MobaJungle.Spots.ToList();
+        var perSpot = Math.Max(1, (int)Math.Round(budget * SpotShare / Math.Max(1, spots.Count)));
         var spotIndex = 0;
-        foreach (var spot in MobaJungle.Spots)
+        foreach (var spot in spots)
         {
             spotIndex++;
-            var memberIndex = 0;
-            foreach (var member in MobaJungle.MembersOf(spot))
+            for (var i = 0; i < perSpot; i++)
             {
-                if (member.Kind == MobaJungle.Kind.Kundun)
-                {
-                    continue; // the Great Golden Dragons are placed apart
-                }
-
-                var spec = PickSpec(TierOf(member.Kind), spotIndex + memberIndex++);
-                var slot = member.Slot;
-                await Add(spec, new Point(slot.X, slot.Y), slot.Direction, true, null).ConfigureAwait(false);
-            }
-
-            for (var i = 0; i < 3; i++)
-            {
-                var angle = (Math.PI * 2 * i / 3) + (spotIndex * 0.7);
+                var angle = (Math.PI * 2 * i / perSpot) + (spotIndex * 0.7);
                 var radius = ClusterRadius - 1 + (i % 2);
                 await Add(Goblin, MobaLayout.NearestWalkable(spot.X + (Math.Cos(angle) * radius), spot.Y + (Math.Sin(angle) * radius)), Direction.South, true, null).ConfigureAwait(false);
             }
@@ -701,17 +711,15 @@ public static class MobaGolden
 
         // 4. Goblins which patrol the lanes towards the enemy base, in groups spread over a radius.
         var middleOnly = MobaFormats.MiddleLaneOnly(arena.Format);
-        for (var lane = 0; lane < MobaLayout.LaneCount; lane++)
+        const int GroupsPerLane = 5;
+        var lanes = Enumerable.Range(0, MobaLayout.LaneCount).Where(lane => !middleOnly || lane == MobaLayout.MidLane).ToList();
+        var perGroup = Math.Max(2, (int)Math.Round(budget * LaneShare / Math.Max(1, lanes.Count * GroupsPerLane)));
+        foreach (var lane in lanes)
         {
-            if (middleOnly && lane != MobaLayout.MidLane)
-            {
-                continue;
-            }
-
             var towardsRed = MobaLayout.WaypointsFor(MobaTeam.Blue, lane);
             var towardsBlue = MobaLayout.WaypointsFor(MobaTeam.Red, lane);
             var length = MobaLayout.LengthOf(towardsRed);
-            for (var group = 0; group < 5; group++)
+            for (var group = 0; group < GroupsPerLane; group++)
             {
                 var fraction = 0.12 + (0.19 * group);
                 var forRed = group % 2 == 0;
@@ -724,26 +732,27 @@ public static class MobaGolden
                     ahead.Add(route[^1]);
                 }
 
-                for (var i = 0; i < 4; i++)
+                for (var i = 0; i < perGroup; i++)
                 {
-                    var angle = (Math.PI / 2 * i) + group;
+                    var angle = (Math.PI * 2 * i / perGroup) + group;
                     var start = MobaLayout.NearestWalkable(cx + (Math.Cos(angle) * 2.5), cy + (Math.Sin(angle) * 2.5));
                     await Add(Goblin, start, Direction.South, false, ahead).ConfigureAwait(false);
                 }
             }
         }
 
-        // 5. The cities: golden monsters spread at random over the circle around each nexus which holds its first three turrets.
+        // 5. The cities: goblins spread at random over the circle around each nexus which holds its first three turrets.
+        var perCity = Math.Max(3, (int)Math.Round(budget * CityShare / 2));
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
         {
             var nexus = MobaLayout.NexusOf(team);
             var cityRadius = CityRadiusOf(team);
-            for (var i = 0; i < CityPopulation; i++)
+            for (var i = 0; i < perCity; i++)
             {
                 var angle = rng.NextDouble() * Math.PI * 2;
                 var distance = 8 + (rng.NextDouble() * Math.Max(1, cityRadius - 10));
                 var start = MobaLayout.NearestWalkable(nexus.X + (Math.Cos(angle) * distance), nexus.Y + (Math.Sin(angle) * distance));
-                await Add(i % 5 == 0 ? PickSpec(Tier.Medium, i + (int)team) : SmallSpecs[i % SmallSpecs.Length], start, Direction.South, true, null).ConfigureAwait(false);
+                await Add(Goblin, start, Direction.South, true, null).ConfigureAwait(false);
             }
         }
 

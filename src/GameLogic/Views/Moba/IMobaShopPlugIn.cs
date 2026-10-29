@@ -40,4 +40,12 @@ public interface IMobaShopPlugIn : IViewPlugIn
     /// <param name="shields">The shield options.</param>
     /// <returns>The task.</returns>
     ValueTask ShowShieldOptionsAsync(IReadOnlyCollection<MobaShieldOption> shields);
+
+    /// <summary>
+    /// Sends the recommended purchase path of the champion (the "Para ti" tab of the shop panel).
+    /// </summary>
+    /// <param name="steps">The steps in the order to buy them.</param>
+    /// <param name="setRoles">The role of every set of the class.</param>
+    /// <returns>The task.</returns>
+    ValueTask ShowRecommendedAsync(IReadOnlyCollection<MobaShopRecommendation> steps, IReadOnlyCollection<MobaShopSetRole> setRoles);
 }
