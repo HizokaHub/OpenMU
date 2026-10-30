@@ -65,8 +65,8 @@ public static class MobaShopPreview
         {
             var slot = (byte)slotNumber;
             var worn = player.Inventory?.GetItem(slot);
-            var added = DeltaOf(player, item, slot);
-            var removed = worn is null ? new Dictionary<Stat, double>() : DeltaOf(player, worn, slot);
+            var added = DeltaOf(player.GameContext.ItemPowerUpFactory, item, slot);
+            var removed = worn is null ? new Dictionary<Stat, double>() : DeltaOf(player.GameContext.ItemPowerUpFactory, worn, slot);
             var lines = new List<MobaShopPreviewLine>();
             foreach (var stat in Enum.GetValues<Stat>())
             {
@@ -155,13 +155,13 @@ public static class MobaShopPreview
     };
 
     // What an item adds to the stats, worked out in an attribute system of its own (a copy of the item stands in the slot, so the factory accepts it).
-    private static Dictionary<Stat, double> DeltaOf(Player player, Item item, byte slot)
+    internal static Dictionary<Stat, double> DeltaOf(IItemPowerUpFactory factory, Item item, byte slot)
     {
         var standIn = new TemporaryItem();
         standIn.AssignValues(item);
         standIn.ItemSlot = slot;
         var system = new AttributeSystem(Array.Empty<IAttribute>(), Array.Empty<IAttribute>(), Array.Empty<AttributeRelationship>());
-        var wrappers = player.GameContext.ItemPowerUpFactory.GetPowerUps(standIn, system).ToList();
+        var wrappers = factory.GetPowerUps(standIn, system).ToList();
         try
         {
             return new Dictionary<Stat, double>

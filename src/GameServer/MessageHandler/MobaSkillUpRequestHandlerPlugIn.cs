@@ -145,6 +145,7 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
         if (span.Length >= 5 && span[3] == 0x3B)
         {
             // C1 05 D5 3B slot: the "if you buy it" lines of the shop item of that slot.
+            player.Logger.LogInformation("[MOBA-SHOP] preview request for slot {Slot}.", span[4]);
             await MobaShop.SendPreviewAsync(player, span[4]).ConfigureAwait(false);
             return;
         }

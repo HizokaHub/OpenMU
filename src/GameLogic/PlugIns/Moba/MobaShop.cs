@@ -179,9 +179,11 @@ public static class MobaShop
             || !IsVendor(npc)
             || optionIndex >= MobaShopCatalog.Pages.Count)
         {
+            player.Logger.LogInformation("[MOBA-SHOP] page {Option} refused (menu {Menu}, clone {Clone}, npc {Npc}).", optionIndex, menuId, player.IsMobaClone, player.OpenedNpc?.Definition.Designation);
             return;
         }
 
+        player.Logger.LogInformation("[MOBA-SHOP] page {Option} requested.", optionIndex);
         var view = BuildView(player, optionIndex);
         if (view.Items.Count == 0)
         {
@@ -202,12 +204,14 @@ public static class MobaShop
     /// <returns>A task.</returns>
     public static async ValueTask SendPreviewAsync(Player player, byte slot)
     {
-        if (!player.IsMobaClone || !TryGetOffer(player, slot, out var item, out _))
+        if (!player.IsMobaClone)
         {
             return;
         }
 
-        var lines = MobaShopPreview.LinesFor(player, item);
+        // Always answers (with no lines when the slot holds nothing) so the panel never waits for ever.
+        var lines = TryGetOffer(player, slot, out var item, out _) ? MobaShopPreview.LinesFor(player, item) : Array.Empty<MobaShopPreviewLine>();
+        player.Logger.LogInformation("[MOBA-SHOP] preview of slot {Slot}: {Lines} line(s).", slot, lines.Count);
         await player.InvokeViewPlugInAsync<IMobaShopPlugIn>(p => p.ShowPreviewAsync(slot, lines)).ConfigureAwait(false);
     }
 

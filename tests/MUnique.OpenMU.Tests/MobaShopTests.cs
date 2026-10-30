@@ -84,6 +84,29 @@ public class MobaShopTests
         Assert.That(MobaPerfection.TryMaximize(new MUnique.OpenMU.GameLogic.TemporaryItem { Definition = potion }), Is.Not.Null);
     }
 
+    /// <summary>The "if you buy it" numbers of a weapon, a set piece and a ring come out quickly and with values.</summary>
+    [Test]
+    public void ThePreviewOfAnItemIsFastAndHasNumbers()
+    {
+        var factory = new MUnique.OpenMU.GameLogic.ItemPowerUpFactory(NullLogger<MUnique.OpenMU.GameLogic.ItemPowerUpFactory>.Instance);
+        var report = new List<string>();
+        foreach (var category in new[] { MobaShopCategory.Weapons, MobaShopCategory.Sets, MobaShopCategory.Accessories })
+        {
+            var entry = MobaShopCatalog.Entries.First(e => e.Category == category && e.Tier == MobaShopTier.T2 && e.Quantity == 1);
+            var definition = this._gameConfiguration.Items.First(d => d.Group == entry.Group && d.Number == entry.Number);
+            var item = MobaShop.CreateItem(definition, entry);
+            var slot = (byte)definition.ItemSlot!.ItemSlots.First();
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var delta = MobaShopPreview.DeltaOf(factory, item, slot);
+            stopwatch.Stop();
+            report.Add($"{category} {definition.Name} slot {slot}: {stopwatch.ElapsedMilliseconds} ms, " + string.Join(", ", delta.Where(d => Math.Abs(d.Value) > 0).Select(d => $"{d.Key}={d.Value:0.#}")));
+            Assert.That(stopwatch.ElapsedMilliseconds, Is.LessThan(500), report.Last());
+        }
+
+        TestContext.Out.WriteLine(string.Join(Environment.NewLine, report));
+        Assert.That(report.Any(r => r.Contains('=')), Is.True, string.Join(" | ", report));
+    }
+
     /// <summary>A set is sold once: no set repeats for a class (with other option mixes), and a set number is in the same tier for every class.</summary>
     [Test]
     public void EverySetIsSoldOnce()
