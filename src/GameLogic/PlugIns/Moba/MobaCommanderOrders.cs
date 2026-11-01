@@ -144,6 +144,11 @@ public static class MobaCommanderOrders
             var arena = MobaArena.Of(map);
             var board = MobaCommanderBoard.Of(arena);
             board.Tick(1);
+            foreach (var champion in await MobaCommanderPanel.ChampionsOfAsync(map, gameContext).ConfigureAwait(false))
+            {
+                await MobaCommanderPanel.SendStateAsync(champion).ConfigureAwait(false);
+            }
+
             if (tick % MobaCommanderBot.ThinkSeconds != 0)
             {
                 return;

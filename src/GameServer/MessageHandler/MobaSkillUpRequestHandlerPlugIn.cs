@@ -249,6 +249,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 7 && span[3] == 0x41)
+        {
+            // C1 07 D5 41 action unit lane: a button of the commander panel (send a pack, buy income, claim or give up the command).
+            await MobaCommanderPanel.HandleOrderAsync(player, (MobaCommanderPanelAction)span[4], span[5], span[6]).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 4 && span[3] == 0x09)
         {
             // C1 04 D5 09: recall (key B).

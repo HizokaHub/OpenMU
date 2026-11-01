@@ -2661,3 +2661,23 @@ Primera versión del modo, **solo servidor y sin cliente nuevo**: el comandante 
 4. Habilidades globales con cooldown (teletransportar a un héroe, escudo al nexo, cura de zona, trampa), escuadras de 3 héroes y órdenes con marcadores.
 5. Calibrar costos, ingreso y poder de los paquetes con partidas de bots (`/mobabotfight`) y telemetría; compensación por poder de héroes (ver la sección de balance de este documento).
 6. Guerra de clanes con 3 frentes y portales (mover héroes entre instancias): requiere una prueba mínima de cambio de instancia.
+
+
+## Sesión 2026-11-01 (noche, 2): panel del comandante en el cliente (compilado; sin ver en pantalla)
+
+Los jugadores de una partida del modo Comandantes ya tienen un panel en el cliente en vez de depender del chat. El comando `/mobacmd` sigue funcionando igual.
+
+**Paquetes nuevos (código `D5` libre en ambas direcciones: 0x40 y 0x41)**
+- **Servidor → cliente** `C1 len D5 40  flags  essence(u16)  income  level  maxLevel  nextCost(u16)  laneMask  unitCount  cost(u16) x unitCount`. `flags`: bit 0 visible, bit 1 «tú comandas», bit 2 «el mando está libre (lo juega un bot)». Se manda **una vez por segundo** a todos los campeones humanos de la arena mientras corre la economía (`MobaCommanderOrders.TickAsync`), y un paquete «oculto» al parar el modo (`MobaCommandersMode.StopAsync`). Vista `IMobaCommanderPlugIn` + `MobaCommanderPanelState` (`GameLogic/Views/Moba`), implementación `MobaCommanderPlugIn` (`GameServer/RemoteView/World`).
+- **Cliente → servidor** `C1 07 D5 41  action  unit  lane` (acción 0 enviar paquete, 1 mejorar ingreso, 2 tomar el mando, 3 soltarlo). Lo atiende `MobaSkillUpRequestHandlerPlugIn` → `MobaCommanderPanel.HandleOrderAsync`, que aplica las mismas reglas que el chat (solo el comandante puede enviar o mejorar) y responde con un mensaje azul si algo falla; un envío correcto no dice nada porque el panel se actualiza.
+- `MobaCommanderPanel` (`PlugIns/Moba`): `StateOf(player)` (oculto si el jugador no está en una partida en marcha del modo Comandantes), `SendStateAsync`, `HideAllAsync`, `HandleOrderAsync`.
+
+**Cliente (`mu-main`, rama `moba-camera`)**
+- `World/Moba/MobaCommander.{h,cpp}` (estado, lectura del paquete `0x40`, envío de órdenes; se oculta solo si el servidor calla 3 s) y `UI/NewUI/Dialogs/MobaCommanderWindow.{h,cpp}` (`SEASON3B::CMobaCommanderWindow`, clave `INTERFACE_END + 15`). `WSclient.cpp/.h`: `case 0x40` y `SendMobaCommanderOrder`. Registrado en `NewUISystem.cpp`.
+- **Panel a la izquierda de la pantalla** (x 4, y 100 de la pantalla de referencia 640×480, 178 de ancho): título, **esencia en grande**, «+N/s · ingreso nivel/máximo». Para el **comandante**: botón «Mejorar ingreso (costo)», una fila por paquete (nombre · costo) con tres botones **TOP / MID / BOT** (grises si el carril está cerrado o falta esencia) y «Soltar el mando». Si el mando está libre: botón «Tomar el mando». Si lo tiene otro jugador: solo los números. El panel se traga el ratón (un clic en él no mueve al héroe).
+- Los nombres de los paquetes del cliente (`Soldados`, `Brutos`, `Élite`) van en el mismo orden que `MobaCommanderUnits.All` del servidor; los costos y los carriles abiertos vienen del servidor.
+- Compilado en Release con `tools/build_cliente.bat` (único `Main.exe` en `out\build\windows-x64\src\Release`). **A validar en pantalla:** posición (puede tapar la lista de grupo o el chat; si molesta, cambiar `PANEL_X/PANEL_Y`), tamaños de letra, que los clics lleguen, que se actualice la esencia cada segundo y que al terminar la partida desaparezca.
+
+**Pruebas:** 1127/1127 (una nueva: el panel queda oculto fuera de una partida de Comandantes).
+
+**Siguiente:** que los héroes aporten esencia (kills de creeps y campeones), conectar el modo a la cola, atajos de teclado para el comandante, y luego cámara cenital y minimapa clicable.

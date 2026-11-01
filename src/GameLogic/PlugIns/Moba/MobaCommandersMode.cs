@@ -36,10 +36,10 @@ public sealed class MobaCommandersMode : MobaGameModeBase
     }
 
     /// <inheritdoc />
-    public override ValueTask StopAsync(GameMap map, IGameContext gameContext)
+    public override async ValueTask StopAsync(GameMap map, IGameContext gameContext)
     {
         MobaCommanderOrders.Stop(map);
-        return ValueTask.CompletedTask;
+        await MobaCommanderPanel.HideAllAsync(map, gameContext).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

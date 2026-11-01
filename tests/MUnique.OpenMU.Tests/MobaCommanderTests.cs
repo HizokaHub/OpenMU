@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.Tests;
 
 using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlugIns.Moba;
+using MUnique.OpenMU.GameLogic.Views.Moba;
 
 /// <summary>
 /// Tests the commanders mode: the economy of the board, the bot commander, the packs and the orders which need no spawning.
@@ -281,5 +282,19 @@ public class MobaCommanderTests
         await MobaGameModes.Commanders.StopAsync(map, context);
         Assert.That(board.Running, Is.False);
         Assert.That(board.CommanderOf(MobaTeam.Blue), Is.Null);
+    }
+
+    /// <summary>
+    /// A player who is not in a running commanders match gets a hidden panel, and the hidden state carries nothing.
+    /// </summary>
+    [Test]
+    public async Task PanelIsHiddenOutsideACommandersMatch()
+    {
+        var context = GameContextTestHelper.CreateGameContext();
+        var player = await PlayerTestHelper.CreatePlayerAsync(context);
+
+        Assert.That(MobaCommanderPanel.StateOf(player).Visible, Is.False);
+        Assert.That(MobaCommanderPanelState.Hidden.Visible, Is.False);
+        Assert.That(MobaCommanderPanelState.Hidden.UnitCosts, Is.Empty);
     }
 }
