@@ -12,8 +12,11 @@ public static class MobaGameModes
     /// <summary>Gets the classic MOBA, the mode every arena starts with.</summary>
     public static IMobaGameMode Classic { get; } = new MobaClassicMode();
 
+    /// <summary>Gets the commanders mode: the creeps are what the commanders send.</summary>
+    public static IMobaGameMode Commanders { get; } = new MobaCommandersMode();
+
     /// <summary>Gets every mode of the server; the first is the default.</summary>
-    public static IReadOnlyList<IMobaGameMode> All { get; } = [Classic];
+    public static IReadOnlyList<IMobaGameMode> All { get; } = [Classic, Commanders];
 
     /// <summary>
     /// Finds a mode by its identifier.

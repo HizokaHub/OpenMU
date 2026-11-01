@@ -178,34 +178,72 @@ public static class MobaWaveSpawner
     public static async ValueTask<int> SpawnLaneWaveAsync(GameMap map, IGameContext gameContext, MobaTeam team, int laneIndex)
     {
         // Don't pour more creeps onto a jammed lane.
-        var liveOwn = map.GetAttackablesInRange(new Point(128, 128), 400)
-            .OfType<Monster>()
-            .Where(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team)
-            .ToList();
-        if (liveOwn.Count >= MaxLiveCreepsPerTeam
-            || liveOwn.Count(mo => MobaLayout.NearestLane(mo.Position.X, mo.Position.Y) == laneIndex) >= MaxLiveCreepsPerLane)
+        if (IsLaneJammed(map, team, laneIndex))
         {
             return 0;
         }
 
-        var leaderLevel = MobaArena.Of(map).LeaderLevel;
-        var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
-        var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
-        var composition = team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition;
+        var composition = (team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition)
+            .Select(c => new MobaWaveUnit(c.Number, c.Count))
+            .ToList();
         if (MobaGolden.IsReinforced(map, team))
         {
             // The team which killed a Great Golden Dragon sends a golden monster with every wave for a while.
-            composition = composition.Append((MobaGolden.ReinforcementNumber, 1)).ToArray();
+            composition.Add(new MobaWaveUnit(MobaGolden.ReinforcementNumber, 1, MobaGolden.ReinforcementPower, MobaGolden.ReinforcementPower));
         }
 
         // A fallen enemy inhibitor of this lane: this wave carries super-minions (big and tough, one or two).
         var superCount = MobaInhibitors.SuperMinionsFor(map, team, laneIndex);
         if (superCount > 0)
         {
-            composition = composition.Append((MobaSuperMinions.ModelOf(team), superCount)).ToArray();
+            composition.Add(MobaWaveUnit.SuperMinion(team, superCount));
             await MobaInhibitors.AnnounceSuperMinionsOnceAsync(map, team, laneIndex).ConfigureAwait(false);
         }
 
+        return await SpawnUnitsAsync(map, gameContext, team, laneIndex, composition).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets the basic ranks of a team (its two small melee mobs), as many creeps per rank as asked.
+    /// </summary>
+    /// <param name="team">The team.</param>
+    /// <param name="perRank">The creeps of each rank.</param>
+    /// <returns>The ranks, front first.</returns>
+    public static IReadOnlyList<MobaWaveUnit> BasicRanks(MobaTeam team, int perRank)
+        => (team == MobaTeam.Red ? RedWaveComposition : BlueWaveComposition).Select(c => new MobaWaveUnit(c.Number, perRank)).ToList();
+
+    /// <summary>
+    /// Gets whether a lane has too many creeps of a team to pour more onto it (the safety valve against the pile-up that froze the server).
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <param name="team">The team.</param>
+    /// <param name="laneIndex">The lane index.</param>
+    /// <returns><see langword="true"/> if no more creeps should be sent down the lane.</returns>
+    public static bool IsLaneJammed(GameMap map, MobaTeam team, int laneIndex)
+    {
+        var liveOwn = map.GetAttackablesInRange(new Point(128, 128), 400)
+            .OfType<Monster>()
+            .Where(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team)
+            .ToList();
+        return liveOwn.Count >= MaxLiveCreepsPerTeam
+            || liveOwn.Count(mo => MobaLayout.NearestLane(mo.Position.X, mo.Position.Y) == laneIndex) >= MaxLiveCreepsPerLane;
+    }
+
+    /// <summary>
+    /// Spawns the given units of <paramref name="team"/> at the start of a lane, ranks lined up behind the spawn. The
+    /// caller decides whether the lane may take them (see <see cref="IsLaneJammed"/>).
+    /// </summary>
+    /// <param name="map">The map to spawn on.</param>
+    /// <param name="gameContext">The game context.</param>
+    /// <param name="team">The team the units belong to.</param>
+    /// <param name="laneIndex">The lane index.</param>
+    /// <param name="composition">The units, front rank first.</param>
+    /// <returns>The number of creeps spawned.</returns>
+    public static async ValueTask<int> SpawnUnitsAsync(GameMap map, IGameContext gameContext, MobaTeam team, int laneIndex, IReadOnlyList<MobaWaveUnit> composition)
+    {
+        var leaderLevel = MobaArena.Of(map).LeaderLevel;
+        var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
+        var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
         var lane = MobaLayout.WaypointsFor(team, laneIndex);
         var terrain = map.Terrain;
         var spawn = lane[0];
@@ -213,13 +251,15 @@ public static class MobaWaveSpawner
 
         var rank = 0;
         var total = 0;
-        foreach (var (number, count) in composition)
+        foreach (var unit in composition)
         {
+            var number = unit.Number;
+            var count = unit.Count;
             var golden = number == MobaGolden.ReinforcementNumber;
-            var isSuper = MobaSuperMinions.IsSuperModel(number);
-            var healthPower = golden ? MobaGolden.ReinforcementPower : (isSuper ? MobaSuperMinions.HealthFactor : 1f);
-            var damagePower = golden ? MobaGolden.ReinforcementPower : (isSuper ? MobaSuperMinions.DamageFactor : 1f);
-            var defensePower = isSuper ? MobaSuperMinions.DefenseFactor : 1f;
+            var isSuper = unit.Super;
+            var healthPower = unit.HealthPower;
+            var damagePower = unit.DamagePower;
+            var defensePower = unit.DefensePower;
             var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == number);
             if (baseDefinition is null && !golden)
             {
@@ -407,4 +447,26 @@ public static class MobaWaveSpawner
             monster.Attributes.AddElement(new SimpleElement(value - current, AggregateType.AddRaw), stat);
         }
     }
+}
+
+/// <summary>
+/// A rank of identical creeps of a wave: the monster that gives them their look, how many there are and how much stronger
+/// than a normal creep of the moment they are.
+/// </summary>
+/// <param name="Number">The monster number.</param>
+/// <param name="Count">How many creeps stand side by side in the rank.</param>
+/// <param name="HealthPower">The factor on their life.</param>
+/// <param name="DamagePower">The factor on their damage.</param>
+/// <param name="DefensePower">The factor on their defense.</param>
+/// <param name="Super">Whether they are super-minions (drawn bigger, worth more when they die).</param>
+public readonly record struct MobaWaveUnit(short Number, int Count, float HealthPower = 1f, float DamagePower = 1f, float DefensePower = 1f, bool Super = false)
+{
+    /// <summary>
+    /// Gets the rank of super-minions a team sends when an enemy inhibitor of the lane is down.
+    /// </summary>
+    /// <param name="team">The team that sends them.</param>
+    /// <param name="count">How many.</param>
+    /// <returns>The rank.</returns>
+    public static MobaWaveUnit SuperMinion(MobaTeam team, int count)
+        => new(MobaSuperMinions.ModelOf(team), count, MobaSuperMinions.HealthFactor, MobaSuperMinions.DamageFactor, MobaSuperMinions.DefenseFactor, true);
 }

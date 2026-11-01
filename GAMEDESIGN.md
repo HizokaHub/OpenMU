@@ -2633,3 +2633,31 @@ Orden recomendado: (1) → (2) → (3). Después de ver los tres funcionando, se
 4. ¿El **Pack Fundador** se abre al terminar la beta cerrada, o se espera a abrir al público?
 5. Revisar la licencia de cada voz de Piper si se van a vender packs de voz.
 6. Dónde hospedar de forma estable (hoy PC + ZeroTier): es un costo real; ya anotado como «avisar antes de gastar».
+
+
+## Sesión 2026-11-01 (noche): modo «Comandantes» v0 (hecho en código; sin validar en juego)
+
+Primera versión del modo, **solo servidor y sin cliente nuevo**: el comandante da las órdenes con un comando de chat (el panel y la cámara cenital del cliente vienen después). Se eligió empezar por aquí en vez de «campeones vs zombis» (decisión del usuario: «agregar comandantes»); zombis queda pendiente como segundo modo.
+
+**Reglas de la v0**
+- Modo `commanders` (`MobaCommandersMode`, `Id = "commanders"`, «Comandantes»), registrado en `MobaGameModes.All` y en `MobaGameModes.Commanders`. Se fija con `/mobamode commanders` o lo fija `/mobacmd iniciar`.
+- **No hay oleadas periódicas ni jungla**: las criaturas de carril son **lo que envían los comandantes**. Torretas, nexos, tienda, héroes y fin de partida son los del MOBA clásico (`MobaCommandersMode` delega `Prepare` y `OnNexusDestroyed` en `MobaGameModes.Classic`; la partida termina al caer un nexo).
+- **Economía de esencia** (`MobaCommanderBoard`, por arena y equipo, hilo-seguro): empieza con **200** de esencia; gana **6/s** + **3/s por nivel de ingreso** (niveles 1-5 cuestan 150, 250, 400, 600, 900); tope de **3000** (hay que gastarla). Todos los valores son provisionales, a calibrar con bots.
+- **Paquetes** (`MobaCommanderUnits`): `soldado` 100 (4 creeps normales), `bruto` 250 (2 creeps con vida ×2,5, daño ×1,5, defensa ×1,5; modelo Giant/Death Knight), `elite` 600 (1 súper-esbirro: vida ×5, daño ×2,5, defensa ×2, más grande y vale como 3 creeps). Todos pelean con las estadísticas planas de los creeps de oleada.
+- **Comandante** = una cuenta por equipo (`TryClaim`). Un equipo **sin comandante humano lo juega un bot** (`MobaCommanderBot.Decide`, función pura: primero compra ingreso hasta el nivel 2 en los primeros 150 s, luego envía una mezcla de paquetes por carriles abiertos; piensa cada 3 s). Al terminar la partida se olvida el mando.
+- **Comando `/mobacmd`** (`MobaCommanderChatCommandPlugIn`, todos los jugadores): `tomar`, `soltar`, `estado`, `eco`, `enviar <soldado|bruto|elite> <top|mid|bot>`; solo GM: `iniciar` (parte una partida de prueba en la arena donde estás: tú comandas al azul, un bot al rojo) y `parar` (quita criaturas y bots, las estructuras se quedan). El comandante es un campeón normal con cuerpo (sin vista propia todavía).
+- Un carril no recibe más creeps si ya tiene el tope (`MobaWaveSpawner.IsLaneJammed`, 50 por carril y 150 por equipo); en formatos de un solo carril solo se puede enviar por el del medio.
+
+**Cambios de soporte**
+- `MobaWaveSpawner`: `SpawnLaneWaveAsync` ahora arma una lista de `MobaWaveUnit` (modelo, cantidad, factores de vida/daño/defensa, súper) y llama al nuevo `SpawnUnitsAsync`, que es el que genera los creeps; se extrajeron `IsLaneJammed` y `BasicRanks`. El comportamiento del MOBA clásico no debería cambiar.
+- `MobaCommanderOrders`: `SendAsync` (comprueba partida en marcha, carril abierto, esencia y atasco; cobra, genera y devuelve la esencia si no se generó nada), `Start`/`Stop` del temporizador de 1 s que alimenta la economía y juega a los bots comandantes.
+
+**Pruebas:** 1126/1126 (13 nuevas en `MobaCommanderTests`: economía, mando, bot, paquetes, órdenes rechazadas antes de generar, el modo arranca/para la economía). **Cómo probarlo en juego (pendiente)**: entrar con `/moba`, `/mobacmd iniciar`, `/mobacmd estado`, `/mobacmd enviar soldado mid`, `/mobacmd eco`; mirar si el bot rojo envía criaturas por los carriles y si la partida termina al caer un nexo; añadir héroes con los comandos de bots existentes.
+
+**Pendiente / siguiente**
+1. **Los héroes no aportan al comandante todavía** (previsto: parte de la esencia por kills de creeps y de campeones).
+2. Conectar el modo a la **cola** (hoy solo se activa a mano) y al lanzador de partidas.
+3. **Panel del comandante en el cliente** (hoy el feedback es por mensajes azules; el comandante no ve su esencia en pantalla) y después la cámara cenital y el minimapa clicable.
+4. Habilidades globales con cooldown (teletransportar a un héroe, escudo al nexo, cura de zona, trampa), escuadras de 3 héroes y órdenes con marcadores.
+5. Calibrar costos, ingreso y poder de los paquetes con partidas de bots (`/mobabotfight`) y telemetría; compensación por poder de héroes (ver la sección de balance de este documento).
+6. Guerra de clanes con 3 frentes y portales (mover héroes entre instancias): requiere una prueba mínima de cambio de instancia.
