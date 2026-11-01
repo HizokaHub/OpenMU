@@ -2445,3 +2445,191 @@ Hasta ahora los «modos» del menú eran **formatos** (`MobaFormat`: 5v5, 3v3, 1
 ### Próximo paso acordado: campeones vs zombis
 
 Primer modo nuevo sobre el marco: todos cooperan contra oleadas crecientes de zombis (reutiliza oleadas, bots y jefes); victoria/derrota a definir (último en pie, o defender el nexo hasta el jefe final). Antes de implementarlo: decidir condición de victoria, escalado de oleadas y recompensas.
+
+## Sesión 2026-11-01 (noche): cobrar por cosméticos — propuesta firme, catálogo y plan de producción (solo diseño; no se tocó código ni se gastó dinero)
+
+**Pedido del usuario:** una propuesta firme para empezar a cobrar cosméticos, con (A) evidencia real con fuentes y un modelo de ingresos honesto, (B) catálogo de cosméticos propios con precio y esfuerzo, (C) plan de producción (qué es gratis/local y qué cuesta) con un piloto de 3 cosméticos, más cómo cobrar en Chile. Reglas: sin avisos legales sobre los assets de MU, avisar antes de cualquier costo real, no cambiar código sin permiso.
+
+### Veredicto en 6 líneas
+
+1. **Sí cobra cosméticos, pero con expectativas correctas:** con la escala actual (decenas a pocos cientos de jugadores al mes) cubren el **servidor y poco más (≈ 10-100 USD netos/mes)**; no son un sueldo. Para ~1.000 USD netos/mes harían falta **≈ 2.500-4.000 jugadores activos al mes** (cuentas abajo).
+2. **El primer producto no es un ítem suelto sino el «Pack Fundador»** (limitado en el tiempo, no se repite): una comunidad pequeña y leal paga mucho más por ser «de los primeros» que por un efecto cualquiera. Es lo único del plan que puede dar un pico de ingreso desde el día 1.
+3. **Precio directo en pesos, sin moneda premium** al principio (sin ofuscar el precio; el saldo en pesos de la cuenta si hace falta). La moneda premium se evalúa cuando el catálogo pase de ~30 ítems.
+4. **Cobro por fases:** (0) transferencia/donación manual + acreditación por un GM (0 % de comisión, 0 código de pasarela); (1) **Flow** (tarjetas + transferencia por Khipu) cuando haya RUT/inicio de actividades; Mercado Pago como respaldo.
+5. **Lo que se vende tiene que ser visible para otros jugadores** (título, color de nombre, emblema de clan, efecto de recall): la gente compra identidad y estatus frente a otros, y eso es lo más barato de producir.
+6. **Casi todo se puede producir gratis y local** con lo que ya existe (Pillow, FFmpeg, Piper, `bmd_convert.py`, el sistema de efectos del cliente). Lo que costaría dinero está en la tabla de producción y **no se hizo nada**.
+
+### A. Evidencia real (con fuentes) — y qué tan fiable es cada una
+
+**Calidad de las fuentes (honestidad):** las empresas privadas (Riot, Valve, Epic, Digital Extremes, GGG, Ghost Ship) **no publican** desglose de ingresos por cosméticos; casi todas las cifras de abajo son de prensa o estimaciones de terceros y están marcadas así. Donde no hallé una cifra pública lo digo.
+
+**Cuántos pagan y cuánto gastan**
+
+| Dato | Cifra | Fuente | Fiabilidad |
+|---|---|---|---|
+| Conversión típica free-to-play | **2-4 %** de los jugadores pagan algo (videojuegos y SaaS) | [Konvoy, nov 2019](https://www.konvoy.vc/newsletter/freemium-conversion-2-4-in-gaming) | media (sin fuente primaria) |
+| Móvil | «2-3 % paga algo» y «50 % del ingreso viene del 0,2 % de los jugadores» | [Mobile Dev Memo](https://mdm.co/low-conversion-free-play-feature-bug) citando a Polygon/Swrve | media; muestra la concentración en pocos compradores |
+| Fortnite: conversión a pago | cayó de 30 % a 16 % en PC y de 36 % a 10 % en consola | [Konvoy](https://www.konvoy.vc/newsletter/freemium-conversion-2-4-in-gaming) citando a SuperData | media |
+| TF2 (cosméticos «sombreros») | Gabe Newell habló de **20-30 % de conversión** tras volverse gratis (2011) | [MCV, oct 2011](https://www.mcvuk.com/business-news/pc/free-to-play-for-core-gamers-generates-more-cash/) | declaración del propio Valve, antigua y única en su clase |
+| TF2 en cifras de GDC | 8 millones de transacciones entre 1,7 millones de jugadores | [PC Gamer](https://www.pcgamer.com/e2809chats-are-key-to-building-an-in-game-economy-e2809d-hard-team-fortress-2-stats-straight-from-gdc) | buena (charla de Valve) |
+| Disposición a pagar | Jugadores 3× más propensos a gastar en cosméticos que en poder; solo 6 % dice que nunca compraría cosméticos; 39 % de gamers de EE. UU. (13-45) ha pagado por skins; el gran gastador medio gasta > 15 USD/mes | [Naavik](https://naavik.co/deep-dives/selling-cosmetics-part1/) citando a Qutee y Newzoo (2020) | media-buena (encuestas) |
+| Counter-Strike | los skins de armas fueron el 53 % de las compras relacionadas con CS:GO en 2021 | [Naavik](https://naavik.co/deep-dives/selling-cosmetics-part1/) citando a DMarket | media |
+
+**Casos por juego**
+
+| Juego | Qué se sabe | Fuente | Qué enseña a MI juego |
+|---|---|---|---|
+| **League of Legends** | Modelo «casi enteramente» cosmético; estimaciones de 1,7-1,8 mil millones USD/año (2023) y 2,1 mil millones en 2017. **No hay cifra oficial** de la parte de skins. | [blog LoLTheory](https://blog.loltheory.gg/how-much-is-league-of-legends-worth/), [Esports.net](https://www.esports.net/news/how-much-money-does-valorant-make/) | Solo cosméticos funciona a escala enorme. A la mía, no. |
+| **Valorant** | Skins de Champions: **18,72 M USD** en una edición y **86 M USD** en bienes digitales de torneos en un año (prensa citando a Riot) | [Upcomer](https://upcomer.com/sources-valorant-champions-skins-revenue-breaks-18-7-million), [Insider Gaming](https://insider-gaming.com/?p=167146) | Las ediciones «de evento» venden mucho: encaja con eventos temporales. |
+| **Dota 2** | Pase de batalla 2022: ≈ **293-295 M USD** (valor de los niveles ganados, no ventas confirmadas), ~6,7 M jugadores; Valve lo dejó porque «la mayoría nunca compra uno» | [Esports.gg](https://esports.gg/news/dota-2/dota-2s-2022-battle-pass-reportedly-earned-over-295-million), [Yahoo/Esports Insider](https://news.yahoo.com/dota-2-2022-battle-pass-290-million-073408616.html), [PC Gamer](https://pcgamer.com/dota-2-is-moving-away-from-the-battle-pass-model-as-valve-says-there-are-better-uses-of-dev-time-and-most-players-never-buy-one-anyway) | Un pase solo rinde con una base enorme; Valve mismo lo abandonó. |
+| **Fortnite** | Epic no publica el desglose; un informe de prensa atribuye ~83 % del ingreso a compras de V-Bucks (cosméticos + pase) | [Fortnite Insider](https://fortniteinsider.com/?p=30405) | Confirma que cosméticos y pase dominan, sin dar la proporción exacta. |
+| **Warframe** | Empresa privada; estimaciones sueltas de 150-200 M USD/año. Los creadores de **TennoGen** (cosméticos hechos por fans) cobran **30 %** de las ventas en Steam | [Warframe.com](https://www.warframe.com/amp/tennogen-unbound), [Wiki Warframe](https://wiki.warframe.com/w/TennoGen) | Idea para el futuro: pagar un % a quien haga cosméticos de la comunidad. No hallé la parte cosmética del ingreso. |
+| **Path of Exile** | Solo cosméticos («ética free-to-play»). Packs de apoyo de **50 a 900 USD** (2014); una mascota de 1.000 USD se agotó; el nivel de 10 USD del crowdfunding juntó **> 2,5 M USD**; las microtransacciones bastaban para sostener la empresa | [Game Developer](https://gamedeveloper.com/business/the-mechanics-and-ethics-of-free-to-play-in-i-path-of-exile-i-), [Prima Games](https://primagames.com/news/path-of-exile-supporter-packs-raise-2-5m-new-packs-available-now) | **El caso más parecido a mi plan:** una comunidad leal que compra «packs de apoyo» con cosméticos y títulos. Es el modelo del Pack Fundador. |
+| **Guild Wars 2** | Gemas: packs de 5 a 100 USD; un traje suele costar **700 gemas** (≈ 10 USD); descuentos de 20-25 % en ofertas | [Wiki GW2](https://wiki.guildwars2.com/wiki/Gem_Store) | Referencia de precio de «un traje completo». No hallé la parte del ingreso. |
+| **Deep Rock Galactic** | Juego de pago (8 M copias, 2,57 M en 2023) con cosméticos y un «Supporter Upgrade» que vendió 33.583 unidades en 24 h | [Game World Observer](https://gameworldobserver.com/2024/01/12/deep-rock-galactic-sales-8-million-copies-ghost-ship-games) | Una comunidad con buena voluntad compra apoyo. **No hallé la parte cosmética del ingreso.** |
+| **Legion TD 2** (el más cercano a Comandantes) | Estimación de un sitio de analítica: ~18,3 M USD brutos y ~1,1 M copias (método Boxleiter, **sin dato oficial**); cobra 19,99 USD + cosméticos con moneda premium; lo compró Ninja Kiwi en abril de 2024 | [GameRevenueData](https://gamerevenuedata.pages.dev/games/legion-td-2-multiplayer-tower-defense/), [Game Developer vía SI.com](https://videogames.si.com/news/legion-td-2-devs-acquired-new-game) | Un juego de nicho con cosméticos vive, pero **la mayor parte del dinero estimado viene de vender el juego**, no de los cosméticos. |
+| **Servidores privados de MU** | **No hay datos públicos verificables** de precios ni ingresos. Lo que se ve son «Donation Shops» con ventajas; el MU oficial vende en su Cash Shop con puntos de gema. Una encuesta de foro (OTLand, 62 votantes) supone que 10 % donaría 1-20 USD por cosméticos: es una suposición, no un dato. | [Murred FAQ](https://murred.com/FAQ-cash-shop.html), [OTLand](https://otland.net/goto/post?id=2417659) | La competencia vende poder; vender solo cosméticos es un diferencial, no una costumbre del género. |
+
+**Casos donde cobrar cosméticos falló o molestó**
+
+| Caso | Qué pasó | Fuente |
+|---|---|---|
+| **Overwatch 2** | Precios percibidos como abusivos: pack de 26 USD «codicioso», skin de arma mítica de ~80 USD «estafa», skins de Diablo a 35,99 £ | [PC Gamer](https://pcgamer.com/overwatch-2-players-call-new-dollar26-skin-bundle-greedy), [Dexerto](https://dexerto.com/overwatch/overwatch-2-players-lash-out-at-scam-price-tag-of-first-mythic-weapon-skin-2835826), [TechRadar](https://www.techradar.com/news/after-diablo-immortal-blizzard-scares-overwatch-2-fans-with-cosmetic-prices) |
+| **Knockout City** | El cofundador dijo que un free-to-play basado en cosméticos exige escala masiva; cerró en 2023 | [GoNintendo](https://gonintendo.com/contents/17025-knockout-city-studio-co-founder-analyzes-the-game-s-closure-hopes-for-a-sequel) |
+| **The Culling: Origins** | Con miles de jugadores diarios, los ingresos eran «una fracción» de lo que necesitaba el equipo | [TechRaptor](https://techraptor.net/content/battle-royale-game-the-culling-is-shutting-down-in-may) |
+| **Spectre Divide / Highguard (2026)** | Cerraron a las semanas pese a millones de descargas (Highguard: > 2 M jugadores, 45 días) | [Hitmarker](https://hitmarker.net/news/free-to-play-shooter-spectre-divide-is-shutting-down-as-studio-closes-due-to-financial-issues-1274822), [Malay Mail](https://www.malaymail.com/amp/news/tech-gadgets/2026/03/09/free-to-play-shooter-highguard-ends-march-12-despite-star-studded-development-team-shows-market-impatience/211886) |
+| **Dota 2** | La comunidad criticó el pase/compendio; Valve lo retiró | [Esports.net](https://www.esports.net/news/dota/valve-dota-2-controversial-choices-explored/) |
+
+**Lecciones que aplico:** (1) los fracasos son de juegos que dependían de los cosméticos como **único** sostén con poca escala: yo no, el servidor es mi hobby y el cosmético solo cubre costos; (2) el enojo viene de **precio percibido abusivo, tienda saturada y sensación de pay-to-win**; (3) el pase de temporada solo rinde con base grande.
+
+### Modelo de ingresos (3 escenarios) — supuestos míos, no medidos
+
+Supuestos: 1 USD ≈ 950 CLP (aproximado, no verificado). Conversión mensual de 2-5 % (rango de Konvoy, ver arriba). **Neto = bruto / 1,19 (IVA incluido en el precio) − 2,89 % (comisión de Flow; su IVA es crédito fiscal)** ⇒ ≈ **81 % del bruto**, **antes de impuesto a la renta** (consulta con un contador; no soy asesor tributario). Pack Fundador: compra única en el primer mes, 6-8 % de los activos.
+
+| | Pesimista | Realista | Optimista |
+|---|---|---|---|
+| Jugadores activos al mes | 60 (beta de amigos) | 300 | 1.500 |
+| % que paga en el mes | 3 % | 4 % | 5 % |
+| Gasto mensual por pagador | 5 USD | 8 USD | 10 USD |
+| Pagadores al mes | ~2 | 12 | 75 |
+| **Bruto mensual recurrente** | **9 USD** | **96 USD** | **750 USD** |
+| **Neto mensual recurrente** | **~7 USD** | **~78 USD** | **~609 USD** |
+| Pack Fundador (único) bruto / neto | 5 × 15 = 72 / 58 | 24 × 20 = 480 / 389 | 90 × 25 = 2.250 / 1.826 |
+| **Año 1 neto total** | **~146 USD (≈ 139.000 CLP)** | **~1.324 USD (≈ 1,26 M CLP)** | **~9.129 USD (≈ 8,7 M CLP)** |
+
+**Punto de equilibrio:** para ~1.000 USD netos/mes con 10 USD por pagador y 4 % de conversión hacen falta **~123 pagadores = ~3.100 jugadores activos al mes** (2.500-4.100 según conversión; con 8 USD por pagador, 3.100-5.100).
+
+**Lectura honesta:** con tu escala actual, **no vale la pena como negocio**; sí como (a) cubrir el VPS y la pasarela, (b) validar que la comunidad paga, (c) construir la infraestructura (cuentas con inventario) que luego sirve para los atajos. **Regla de inversión:** no gastar más horas en un cosmético de las que sus ventas esperadas justifican (p. ej. ≤ 10 h por ítem que espera < 50 USD netos). El mayor riesgo no es la tienda, es **tener 10 jugadores para hacer una partida**: sin población, no hay quien compre.
+
+### Cómo cobrar en Chile (tarifas leídas de terceros; **confirma las vigentes en cada sitio antes de firmar**; no se contrató nada)
+
+| Pasarela | Comisión | Abono | Notas |
+|---|---|---|---|
+| **Flow** | ≈ **2,89-2,95 % + IVA** tarjetas (débito ~1,29 %); **Khipu vía Flow 0,99 % + IVA + 100 CLP** | 1-3 días hábiles según plan | Sin costo de inscripción ni mantención según su PDF. Recomendada: tarjetas + transferencia en un solo trato. [PDF de Flow](https://web.flow.cl/Gu%C3%ADa%20de%20transferencias%20bancarias%20con%20Flow.pdf), [comparativa](https://www.guiadesoftware.com/blog/mejor-pasarela-pago-chile) |
+| **Webpay (Transbank)** directo | 2,95-3,5 % crédito, 1,29-1,8 % débito (+ IVA) | 24-48 h | Más trámite; Flow ya lo ofrece. |
+| **Khipu** directo | ≈ 0,7-1,5 % | 24-72 h | Barata para transferencias; buena para montos grandes (Pack Fundador). |
+| **Mercado Pago** | ≈ 3,49 % + IVA con tarjeta (cifra de terceros; no pude leer su tabla oficial) | inmediato si dejas saldo; hasta 14 días si retiras | Respaldo si congelan la cuenta principal. |
+| **Stripe** | ≈ 3,6 % nacional / 4,4 % internacional + 30 CLP (comparativa; sin tabla oficial leída) | 7 días la primera vez, luego 2-3 | Disponible en Chile pero **exige negocio registrado y RUT** según la guía [Zenind](https://www.zenind.com/help/post/how-to-open-and-manage-a-stripe-account-in-chile). |
+| **PayPal** | no hallé tarifa oficial para Chile | — | «Limitado para recibir pagos locales en Chile» según la comparativa; útil solo para compradores extranjeros. |
+| **Lemon Squeezy / Paddle** (comerciante de registro) | **5 % + 0,50 USD** por transacción; Lemon Squeezy lo compró Stripe en julio de 2024 | pagos quincenales | Se ocupan de impuestos al comprador, pero **no pude confirmar los pagos a bancos chilenos**; el 0,50 USD fijo aplasta compras pequeñas. [Dodo Payments](https://dodopayments.com/blogs/lemonsqueezy-review) |
+
+- **Fase 0 (ahora, gratis, 0 desarrollo):** transferencia bancaria o donación + un GM acredita el cosmético (el plan ya anotado el 2026-10-19). Sirve para el Pack Fundador y medir demanda sin comisiones.
+- **Fase 1:** Flow (tarjetas + Khipu) con una página de pago por producto y un **webhook idempotente** que acredita el cosmético en la BD.
+- **Impuestos:** los precios al público en Chile llevan IVA 19 % incluido y los comprobantes de pago electrónicos valen como boleta desde 2021 ([SII](https://www.sii.cl/preguntas_frecuentes/iva_serv_digitales/001_200_7767.htm)). Para vender de forma continua probablemente necesitarás **inicio de actividades** y RUT de contribuyente; **consulta a un contador antes de cobrar el primer peso**. No hallé una fuente clara sobre cómo clasifica el SII la venta de bienes digitales de videojuegos a personas naturales: no lo afirmo.
+- **Respaldo:** tener una segunda pasarela (los procesadores pueden congelar cuentas) y publicar términos de venta y política de reembolso simples.
+
+### Moneda premium o ítem directo
+
+**Recomendación: precio directo en pesos, sin moneda premium, al inicio.** Razones: (1) con un catálogo de ~15-30 ítems la moneda solo agrega fricción y suspicacia (en Overwatch 2 el enojo fue por precios altos en monedas y bundles; la moneda no lo causó, pero tampoco ayudó a ver cuánto costaba cada cosa); (2) evita el «saldo sobrante» que obliga a comprar de más; (3) transparencia = confianza en una comunidad pequeña; (4) menos código y menos riesgo regulatorio. Si hace falta un monedero, que sea **saldo en CLP** sin vencimiento. **Revisar** la moneda premium (cristales) cuando haya > 30 ítems, pase de temporada y packs de varios precios. **Nunca** una moneda que se pueda ganar jugando y comprar mezclada con poder; el oro de partida sigue siendo otra cosa.
+
+### Cómo evitar que parezca pay-to-win
+
+1. **Cero efecto en la partida:** ningún cosmético cambia daño, velocidad, alcance, hitbox, tiempo de animación ni **legibilidad** (un efecto de recall dura y se ve igual que el normal; un skin de torreta no oculta el área de ataque; un efecto de muerte no tapa la pantalla del rival).
+2. **Ni cajas ni azar:** compra directa con precio visible. Nada de ruletas, ni cofres, ni «probabilidades».
+3. **Etiqueta fija «100 % cosmético» en cada ítem**, y tienda separada de la pestaña de **atajos** (los atajos del crafteo van aparte, con límite semanal, como ya se decidió).
+4. **Pista gratuita** de cosméticos en cualquier pase o evento, y cosméticos que se ganen jugando (títulos por logros, emblemas por rango) para que quien no paga también se vea «bien».
+5. **Los cosméticos que ven los demás tienen reglas:** en *Guerra Igualada* se permiten (no dan poder), pero un jugador puede **desactivar los efectos ajenos** en opciones.
+6. **FOMO moderado:** los ítems de evento vuelven en rotación; los Fundadores son únicos de verdad (y se dice).
+7. **Publicar «qué cobramos y qué no»** en la web.
+
+### B. Catálogo de cosméticos propios (precios aprox. en CLP; USD entre paréntesis a ~950 CLP)
+
+Esfuerzo: **B**ajo (< 1 sesión, sin código de cliente o muy poco), **M**edio (1-2 sesiones, código de cliente/servidor), **A**lto (≥ 3 sesiones o assets nuevos). «Visible» = lo ven otros jugadores (impulsa las ventas).
+
+| Cosmético | Precio sugerido | Esfuerzo | Visible | Notas |
+|---|---|---|---|---|
+| **Pack Fundador** (título único «Fundador», color de nombre, marco de perfil, emblema de clan fundador, nombre en el muro de la web) | 9.990-19.990 (10-21 USD) | **B** | sí | compra única en el primer mes; es el modelo del Pack de Apoyo de PoE. |
+| Títulos de perfil (por logros y de tienda) | 990-1.990 (1-2 USD) | **B** | sí | solo servidor + portal + nombre en la tabla. |
+| Colores de nombre (chat, tabla, killfeed) | 1.490 (1,6 USD) | **B-M** | sí | hay que ver cómo el cliente pinta el nombre. |
+| Marcos de perfil / insignias en ranking | 1.490 | **B** | sí | Pillow; solo portal y tabla de resultados. |
+| **Emblemas de clan** (generador: forma + símbolo + 2 colores) | 4.990 por clan | **B** (2D) / **M** (estandarte 3D en la base) | sí | lo compra el líder; base de la guerra de clanes. |
+| Pings personalizados | 1.990 | **B** | sí | ya hay atlas de pings (`MobaPingArt`, `tools/make_ping_atlas.py`). |
+| Efecto de **recall** | 2.990 (3 USD) | **M** | sí | recombinar partículas existentes; conservar tiempos. |
+| Efecto de **muerte** / aparición | 2.990 | **M** | sí | ídem. |
+| Estela de movimiento / aura de campeón | 3.990 | **M-A** | sí | cuidar la legibilidad. |
+| **Voces de anunciador** (pack de 22 WAV) | 2.990 | **B-M** | solo el dueño (o el equipo) | Piper local gratis, otro estilo/voz (ver nota de licencias). |
+| Skins de **nexo / torretas** (retinte de texturas + luz) | 4.990-7.990 | **M** (retinte) / **A** (modelo nuevo) | sí | se muestra a todos; la elige el **capitán** del equipo (regla simple, sin conflictos). |
+| **Apariencias de mobs del comandante** (set de 3 tipos de mob por oleada) | 3.990 por set | **M** (retinte/escala/aura) / **A** (modelo S21) | sí | depende de que exista el modo Comandantes. |
+| **Efectos de portal** (guerra de clanes) | 3.990 | **M** | sí | depende del modo de 3 frentes. |
+| Skins de mascotas / invocaciones | 2.990 | **M** | sí | retinte. |
+| **Pase de temporada** (8-10 semanas, 30-40 niveles, pista gratis + premium) | 4.990-5.990 la pista premium | **A** | sí | exige 15-20 ítems por temporada y base grande (Dota lo abandonó): **no lanzar hasta tener ≥ 20 ítems y medir retención**. |
+| Skins de campeón (equipo con brillo/tinte) | 4.990-9.990 | **A** | sí | dentro del cliente depende de ítems de MU; posponer. |
+
+**Qué lanzar primero y por qué** (visibilidad × bajo esfuerzo × no depender de modos sin terminar):
+1. **Pack Fundador** (B): dinero temprano, mide demanda y prueba toda la cadena compra → acreditación → equipar.
+2. **Títulos, colores de nombre y marcos** (B): baratos, visibles, y obligan a construir el inventario por cuenta.
+3. **Emblemas de clan** (B): preparan la guerra de clanes y dan estatus de grupo.
+4. **Efecto de recall y de muerte** (M): primera prueba de efectos propios en el cliente.
+5. **Voz de anunciador** (B-M): casi gratis con el pipeline Piper.
+6. **Skin de nexo/torretas** (M) y **mobs del comandante** (M-A): cuando el modo Comandantes exista.
+7. **Pase de temporada** (A): al final, con datos de retención.
+
+### C. Plan de producción
+
+**Qué se hace GRATIS y en local** (con lo que ya hay) y **qué costaría**:
+
+| Categoría | Gratis y local | Costaría dinero (no se hizo) |
+|---|---|---|
+| Títulos, colores, marcos, emblemas, banners, UI | Pillow + HTML + código; generador de emblemas por código | arte a medida de un ilustrador (cuantía a pedir) |
+| Recolorear texturas (nexo, torretas, mobs, mascotas) | Pillow (cambio de tono / mapas de degradado). Falta un **conversor OZJ/OZT ↔ PNG** (el cliente lee esas texturas desde `ZzzTexture.cpp`/`GlobalBitmap.cpp`; **por verificar** si acepta PNG/TGA directos) | — |
+| Partículas, recall, muerte, portales, auras | recombinar efectos del cliente (patrón de `Render/Effects/Behaviors/RuneWizardEffects.*`, nivel B) y compilar en local | — |
+| Modelos de S21 | `tools/bmd_convert.py` (v15 y v12 resueltas; **v14 aún no**); nivel B con comportamiento simple | modelos nuevos a medida (3D por encargo) |
+| Modelos propios simples | Blender (gratis) + un **exportador a BMD 0x0A** que habría que escribir (no existe) | — |
+| Voces de anunciador | Piper local (MIT) y el pipeline `tools/anunciador/`; **revisar la licencia de cada voz antes de venderla** (la `es_MX-claude-high` es Apache-2.0; otras pueden diferir) | voz humana o de IA de pago (ElevenLabs u otra, suscripción mensual) |
+| Música / jingles | `tools/musica/componer.py` | compositor |
+| Arte conceptual / fondos | pipeline gratis de El Origen (Bing + Pillow); **revisar los términos de uso comercial antes de vender arte generado** (no verificado) | generadores de pago |
+| Instalador firmado (sin aviso de SmartScreen) | — | certificado de firma (costo anual) |
+| Servidor 24/7 / dominio / pasarela | hoy: PC + ZeroTier | VPS, dominio, comisiones de la pasarela, contador |
+
+**Infraestructura mínima de ventas (sin esto no hay tienda; es código, pide permiso antes):**
+1. Tablas en el esquema `moba` (como `tools/moba-ranking-schema.sql`): cosméticos poseídos por cuenta, equipados por personaje, pedidos con identificador único (idempotencia) y registro de acreditaciones. **Migración con plan + respaldo** (regla del usuario sobre migraciones).
+2. Servidor: validar que lo equipado es del dueño; enviar al cliente los **ids** de cosméticos equipados de cada jugador al empezar la partida (un paquete nuevo, como los del anunciador).
+3. Cliente: leer esos ids y elegir efecto/color/título (todo por tabla de ids; **sin cambiar la jugabilidad**).
+4. Portal: página «Mi inventario» (ver, equipar) y tienda; en la fase 0 acredita un GM con un comando.
+
+**Cuántos ítems en el lanzamiento y cuánto tiempo** (una «sesión» ≈ una conversación de 2-4 h; estimaciones mías):
+
+| Hito | Contenido | Sesiones |
+|---|---|---|
+| Piloto | 3 cosméticos (abajo) + inventario mínimo | 3-4 |
+| Lanzamiento v1 | Pack Fundador + 6 títulos + 6 colores + 4 marcos + 8 variantes de emblema + 2 recalls + 2 muertes + 2 voces ≈ **25-30 SKUs** (solo 4-5 necesitan código nuevo de cliente) | +6-8 |
+| Pasarela Flow + inventario web | tienda con pago automático | +3-4 |
+| Pase de temporada 1 | 15-20 ítems nuevos | +5-6 |
+
+### PILOTO de 3 cosméticos (verlos funcionando en el cliente en pocas sesiones)
+
+Cubre tres tuberías técnicas distintas:
+1. **Título «Fundador» + color de nombre** (datos/texto): prueba inventario por cuenta, equipar y mostrar el nombre con color y título en la tabla/chat. *Esfuerzo B-M.*
+2. **Efecto de recall «Eclipse»** (partículas): recombinar partículas del cliente con el tema de la marca (violeta/cian), misma duración que el normal. *Esfuerzo M.*
+3. **Retinte del nexo «Eclipse»** (textura): primero inspeccionar qué textura usa el nexo y si el cliente permite sustituirla por cuenta/equipo; si es complicado, el plan B es una **voz de anunciador alternativa** (cambio de WAV, casi sin riesgo). *Esfuerzo M.*
+
+Orden recomendado: (1) → (2) → (3). Después de ver los tres funcionando, se decide el lanzamiento v1.
+
+### Decisiones pendientes del usuario (antes de escribir código)
+
+1. ¿Aprobar el piloto de 3 cosméticos y la tabla de inventario (migración con respaldo)?
+2. ¿Lanzar primero con **fase 0 (transferencia manual)** y pasar a Flow cuando haya RUT, o ir directo a Flow?
+3. ¿Quién cobra? Hace falta decidir si vendes como persona o como empresa (inicio de actividades). Es una decisión con un contador.
+4. ¿El **Pack Fundador** se abre al terminar la beta cerrada, o se espera a abrir al público?
+5. Revisar la licencia de cada voz de Piper si se van a vender packs de voz.
+6. Dónde hospedar de forma estable (hoy PC + ZeroTier): es un costo real; ya anotado como «avisar antes de gastar».
