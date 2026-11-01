@@ -2703,3 +2703,20 @@ Los jugadores de una partida del modo Comandantes ya tienen un panel en el clien
 8. Pendientes anteriores del MOBA (validar en juego la cola, la cuenta atrás, etc.): ver las secciones anteriores y la memoria `moba_pending_ingame_tests`.
 
 **Conversaciones paralelas:** el usuario abrió otra conversación sobre **cobrar cosméticos** (propuesta con ejemplos reales y plan de producción del material); sus conclusiones se guardarán en una sección propia de este documento.
+
+
+## Sesión 2026-11-01 (noche, 4): consola del comandante estilo RTS — propuesta A (compilado y servidor reiniciado; sin ver en pantalla)
+
+**Cómo se llegó:** el usuario no superó su expectativa con el panel simple. Se investigaron referencias (Legion TD 2, Line Tower Wars, SC2 arcade Direct Strike/Battleline Wars, Clash Royale, Kingdom Rush; no hay capturas fiables del panel de envío de Legion TD 2 ni Direct Strike) y se le preguntó. **Respuestas:** sensación = **estratega RTS (WC3/SC2)**, vista = **cámara cenital libre**, ritmo = **frenético**, lo que faltaba = **más decisiones**. Se mostraron 3 prototipos (A consola RTS, B columna por carril, C mano de cartas) y eligió **A**.
+
+**Hecho (cliente `mu-main`, rama `moba-camera`)**
+- `CMobaCommanderWindow` rediseñada (`UI/NewUI/Dialogs/MobaCommanderWindow.cpp`): **barra de esencia arriba** (animada, con marcas doradas en el costo de cada paquete; tope 3000) visible para todos; para el comandante una **consola sobre el HUD** (x 150, y 332, 340×94 de la pantalla de referencia): 3 tarjetas de carril («N TOP  tuyas vs rivales», la activa resaltada, **ámbar si el rival presiona**: >= 6 criaturas y >= 1,5× las tuyas), 4 botones (Soldados Q, Brutos W, Élite E, Ingreso R) con destello al enviar, línea de aviso de lo último enviado y «Soltar el mando». Si el mando está libre: botón «Tomar el mando» bajo la barra.
+- **Atajos** (solo mientras comandas; la ventana tiene `KEY_EVENT_ORDER 3.5`, así que gana a las pociones Q/W/E/R y a las teclas 1-9): `1/2/3` elige carril, `Q/W/E` envía el paquete por el carril activo, `Mayús` = ×5 (cada orden se paga por separado), `R` mejora el ingreso. Clic en tarjeta = elegir carril; clic en botón = enviar.
+- **Cámara cenital:** `MobaCamera` abre un **modo vista general** mientras `Commander::CommandingNow()` (zoom máx 3,4× en vez de 1,8×, empieza en 2,2×, rango de vista ×3,8), **flechas** para mover la vista (además del borde de pantalla, la rueda y el minimapa clicable que ya existían). Al soltar el mando vuelve al límite normal.
+- `MobaCommander.{h,cpp}`: `ownCreeps[3]`, `enemyCreeps[3]`, `ActiveLane/SetActiveLane`, `LaneUnderPressure`, `CommandingNow`.
+
+**Hecho (servidor `openmu-aram`, commit `8673bfc55`)**: el paquete `D5 40` añade, tras los costos, **6 bytes** (criaturas propias y enemigas por carril, top/mid/bot) — `MobaWaveSpawner.CountCreepsPerLane`, `MobaCommanderPanelState.OwnLaneCreeps/EnemyLaneCreeps`. El cliente acepta servidores viejos (sin esos bytes). 1127/1127 pruebas.
+
+**A validar en pantalla:** posición de la consola (puede tapar el chat o la barra del HUD; ajustar `CON_Y`/`CON_X`), tamaños de letra, que Q/W/E/R/1-3 ganen a las pociones, que las flechas muevan bien la vista, el zoom 3,4× (culling/rendimiento), y que el scroll por borde no moleste con el ratón sobre la consola.
+
+**No hecho (siguiente, en orden):** (1) **habilidades globales** con cooldown (escudo del nexo, curar zona, llevar héroe, trampa) — son las «más decisiones» pedidas y requieren lógica nueva de servidor; (2) clic en el minimapa que también elija carril; (3) avisos de ataque sobre la torre/nexo y feedback en el mapa (ya hay conteos por carril y color ámbar); (4) **que los héroes aporten esencia con sus kills**; (5) conectar el modo a la cola.
