@@ -2402,3 +2402,46 @@ torreta exterior → torreta media → torreta de base → **inhibidor** → (el
 3. **Builds configurables:** el jugador arma una build (arma, set, escudo, alas, orden de compra) y guarda **3 casillas gratis**; más casillas se pagan (decidir con qué: oro de partida no, porque se pierde al acabar; ¿puntos/moneda meta de la cuenta?). Diseñar primero (dónde se guarda: por cuenta o por personaje; cómo la usa «Para ti»; interfaz en el panel), preguntar al usuario antes de implementar.
 4. Cliente instalado en `C:\Program Files\Eclipse Arena` (build 2610261808) se cae contra el servidor nuevo hasta publicar uno nuevo con `tools\publicar-cliente.ps1` (pedir permiso).
 5. Rondas de pruebas 5–8, monstruos/invocaciones que corren o aparecen y desaparecen, contador dorado en TAB.
+
+
+## Sesión 2026-11-01: marco de modos de juego, modo «Comandantes», guerra de clanes y monetización — decisiones del usuario y primer paso hecho
+
+Sesión de diseño con el usuario. Nada de esto está validado en juego; lo único que toca código es el **marco de modos** (abajo).
+
+### Idea: modo «Comandantes» (estilo Line Tower Wars / Legion TD / Footmen Wars + héroes)
+
+- En cada equipo hay **1 comandante** (vista cenital tipo RTS: gasta recursos para **enviar oleadas de mobs** por un carril, mejora unidades/torretas, usa habilidades globales con cooldown: teletransportar a un héroe, escudo al nexo, cura de zona, trampa, sellar un portal enemigo) y **héroes** jugables (campeones normales del MOBA). Se gana destruyendo el nexo enemigo.
+- Los **héroes entran con su propio equipo y nivel** (no igualados como en el MOBA actual). Para que sea justo se usa un **clon efímero con el equipo comprimido** (se reutiliza `MobaCloneFactory`): se calcula un «Poder del héroe», se aplica una curva de compresión (objetivo inicial: un full tiene como mucho +25-30 % de poder efectivo sobre uno sin equipo; valores a calibrar) y el bando con menos poder total recibe una **compensación vía la economía del comandante** (más ingreso de recursos, tope +30-40 %; nexo/torretas algo más resistentes; visible y con tope). Los clanes se emparejan por poder total (como el «peso de guerra» de Clash of Clans). La calibración se hace **gratis con bots** (`/mobabotfight` + telemetría) antes de que juegue un humano.
+- **Dos colas:** *Guerra Igualada* (todos igualados, ranking, solo cosméticos) y *Guerra Libre* (equipo real comprimido + compensación).
+- El comandante da órdenes a **escuadras de 3 héroes con jefe**, no a héroes sueltos.
+- **Hay que probarlo primero con un 1v1 de solo comandantes** (panel mínimo sobre la vista normal, bots como rival); después se suman los héroes (9 por bando; la arena de 5v5 puede quedar apretada: probar con carriles cerrados por barrera como en 1v1); la cámara cenital libre del cliente (C++) va al final.
+
+### Idea: guerra de clanes con 3 frentes
+
+- **3 partidas («frentes») en simultáneo**, cada una con 1 comandante por bando (6 comandantes) y **9 héroes por bando y frente** (un clan de 30 = 3 comandantes + 27 héroes). Cada frente es una instancia de arena (`MobaArena` por `GameMap`, ya existe).
+- Victoria de guerra: destruir el nexo enemigo en **2 de 3 frentes** (por tiempo: comparar el daño total a los nexos). Un frente caído se cierra y sus héroes pasan a los frentes vivos.
+- **Portales** en cada base hacia los otros frentes: viaje de ~5 s con cooldown; el héroe llega a la base aliada del otro frente y **pasa a obedecer al comandante de ese frente** (sus kills y recursos cuentan allí). Anti-bola de nieve: tope de héroes por frente (p. ej. 12 contra 9), el enemigo puede sellar un portal con una habilidad cara, el viaje deja vulnerable unos segundos. Técnicamente es mover a un jugador entre dos instancias (`Player.BoundMap` + `MobaChampionState.Arena`); **falta una prueba mínima** estilo `/mobaarenatest`.
+- **Alianza de hasta 3 clanes = un frente por clan** (cada líder comanda su frente; mover héroes entre frentes es diplomacia entre clanes). Premios: prestigio y cosméticos, nunca poder.
+- Riesgos conocidos: ~60 jugadores a la vez (hay que cubrir cupos con bots y escalar por fases: 1 frente → héroes → 3 frentes sin portales → portales → clanes/alianzas), partidas largas (una partida de bots duró 74 min sin caer un nexo: hacen falta aceleradores y límite de tiempo con desempate), carga del servidor sin medir (probar con bots), cámara del comandante en el cliente.
+
+### Monetización (decisión del usuario)
+
+- **No pay-to-win.** Se vende **avanzar más rápido / saltarse el crafteo** (comprar el ítem ya hecho), pero **todo se puede conseguir gratis jugando**; no se vende poder.
+- Barreras acordadas: el **tope de poder** es igual para todos y alcanzable gratis (comprar solo acorta el camino); publicar cuánto tarda la ruta gratuita (objetivo a calibrar: set completo en 4-6 semanas de juego casual); precio razonable por hora ahorrada; límite semanal de atajos; los atajos no saltan requisitos (nivel 400 + Master); ítems comprados **ligados a la cuenta** (sin comercio); *Guerra Igualada* sin efecto de compras. Vender **resultados deterministas**, nunca intentos al azar (los fallos del crafteo de MU parecen cajas de botín): por eso se recomendó un **crafteo nuevo y determinista** para este modo (pendiente de decidir si se usa ése o el de MU).
+- **Cosméticos primero** (apariencias de mobs del comandante, efectos de portal, skins de nexo, estandartes de clan, títulos, pase de temporada de cosméticos). Ver la conversación aparte sobre cómo cobrarlos y producirlos.
+- El usuario **ya conoce el riesgo legal de los assets de MU/Webzen**: no volver a mencionarlo como aviso ni pendiente.
+
+### Marco de modos de juego (hecho en código, 2026-11-01)
+
+Hasta ahora los «modos» del menú eran **formatos** (`MobaFormat`: 5v5, 3v3, 1v1, ARAM; quién juega y qué carriles). Ahora hay además el **modo** (`IMobaGameMode`): qué reglas se juegan. Se decidió **no crear un mapa nuevo** sino añadir modos al MOBA (Comandantes, campeones vs zombis, defensa del nexo, captura de puntos, evento de jefe, etc.). Para no fragmentar a una población pequeña: rotación de «modo de la semana» y bots que garantizan el arranque. Orden acordado: (1) marco de modos + MOBA actual dentro [hecho]; (2) **campeones vs zombis** (barato, valida el marco); (3) **Comandantes** mínimo; máximo 3 modos al principio.
+
+- `IMobaGameMode` / `MobaGameModeBase` (`PlugIns/Moba/MobaGameMode.cs`): `Id`, `DisplayName`, `PrepareAsync` (llenar la arena: vendedores, estructuras…), `StartAmbientAsync` (lo que vive sin cuenta atrás: jungla; ha de poder llamarse dos veces), `StartMatchAsync` (arranca el reloj: ambiente + oleadas), `StopAsync` (parar todo eso; seguro si no corre nada) y `OnNexusDestroyedAsync` (el modo decide si termina la partida). El reloj, la cuenta atrás, la tabla de resultados y el regreso a la ciudad siguen en el motor.
+- `MobaClassicMode` (`MobaClassicMode.cs`): el MOBA de siempre, sin cambiar su comportamiento (vendedores + torretas/nexos; jungla; oleadas cada 48 s; la caída de un nexo termina la partida). `MobaGameModes` (`MobaGameModes.cs`): registro (`Classic`, `All`, `Find(id)`); un modo nuevo es una clase y una línea en `All`.
+- `MobaArena.Mode` (por arena; por defecto `Classic`). Llamadas del motor que ahora pasan por el modo: `MobaArenaBoot.EnsureAsync` (prepare + ambient si no hay cuenta atrás), `MobaPreMatch` al terminar la cuenta atrás (`StartMatchAsync`), la muerte de un nexo (`MobaStructureSpawner.SafeEndMatchAsync` → `OnNexusDestroyedAsync`), el fin de partida (`MobaMatchEnder` → `StopAsync`) y el desmontaje (`MobaArenaBoot.TearDownAsync` → `StopAsync` y el modo vuelve a `Classic`). Detalle: en `MobaMatchEnder` ahora se paran oleadas y jungla **antes** de quitar torretas y nexos (antes la jungla se paraba después de quitar los creeps); no debería notarse.
+- Comando GM **`/mobamode`** (muestra el modo de la arena), **`/mobamode list`**, **`/mobamode <id>`** (solo antes de que empiece la partida). Con un solo modo registrado hoy sirve de gancho para los siguientes.
+- **Todavía sin conectar:** la cola/lanzador (`MobaMatchProposal`, `MobaMatchLauncher`) no elige modo; el modo se fija a mano con `/mobamode`. Los comandos GM `/mobafight`, `/mobabotfight`, `/mobawaves` siguen llamando a las piezas del MOBA clásico directamente (no pasan por el modo).
+- Pruebas: `MobaGameModeTests` (registro, modo por arena, el motor llama al modo de la arena, la jungla espera a la cuenta atrás). Suite completa: 1113/1113 en verde (antes 980+). Servidor reiniciado con el cambio; sin validar en juego (el comportamiento del MOBA clásico no debería cambiar: jugar una partida normal y comprobar jungla, oleadas y fin de partida).
+
+### Próximo paso acordado: campeones vs zombis
+
+Primer modo nuevo sobre el marco: todos cooperan contra oleadas crecientes de zombis (reutiliza oleadas, bots y jefes); victoria/derrota a definir (último en pie, o defender el nexo hasta el jefe final). Antes de implementarlo: decidir condición de victoria, escalado de oleadas y recompensas.

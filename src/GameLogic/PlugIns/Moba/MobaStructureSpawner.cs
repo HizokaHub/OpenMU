@@ -594,7 +594,7 @@ public static class MobaStructureSpawner
     {
         try
         {
-            await MobaMatchEnder.EndMatchAsync(map, gameContext, losingTeam).ConfigureAwait(false);
+            await MobaArena.Of(map).Mode.OnNexusDestroyedAsync(map, gameContext, losingTeam).ConfigureAwait(false);
         }
         catch
         {

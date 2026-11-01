@@ -53,6 +53,9 @@ public sealed class MobaArena
     /// <summary>Gets or sets the format of the match played in the arena (teams, lanes, jungle).</summary>
     public MobaFormat Format { get; set; } = MobaFormat.Classic;
 
+    /// <summary>Gets or sets the rules of the match played in the arena (what fills it, what feeds it, what ends it).</summary>
+    public IMobaGameMode Mode { get; set; } = MobaGameModes.Classic;
+
     /// <summary>Gets the map the match is played on (<see langword="null"/> for the detached stand-in).</summary>
     public GameMap? Map { get; }
 

@@ -32,12 +32,12 @@ public static class MobaArenaBoot
     {
         ClearSafezone(map);
         MobaLaneWalls.Raise(map);
-        await MobaShop.EnsureVendorsAsync(map, gameContext).ConfigureAwait(false);
-        await MobaStructureSpawner.EnsureStructuresAsync(map, gameContext).ConfigureAwait(false);
+        var mode = MobaArena.Of(map).Mode;
+        await mode.PrepareAsync(map, gameContext).ConfigureAwait(false);
         if (!MobaArena.Of(map).IsPreMatch)
         {
             // In the countdown the jungle waits: it starts with the match (see MobaPreMatch).
-            await MobaJungle.EnsureStartedAsync(map, gameContext).ConfigureAwait(false);
+            await mode.StartAmbientAsync(map, gameContext).ConfigureAwait(false);
         }
     }
 
@@ -78,9 +78,9 @@ public static class MobaArenaBoot
         MobaLaneWalls.Lower(map);
         MobaArena.Of(map).PreMatchUntilUtc = DateTime.MinValue;
         MobaArena.Of(map).Format = MobaFormat.Classic;
-        MobaWavePeriodicSpawner.Stop(map);
+        await MobaArena.Of(map).Mode.StopAsync(map, gameContext).ConfigureAwait(false);
+        MobaArena.Of(map).Mode = MobaGameModes.Classic;
         MobaBotObjectives.Reset(MobaArena.Of(map));
-        await MobaJungle.StopAsync(map).ConfigureAwait(false);
         await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);

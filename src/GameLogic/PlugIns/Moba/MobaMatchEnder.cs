@@ -61,11 +61,10 @@ public static class MobaMatchEnder
 
         // Everything the match left on the map goes now (bots included: they have no owner to eject, or they would idle
         // in the empty arena); the map itself waits for the players to be sent away (see FinishAsync).
-        MobaWavePeriodicSpawner.Stop(map);
+        await MobaArena.Of(map).Mode.StopAsync(map, gameContext).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
         await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
         await MobaWaveSpawner.DespawnAllCreepsAsync(map).ConfigureAwait(false);
-        await MobaJungle.StopAsync(map).ConfigureAwait(false);
         MobaBotObjectives.Reset(MobaArena.Of(map));
         MobaMatchPhase.Reset(MobaArena.Of(map));
         await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
