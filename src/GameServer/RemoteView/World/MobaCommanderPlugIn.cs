@@ -14,6 +14,7 @@ using MUnique.OpenMU.PlugIns;
 /// Sends the state of the commander panel to the MOBA client. Layout:
 /// <code>
 /// C1 len D5 40  flags  essence(u16 LE)  income  level  maxLevel  nextCost(u16 LE)  laneMask  unitCount  cost(u16 LE) x unitCount
+///     ownCreeps x 3 (top, mid, bot)  enemyCreeps x 3
 /// </code>
 /// <c>flags</c>: bit 0 visible, bit 1 the player commands the team, bit 2 the command is free (a bot commands the team).
 /// </summary>
@@ -25,6 +26,8 @@ public class MobaCommanderPlugIn : IMobaCommanderPlugIn
     private const int HeaderLength = 14;
 
     private const int CostBytes = 2;
+
+    private const int LaneCountBytes = 3;
 
     private const byte FlagVisible = 1;
 
@@ -47,7 +50,7 @@ public class MobaCommanderPlugIn : IMobaCommanderPlugIn
         }
 
         var costs = state.UnitCosts;
-        var length = HeaderLength + (costs.Count * CostBytes);
+        var length = HeaderLength + (costs.Count * CostBytes) + (LaneCountBytes * 2);
         var flags = (byte)((state.Visible ? FlagVisible : 0) | (state.IsCommander ? FlagCommander : 0) | (state.CommandFree ? FlagFree : 0));
 
         int Write()
@@ -71,9 +74,19 @@ public class MobaCommanderPlugIn : IMobaCommanderPlugIn
                 BitConverter.TryWriteBytes(span.Slice(HeaderLength + (i * CostBytes), CostBytes), (ushort)Math.Clamp(costs[i], 0, ushort.MaxValue));
             }
 
+            var laneStart = HeaderLength + (costs.Count * CostBytes);
+            for (var lane = 0; lane < LaneCountBytes; lane++)
+            {
+                span[laneStart + lane] = LaneCount(state.OwnLaneCreeps, lane);
+                span[laneStart + LaneCountBytes + lane] = LaneCount(state.EnemyLaneCreeps, lane);
+            }
+
             return length;
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);
     }
+
+    private static byte LaneCount(IReadOnlyList<int> counts, int lane)
+        => lane < counts.Count ? (byte)Math.Clamp(counts[lane], 0, byte.MaxValue) : (byte)0;
 }

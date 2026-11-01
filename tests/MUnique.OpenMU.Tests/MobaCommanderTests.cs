@@ -296,5 +296,7 @@ public class MobaCommanderTests
         Assert.That(MobaCommanderPanel.StateOf(player).Visible, Is.False);
         Assert.That(MobaCommanderPanelState.Hidden.Visible, Is.False);
         Assert.That(MobaCommanderPanelState.Hidden.UnitCosts, Is.Empty);
+        Assert.That(MobaCommanderPanelState.Hidden.OwnLaneCreeps, Is.Empty);
+        Assert.That(MobaCommanderPanelState.Hidden.EnemyLaneCreeps, Is.Empty);
     }
 }

@@ -60,7 +60,9 @@ public static class MobaCommanderPanel
             MobaCommanderBoard.MaxIncomeLevel,
             board.NextIncomeCost(team) ?? 0,
             laneMask,
-            MobaCommanderUnits.All.Select(u => u.Cost).ToList());
+            MobaCommanderUnits.All.Select(u => u.Cost).ToList(),
+            MobaWaveSpawner.CountCreepsPerLane(map, team),
+            MobaWaveSpawner.CountCreepsPerLane(map, team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue));
     }
 
     /// <summary>

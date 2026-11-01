@@ -230,6 +230,28 @@ public static class MobaWaveSpawner
     }
 
     /// <summary>
+    /// Counts the live creeps of a team in each lane (what the commander's panel shows per lane).
+    /// </summary>
+    /// <param name="map">The map.</param>
+    /// <param name="team">The team.</param>
+    /// <returns>One count per lane, in lane order.</returns>
+    public static IReadOnlyList<int> CountCreepsPerLane(GameMap map, MobaTeam team)
+    {
+        var counts = new int[MobaLayout.LaneCount];
+        foreach (var creep in map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Monster>())
+        {
+            if (!creep.IsAlive || MobaStructures.IsStructure(creep) || MobaTeams.GetTeam(creep) != team)
+            {
+                continue;
+            }
+
+            counts[MobaLayout.NearestLane(creep.Position.X, creep.Position.Y)]++;
+        }
+
+        return counts;
+    }
+
+    /// <summary>
     /// Spawns the given units of <paramref name="team"/> at the start of a lane, ranks lined up behind the spawn. The
     /// caller decides whether the lane may take them (see <see cref="IsLaneJammed"/>).
     /// </summary>

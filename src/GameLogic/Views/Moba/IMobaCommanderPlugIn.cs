@@ -18,6 +18,8 @@ namespace MUnique.OpenMU.GameLogic.Views.Moba;
 /// <param name="NextIncomeCost">What the next income level costs (0 when the team is at the highest one).</param>
 /// <param name="OpenLaneMask">One bit per lane (bit 0 top, 1 mid, 2 bot): the lanes which are open.</param>
 /// <param name="UnitCosts">The essence each pack costs, in the order of the packs.</param>
+/// <param name="OwnLaneCreeps">The live creeps of the player's team in each lane (top, mid, bot).</param>
+/// <param name="EnemyLaneCreeps">The live creeps of the enemy team in each lane (top, mid, bot).</param>
 public readonly record struct MobaCommanderPanelState(
     bool Visible,
     bool IsCommander,
@@ -28,10 +30,12 @@ public readonly record struct MobaCommanderPanelState(
     int MaxIncomeLevel,
     int NextIncomeCost,
     int OpenLaneMask,
-    IReadOnlyList<int> UnitCosts)
+    IReadOnlyList<int> UnitCosts,
+    IReadOnlyList<int> OwnLaneCreeps,
+    IReadOnlyList<int> EnemyLaneCreeps)
 {
     /// <summary>Gets the state which hides the panel.</summary>
-    public static MobaCommanderPanelState Hidden { get; } = new(false, false, false, 0, 0, 0, 0, 0, 0, []);
+    public static MobaCommanderPanelState Hidden { get; } = new(false, false, false, 0, 0, 0, 0, 0, 0, [], [], []);
 }
 
 /// <summary>
