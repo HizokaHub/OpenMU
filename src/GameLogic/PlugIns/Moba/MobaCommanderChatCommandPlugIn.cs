@@ -20,7 +20,7 @@ using MUnique.OpenMU.PlugIns;
 [Guid("5B7D2E94-0C1A-4F36-9D58-A3E6B1C72F04")]
 [PlugIn]
 [Display(Name = "MOBA: commander orders", Description = "Command '/mobacmd' - the orders of the commanders of the commanders mode.")]
-[ChatCommandHelp(Command, "Commanders mode: /mobacmd tomar | soltar | enviar <soldado|bruto|elite> <top|mid|bot> | eco | estado; GM: /mobacmd iniciar | parar.", null, CharacterStatus.Normal)]
+[ChatCommandHelp(Command, "Commanders mode: /mobacmd tomar | soltar | enviar <soldado|bruto|elite> <top|mid|bot> | ya | eco | estado; GM: /mobacmd iniciar | parar.", null, CharacterStatus.Normal)]
 public class MobaCommanderChatCommandPlugIn : IChatCommandPlugIn
 {
     private const string Command = "/mobacmd";
@@ -85,11 +85,13 @@ public class MobaCommanderChatCommandPlugIn : IChatCommandPlugIn
                 await Tell(player, board.TryClaim(team, accountId)
                     ? "Ahora eres el comandante de tu equipo."
                     : "Tu equipo ya tiene comandante.").ConfigureAwait(false);
+                await MobaCommanderBody.SyncAsync(player).ConfigureAwait(false);
                 break;
             case "soltar" or "release":
                 await Tell(player, board.Release(team, accountId)
                     ? "Dejaste el mando; un bot comanda tu equipo."
                     : "No eres el comandante de tu equipo.").ConfigureAwait(false);
+                await MobaCommanderBody.SyncAsync(player).ConfigureAwait(false);
                 break;
             case "estado" or "status":
                 await ShowStatusAsync(player, board, team, accountId).ConfigureAwait(false);
@@ -99,6 +101,15 @@ public class MobaCommanderChatCommandPlugIn : IChatCommandPlugIn
                     board.TryBuyIncome(team)
                         ? Tell(player, $"Ingreso mejorado al nivel {board.IncomeLevel(team)}: {board.IncomePerSecond(team):0} de esencia por segundo.")
                         : Tell(player, board.NextIncomeCost(team) is { } cost ? $"Mejorar el ingreso cuesta {cost} de esencia." : "El ingreso ya está al máximo.")).ConfigureAwait(false);
+                break;
+            case "ya" or "now":
+                await OrderAsync(player, board, team, accountId, () => Tell(player, MobaCommanderOrders.SendNow(map, team) switch
+                {
+                    MobaCommanderSendNowResult.Released => "Tus criaturas en espera salen ya.",
+                    MobaCommanderSendNowResult.NothingWaiting => "No hay criaturas esperando en tu base.",
+                    MobaCommanderSendNowResult.Cooldown => $"Enviar ya estará listo en {MobaCommanderQueue.Of(arena).SendNowCooldown(team)} s.",
+                    _ => "La partida no está en marcha.",
+                })).ConfigureAwait(false);
                 break;
             case "enviar" or "send":
                 await OrderAsync(player, board, team, accountId, () => SendAsync(player, map, team, words)).ConfigureAwait(false);
@@ -136,10 +147,11 @@ public class MobaCommanderChatCommandPlugIn : IChatCommandPlugIn
         var laneName = lane.Value == MobaLayout.MidLane ? "mid" : lane.Value == 0 ? "top" : "bot";
         await Tell(player, result switch
         {
-            MobaCommanderSendResult.Sent => $"{unit.Name} enviados por {laneName}.",
+            MobaCommanderSendResult.Sent => $"{unit.Name} esperando en tu base ({laneName}); salen con la próxima oleada.",
             MobaCommanderSendResult.NotEnoughEssence => $"No tienes esencia: {unit.Name} cuesta {unit.Cost}.",
             MobaCommanderSendResult.LaneClosed => "Ese carril está cerrado en este formato.",
             MobaCommanderSendResult.LaneJammed => "Ese carril ya está lleno de tus criaturas.",
+            MobaCommanderSendResult.QueueFull => "La zona de espera de ese carril está llena.",
             MobaCommanderSendResult.NotRunning => "La partida no está en marcha.",
             _ => "No se pudo enviar.",
         }).ConfigureAwait(false);
@@ -185,6 +197,7 @@ public class MobaCommanderChatCommandPlugIn : IChatCommandPlugIn
 
         await arena.Mode.StartMatchAsync(map, context).ConfigureAwait(false);
         MobaCommanderBoard.Of(arena).TryClaim(MobaTeam.Blue, account.GetId());
+        await MobaCommanderBody.SyncAsync(player).ConfigureAwait(false);
         await Tell(player, "Partida de prueba de Comandantes: tú comandas al equipo azul y un bot al rojo. Empiezas con 200 de esencia. /mobacmd estado para verla; /mobacmd parar para terminar.").ConfigureAwait(false);
     }
 

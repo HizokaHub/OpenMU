@@ -20,6 +20,10 @@ namespace MUnique.OpenMU.GameLogic.Views.Moba;
 /// <param name="UnitCosts">The essence each pack costs, in the order of the packs.</param>
 /// <param name="OwnLaneCreeps">The live creeps of the player's team in each lane (top, mid, bot).</param>
 /// <param name="EnemyLaneCreeps">The live creeps of the enemy team in each lane (top, mid, bot).</param>
+/// <param name="WaveSeconds">The seconds left until the next wave (0 when there is no timer).</param>
+/// <param name="WaveInterval">The seconds between two waves.</param>
+/// <param name="SendNowCooldown">The seconds left until the commander can use "send now" again (0 when it is ready).</param>
+/// <param name="Queued">The packs which wait in the base of the player's team, lane-major: lane 0 pack 0, lane 0 pack 1, ..., lane 1 pack 0, ...</param>
 public readonly record struct MobaCommanderPanelState(
     bool Visible,
     bool IsCommander,
@@ -32,10 +36,14 @@ public readonly record struct MobaCommanderPanelState(
     int OpenLaneMask,
     IReadOnlyList<int> UnitCosts,
     IReadOnlyList<int> OwnLaneCreeps,
-    IReadOnlyList<int> EnemyLaneCreeps)
+    IReadOnlyList<int> EnemyLaneCreeps,
+    int WaveSeconds,
+    int WaveInterval,
+    int SendNowCooldown,
+    IReadOnlyList<int> Queued)
 {
     /// <summary>Gets the state which hides the panel.</summary>
-    public static MobaCommanderPanelState Hidden { get; } = new(false, false, false, 0, 0, 0, 0, 0, 0, [], [], []);
+    public static MobaCommanderPanelState Hidden { get; } = new(false, false, false, 0, 0, 0, 0, 0, 0, [], [], [], 0, 0, 0, []);
 }
 
 /// <summary>

@@ -49,7 +49,9 @@ public static class LocateableExtensions
     /// </returns>
     public static bool IsActive(this ILocateable locateable)
     {
-        return locateable is not IAttackable attackable || (attackable.IsAlive && !attackable.IsTeleporting);
+        // A commander's parked body (MOBA commanders mode) is not a target of anything: see MobaCommanderBody.
+        return locateable is not IAttackable attackable
+            || (attackable.IsAlive && !attackable.IsTeleporting && !PlugIns.Moba.MobaCommanderBody.IsParked(attackable));
     }
 
     /// <summary>

@@ -21,6 +21,9 @@ public enum MobaCommanderPanelAction : byte
 
     /// <summary>Give the command up.</summary>
     Release = 3,
+
+    /// <summary>Send now: release the waiting creeps of the team without waiting for the wave timer (unit and lane are ignored).</summary>
+    SendNow = 4,
 }
 
 /// <summary>
@@ -49,6 +52,7 @@ public static class MobaCommanderPanel
         }
 
         var commander = board.CommanderOf(team);
+        var queue = MobaCommanderQueue.Of(arena);
         var laneMask = MobaCommanderOrders.OpenLanes(arena).Aggregate(0, (mask, lane) => mask | (1 << lane));
         return new MobaCommanderPanelState(
             true,
@@ -62,7 +66,11 @@ public static class MobaCommanderPanel
             laneMask,
             MobaCommanderUnits.All.Select(u => u.Cost).ToList(),
             MobaWaveSpawner.CountCreepsPerLane(map, team),
-            MobaWaveSpawner.CountCreepsPerLane(map, team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue));
+            MobaWaveSpawner.CountCreepsPerLane(map, team == MobaTeam.Blue ? MobaTeam.Red : MobaTeam.Blue),
+            queue.WaveSeconds,
+            MobaCommanderQueue.WaveIntervalSeconds,
+            queue.SendNowCooldown(team),
+            queue.Queued(team, MobaCommanderUnits.All.Count));
     }
 
     /// <summary>
@@ -122,6 +130,12 @@ public static class MobaCommanderPanel
             return;
         }
 
+        // An action this server does not know (a newer client) is ignored.
+        if (!Enum.IsDefined(action))
+        {
+            return;
+        }
+
         var board = MobaCommanderBoard.Of(arena);
         var team = MobaTeams.GetTeam(player);
         var accountId = account.GetId();
@@ -129,9 +143,19 @@ public static class MobaCommanderPanel
         {
             case MobaCommanderPanelAction.Claim:
                 await TellAsync(player, board.TryClaim(team, accountId) ? "Ahora eres el comandante de tu equipo." : "Tu equipo ya tiene comandante.").ConfigureAwait(false);
+                await MobaCommanderBody.SyncAsync(player).ConfigureAwait(false);
                 break;
             case MobaCommanderPanelAction.Release:
                 await TellAsync(player, board.Release(team, accountId) ? "Dejaste el mando; un bot comanda tu equipo." : "No eres el comandante de tu equipo.").ConfigureAwait(false);
+                await MobaCommanderBody.SyncAsync(player).ConfigureAwait(false);
+                break;
+            case MobaCommanderPanelAction.SendNow when board.CommanderOf(team) == accountId:
+                var sendNow = MobaCommanderOrders.SendNow(map, team);
+                if (sendNow != MobaCommanderSendNowResult.Released)
+                {
+                    await TellAsync(player, DescribeSendNow(sendNow, MobaCommanderQueue.Of(arena).SendNowCooldown(team))).ConfigureAwait(false);
+                }
+
                 break;
             case MobaCommanderPanelAction.Income when board.CommanderOf(team) == accountId:
                 await TellAsync(player, board.TryBuyIncome(team) ? $"Ingreso mejorado al nivel {board.IncomeLevel(team)}." : "No tienes esencia para mejorar el ingreso, o ya está al máximo.").ConfigureAwait(false);
@@ -158,8 +182,16 @@ public static class MobaCommanderPanel
         MobaCommanderSendResult.NotEnoughEssence => $"No tienes esencia: {unit.Name} cuesta {unit.Cost}.",
         MobaCommanderSendResult.LaneClosed => "Ese carril está cerrado en este formato.",
         MobaCommanderSendResult.LaneJammed => "Ese carril ya está lleno de tus criaturas.",
+        MobaCommanderSendResult.QueueFull => "La zona de espera de ese carril está llena: espera la oleada o usa Enviar ya.",
         MobaCommanderSendResult.NotRunning => "La partida no está en marcha.",
         _ => "No se pudo enviar.",
+    };
+
+    private static string DescribeSendNow(MobaCommanderSendNowResult result, int cooldown) => result switch
+    {
+        MobaCommanderSendNowResult.NothingWaiting => "No hay criaturas esperando en tu base.",
+        MobaCommanderSendNowResult.Cooldown => $"Enviar ya estará listo en {cooldown} s.",
+        _ => "La partida no está en marcha.",
     };
 
     private static ValueTask TellAsync(Player player, string text) => player.ShowBlueMessageAsync($"[CMD] {text}");

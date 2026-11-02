@@ -101,6 +101,7 @@ public static class MobaAfk
            && player.CurrentMap.MapId == MobaCloneFactory.ArenaMapNumber
            && player.MobaState.Arena is not null
            && MobaTeams.GetTeam(player) != MobaTeam.None
+           && !MobaCommanderBody.IsParked(player)
            && (player is MobaGhostPlayer || player is not OfflinePlayer);
 
     private static string NameOf(Player player) => player.SelectedCharacter?.Name ?? "?";

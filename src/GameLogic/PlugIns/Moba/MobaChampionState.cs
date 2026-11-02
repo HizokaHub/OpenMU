@@ -93,6 +93,15 @@ public sealed class MobaChampionState
     /// <summary>Gets or sets how far the anti-AFK escalation of this champion has gone.</summary>
     public MobaAfkStage AfkStage { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the champion is parked: its human commands a team in the commanders mode, so the body
+    /// stands invisible in its base, cannot be attacked or targeted and is exempt from the anti-AFK (see <see cref="MobaCommanderBody"/>).
+    /// </summary>
+    public bool Parked { get; set; }
+
+    /// <summary>Gets or sets the session (player object) which was parked, so a reconnected session is parked again.</summary>
+    public Player? ParkedSession { get; set; }
+
     /// <summary>Gets the skill cooldowns: skill number mapped to the UTC instant it is usable again.</summary>
     public Dictionary<short, DateTime> SkillCooldowns { get; } = new();
 

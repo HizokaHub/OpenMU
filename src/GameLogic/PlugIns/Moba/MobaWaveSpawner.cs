@@ -260,8 +260,20 @@ public static class MobaWaveSpawner
     /// <param name="team">The team the units belong to.</param>
     /// <param name="laneIndex">The lane index.</param>
     /// <param name="composition">The units, front rank first.</param>
+    /// <param name="holdSlot">
+    /// When given, the units do not march: they appear held (see <see cref="MobaCreepHold"/>) in the waiting zone of the lane, in the
+    /// block of this slot (see <see cref="MobaCommanderQueue.WaitingSpots"/>), and walk the rest of the lane once released.
+    /// </param>
+    /// <param name="onCreated">Called with every creep right after it was created (before its AI starts).</param>
     /// <returns>The number of creeps spawned.</returns>
-    public static async ValueTask<int> SpawnUnitsAsync(GameMap map, IGameContext gameContext, MobaTeam team, int laneIndex, IReadOnlyList<MobaWaveUnit> composition)
+    public static async ValueTask<int> SpawnUnitsAsync(
+        GameMap map,
+        IGameContext gameContext,
+        MobaTeam team,
+        int laneIndex,
+        IReadOnlyList<MobaWaveUnit> composition,
+        int? holdSlot = null,
+        Action<Monster>? onCreated = null)
     {
         var leaderLevel = MobaArena.Of(map).LeaderLevel;
         var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
@@ -271,10 +283,30 @@ public static class MobaWaveSpawner
         var spawn = lane[0];
         var (dirX, dirY) = SegmentDirection(lane, 0);
 
+        // A held pack stands in the waiting zone: every creep gets its own free tile there.
+        IReadOnlyList<Point?>? spots = null;
+        if (holdSlot is { } slot)
+        {
+            var occupied = map.GetAttackablesInRange(new Point(128, 128), 400)
+                .OfType<Monster>()
+                .Where(mo => mo.IsAlive)
+                .Select(mo => ((int)mo.Position.X, (int)mo.Position.Y))
+                .ToHashSet();
+            spots = MobaCommanderQueue.PlanWaitingSpots(
+                team,
+                laneIndex,
+                slot,
+                composition,
+                (x, y) => terrain.WalkMap[x, y] && !occupied.Contains((x, y)) && !MobaOccupancyGrid.IsStructureTile(map, new Point((byte)x, (byte)y)));
+        }
+
         var rank = 0;
         var total = 0;
+        var spotBase = 0;
         foreach (var unit in composition)
         {
+            var unitSpotBase = spotBase;
+            spotBase += unit.Count;
             var number = unit.Number;
             var count = unit.Count;
             var golden = number == MobaGolden.ReinforcementNumber;
@@ -303,16 +335,28 @@ public static class MobaWaveSpawner
             {
                 // Ranks line up behind the spawn along the lane, creeps of a rank side by side across it.
                 var offset = (i * RankSpacingX) - (lineWidth / 2.0);
-                var startPoint = SnapToWalkable(
-                    terrain,
-                    spawn.X - (dirX * rank * RankGapY) - (dirY * offset),
-                    spawn.Y - (dirY * rank * RankGapY) + (dirX * offset));
+                if (spots is not null && spots[unitSpotBase + i] is null)
+                {
+                    // No free tile near its place in the waiting zone: better one creep less than one stuck on a tile it cannot leave.
+                    continue;
+                }
+
+                var startPoint = spots is not null
+                    ? spots[unitSpotBase + i]!.Value
+                    : SnapToWalkable(
+                        terrain,
+                        spawn.X - (dirX * rank * RankGapY) - (dirY * offset),
+                        spawn.Y - (dirY * rank * RankGapY) + (dirX * offset));
+
+                // A held creep waits further along the lane than its start: it only walks the waypoints which are still ahead of it.
+                var firstAhead = spots is not null ? MobaCommanderQueue.FirstWaypointAhead(lane, startPoint) : 0;
                 var creepWaypoints = lane
                     .Select((w, k) =>
                     {
                         var (sx, sy) = SegmentDirection(lane, Math.Min(k, lane.Count - 2));
                         return SnapToWalkable(terrain, w.X - (sy * offset), w.Y + (sx * offset));
                     })
+                    .Skip(firstAhead)
                     .ToArray();
 
                 var area = new MonsterSpawnArea
@@ -348,6 +392,14 @@ public static class MobaWaveSpawner
                 monster.Died += (sender, death) => _ = OnCreepKilledAsync(map, sender as Monster, death);
                 await map.AddAsync(monster).ConfigureAwait(false);
                 monster.OnSpawn();
+
+                if (spots is not null)
+                {
+                    // Held before the AI starts, so it neither marches nor fights until the wave is released.
+                    MobaCreepHold.Hold(monster, MobaCommanderQueue.HoldDuration);
+                }
+
+                onCreated?.Invoke(monster);
 
                 // Start the AI now so the creep marches / fights even with no player watching.
                 intelligence.Start();

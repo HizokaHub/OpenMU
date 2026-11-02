@@ -7,8 +7,9 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// <summary>
 /// Commanders: the lane creeps are not a fixed rhythm but what the commanders send. Each team has one commander (a player
 /// who claims the command, or a bot when nobody does) who earns essence every second and spends it on packs of creeps and
-/// on income. The champions play as always; the match ends when a nexus falls. Version 0: the commander orders with chat
-/// commands (<c>/mobacmd</c>), has no jungle and no panel of its own yet.
+/// on income. The packs wait, held, in the base of the team (<see cref="MobaCommanderQueue"/>) and go out together with the wave
+/// timer of the arena (Direct Strike), or at once when the human commander uses "send now". The human commander does not play
+/// a hero: his body is parked (<see cref="MobaCommanderBody"/>). The match ends when a nexus falls; there is no jungle.
 /// </summary>
 public sealed class MobaCommandersMode : MobaGameModeBase
 {
@@ -29,16 +30,19 @@ public sealed class MobaCommandersMode : MobaGameModeBase
     public override ValueTask StartAmbientAsync(GameMap map, IGameContext gameContext) => ValueTask.CompletedTask;
 
     /// <inheritdoc />
-    public override ValueTask StartMatchAsync(GameMap map, IGameContext gameContext)
+    public override async ValueTask StartMatchAsync(GameMap map, IGameContext gameContext)
     {
         MobaCommanderOrders.Start(map, gameContext);
-        return ValueTask.CompletedTask;
+
+        // A player who claimed the command before the match began is parked as soon as it runs.
+        await MobaCommanderBody.SyncAllAsync(map, gameContext).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public override async ValueTask StopAsync(GameMap map, IGameContext gameContext)
     {
         MobaCommanderOrders.Stop(map);
+        await MobaCommanderBody.RestoreAllAsync(map, gameContext).ConfigureAwait(false);
         await MobaCommanderPanel.HideAllAsync(map, gameContext).ConfigureAwait(false);
     }
 

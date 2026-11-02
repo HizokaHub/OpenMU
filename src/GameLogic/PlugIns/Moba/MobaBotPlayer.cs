@@ -614,7 +614,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         var attackRange = Math.Max(2, this.GetMeleeAttackRange());
 
         var enemiesInAcquire = map.GetAttackablesInRange(pos, AcquireRangeTiles)
-            .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a))
+            .Where(a => a.IsAlive && !ReferenceEquals(a, this) && MobaTeams.AreEnemies(this, a) && !MobaCommanderBody.IsParked(a))
             .ToList();
 
         var enemyChampsInRange = enemiesInAcquire.OfType<Player>()
@@ -623,7 +623,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
 
         // Everyone in the match, split by side and by "near me" (a local fight radius).
         var everyone = map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Player>()
-            .Where(p => p.IsMobaClone && p is not MobaBotPlayer { IsDummy: true })
+            .Where(p => p.IsMobaClone && p is not MobaBotPlayer { IsDummy: true } && !MobaCommanderBody.IsParked(p))
             .ToList();
         var myTeam = MobaTeams.GetTeam(this);
         var allies = everyone.Where(p => !ReferenceEquals(p, this) && MobaTeams.GetTeam(p) == myTeam).ToList();

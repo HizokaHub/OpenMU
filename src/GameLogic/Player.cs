@@ -816,6 +816,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             return null;
         }
 
+        if (PlugIns.Moba.MobaCommanderBody.IsParked(this))
+        {
+            // The parked body of a commander (MOBA commanders mode) cannot be hurt.
+            PlugIns.Moba.MobaCombatDebug.LogNoDamage(attacker, this, skill?.Skill, "commander-parked");
+            return null;
+        }
+
         if (!this.GameContext.PvpEnabled && this.CurrentMap?.Definition.BattleZone == null &&
             this.CurrentMiniGame?.AllowPlayerKilling is false)
         {
