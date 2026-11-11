@@ -2391,6 +2391,8 @@ torreta exterior → torreta media → torreta de base → **inhibidor** → (el
 
 - **Fase 4e-4f (2026-10-29/30):** efectos propios de las 5 skills restantes del RW (Magic Arrow, Plasma Ball, Lightning Storm, Burst, Haste; commit cliente `330a2b8c`), aviso de texturas del cliente RW resuelto copiando 156 texturas a `Data/Item` (`59015267`, `470c1261`) y leccion: el servidor normal se enciende solo y no tiene la clase 28, hay que comprobar a cual se conecta el cliente. Sin ver en pantalla. Detalle en `docs/RUNE_WIZARD_TRASPASO.md` (fases 4d, 4e y 4f).
 
+- **Fase 4g (2026-11-11): Rune Phrase of Saturation (637)**, la 8.ª skill básica del RW: servidor `5322947bd` (skill, tablas MOBA, plugin de actualización 109 aplicado a la copia `openmu_rw`, 307/307) y cliente (fila en `skill_eng.bmd`, campo de Rune Phrase con estilo más ancho y denso). Sin ver en pantalla; el icono es provisional. Pendiente: el árbol master de 66 nodos.
+
 ## Traspaso del Rune Wizard (2026-10-28)
 
 Para continuar el trabajo del RW en una conversación nueva, **leer primero `docs/RUNE_WIZARD_TRASPASO.md`**: reglas del usuario, ramas, estado, pendientes (siguiente: creación de personajes, que exige migrar la BD con plan + `pg_dump` + confirmación) y el prompt de arranque.
