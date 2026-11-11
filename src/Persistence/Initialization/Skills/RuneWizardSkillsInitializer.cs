@@ -55,8 +55,20 @@ internal class RuneWizardSkillsInitializer : SkillsInitializerBase
         this.CreateSkill(SkillNumber.RunePhrase, "Rune Phrase", rw, DamageType.Wizardry, 95, 6, manaConsumption: 120, energyRequirement: 400, skillType: SkillType.AreaSkillAutomaticHits);
         this.AddAreaSkillSettings(SkillNumber.RunePhrase, false, default, default, default, true, TimeSpan.Zero, TimeSpan.Zero, targetAreaDiameter: 3, useTargetAreaFilter: true);
 
+        this.AddRunePhraseSaturation();
+
         this.CreateBurstEffect();
         this.CreateHasteEffect();
+    }
+
+    /// <summary>
+    /// Adds only the Rune Phrase of Saturation, for configurations which already have the other skills of the rune wizard.
+    /// </summary>
+    public void AddRunePhraseSaturation()
+    {
+        // Rune Phrase of Saturation: the rune field charged with more energy - wider, in several waves, and stronger than Rune Phrase.
+        this.CreateSkill(SkillNumber.RunePhraseSaturation, "Rune Phrase of Saturation", CharacterClasses.RuneWizard, DamageType.Wizardry, 130, 6, manaConsumption: 160, energyRequirement: 500, skillType: SkillType.AreaSkillAutomaticHits);
+        this.AddAreaSkillSettings(SkillNumber.RunePhraseSaturation, false, default, default, default, true, TimeSpan.Zero, TimeSpan.Zero, targetAreaDiameter: 4, useTargetAreaFilter: true);
     }
 
     private void CreateBurstEffect()

@@ -130,7 +130,7 @@ public class RuneWizardClassTests
         Assert.That(this._configuration.Skills.Any(s => s.QualifiedCharacters.Contains(runeWizard) && s.Number < RuneWizardClassFactory.FirstSkillNumber), Is.False, "no Season 6 skill");
 
         var ownSkills = this._configuration.Skills.Where(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber).ToList();
-        Assert.That(ownSkills.Count, Is.EqualTo(7));
+        Assert.That(ownSkills.Count, Is.EqualTo(8));
         Assert.That(ownSkills.All(s => s.QualifiedCharacters.Count == 1 && s.QualifiedCharacters.Single() == runeWizard), Is.True);
         Assert.That(ownSkills.Where(s => s.SkillType == SkillType.Buff).All(s => s.MagicEffectDef is not null), Is.True);
         Assert.That(darkWizardItems.All(i => i.QualifiedCharacters.Contains(runeWizard)), Is.True);
@@ -156,7 +156,7 @@ public class RuneWizardClassTests
         clone.Inventory = context.CreateNew<ItemStorage>();
         MobaLoadouts.Apply(context, this._configuration, clone, runeWizard);
 
-        Assert.That(clone.LearnedSkills.Count, Is.EqualTo(7));
+        Assert.That(clone.LearnedSkills.Count, Is.EqualTo(8));
         Assert.That(clone.LearnedSkills.All(l => l.Skill!.Number >= RuneWizardClassFactory.FirstSkillNumber), Is.True);
         Assert.That(clone.Inventory.Items.Any(i => i.ItemSlot == 1 && i.Definition?.Group == 5), Is.True, "starter staff in the right hand");
         Assert.That(MobaPassives.FamilyOf(runeWizard.Number), Is.EqualTo(MobaFamily.RuneWizard));
@@ -176,7 +176,7 @@ public class RuneWizardClassTests
     }
 
     /// <summary>
-    /// The update plugin adds the creatable class and its seven own skills, and applying it twice changes nothing.
+    /// The update plugin adds the creatable class and its eight own skills, and applying it twice changes nothing.
     /// </summary>
     /// <returns>A task.</returns>
     [Test]
@@ -192,8 +192,32 @@ public class RuneWizardClassTests
         Assert.That(runeWizard.HomeMap, Is.Not.Null);
 
         var ownSkills = this._configuration.Skills.Where(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber).ToList();
-        Assert.That(ownSkills.Count, Is.EqualTo(7));
+        Assert.That(ownSkills.Count, Is.EqualTo(8));
         Assert.That(ownSkills.All(s => s.QualifiedCharacters.Single() == runeWizard), Is.True);
         Assert.That(update.IsMandatory, Is.False, "it is applied on purpose from the admin panel");
+    }
+
+    /// <summary>
+    /// The saturation update adds Rune Phrase of Saturation to a configuration which has the other skills, and applying it twice changes nothing.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async ValueTask SaturationUpdateAddsOnlyTheMissingSkillAsync()
+    {
+        var context = this._contextProvider.CreateNewConfigurationContext();
+        await new AddRuneWizardClassUpdatePlugIn().ApplyUpdateAsync(context, this._configuration).ConfigureAwait(false);
+        const short saturationNumber = 637;
+        this._configuration.Skills.Remove(this._configuration.Skills.Single(s => s.Number == saturationNumber));
+        Assert.That(this._configuration.Skills.Count(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber), Is.EqualTo(7));
+
+        var update = new AddRuneWizardSaturationUpdatePlugIn();
+        await update.ApplyUpdateAsync(context, this._configuration).ConfigureAwait(false);
+        await update.ApplyUpdateAsync(context, this._configuration).ConfigureAwait(false);
+
+        var runeWizard = this._configuration.CharacterClasses.Single(c => c.Number == RuneWizardNumber);
+        var saturation = this._configuration.Skills.Single(s => s.Number == saturationNumber);
+        Assert.That(saturation.QualifiedCharacters.Single(), Is.EqualTo(runeWizard));
+        Assert.That(this._configuration.Skills.Count(s => s.Number >= RuneWizardClassFactory.FirstSkillNumber && s.Number <= RuneWizardClassFactory.LastSkillNumber), Is.EqualTo(8));
+        Assert.That(update.IsMandatory, Is.False);
     }
 }

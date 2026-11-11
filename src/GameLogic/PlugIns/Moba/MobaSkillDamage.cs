@@ -125,6 +125,7 @@ public static class MobaSkillDamage
         // --- heavy hitters: reward investment most ---
         [40] = (120, 30, 0.80),  // Nova (channelled burst)
         [636] = (125, 30, 0.80), // Rune Wizard: Rune Phrase
+        [637] = (135, 32, 0.85), // Rune Wizard: Rune Phrase of Saturation
         [42] = (115, 28, 0.75),  // Rageful Blow
         [43] = (125, 30, 0.80),  // Death Stab
         [46] = (140, 34, 0.85),  // Starfall

@@ -64,6 +64,7 @@ public static class MobaCooldowns
         [632] = new[] { 9.0, 8.25, 7.5, 6.75, 6.0 }, // Rune Wizard: Lightning Storm
         [635] = new[] { 7.0, 6.5, 6.0, 5.5, 5.0 },  // Rune Wizard: Runic Spear
         [636] = new[] { 11.0, 10.0, 9.0, 8.0, 7.0 }, // Rune Wizard: Rune Phrase
+        [637] = new[] { 14.0, 13.0, 12.0, 11.0, 10.0 }, // Rune Wizard: Rune Phrase of Saturation
         [46] = new[] { 9.0, 8.0, 7.0, 6.0, 5.0 },   // Starfall (big burst)
         [62] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },  // Earthshake
         [214] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },  // Drain Life

@@ -424,5 +424,8 @@ internal enum SkillNumber
     /// <summary>The Rune Phrase of the rune wizard.</summary>
     RunePhrase = 636,
 
+    /// <summary>The Rune Phrase of Saturation of the rune wizard (a stronger, wider Rune Phrase).</summary>
+    RunePhraseSaturation = 637,
+
     #endregion
 }

@@ -31,7 +31,7 @@ public static class RuneWizardClassFactory
     /// <summary>
     /// Gets the number of the last skill which only the rune wizard has.
     /// </summary>
-    public static short LastSkillNumber => (short)SkillNumber.RunePhrase;
+    public static short LastSkillNumber => (short)SkillNumber.RunePhraseSaturation;
 
     /// <summary>
     /// Adds the rune wizard to the game configuration, if it doesn't contain it yet.
@@ -58,11 +58,16 @@ public static class RuneWizardClassFactory
     /// <param name="gameConfiguration">The game configuration.</param>
     public static void AddSkillsTo(IContext context, GameConfiguration gameConfiguration)
     {
-        if (gameConfiguration.Skills.Any(s => s.Number == FirstSkillNumber))
+        var initializer = new RuneWizardSkillsInitializer(context, gameConfiguration);
+        if (gameConfiguration.Skills.All(s => s.Number != FirstSkillNumber))
         {
+            initializer.Initialize();
             return;
         }
 
-        new RuneWizardSkillsInitializer(context, gameConfiguration).Initialize();
+        if (gameConfiguration.Skills.All(s => s.Number != (short)SkillNumber.RunePhraseSaturation))
+        {
+            initializer.AddRunePhraseSaturation();
+        }
     }
 }

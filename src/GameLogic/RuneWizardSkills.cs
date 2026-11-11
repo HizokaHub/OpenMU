@@ -18,9 +18,9 @@ public static class RuneWizardSkills
     public const short First = 630;
 
     /// <summary>
-    /// The number of the last skill which only the rune wizard has (Rune Phrase).
+    /// The number of the last skill which only the rune wizard has (Rune Phrase of Saturation).
     /// </summary>
-    public const short Last = 636;
+    public const short Last = 637;
 
     /// <summary>
     /// Determines whether the skill is one of the own skills of the rune wizard.

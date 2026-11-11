@@ -88,9 +88,9 @@ public static class MobaLoadouts
         // Killing Blow, Beast Uppercut, Chain Drive, Dark Side, Dragon Roar, Dragon Slasher, Charge, Phoenix Shot, Falling Slash,
         // Ignore Defense, Increase Health, Increase Block
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265, 269, 270, 19, 266, 267, 268 },
-        // Rune Wizard - its own Season 21 skills (numbers 630-636, see RuneWizardSkillsInitializer):
-        // Magic Arrow, Plasma Ball, Lightning Storm, Runic Spear, Rune Phrase, and the buffs Burst (more damage) and Haste (attack speed).
-        [Family.RuneWizard] = new short[] { 630, 631, 632, 635, 636, 633, 634 },
+        // Rune Wizard - its own Season 21 skills (numbers 630-637, see RuneWizardSkillsInitializer):
+        // Magic Arrow, Plasma Ball, Lightning Storm, Runic Spear, Rune Phrase, Rune Phrase of Saturation, and the buffs Burst (more damage) and Haste (attack speed).
+        [Family.RuneWizard] = new short[] { 630, 631, 632, 635, 636, 637, 633, 634 },
     };
 
     // The buffs of every class: the champion always has them, they are not part of the picks.
