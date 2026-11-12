@@ -332,34 +332,28 @@ public class MobaShopTests
     }
 
     /// <summary>
-    /// Variants of the same piece must really differ in the options they carry (T1/T2 weapons), while keeping the same option count so they cost the same.
+    /// Weapons (2026-11-12): every tier offers different weapons (three; the Rage Fighter two in tiers 2 and 3), each with its own role (variant), and the
+    /// options of the roles of one tier differ.
     /// </summary>
     /// <param name="classNumber">The class number.</param>
     [TestCaseSource(nameof(FamilyClassNumbers))]
-    public void VariantsCarryDifferentOptionsAtSamePrice(byte classNumber)
+    public void EveryTierOffersDifferentWeaponsWithDifferentRoles(byte classNumber)
     {
         var characterClass = this._gameConfiguration.CharacterClasses.First(c => c.Number == classNumber);
-        foreach (var category in new[] { MobaShopCategory.Weapons })
+        var family = MobaPassives.FamilyOf(characterClass.Number);
+        foreach (var tier in new[] { MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T3 })
         {
-            var items = MobaShop.BuildCategoryItems(this._gameConfiguration, characterClass, category, out _).ToList();
-
-            var byType = items
-                .Where(i => i.Definition!.Group != 4 || i.Definition.Number != 15)
-                .GroupBy(i => (i.Definition!.Group, i.Definition.Number, i.Level))
-                .Where(g => g.Count() > 1)
+            var entries = MobaShopCatalog.Entries
+                .Where(e => e.Category == MobaShopCategory.Weapons && e.Tier == tier && e.Quantity == 1 && e.Families is { Length: > 0 } f && f[0] == family)
                 .ToList();
-            Assert.That(byType, Is.Not.Empty, $"{characterClass.Name}: {category} has no variants");
-            foreach (var group in byType)
+            var expected = family == MobaFamily.RageFighter && tier != MobaShopTier.T1 ? 2 : 3;
+            Assert.Multiple(() =>
             {
-                var signatures = group
-                    .Select(i => string.Join(",", i.ItemOptions.Where(o => o.ItemOption?.OptionType != ItemOptionTypes.Luck && o.ItemOption?.OptionType != ItemOptionTypes.Option).Select(o => o.ItemOption!.Number).OrderBy(n => n)))
-                    .ToList();
-                Assert.Multiple(() =>
-                {
-                    Assert.That(signatures.Distinct().Count(), Is.EqualTo(signatures.Count), $"{characterClass.Name}: {category} {group.Key} variants are identical: {string.Join(" | ", signatures)}");
-                    Assert.That(group.Select(MobaShop.PriceOf).Distinct().Count(), Is.EqualTo(1), $"{characterClass.Name}: {category} {group.Key} variants differ in price");
-                });
-            }
+                Assert.That(entries, Has.Count.EqualTo(expected), $"{characterClass.Name} {tier}");
+                Assert.That(entries.Select(e => (e.Group, e.Number)).Distinct().Count(), Is.EqualTo(entries.Count), $"{characterClass.Name} {tier}: weapons repeat");
+                Assert.That(entries.Select(e => e.Variant).Distinct().Count(), Is.EqualTo(entries.Count), $"{characterClass.Name} {tier}: roles repeat");
+                Assert.That(entries.First().Variant, Is.EqualTo(MobaShopVariant.Standard), $"{characterClass.Name} {tier}: the first one is the balanced one");
+            });
         }
     }
 

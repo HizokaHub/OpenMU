@@ -71,25 +71,11 @@ public static class MobaShopCatalog
     {
         var entries = new List<MobaShopEntry>();
 
-        // Variants only matter where a tier doesn't already take every option: T1 (3 of 6) and
-        // T2 (4 of 6) get several mixes of the same piece, T3 (all 6) is a single entry.
-        // Weapons: 3 mixes (standard / crit + speed / sustain) at T1 and T2. The T3 weapon may
-        // have a second, genuinely different item ("alt") from the same drop-level band.
-        void Weapon(MobaFamily family, byte group, short number, MobaShopTier tier, short? altNumber = null, byte? altGroup = null)
-        {
-            var variants = tier == MobaShopTier.T3
-                ? new[] { MobaShopVariant.Standard }
-                : new[] { MobaShopVariant.Standard, MobaShopVariant.Aggressive, MobaShopVariant.Sustain };
-            foreach (var variant in variants)
-            {
-                entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, group, number, tier, Variant: variant));
-            }
-
-            if (altNumber is { } alt)
-            {
-                entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, altGroup ?? group, alt, tier));
-            }
-        }
+        // Weapons (2026-11-12, approved by the user): nine different weapons per class, three per tier; in every tier the first is the balanced one
+        // (Standard), the second the offensive one (Aggressive: crit + speed) and the third the resources one (Sustain: life / mana on kill). The Rage
+        // Fighter has fewer weapons (gloves and maces) and gets 3 / 2 / 2.
+        void Weapon(MobaFamily family, byte group, short number, MobaShopTier tier, MobaShopVariant variant)
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { family }, group, number, tier, Variant: variant));
 
         // Wings are sold "full option" (max level, luck, +4 option and their one wing option),
         // one entry per wing and tier - no variants.
@@ -121,27 +107,67 @@ public static class MobaShopCatalog
         }
 
         // --- Weapons ---
-        Weapon(MobaFamily.Wizard, 5, 5, MobaShopTier.T1);          // Legendary Staff
-        Weapon(MobaFamily.Wizard, 5, 9, MobaShopTier.T2);          // Dragon Soul Staff
-        Weapon(MobaFamily.Wizard, 5, 12, MobaShopTier.T3, altNumber: 33);   // Grand Viper Staff / Chromatic Staff
-        Weapon(MobaFamily.Knight, 0, 16, MobaShopTier.T1);         // Sword of Destruction
-        Weapon(MobaFamily.Knight, 0, 26, MobaShopTier.T2);         // Flamberge
-        Weapon(MobaFamily.Knight, 0, 22, MobaShopTier.T3, altNumber: 20);   // Bone Blade / Knight Blade
-        Weapon(MobaFamily.Elf, 4, 6, MobaShopTier.T1);             // Chaos Nature Bow
-        Weapon(MobaFamily.Elf, 4, 17, MobaShopTier.T2);            // Celestial Bow
-        Weapon(MobaFamily.Elf, 4, 24, MobaShopTier.T3, altNumber: 21);      // Air Lyn Bow / Sylph Wind Bow
-        Weapon(MobaFamily.MagicGladiator, 0, 31, MobaShopTier.T1); // Rune Blade
-        Weapon(MobaFamily.MagicGladiator, 0, 25, MobaShopTier.T2); // Sword Dancer
-        Weapon(MobaFamily.MagicGladiator, 0, 23, MobaShopTier.T3, altNumber: 21); // Explosion Blade / Dark Reign Blade
-        Weapon(MobaFamily.DarkLord, 2, 11, MobaShopTier.T1);       // Lord Scepter
-        Weapon(MobaFamily.DarkLord, 2, 15, MobaShopTier.T2);       // Shining Scepter
-        Weapon(MobaFamily.DarkLord, 2, 18, MobaShopTier.T3, altNumber: 14); // Stryker Scepter / Soleil Scepter
-        Weapon(MobaFamily.Summoner, 5, 17, MobaShopTier.T1);       // Ancient Stick
-        Weapon(MobaFamily.Summoner, 5, 18, MobaShopTier.T2);       // Demonic Stick
-        Weapon(MobaFamily.Summoner, 5, 19, MobaShopTier.T3);       // Storm Blitz Stick
-        Weapon(MobaFamily.RageFighter, 0, 33, MobaShopTier.T1);    // Storm Hard Glove
-        Weapon(MobaFamily.RageFighter, 0, 34, MobaShopTier.T2);    // Piercing Blade Glove
-        Weapon(MobaFamily.RageFighter, 0, 35, MobaShopTier.T3);    // Phoenix Soul Star
+        Weapon(MobaFamily.Wizard, 5, 5, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Wizard, 5, 3, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Wizard, 5, 4, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Wizard, 5, 9, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Wizard, 5, 7, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Wizard, 5, 8, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Wizard, 5, 12, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Wizard, 5, 33, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Wizard, 5, 13, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Knight, 0, 11, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Knight, 0, 14, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Knight, 2, 5, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Knight, 0, 16, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Knight, 0, 19, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Knight, 0, 17, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Knight, 0, 22, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Knight, 0, 20, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Knight, 0, 26, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Elf, 4, 6, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Elf, 4, 5, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Elf, 4, 16, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Elf, 4, 17, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Elf, 4, 18, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Elf, 4, 22, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Elf, 4, 24, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Elf, 4, 21, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Elf, 4, 23, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.MagicGladiator, 0, 31, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.MagicGladiator, 0, 14, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.MagicGladiator, 2, 5, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.MagicGladiator, 0, 25, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.MagicGladiator, 0, 18, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.MagicGladiator, 0, 28, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.MagicGladiator, 0, 23, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.MagicGladiator, 0, 21, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.MagicGladiator, 5, 33, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.DarkLord, 2, 11, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.DarkLord, 2, 9, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.DarkLord, 2, 10, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.DarkLord, 2, 15, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.DarkLord, 2, 17, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.DarkLord, 2, 12, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.DarkLord, 2, 18, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.DarkLord, 2, 14, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.DarkLord, 2, 13, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Summoner, 5, 16, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Summoner, 5, 15, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Summoner, 5, 14, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Summoner, 5, 18, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Summoner, 5, 17, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Summoner, 5, 36, MobaShopTier.T2, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.Summoner, 5, 19, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.Summoner, 5, 20, MobaShopTier.T3, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.Summoner, 5, 34, MobaShopTier.T3, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.RageFighter, 2, 3, MobaShopTier.T1, MobaShopVariant.Standard);
+        Weapon(MobaFamily.RageFighter, 0, 32, MobaShopTier.T1, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.RageFighter, 2, 2, MobaShopTier.T1, MobaShopVariant.Sustain);
+        Weapon(MobaFamily.RageFighter, 2, 4, MobaShopTier.T2, MobaShopVariant.Standard);
+        Weapon(MobaFamily.RageFighter, 0, 33, MobaShopTier.T2, MobaShopVariant.Aggressive);
+        Weapon(MobaFamily.RageFighter, 0, 35, MobaShopTier.T3, MobaShopVariant.Standard);
+        Weapon(MobaFamily.RageFighter, 0, 34, MobaShopTier.T3, MobaShopVariant.Aggressive);
         entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { MobaFamily.Elf }, 4, 15, MobaShopTier.T1, Level: 0, Quantity: 255)); // Arrows
 
         // --- Off-hand (shields / books) ---
