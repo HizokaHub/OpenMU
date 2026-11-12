@@ -2994,3 +2994,6 @@ El usuario aprobó **pasar el Legendary a T2 y no hacer el set rojo** (cancelado
 4. Unificar el rol de los sets con sus bonos reales (perfil de `MobaArchetype`).
 5. Banner de nivel («NIVEL N - +3 puntos para tus buffs»): comprobar en juego que sale grande; los avisos globales llegan duplicados al cliente.
 6. Menú de tamaño de letra (esperando que el usuario elija la forma).
+
+### Parada limpia del servidor: RESUELTA (2026-11-12 noche)
+**Causa:** `iniciar-todo.ps1 -Parar` apagaba el servidor enviándole Ctrl+C, pero un servidor arrancado desde una herramienta/servicio hereda «ignorar Ctrl+C» y no tiene consola de la que reciba el evento (en el log ni salía «Confirm shutdown»); no tenía que ver con la partida ni con cerrar el cliente con la X (eso solo deja al jugador como fantasma en la partida, lo normal). Siempre acababa forzado. **Arreglo:** `Program.Main` vigila el archivo `apagar.flag` junto al ejecutable (cada 2 s) y, si existe, lo borra y apaga limpiamente; `-Parar` lo crea primero (20 s), luego prueba Ctrl+C (45 s) y solo al final fuerza. Probado: apagado en ~5 s con «Server shutted down» en el log. Con `-Parar` ya no hace falta `-Forzar` salvo que haya jugadores conectados.

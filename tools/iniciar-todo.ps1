@@ -189,9 +189,17 @@ if ($Parar) {
     } else { Ok 'Portal ya estaba parado' }
 
     if ($pidJuego) {
-        Write-Host "  Apagando el servidor (PID $pidJuego) con Ctrl+C + confirmacion..."
-        $ctrlc = Join-Path $PSScriptRoot 'enviar-ctrlc.ps1'
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ctrlc -ProcessId $pidJuego | Out-Null
+        # 1) archivo-senal (funciona aunque el servidor no tenga consola o ignore Ctrl+C); 2) Ctrl+C + confirmacion; 3) a la fuerza.
+        Write-Host "  Apagando el servidor (PID $pidJuego) con el archivo-senal apagar.flag..."
+        Set-Content -Path (Join-Path (Split-Path $serverExe) 'apagar.flag') -Value 'apagar'
+        $fin = (Get-Date).AddSeconds(20)
+        while ((Get-Process -Id $pidJuego -ErrorAction SilentlyContinue) -and (Get-Date) -lt $fin) { Start-Sleep -Milliseconds 500 }
+        if (Get-Process -Id $pidJuego -ErrorAction SilentlyContinue) {
+            Write-Host '  Sin respuesta: pruebo con Ctrl+C + confirmacion...'
+            Remove-Item (Join-Path (Split-Path $serverExe) 'apagar.flag') -Force -ErrorAction SilentlyContinue
+            $ctrlc = Join-Path $PSScriptRoot 'enviar-ctrlc.ps1'
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ctrlc -ProcessId $pidJuego | Out-Null
+        }
         $fin = (Get-Date).AddSeconds(45)
         while ((Get-Process -Id $pidJuego -ErrorAction SilentlyContinue) -and (Get-Date) -lt $fin) { Start-Sleep -Milliseconds 500 }
         if (Get-Process -Id $pidJuego -ErrorAction SilentlyContinue) {

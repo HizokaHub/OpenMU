@@ -47,6 +47,11 @@ using Serilog.Debugging;
 /// </summary>
 internal sealed class Program : IDisposable
 {
+    /// <summary>The file (next to the executable) whose presence asks the server for a clean shutdown; tools/iniciar-todo.ps1 -Parar creates it.</summary>
+    private const string StopFlagFileName = "apagar.flag";
+
+    private const int StopFlagCheckEveryTicks = 20;
+
     private static bool _confirmExit;
     private static SystemConfiguration? _systemConfiguration;
 
@@ -124,9 +129,20 @@ internal sealed class Program : IDisposable
 
         using var program = new Program();
         await program.InitializeAsync(args).ConfigureAwait(false);
+        var stopFlag = Path.Combine(AppContext.BaseDirectory, StopFlagFileName);
+        var ticks = 0;
         while (!exitToken.IsCancellationRequested)
         {
             await Task.Delay(100).ConfigureAwait(false);
+
+            // A stop flag file asks for a clean shutdown without a console (Ctrl+C does not reach a server started from a tool or a service).
+            if (++ticks % StopFlagCheckEveryTicks == 0 && File.Exists(stopFlag))
+            {
+                File.Delete(stopFlag);
+                Console.WriteLine("Stop flag found: shutting down.");
+                await exitCts.CancelAsync().ConfigureAwait(false);
+                break;
+            }
 
             if (_systemConfiguration?.ReadConsoleInput is true)
             {
