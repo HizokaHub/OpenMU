@@ -2986,3 +2986,11 @@ El primer set de cada tier es el Equilibrado (primario de la guía). Sin elegir 
 El usuario aprobó **pasar el Legendary a T2 y no hacer el set rojo** (cancelado el pendiente del Legendary rojo). Mago: T1 Bone, Sphinx, Pad; T2 Grand Soul, Dark Soul, Legendary; T3 Venom Mist, Hades, Eclipse (3 / 3 / 3). Por la regla «un mismo set en el mismo tier para todas las clases», también pasa a T2 para el Magic Gladiator (T1 queda con 3: Storm Crow, Plate, Brass; T2 con 4) y el Summoner (T1 con 3; T2 con 4: Black Rose, Grand Soul, Dark Soul, Legendary).
 
 - **Anillos y pendientes a +9 (pedido del usuario 2026-11-12):** se venden a nivel +9 en todos los tiers (`MobaShop.AccessoryLevel`); su máximo propio es +4, así que se sube a 9 en la configuración en memoria al crear el ítem. Los precios subieron (T1 ~380-400, T2 950, T3 2380-2480).
+
+### PENDIENTES FINALES (anotados 2026-11-12 noche, a hacer al cerrar la beta)
+1. **Revisar con el bot la tienda de Elfa, Dark Lord y Magic Gladiator** (sets compartidos/prestados, modelos femeninos de la Elfa, MG sin yelmo): sets T1/T2/T3, armas, escudos, accesorios.
+2. Ajustar el paso «Escudo» de la guía BUILD («Para ti») para que recomiende el de Resistencia.
+3. Ordenar las armas dentro del tier por rol (hoy por número de ítem) y mostrar «+9» en anillos y pendientes si el usuario lo quiere.
+4. Unificar el rol de los sets con sus bonos reales (perfil de `MobaArchetype`).
+5. Banner de nivel («NIVEL N - +3 puntos para tus buffs»): comprobar en juego que sale grande; los avisos globales llegan duplicados al cliente.
+6. Menú de tamaño de letra (esperando que el usuario elija la forma).
