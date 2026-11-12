@@ -35,6 +35,11 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
     /// <inheritdoc />
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
+        if (!PacketRateLimiter.Allow(player))
+        {
+            return;
+        }
+
         var span = packet.Span;
         if (span.Length >= 6 && span[3] == 0x07)
         {

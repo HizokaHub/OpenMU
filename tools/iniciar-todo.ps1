@@ -77,6 +77,16 @@ function Rotar-Log([string]$nombre) {
     Remove-Item (Join-Path $logDir "$nombre.err.log") -Force -ErrorAction SilentlyContinue
 }
 
+# Los logs del servidor rotan solos a los 4 MB pero nunca se borran: se eliminan los de mas de 30 dias (se dejan siempre los 10 mas recientes).
+function Limpiar-LogsAntiguos {
+    $carpeta = Join-Path $root 'src\Startup\bin\Debug\logs'
+    if (-not (Test-Path $carpeta)) { return }
+    $viejos = Get-ChildItem $carpeta -Filter 'log*.txt' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 10 |
+        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) }
+    foreach ($archivo in $viejos) { Remove-Item $archivo.FullName -Force -ErrorAction SilentlyContinue }
+    if ($viejos) { Ok "Logs antiguos borrados: $(@($viejos).Count)" }
+}
+
 # --- Comprobaciones ---------------------------------------------------------------------------
 
 function Test-ZeroTier {
@@ -206,6 +216,7 @@ Paso '2/3  Servidor del juego'
 if (Get-PidDelPuerto $gamePort) {
     Ok "Ya estaba corriendo (PID $(Get-PidDelPuerto $gamePort)); no lo toco."
 } else {
+    Limpiar-LogsAntiguos
     Rotar-Log 'servidor'
     $p = Start-Process -FilePath $serverExe -ArgumentList '-autostart', "-resolveIp:$VpnIp" `
         -WorkingDirectory (Split-Path $serverExe) -WindowStyle Minimized `

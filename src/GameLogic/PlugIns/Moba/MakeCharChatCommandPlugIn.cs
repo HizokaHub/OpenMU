@@ -55,6 +55,13 @@ public class MakeCharChatCommandPlugIn : ChatCommandPlugInBase<MakeCharChatComma
             return;
         }
 
+        var nameRegex = player.GameContext.Configuration.CharacterNameRegex;
+        if (!string.IsNullOrWhiteSpace(nameRegex) && !System.Text.RegularExpressions.Regex.IsMatch(name, nameRegex))
+        {
+            await player.ShowBlueMessageAsync("[makechar] Nombre no válido (solo letras y números, 3 a 10 caracteres).").ConfigureAwait(false);
+            return;
+        }
+
         var classNumber = arguments.ResolveClassNumber();
         if (classNumber is null)
         {
