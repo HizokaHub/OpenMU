@@ -200,35 +200,36 @@ public static class MobaShopCatalog
         Offhand(MobaFamily.Summoner, 5, 22, MobaShopTier.T2, MobaShopVariant.Bulwark);      // Book of Neil: defensive
         Offhand(MobaFamily.Summoner, 5, 23, MobaShopTier.T3, MobaShopVariant.Standard);     // Book of Lagle: offensive + defensive + cooldown
 
+        // 2026-11-12: every class has 4 / 3 / 3 sets (T1 / T2 / T3); a set number is in the same tier for every class that wears it.
         // --- Sets (by class and tier: primary, second set, then the extra ones; the borrowed ones are listed in MobaBorrowedSets) ---
         // Wizard (2026-11-12, picked by the user): Legendary, Bone, Sphinx, Pad / Grand Soul, Dark Soul / Venom Mist, Hades, Eclipse. (The red copy of Legendary for tier 2 is pending: it needs a recoloured model.)
         Sets(MobaFamily.Wizard, MobaShopTier.T1, 3, 4, 7, 2);
         Sets(MobaFamily.Wizard, MobaShopTier.T2, 18, 22);
         Sets(MobaFamily.Wizard, MobaShopTier.T3, 30, 52, 35);
         // Knight: Dragon, Ashcrow, Plate, Brass, Scale / Dark Phoenix, Black Dragon, Great Dragon, Brave / Dragon Knight, Titan
-        Sets(MobaFamily.Knight, MobaShopTier.T1, 1, 34, 9, 8, 6);
-        Sets(MobaFamily.Knight, MobaShopTier.T2, 17, 16, 21, 46);
-        Sets(MobaFamily.Knight, MobaShopTier.T3, 29, 45);
+        Sets(MobaFamily.Knight, MobaShopTier.T1, 1, 9, 8, 6);
+        Sets(MobaFamily.Knight, MobaShopTier.T2, 34, 17, 16);
+        Sets(MobaFamily.Knight, MobaShopTier.T3, 29, 45, 21);
         // Elf: Guardian, Iris, Spirit, Wind, Silk / Divine, Red Spirit, Faith / Sylphid Ray, Seraphim
-        Sets(MobaFamily.Elf, MobaShopTier.T1, 14, 36, 13, 12, 11);
-        Sets(MobaFamily.Elf, MobaShopTier.T2, 19, 24, 50);
-        Sets(MobaFamily.Elf, MobaShopTier.T3, 31, 49);
+        Sets(MobaFamily.Elf, MobaShopTier.T1, 14, 13, 12, 11);
+        Sets(MobaFamily.Elf, MobaShopTier.T2, 19, 36, 24);
+        Sets(MobaFamily.Elf, MobaShopTier.T3, 31, 49, 50);
         // Magic Gladiator: Storm Crow, Legendary (Soul Master), Plate, Brass, Dragon (Blade Knight) / Thunder Hawk, Dark Phoenix (Blade Knight), Valiant, Destory, Phantom / Volcano, Venom Mist (Soul Master)
-        Sets(MobaFamily.MagicGladiator, MobaShopTier.T1, 15, 3, 9, 8, 1);
-        Sets(MobaFamily.MagicGladiator, MobaShopTier.T2, 20, 17, 37, 47, 48);
-        Sets(MobaFamily.MagicGladiator, MobaShopTier.T3, 32, 30);
+        Sets(MobaFamily.MagicGladiator, MobaShopTier.T1, 15, 3, 9, 8);
+        Sets(MobaFamily.MagicGladiator, MobaShopTier.T2, 20, 17, 37);
+        Sets(MobaFamily.MagicGladiator, MobaShopTier.T3, 32, 30, 47);
         // Dark Lord: Adamantine, Light Plate, Scale, Leather, Bronze / Dark Steel, Glorious, Dark Master / Sunlight, Paewang
-        Sets(MobaFamily.DarkLord, MobaShopTier.T1, 26, 25, 6, 5, 0);
-        Sets(MobaFamily.DarkLord, MobaShopTier.T2, 27, 38, 28);
-        Sets(MobaFamily.DarkLord, MobaShopTier.T3, 33, 51);
+        Sets(MobaFamily.DarkLord, MobaShopTier.T1, 25, 6, 5, 0);
+        Sets(MobaFamily.DarkLord, MobaShopTier.T2, 26, 27, 38);
+        Sets(MobaFamily.DarkLord, MobaShopTier.T3, 33, 51, 28);
         // Summoner: Ancient, Red Wing, Mistery, Legendary (Soul Master) / Black Rose, Lilium, Grand Soul + Dark Soul (Soul Master) / Aura, Venom Mist + Eclipse (Soul Master)
         Sets(MobaFamily.Summoner, MobaShopTier.T1, 41, 40, 39, 3);
-        Sets(MobaFamily.Summoner, MobaShopTier.T2, 42, 44, 18, 22);
-        Sets(MobaFamily.Summoner, MobaShopTier.T3, 43, 30, 35);
+        Sets(MobaFamily.Summoner, MobaShopTier.T2, 42, 18, 22);
+        Sets(MobaFamily.Summoner, MobaShopTier.T3, 43, 30, 44);
         // Rage Fighter: Storm Hard, Sacred, Plate, Brass, Leather / Piercing, Dark Phoenix + Black Dragon + Great Dragon (Blade Knight) / Phoenix Soul, Dragon Knight (Blade Knight)
-        Sets(MobaFamily.RageFighter, MobaShopTier.T1, 60, 59, 9, 8, 5);
-        Sets(MobaFamily.RageFighter, MobaShopTier.T2, 61, 17, 16, 21);
-        Sets(MobaFamily.RageFighter, MobaShopTier.T3, 73, 29);
+        Sets(MobaFamily.RageFighter, MobaShopTier.T1, 60, 59, 9, 8);
+        Sets(MobaFamily.RageFighter, MobaShopTier.T2, 61, 17, 16);
+        Sets(MobaFamily.RageFighter, MobaShopTier.T3, 73, 29, 21);
 
         // --- Wings ---
         Wing(MobaFamily.Wizard, 12, 1, MobaShopTier.T1);           // Wings of Heaven
