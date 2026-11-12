@@ -10,4 +10,6 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 /// <param name="Name">The menu text.</param>
 /// <param name="Categories">The catalog categories shown on the page, in display order.</param>
 /// <param name="Tier">When set, only the entries of that tier are shown.</param>
-public sealed record MobaShopPage(string Name, IReadOnlyList<MobaShopCategory> Categories, MobaShopTier? Tier = null);
+/// <param name="PackTogether">Whether the categories share rows (each item goes to the first free place of the grid) instead of starting on a fresh row; for the page
+/// whose categories do not fit otherwise (the client draws them in sections by item type, not by position).</param>
+public sealed record MobaShopPage(string Name, IReadOnlyList<MobaShopCategory> Categories, MobaShopTier? Tier = null, bool PackTogether = false);

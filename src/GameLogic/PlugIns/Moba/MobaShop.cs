@@ -359,9 +359,9 @@ public static class MobaShop
     /// <param name="overflow">The number of catalog items which didn't fit on the grid.</param>
     /// <returns>The items of the page.</returns>
     public static IReadOnlyList<Item> BuildPageItems(GameConfiguration configuration, CharacterClass characterClass, int page, out int overflow)
-        => BuildItems(configuration, characterClass, MobaShopCatalog.Pages[page].Categories, out overflow, MobaShopCatalog.Pages[page].Tier);
+        => BuildItems(configuration, characterClass, MobaShopCatalog.Pages[page].Categories, out overflow, MobaShopCatalog.Pages[page].Tier, MobaShopCatalog.Pages[page].PackTogether);
 
-    private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow, MobaShopTier? tier = null)
+    private static IReadOnlyList<Item> BuildItems(GameConfiguration configuration, CharacterClass characterClass, IReadOnlyList<MobaShopCategory> categories, out int overflow, MobaShopTier? tier = null, bool packTogether = false)
     {
         EnsureTierPrices(configuration);
         MobaPets.EnsureConfigured(configuration);
@@ -396,7 +396,7 @@ public static class MobaShop
             if (currentCategory != entry.Category)
             {
                 currentCategory = entry.Category;
-                startRow = lastRow + 1;
+                startRow = packTogether ? 0 : lastRow + 1;
             }
 
             // Entries that resolve to the very same item (e.g. the T1 and T2 capes, which are

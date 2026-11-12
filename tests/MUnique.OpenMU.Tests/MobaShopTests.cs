@@ -152,7 +152,7 @@ public class MobaShopTests
             var items = MobaShop.BuildPageItems(this._gameConfiguration, characterClass, page, out var overflow);
             var cells = items.Sum(i => i.Definition!.Width * i.Definition.Height);
             var name = $"{characterClass.Name}: {MobaShopCatalog.Pages[page].Name}";
-            TestContext.Out.WriteLine($"{name} -> {cells} celdas");
+            TestContext.Out.WriteLine($"{name} -> {cells} celdas, overflow {overflow}");
 
             // Each category starts on its own row: the row ranges of the categories never overlap
             // and follow the page's category order.
@@ -161,7 +161,8 @@ public class MobaShopTests
                 .Select(g => (Category: g.Key, Min: g.Min(i => i.ItemSlot / MobaShop.GridColumns), Max: g.Max(i => (i.ItemSlot / MobaShop.GridColumns) + i.Definition!.Height - 1)))
                 .OrderBy(r => MobaShopCatalog.Pages[page].Categories.ToList().IndexOf(r.Category))
                 .ToList();
-            for (var i = 1; i < rowRanges.Count; i++)
+            TestContext.Out.WriteLine(name + " rows: " + string.Join("; ", rowRanges.Select(r => $"{r.Category} {r.Min}-{r.Max}")));
+            for (var i = 1; i < rowRanges.Count && !MobaShopCatalog.Pages[page].PackTogether; i++)
             {
                 Assert.That(rowRanges[i].Min, Is.GreaterThan(rowRanges[i - 1].Max), name + " categories overlap in rows");
             }
@@ -243,14 +244,14 @@ public class MobaShopTests
     {
         MobaItemTraits.EnsureShopShieldOptions(this._gameConfiguration);
         var table = MobaItemTraits.ShieldOptionTable;
-        var legendary = table.First(o => o.ItemType == (6 * 512) + 14);
-        var grandSoul = table.First(o => o.ItemType == (6 * 512) + 15);
-        var guardian = table.First(o => o.ItemType == (6 * 512) + 20);
+        var legendary = table.First(o => o.ItemType == (6 * 512) + 14);   // Wizard tier 2, cooldown
+        var grandSoul = table.First(o => o.ItemType == (6 * 512) + 15);   // Wizard tier 3, resistance
+        var guardian = table.First(o => o.ItemType == (6 * 512) + 20);    // Wizard tier 3, cooldown
         Assert.Multiple(() =>
         {
-            Assert.That(legendary.Options, Is.EqualTo(new[] { ((byte)2, (byte)10) }));
-            Assert.That(grandSoul.Options, Is.EqualTo(new[] { ((byte)2, (byte)15), ((byte)3, (byte)15) }));
-            Assert.That(guardian.Options, Is.EqualTo(new[] { ((byte)2, (byte)20), ((byte)3, (byte)25) }), "tier 3 has no gold options");
+            Assert.That(legendary.Options, Is.EqualTo(new[] { ((byte)3, (byte)15) }));
+            Assert.That(grandSoul.Options, Is.EqualTo(new[] { ((byte)2, (byte)20) }));
+            Assert.That(guardian.Options, Is.EqualTo(new[] { ((byte)3, (byte)25) }), "one option by role");
         });
 
         // A rolled drop (level 9, not a shop level) gets 1 or 2 distinct options.
@@ -267,14 +268,17 @@ public class MobaShopTests
         }
     }
 
-    /// <summary>Every family that can carry an off-hand item sees one per tier; Elf and Rage Fighter see none.</summary>
+    /// <summary>Every family that can carry an off-hand item sees two per tier (the Summoner one book), resistance and cooldown; Elf and Rage Fighter see none.</summary>
     [Test]
     public void OffhandItemsExistPerTierForShieldClasses()
     {
         foreach (var family in new[] { MobaFamily.Wizard, MobaFamily.Knight, MobaFamily.MagicGladiator, MobaFamily.DarkLord, MobaFamily.Summoner })
         {
-            var tiers = MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && e.Families!.Contains(family)).Select(e => e.Tier).OrderBy(t => t);
-            Assert.That(tiers, Is.EqualTo(new[] { MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T3 }), family.ToString());
+            var tiers = MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && e.Families!.Contains(family)).Select(e => e.Tier).OrderBy(t => t).ToArray();
+            var expected = family == MobaFamily.Summoner
+                ? new[] { MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T3 }
+                : new[] { MobaShopTier.T1, MobaShopTier.T1, MobaShopTier.T2, MobaShopTier.T2, MobaShopTier.T3, MobaShopTier.T3 };
+            Assert.That(tiers, Is.EqualTo(expected), family.ToString());
         }
 
         Assert.That(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && (e.Families!.Contains(MobaFamily.Elf) || e.Families.Contains(MobaFamily.RageFighter))), Is.Empty);

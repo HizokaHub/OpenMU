@@ -195,6 +195,21 @@ public static class MobaArchetype
         };
     }
 
+    /// <summary>
+    /// The piece bonuses of an off-hand item (2026-11-12): only the offensive roles have them (the Summoner books of tiers 1 and 3: skill power and critical
+    /// hits); the shield options (control resistance, cooldown) are the shield options of <see cref="MobaItemTraits"/>.
+    /// </summary>
+    /// <param name="role">The variant of the off-hand item.</param>
+    /// <param name="tier">The tier, 1 to 3.</param>
+    /// <returns>The traits with their sizes as fractions.</returns>
+    public static IReadOnlyList<(MobaArchetypeTrait Trait, double Value)> OffhandBonusesOf(MobaShopVariant role, int tier)
+    {
+        var scale = Math.Clamp(tier, 0, (int)TierCount) / TierCount;
+        return scale > 0 && role is MobaShopVariant.Aggressive or MobaShopVariant.Standard
+            ? new[] { (MobaArchetypeTrait.SpellPower, 0.05 * scale), (MobaArchetypeTrait.CritChance, 0.025 * scale) }
+            : Array.Empty<(MobaArchetypeTrait, double)>();
+    }
+
     /// <summary>The profile of a set piece, by its item (the sets are told apart by their item number inside a family and a tier).</summary>
     /// <param name="family">The family of the class.</param>
     /// <param name="number">The item number.</param>
@@ -344,6 +359,12 @@ public static class MobaArchetype
             {
                 AddTotals(snapshot, AccessoryBonusesOf(entry.Variant, (int)entry.Tier));
             }
+        }
+
+        if (champion.Inventory?.Items.FirstOrDefault(it => it.ItemSlot == InventoryConstants.LeftHandSlot) is { Definition: { } offhand }
+            && MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Offhand && e.Group == offhand.Group && e.Number == offhand.Number) is { } offhandEntry)
+        {
+            AddTotals(snapshot, OffhandBonusesOf(offhandEntry.Variant, (int)offhandEntry.Tier));
         }
 
         var weapon = champion.Inventory?.Items.FirstOrDefault(it => it.ItemSlot == InventoryConstants.RightHandSlot);

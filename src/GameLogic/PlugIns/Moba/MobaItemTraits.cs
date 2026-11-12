@@ -181,7 +181,7 @@ public static class MobaItemTraits
                 if (configuration.Items.FirstOrDefault(d => d.Group == entry.Group && d.Number == entry.Number) is { } definition)
                 {
                     var item = MobaShop.CreateItem(definition, entry);
-                    ShieldRegistry.TryAdd(KeyOf(item), DefaultShieldOptions((int)entry.Tier));
+                    ShieldRegistry.TryAdd(KeyOf(item), DefaultShieldOptions((int)entry.Tier, entry.Variant));
                 }
             }
 
@@ -232,8 +232,19 @@ public static class MobaItemTraits
             _ => ShieldGoldByTier[tier],
         });
 
-    private static (byte Kind, byte Percent)[] DefaultShieldOptions(int tier)
-        => ShieldKinds.Take(tier switch { 1 => 1, 2 => 2, _ => 4 }).Select(k => (k, SizeOf(k, tier))).Where(o => o.Item2 > 0).ToArray();
+    // 2026-11-12: a shop shield carries one option by role: resistance to control (Bulwark) or cooldown reduction (Utility); the Summoner books are
+    // offensive (no shield option, the bonus is a piece bonus), defensive (control resistance) or all of it (control resistance + cooldown).
+    private static (byte Kind, byte Percent)[] DefaultShieldOptions(int tier, MobaShopVariant role)
+    {
+        var kinds = role switch
+        {
+            MobaShopVariant.Bulwark => new[] { KindCc },
+            MobaShopVariant.Utility => new[] { KindCooldown },
+            MobaShopVariant.Standard => new[] { KindCc, KindCooldown },
+            _ => Array.Empty<byte>(),
+        };
+        return kinds.Select(k => (k, SizeOf(k, tier))).Where(o => o.Item2 > 0).ToArray();
+    }
 
     /// <summary>The size (fraction) of one shield option of the champion's equipped off-hand item.</summary>
     private static double ShieldOptionOf(Player champion, byte kind)
@@ -250,7 +261,7 @@ public static class MobaItemTraits
             return 0;
         }
 
-        var options = RolledShields.TryGetValue(item, out var rolled) ? rolled.Options : DefaultShieldOptions((int)entry.Tier);
+        var options = RolledShields.TryGetValue(item, out var rolled) ? rolled.Options : DefaultShieldOptions((int)entry.Tier, entry.Variant);
         return options.Where(o => o.Kind == kind).Sum(o => o.Percent / 100.0);
     }
 
@@ -325,10 +336,10 @@ public static class MobaItemTraits
     private static IEnumerable<Views.Moba.MobaItemTrait> ArchetypeTraitsOf(MobaShopEntry entry)
     {
         const double TenthsPerFraction = 1000.0;
-        if (entry.Category == MobaShopCategory.Accessories)
+        if (entry.Category is MobaShopCategory.Accessories or MobaShopCategory.Offhand)
         {
             var accessoryType = (ushort)((entry.Group * 512) + entry.Number);
-            foreach (var (kind, value) in MobaArchetype.AccessoryBonusesOf(entry.Variant, (int)entry.Tier))
+            foreach (var (kind, value) in entry.Category == MobaShopCategory.Offhand ? MobaArchetype.OffhandBonusesOf(entry.Variant, (int)entry.Tier) : MobaArchetype.AccessoryBonusesOf(entry.Variant, (int)entry.Tier))
             {
                 yield return new Views.Moba.MobaItemTrait(accessoryType, (byte)kind, (byte)Math.Min(byte.MaxValue, Math.Round(value * TenthsPerFraction)));
             }

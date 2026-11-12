@@ -46,7 +46,7 @@ public static class MobaShopCatalog
         new MobaShopPage("Sets - Tier 1", new[] { MobaShopCategory.Sets }, MobaShopTier.T1),
         new MobaShopPage("Sets - Tier 2", new[] { MobaShopCategory.Sets }, MobaShopTier.T2),
         new MobaShopPage("Sets - Tier 3", new[] { MobaShopCategory.Sets }, MobaShopTier.T3),
-        new MobaShopPage("Mascotas, Escudos y Alas", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand, MobaShopCategory.Wings }),
+        new MobaShopPage("Mascotas, Escudos y Alas", new[] { MobaShopCategory.Wings, MobaShopCategory.Offhand, MobaShopCategory.Pets }, PackTogether: true),
     };
 
     /// <summary>The page of the first tier of sets (the pages of tier 2 and 3 follow).</summary>
@@ -82,10 +82,11 @@ public static class MobaShopCatalog
         void Wing(MobaFamily family, byte group, short number, MobaShopTier tier)
             => entries.Add(new MobaShopEntry(MobaShopCategory.Wings, new[] { family }, group, number, tier));
 
-        // Off-hand: one shield (or book, for the Summoner) per tier. The Elf (bow + arrows) and the
-        // Rage Fighter (gloves) can't carry one.
-        void Offhand(MobaFamily family, byte group, short number, MobaShopTier tier)
-            => entries.Add(new MobaShopEntry(MobaShopCategory.Offhand, new[] { family }, group, number, tier));
+        // Off-hand (2026-11-12, approved by the user): two shields per tier, one of "resistance" (Bulwark: crowd-control resistance) and one of "cooldown"
+        // (Utility: cooldown reduction); the Summoner has three books: T1 offensive (Aggressive), T2 defensive (Bulwark), T3 offensive + defensive + cooldown
+        // (Standard). The Elf (bow in the off-hand slot) and the Rage Fighter (gloves) can't carry one.
+        void Offhand(MobaFamily family, byte group, short number, MobaShopTier tier, MobaShopVariant role)
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Offhand, new[] { family }, group, number, tier, Variant: role));
 
         // A set = the pieces helm (7) .. boots (11) with the same number; missing pieces
         // (e.g. Magic Gladiator sets have no helm) are skipped when resolving.
@@ -171,21 +172,33 @@ public static class MobaShopCatalog
         entries.Add(new MobaShopEntry(MobaShopCategory.Weapons, new[] { MobaFamily.Elf }, 4, 15, MobaShopTier.T1, Level: 0, Quantity: 255)); // Arrows
 
         // --- Off-hand (shields / books) ---
-        Offhand(MobaFamily.Wizard, 6, 14, MobaShopTier.T1);           // Legendary Shield
-        Offhand(MobaFamily.Wizard, 6, 15, MobaShopTier.T2);           // Grand Soul Shield
-        Offhand(MobaFamily.Wizard, 6, 20, MobaShopTier.T3);           // Guardian Shield
-        Offhand(MobaFamily.Knight, 6, 11, MobaShopTier.T1);           // Serpent Shield
-        Offhand(MobaFamily.Knight, 6, 13, MobaShopTier.T2);           // Dragon Shield
-        Offhand(MobaFamily.Knight, 6, 17, MobaShopTier.T3);           // Crimson Glory
-        Offhand(MobaFamily.MagicGladiator, 6, 14, MobaShopTier.T1);   // Legendary Shield
-        Offhand(MobaFamily.MagicGladiator, 6, 13, MobaShopTier.T2);   // Dragon Shield
-        Offhand(MobaFamily.MagicGladiator, 6, 18, MobaShopTier.T3);   // Salamander Shield
-        Offhand(MobaFamily.DarkLord, 6, 6, MobaShopTier.T1);          // Skull Shield
-        Offhand(MobaFamily.DarkLord, 6, 8, MobaShopTier.T2);          // Tower Shield
-        Offhand(MobaFamily.DarkLord, 6, 21, MobaShopTier.T3);         // Cross Shield
-        Offhand(MobaFamily.Summoner, 5, 21, MobaShopTier.T1);         // Book of Sahamutt
-        Offhand(MobaFamily.Summoner, 5, 22, MobaShopTier.T2);         // Book of Neil
-        Offhand(MobaFamily.Summoner, 5, 23, MobaShopTier.T3);         // Book of Lagle
+        Offhand(MobaFamily.Wizard, 6, 0, MobaShopTier.T1, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Wizard, 6, 4, MobaShopTier.T1, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Wizard, 6, 6, MobaShopTier.T2, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Wizard, 6, 14, MobaShopTier.T2, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Wizard, 6, 15, MobaShopTier.T3, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Wizard, 6, 20, MobaShopTier.T3, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Knight, 6, 1, MobaShopTier.T1, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Knight, 6, 9, MobaShopTier.T1, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Knight, 6, 5, MobaShopTier.T2, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Knight, 6, 11, MobaShopTier.T2, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Knight, 6, 13, MobaShopTier.T3, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.Knight, 6, 17, MobaShopTier.T3, MobaShopVariant.Utility);
+        Offhand(MobaFamily.MagicGladiator, 6, 9, MobaShopTier.T1, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.MagicGladiator, 6, 6, MobaShopTier.T1, MobaShopVariant.Utility);
+        Offhand(MobaFamily.MagicGladiator, 6, 11, MobaShopTier.T2, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.MagicGladiator, 6, 14, MobaShopTier.T2, MobaShopVariant.Utility);
+        Offhand(MobaFamily.MagicGladiator, 6, 13, MobaShopTier.T3, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.MagicGladiator, 6, 18, MobaShopTier.T3, MobaShopVariant.Utility);
+        Offhand(MobaFamily.DarkLord, 6, 1, MobaShopTier.T1, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.DarkLord, 6, 10, MobaShopTier.T1, MobaShopVariant.Utility);
+        Offhand(MobaFamily.DarkLord, 6, 7, MobaShopTier.T2, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.DarkLord, 6, 5, MobaShopTier.T2, MobaShopVariant.Utility);
+        Offhand(MobaFamily.DarkLord, 6, 21, MobaShopTier.T3, MobaShopVariant.Bulwark);
+        Offhand(MobaFamily.DarkLord, 6, 11, MobaShopTier.T3, MobaShopVariant.Utility);
+        Offhand(MobaFamily.Summoner, 5, 21, MobaShopTier.T1, MobaShopVariant.Aggressive);   // Book of Sahamutt: offensive
+        Offhand(MobaFamily.Summoner, 5, 22, MobaShopTier.T2, MobaShopVariant.Bulwark);      // Book of Neil: defensive
+        Offhand(MobaFamily.Summoner, 5, 23, MobaShopTier.T3, MobaShopVariant.Standard);     // Book of Lagle: offensive + defensive + cooldown
 
         // --- Sets (by class and tier: primary, second set, then the extra ones; the borrowed ones are listed in MobaBorrowedSets) ---
         // Wizard (2026-11-12, picked by the user): Legendary, Bone, Sphinx, Pad / Grand Soul, Dark Soul / Venom Mist, Hades, Eclipse. (The red copy of Legendary for tier 2 is pending: it needs a recoloured model.)

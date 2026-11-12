@@ -54,6 +54,7 @@ public static class MobaShopGuide
         return MobaShopCatalog.Entries
             .Where(e => (e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain && e.Group == ArmorGroup && e.Families is { Length: > 0 } && e.Families[0] == family)
                         || e.Category == MobaShopCategory.Accessories
+                        || (e.Category == MobaShopCategory.Offhand && e.Families is { Length: > 0 } && e.Families[0] == family)
                         || (e.Category == MobaShopCategory.Weapons && e.Quantity == 1 && e.Families is { Length: > 0 } && e.Families[0] == family))
             .Select(e => new MobaShopSetRole((ushort)((e.Group * ClientGroupSize) + e.Number), (byte)(int)e.Variant))
             .ToList();
