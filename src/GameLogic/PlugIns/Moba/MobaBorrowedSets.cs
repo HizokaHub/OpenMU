@@ -24,10 +24,10 @@ public static class MobaBorrowedSets
     /// <summary>The borrowed sets: the class family that wears it, the set number (the same for the five pieces) and its tier.</summary>
     public static readonly IReadOnlyList<(MobaFamily Borrower, short SetNumber, MobaShopTier Tier)> All = new[]
     {
-        (MobaFamily.MagicGladiator, (short)3, MobaShopTier.T1),   // Legendary (Soul Master): the mage Magic Gladiator
+        (MobaFamily.MagicGladiator, (short)3, MobaShopTier.T2),   // Legendary (Soul Master): the mage Magic Gladiator
         (MobaFamily.MagicGladiator, (short)17, MobaShopTier.T2),  // Dark Phoenix (Blade Knight): the tank Magic Gladiator
         (MobaFamily.MagicGladiator, (short)30, MobaShopTier.T3),  // Venom Mist (Soul Master)
-        (MobaFamily.Summoner, (short)3, MobaShopTier.T1),         // Legendary (Soul Master)
+        (MobaFamily.Summoner, (short)3, MobaShopTier.T2),         // Legendary (Soul Master)
         (MobaFamily.Summoner, (short)18, MobaShopTier.T2),        // Grand Soul (Soul Master)
         (MobaFamily.Summoner, (short)22, MobaShopTier.T2),        // Dark Soul (Soul Master)
         (MobaFamily.Summoner, (short)30, MobaShopTier.T3),        // Venom Mist (Soul Master)

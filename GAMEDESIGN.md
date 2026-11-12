@@ -2933,7 +2933,7 @@ Con 9 sets por clase caben en las 5 columnas del panel. Alternativa 4/4/4 (12 se
 - **Poder especial:** con el Moonstone equipado el jugador puede **teletransportarse a otra partida, de su guild o alianza**. Es la pieza de «mover héroes entre instancias» de la **guerra de clanes con 3 frentes** (sección «Idea: guerra de clanes con 3 frentes»): hace falta antes la prueba mínima de cambio de instancia (varias arenas ya existen: `MobaArena` indexado por `GameMap`).
 - **A decidir cuando se programe:** ¿obligatorio para qué (entrar a partidas, subir de nivel, el modo de clanes)?; dificultad y duración del evento; qué pasa si muere el jugador (reintento, cooldown); si el salto exige que la otra partida acepte; límites (una vez por partida, enfriamiento, no a una partida de otro modo).
 
-- **2026-11-12 (noche):** el usuario dejó el **set rojo de T2 (Legendary rojo) como PENDIENTE** (necesita registrar un set nuevo en cliente y servidor; ver propuesta A). En la tienda, anillos y pendientes se muestran por tier con subtítulos y el rol de cada uno (Ofensivo, Resistencia, Recursos, Utilidad).
+- **2026-11-12 (noche):** ~~el usuario dejó el set rojo de T2 como PENDIENTE~~ (CANCELADO: ver «Legendary a T2 y SIN set rojo») (necesita registrar un set nuevo en cliente y servidor; ver propuesta A). En la tienda, anillos y pendientes se muestran por tier con subtítulos y el rol de cada uno (Ofensivo, Resistencia, Recursos, Utilidad).
 
 ### Armas: propuesta de reparto 3 / 3 / 3 por clase con rol (2026-11-12 noche; PENDIENTE DE APROBAR, nada implementado)
 Hoy cada clase vende 1 arma por tier y las repite 3 veces con otras opciones (Standard/Aggressive/Sustain). Propuesta: **9 armas distintas por clase** (3 por tier); en cada tier la 1.ª es **Equilibrada**, la 2.ª **Ofensiva** (crítico y velocidad) y la 3.ª **Recursos** (vida/maná al matar), y el rol se muestra como subtítulo en la casilla. Pool real (nombre y nivel de drop de la BD):
@@ -2980,3 +2980,7 @@ Elegidos por Claude con el criterio del Mago (los más fuertes/vistosos en T2 y 
 - **Summoner:** T1 Ancient, Red Wing, Mistery, Legendary (SM); T2 Black Rose, Grand Soul (SM), Dark Soul (SM); T3 Aura, Venom Mist (SM), Lilium (Eclipse ya no se le ofrece).
 - **Rage Fighter:** T1 Storm Hard, Sacred, Plate, Brass; T2 Piercing, Dark Phoenix (prestado del BK), Black Dragon (prestado); T3 Phoenix Soul, Dragon Knight (prestado), Great Dragon (prestado; pasó de T2 a T3).
 El primer set de cada tier es el Equilibrado (primario de la guía). Sin elegir por color: el usuario puede pedir cambios por clase (qué sets son «dorados»). Pendiente: Legendary rojo del Mago (T2) y revisar con el bot Elfa, DL y MG.
+
+
+### Legendary a T2 y SIN set rojo (decisión del usuario, 2026-11-12 noche)
+El usuario aprobó **pasar el Legendary a T2 y no hacer el set rojo** (cancelado el pendiente del Legendary rojo). Mago: T1 Bone, Sphinx, Pad; T2 Grand Soul, Dark Soul, Legendary; T3 Venom Mist, Hades, Eclipse (3 / 3 / 3). Por la regla «un mismo set en el mismo tier para todas las clases», también pasa a T2 para el Magic Gladiator (T1 queda con 3: Storm Crow, Plate, Brass; T2 con 4) y el Summoner (T1 con 3; T2 con 4: Black Rose, Grand Soul, Dark Soul, Legendary).

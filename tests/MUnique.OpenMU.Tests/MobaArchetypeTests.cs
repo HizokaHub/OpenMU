@@ -71,8 +71,8 @@ public class MobaArchetypeTests
     public void TwoSetsOfATierAreRecoveryAndAttack()
     {
         // Wizard tier 1: Legendary (3) and Bone (4) (2026-11-12: Eclipse moved to tier 3). Magic Gladiator has a single set per tier. Knight tier 2: Ashcrow (34) and Dark Phoenix (17).
-        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Wizard, 3), Is.EqualTo(MobaPieceProfile.Recovery));
-        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Wizard, 4), Is.EqualTo(MobaPieceProfile.Attack));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Wizard, 4), Is.EqualTo(MobaPieceProfile.Recovery));
+        Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Wizard, 7), Is.EqualTo(MobaPieceProfile.Attack));
         Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Knight, 34), Is.EqualTo(MobaPieceProfile.Recovery));
         Assert.That(MobaArchetype.SetProfileOf(MobaFamily.Knight, 17), Is.EqualTo(MobaPieceProfile.Attack));
         // The sets borrowed from another class complete the tiers where a class had a single set.
