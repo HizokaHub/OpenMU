@@ -20,11 +20,13 @@ CLIC_CONECTAR = (1262, 697)
 CLIC_HERRERO = (625, 262)
 PESTANAS = {"para_ti": (84, 78), "consumibles": (214, 78), "armas": (349, 78), "sets_t1": (482, 78),
             "sets_t2": (615, 78), "sets_t3": (745, 78), "mascotas": (878, 78)}
-CELDA_ITEM_CARO = (300, 230)
+CELDA_ITEM_CARO = (330, 435)      # arma de tier 3, primera de su seccion
+CELDA_ITEM_CARO_2 = (560, 435)    # la segunda arma de tier 3
+BOTON_PAGINA_SIGUIENTE = (917, 491)
 BOTON_COMPRAR = (830, 541)
 BOTON_VENDER = (830, 585)
 BOTON_DESHACER = (830, 626)
-REPOSO_RATON = (600, 450)
+REPOSO_RATON = (1150, 640)  # sobre el inventario vacio: no abre tooltips
 PAUSA_UI_S = 2.0
 PAUSA_CARGA_S = 14.0
 
@@ -92,11 +94,17 @@ def probar_tienda():
     piloto.clic(*BOTON_VENDER)
     esperar(3)
     foto("vendido")
-    piloto.clic(*BOTON_COMPRAR)
+    piloto.clic(*CELDA_ITEM_CARO_2, derecho=True)   # clic derecho: compra directa, sin el boton COMPRAR
     esperar(3)
+    foto("clic_derecho")
     piloto.clic(*BOTON_DESHACER)
     esperar(3)
     foto("deshecho")
+    piloto.clic(*PESTANAS["consumibles"])
+    esperar(PAUSA_UI_S)
+    piloto.clic(*BOTON_PAGINA_SIGUIENTE)
+    esperar(PAUSA_UI_S)
+    foto("consumibles_pagina2")
     return comprobar_log(marca)
 
 

@@ -2876,3 +2876,14 @@ Los jugadores de una partida del modo Comandantes ya tienen un panel en el clien
 - **Cuenta `testgm` (GM, clave de prueba documentada en `docs-website`) sigue activa:** cualquier amigo en la ZeroTier podría entrar como GM. **Cambiar la clave o desactivarla antes de invitar a nadie** (pendiente 7).
 - Pestaña «CONSUM.» incluye alas (stack «x200»); «MASCOTAS» muestra mascotas con «x255»: revisar etiquetas/cantidades.
 **Pendiente de la ronda 1 con el usuario:** aura verde de la base y música (el bot puede capturar el aura; la música solo se revisa por configuración, no se puede oír), skills 1-9, buffs, Teleport, pings, anunciador, inhibidores, ranking.
+
+### Rediseño de la tienda tras la prueba del usuario (2026-11-12 tarde; compilado y revisado con el bot, cliente enlazado; servidor sin reiniciar con el filtro de avisos)
+Pedidos del usuario y qué se hizo (`MobaShopPanel.cpp`, `MobaPopupDraw`, `NewUIManager.cpp`, `SceneCommon.cpp`):
+- **Armas, consumibles y mascotas por secciones con título** (`SectionDef`): ARMAS = «TIER 1 - para empezar», «TIER 2 - media partida», «TIER 3 - final de partida» con casillas **grandes** (3 por fila, icono a la izquierda; nombre en dos líneas, nivel y precio a la derecha); CONSUM. = «CONSUMIBLES» y «ACCESORIOS» (casillas pequeñas) y «ALAS» (grandes, en la página 2); MASCOTAS = «MASCOTAS» y «ESCUDOS» (grandes). El número de páginas sale del diseño (`s_pageCount`); los botones de página solo se ven con más de una página. Las cantidades «xN» solo se muestran hasta 100 (los 200/255 de alas y mascotas no significaban nada).
+- **Sets:** nombre y rol con fuentes más grandes (`Draw::Heading()`, `Draw::Large()`); la etiqueta «REC.» (que tapaba el rol) pasó a «RECOMENDADO» en su propia línea; la **armadura se baja 6 px** (`SET_ARMOR_SHIFT`) para quedar centrada.
+- **Tooltip del ítem (pasar el ratón):** letra más grande (la función antigua usa `g_hFont`/`g_hFontBold`; se cambian por `Draw::TooltipBody/TooltipBold` solo durante la llamada).
+- **Detalle («SI LO COMPRAS»):** el bloque se corrió 14 px a la izquierda (`STRIP_PREVIEW_X`) para que el número no toque el botón COMPRAR; textos de ayuda nuevos.
+- **Clic derecho sobre un ítem lo compra directo** (`HandleRightClick`), sin pasar por el botón COMPRAR (si alcanza el oro).
+- **Avisos encima de la tienda:** además del chat y el log del sistema (dibujados detrás del panel), el banner de nivel y los avisos dorados del servidor (`UI::Notices`) no se dibujan mientras la tienda está abierta.
+- **`prueba_tienda.py`** ahora también prueba el clic derecho y la página 2 de consumibles; el ratón de reposo está sobre el inventario para que no salgan tooltips en las capturas.
+Pendiente de esta línea: icono 2D o escala propia para que los báculos/alas se vean completos sin depender del recorte (hoy se ven bien en las casillas grandes); revisar la etiqueta «CONSUM. y acces.» ahora que las alas tienen su sección.
