@@ -124,6 +124,12 @@ public static class MobaOccupancyGrid
         };
     }
 
+    /// <summary>Counts the tiles held by lane creeps on a map (a diagnostic: a leak after a test shows as tiles which stay held).</summary>
+    /// <param name="map">The map.</param>
+    /// <returns>The number of tiles held by lane creeps.</returns>
+    public static int CountCreepTiles(GameMap map)
+        => Owners.Count(kv => ReferenceEquals(kv.Key.Map, map) && kv.Value is MobaLaneCreepIntelligence);
+
     /// <summary>Releases every tile held by <paramref name="owner"/> on the map.</summary>
     /// <param name="map">The map.</param>
     /// <param name="owner">The unit.</param>

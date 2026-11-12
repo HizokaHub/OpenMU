@@ -629,7 +629,7 @@ public static class MobaTelemetry
 
         foreach (var team in new[] { MobaTeam.Blue, MobaTeam.Red })
         {
-            var creeps = monsters.Where(m => !MobaStructures.IsStructure(m) && m.IsAlive && MobaTeams.GetTeam(m) == team).ToList();
+            var creeps = monsters.Where(m => !MobaStructures.IsStructure(m) && !MobaStress.IsStress(m) && m.IsAlive && MobaTeams.GetTeam(m) == team).ToList();
             if (creeps.Count == 0)
             {
                 logger.LogInformation("[MOBA-WAVE] t={T}s {Team} creeps=0", elapsed, team);

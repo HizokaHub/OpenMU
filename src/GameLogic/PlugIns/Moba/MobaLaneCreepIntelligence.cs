@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Buffers;
+using System.Diagnostics;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
@@ -101,6 +102,9 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     private Timer? _aiTimer;
 
     private volatile bool _ticking;
+
+    /// <summary>When the previous tick started (Stopwatch timestamp), for the tick delay measure of <see cref="MobaPerf"/>; 0 = none yet.</summary>
+    private long _lastTickStartTs;
 
     private int _currentWaypoint;
 
@@ -240,10 +244,18 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
     {
         if (this._ticking)
         {
+            MobaPerf.NoteOverrun();
             return;
         }
 
         this._ticking = true;
+        var started = Stopwatch.GetTimestamp();
+        if (this._lastTickStartTs != 0)
+        {
+            MobaPerf.NoteLatency(started - this._lastTickStartTs);
+        }
+
+        this._lastTickStartTs = started;
         try
         {
             await this.TickAsync().ConfigureAwait(false);
@@ -254,6 +266,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         }
         finally
         {
+            MobaPerf.NoteTick(Stopwatch.GetTimestamp() - started);
             this._ticking = false;
         }
     }
@@ -341,6 +354,7 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
         // runs every tick, so this only delays picking up a NEW target slightly.
         if (DateTime.UtcNow >= this._nextScanUtc)
         {
+            var scanStart = Stopwatch.GetTimestamp();
             this._nextScanUtc = DateTime.UtcNow + ScanInterval;
 
             var lockedOnStructure = this._combatTarget is Monster m && IsStructure(m);
@@ -368,6 +382,8 @@ public sealed class MobaLaneCreepIntelligence : BasicMonsterIntelligence
                 this._combatTarget = acquired;
                 this._combatTargetFromChampAggro = false;
             }
+
+            MobaPerf.NoteScan(Stopwatch.GetTimestamp() - scanStart);
         }
 
         if (this._combatTarget is not null && !this._hasEngageAnchor)

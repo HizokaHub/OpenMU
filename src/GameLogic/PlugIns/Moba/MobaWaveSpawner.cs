@@ -63,6 +63,8 @@ public static class MobaWaveSpawner
 
     private static readonly IDropGenerator CreepDropGenerator = new MobaCreepDropGenerator();
 
+    private static readonly IDropGenerator StressDropGenerator = new NoDropGenerator();
+
     /// <summary>The unit direction of the lane segment starting at waypoint <paramref name="index"/>.</summary>
     private static (double X, double Y) SegmentDirection(IReadOnlyList<Point> lane, int index)
     {
@@ -223,7 +225,7 @@ public static class MobaWaveSpawner
     {
         var liveOwn = map.GetAttackablesInRange(new Point(128, 128), 400)
             .OfType<Monster>()
-            .Where(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && MobaTeams.GetTeam(mo) == team)
+            .Where(mo => mo.IsAlive && !MobaStructures.IsStructure(mo) && !MobaStress.IsStress(mo) && MobaTeams.GetTeam(mo) == team)
             .ToList();
         return liveOwn.Count >= MaxLiveCreepsPerTeam
             || liveOwn.Count(mo => MobaLayout.NearestLane(mo.Position.X, mo.Position.Y) == laneIndex) >= MaxLiveCreepsPerLane;
@@ -240,7 +242,7 @@ public static class MobaWaveSpawner
         var counts = new int[MobaLayout.LaneCount];
         foreach (var creep in map.GetAttackablesInRange(new Point(128, 128), 400).OfType<Monster>())
         {
-            if (!creep.IsAlive || MobaStructures.IsStructure(creep) || MobaTeams.GetTeam(creep) != team)
+            if (!creep.IsAlive || MobaStructures.IsStructure(creep) || MobaStress.IsStress(creep) || MobaTeams.GetTeam(creep) != team)
             {
                 continue;
             }
@@ -413,6 +415,88 @@ public static class MobaWaveSpawner
     }
 
     /// <summary>
+    /// Spawns one lane creep for the <c>/mobastress</c> test at an arbitrary tile. Keep in sync with the per-creep body of
+    /// <see cref="SpawnUnitsAsync"/>; it differs by having no kill handler (no EXP / gold), no creep hold and no drops, and by
+    /// returning the monster so the test can track it.
+    /// </summary>
+    /// <param name="map">The map to spawn on.</param>
+    /// <param name="gameContext">The game context.</param>
+    /// <param name="team">The team of the creep.</param>
+    /// <param name="monsterNumber">The monster number which gives it its look.</param>
+    /// <param name="start">The tile it appears on.</param>
+    /// <param name="waypoints">The tiles it marches to, in order.</param>
+    /// <param name="cachedDefinition">A definition made by <see cref="StressDefinitionFor"/>, so a hundred creeps do not clone it a hundred times.</param>
+    /// <returns>The creep, or <see langword="null"/> if the monster does not exist.</returns>
+    public static async ValueTask<Monster?> SpawnStressCreepAsync(
+        GameMap map,
+        IGameContext gameContext,
+        MobaTeam team,
+        short monsterNumber,
+        Point start,
+        IReadOnlyList<Point> waypoints,
+        MonsterDefinition? cachedDefinition = null)
+    {
+        var definition = cachedDefinition ?? StressDefinitionFor(gameContext, monsterNumber);
+        if (definition is null)
+        {
+            return null;
+        }
+
+        var leaderLevel = MobaArena.Of(map).LeaderLevel;
+        var creepHealthMul = CreepHealthMultiplierAt(leaderLevel);
+        var creepDamageMul = CreepDamageMultiplierAt(leaderLevel);
+        var area = new MonsterSpawnArea
+        {
+            GameMap = map.Definition,
+            MonsterDefinition = definition,
+            SpawnTrigger = SpawnTrigger.OnceAtEventStart,
+            Quantity = 1,
+            X1 = start.X,
+            X2 = start.X,
+            Y1 = start.Y,
+            Y2 = start.Y,
+            MaximumHealthOverride = (int)(CreepHealth * creepHealthMul),
+        };
+
+        var intelligence = new MobaLaneCreepIntelligence(waypoints, team);
+        var monster = new Monster(
+            area,
+            definition,
+            map,
+            StressDropGenerator,
+            intelligence,
+            gameContext.PlugInManager,
+            gameContext.PathFinderPool);
+
+        monster.Initialize();
+        ForceCreepStats(monster, creepHealthMul, creepDamageMul);
+        MobaStress.Mark(monster);
+        await map.AddAsync(monster).ConfigureAwait(false);
+        monster.OnSpawn();
+        intelligence.Start();
+        return monster;
+    }
+
+    /// <summary>
+    /// Clones the definition of a wave mob with the shared creep attack cadence (what <see cref="SpawnUnitsAsync"/> does once per rank).
+    /// </summary>
+    /// <param name="gameContext">The game context.</param>
+    /// <param name="monsterNumber">The monster number.</param>
+    /// <returns>The definition, or <see langword="null"/> if the monster does not exist.</returns>
+    public static MonsterDefinition? StressDefinitionFor(IGameContext gameContext, short monsterNumber)
+    {
+        var baseDefinition = gameContext.Configuration.Monsters.FirstOrDefault(m => m.Number == monsterNumber);
+        if (baseDefinition is null)
+        {
+            return null;
+        }
+
+        var definition = baseDefinition.Clone(gameContext.Configuration);
+        definition.AttackDelay = CreepAttackDelay;
+        return definition;
+    }
+
+    /// <summary>
     /// Grants EXP when a lane creep dies: the last-hitter gets the full value, every
     /// other champion of the killing team within range gets the proximity value.
     /// </summary>
@@ -543,4 +627,18 @@ public readonly record struct MobaWaveUnit(short Number, int Count, float Health
     /// <returns>The rank.</returns>
     public static MobaWaveUnit SuperMinion(MobaTeam team, int count)
         => new(MobaSuperMinions.ModelOf(team), count, MobaSuperMinions.HealthFactor, MobaSuperMinions.DamageFactor, MobaSuperMinions.DefenseFactor, true);
+}
+
+/// <summary>The drop generator of the stress test creeps: they drop nothing.</summary>
+internal sealed class NoDropGenerator : IDropGenerator
+{
+    /// <inheritdoc />
+    public ValueTask<(IEnumerable<Item> Items, uint? Money)> GenerateItemDropsAsync(MonsterDefinition monster, int gainedExperience, Player player)
+        => ValueTask.FromResult<(IEnumerable<Item> Items, uint? Money)>((Enumerable.Empty<Item>(), null));
+
+    /// <inheritdoc />
+    public Item? GenerateItemDrop(DropItemGroup group) => null;
+
+    /// <inheritdoc />
+    public (Item? Item, uint? Money, ItemDropEffect DropEffect) GenerateItemDrop(IEnumerable<DropItemGroup> groups) => (null, null, default);
 }
