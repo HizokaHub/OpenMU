@@ -45,14 +45,15 @@ public static class MobaShopGuide
         return steps;
     }
 
-    /// <summary>The role (the variant) of every set the class is offered, by the armor piece of the set.</summary>
+    /// <summary>The role (the variant) of every set the class is offered, by the armor piece of the set, and of every accessory (by its own item).</summary>
     /// <param name="characterClass">The class of the champion.</param>
     /// <returns>The roles.</returns>
     public static IReadOnlyList<MobaShopSetRole> SetRolesFor(CharacterClass characterClass)
     {
         var family = MobaPassives.FamilyOf(characterClass.Number);
         return MobaShopCatalog.Entries
-            .Where(e => e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain && e.Group == ArmorGroup && e.Families is { Length: > 0 } && e.Families[0] == family)
+            .Where(e => (e.Category is MobaShopCategory.Sets or MobaShopCategory.SetsSustain && e.Group == ArmorGroup && e.Families is { Length: > 0 } && e.Families[0] == family)
+                        || e.Category == MobaShopCategory.Accessories)
             .Select(e => new MobaShopSetRole((ushort)((e.Group * ClientGroupSize) + e.Number), (byte)(int)e.Variant))
             .ToList();
     }

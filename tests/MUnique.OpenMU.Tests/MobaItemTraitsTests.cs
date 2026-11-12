@@ -23,7 +23,7 @@ public class MobaItemTraitsTests
         });
     }
 
-    /// <summary>Armor / pants give CC resistance, gloves / boots cooldown reduction, rings assist gold, pendants passive gold.</summary>
+    /// <summary>Armor / pants give CC resistance, gloves / boots cooldown reduction, the "resources" pendants passive gold (the other accessories have archetype traits instead).</summary>
     [Test]
     public void EachPieceKindHasItsOwnTrait()
     {
@@ -35,8 +35,9 @@ public class MobaItemTraitsTests
             Assert.That(byType[(10 * 512) + 3].Kind, Is.EqualTo(3), "gloves");
             Assert.That(byType[(11 * 512) + 3].Kind, Is.EqualTo(3), "boots");
             Assert.That(byType.ContainsKey((7 * 512) + 3), Is.False, "the helm has none");
-            Assert.That(byType[(13 * 512) + 8].Kind, Is.EqualTo(4), "Ring of Ice");
-            Assert.That(byType[(13 * 512) + 12].Kind, Is.EqualTo(5), "Pendant of Lightning");
+            Assert.That(byType[(13 * 512) + 13].Kind, Is.EqualTo(5), "Pendant of Fire (resources)");
+            Assert.That(byType.ContainsKey((13 * 512) + 8), Is.False, "Ring of Ice (tank) has no tier trait");
+            Assert.That(byType.ContainsKey((13 * 512) + 12), Is.False, "Pendant of Lightning (utility) has no tier trait");
         });
     }
 

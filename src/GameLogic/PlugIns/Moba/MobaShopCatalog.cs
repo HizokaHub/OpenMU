@@ -162,10 +162,10 @@ public static class MobaShopCatalog
         Offhand(MobaFamily.Summoner, 5, 23, MobaShopTier.T3);         // Book of Lagle
 
         // --- Sets (by class and tier: primary, second set, then the extra ones; the borrowed ones are listed in MobaBorrowedSets) ---
-        // Wizard: Legendary, Eclipse, Sphinx, Bone, Pad / Grand Soul, Dark Soul / Venom Mist, Hades
-        Sets(MobaFamily.Wizard, MobaShopTier.T1, 3, 35, 7, 4, 2);
+        // Wizard (2026-11-12, picked by the user): Legendary, Bone, Sphinx, Pad / Grand Soul, Dark Soul / Venom Mist, Hades, Eclipse. (The red copy of Legendary for tier 2 is pending: it needs a recoloured model.)
+        Sets(MobaFamily.Wizard, MobaShopTier.T1, 3, 4, 7, 2);
         Sets(MobaFamily.Wizard, MobaShopTier.T2, 18, 22);
-        Sets(MobaFamily.Wizard, MobaShopTier.T3, 30, 52);
+        Sets(MobaFamily.Wizard, MobaShopTier.T3, 30, 52, 35);
         // Knight: Dragon, Ashcrow, Plate, Brass, Scale / Dark Phoenix, Black Dragon, Great Dragon, Brave / Dragon Knight, Titan
         Sets(MobaFamily.Knight, MobaShopTier.T1, 1, 34, 9, 8, 6);
         Sets(MobaFamily.Knight, MobaShopTier.T2, 17, 16, 21, 46);
@@ -182,10 +182,10 @@ public static class MobaShopCatalog
         Sets(MobaFamily.DarkLord, MobaShopTier.T1, 26, 25, 6, 5, 0);
         Sets(MobaFamily.DarkLord, MobaShopTier.T2, 27, 38, 28);
         Sets(MobaFamily.DarkLord, MobaShopTier.T3, 33, 51);
-        // Summoner: Ancient, Red Wing, Mistery, Legendary + Eclipse (Soul Master) / Black Rose, Lilium, Grand Soul + Dark Soul (Soul Master) / Aura, Venom Mist (Soul Master)
-        Sets(MobaFamily.Summoner, MobaShopTier.T1, 41, 40, 39, 3, 35);
+        // Summoner: Ancient, Red Wing, Mistery, Legendary (Soul Master) / Black Rose, Lilium, Grand Soul + Dark Soul (Soul Master) / Aura, Venom Mist + Eclipse (Soul Master)
+        Sets(MobaFamily.Summoner, MobaShopTier.T1, 41, 40, 39, 3);
         Sets(MobaFamily.Summoner, MobaShopTier.T2, 42, 44, 18, 22);
-        Sets(MobaFamily.Summoner, MobaShopTier.T3, 43, 30);
+        Sets(MobaFamily.Summoner, MobaShopTier.T3, 43, 30, 35);
         // Rage Fighter: Storm Hard, Sacred, Plate, Brass, Leather / Piercing, Dark Phoenix + Black Dragon + Great Dragon (Blade Knight) / Phoenix Soul, Dragon Knight (Blade Knight)
         Sets(MobaFamily.RageFighter, MobaShopTier.T1, 60, 59, 9, 8, 5);
         Sets(MobaFamily.RageFighter, MobaShopTier.T2, 61, 17, 16, 21);
@@ -214,16 +214,24 @@ public static class MobaShopCatalog
         Wing(MobaFamily.RageFighter, 12, 49, MobaShopTier.T2);     // Cape of Fighter (+7, options)
         Wing(MobaFamily.RageFighter, 12, 50, MobaShopTier.T3);     // Cape of Overrule
 
-        // --- Accessories (every class) ---
-        void Accessory(short number, MobaShopTier tier)
-            => entries.Add(new MobaShopEntry(MobaShopCategory.Accessories, null, 13, number, tier));
+        // --- Accessories (every class). 2026-11-12, approved by the user: two rings and two pendants per tier, the same four roles in every tier (the
+        // role is the variant: rings Aggressive = offensive and Bulwark = tank; pendants Sustain = resources and Utility). See MobaArchetype.AccessoryBonusesOf.
+        // The Moonstone Pendant (13/38) is left out on purpose: it will be a quest reward (see GAMEDESIGN.md). ---
+        void Accessory(short number, MobaShopTier tier, MobaShopVariant role)
+            => entries.Add(new MobaShopEntry(MobaShopCategory.Accessories, null, 13, number, tier, Variant: role));
 
-        Accessory(8, MobaShopTier.T1);   // Ring of Ice
-        Accessory(12, MobaShopTier.T1);  // Pendant of Lightning
-        Accessory(23, MobaShopTier.T2);  // Ring of Wind
-        Accessory(13, MobaShopTier.T2);  // Pendant of Fire
-        Accessory(24, MobaShopTier.T3);  // Ring of Magic
-        Accessory(28, MobaShopTier.T3);  // Pendant of Ability
+        Accessory(8, MobaShopTier.T1, MobaShopVariant.Bulwark);      // Ring of Ice: tank
+        Accessory(9, MobaShopTier.T1, MobaShopVariant.Aggressive);   // Ring of Poison: offensive
+        Accessory(13, MobaShopTier.T1, MobaShopVariant.Sustain);     // Pendant of Fire: resources
+        Accessory(12, MobaShopTier.T1, MobaShopVariant.Utility);     // Pendant of Lightning: utility
+        Accessory(22, MobaShopTier.T2, MobaShopVariant.Bulwark);     // Ring of Earth: tank
+        Accessory(21, MobaShopTier.T2, MobaShopVariant.Aggressive);  // Ring of Fire: offensive
+        Accessory(25, MobaShopTier.T2, MobaShopVariant.Sustain);     // Pendant of Ice: resources
+        Accessory(26, MobaShopTier.T2, MobaShopVariant.Utility);     // Pendant of Wind: utility
+        Accessory(23, MobaShopTier.T3, MobaShopVariant.Bulwark);     // Ring of Wind: tank
+        Accessory(24, MobaShopTier.T3, MobaShopVariant.Aggressive);  // Ring of Magic: offensive
+        Accessory(28, MobaShopTier.T3, MobaShopVariant.Sustain);     // Pendant of Ability: resources
+        Accessory(27, MobaShopTier.T3, MobaShopVariant.Utility);     // Pendant of Water: utility
 
         // --- Pets and mounts (one pet slot: a champion picks one). Numbers of every pet are rewritten
         // to MOBA values by MobaPets. Dark Horse (Earthshake) and Dark Raven only qualify for the Dark

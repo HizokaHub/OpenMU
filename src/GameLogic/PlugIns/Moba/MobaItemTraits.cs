@@ -19,7 +19,7 @@ using MUnique.OpenMU.DataModel.Entities;
 /// <item><description>Off-hand (shield / book): up to four options by tier - T1 CC resistance 10 %; T2 CC 15 % and
 /// cooldown reduction 15 %; T3 all four (CC 20 %, cooldown 25 %, assist gold 10 %, passive gold 10 %). Shields
 /// dropped by creeps carry 1 (70 %) or 2 (30 %) random ones of the four at the size of their tier.</description></item>
-/// <item><description>Rings: <b>gold per assist</b> (5 / 10 % each); pendant: <b>passive gold</b> (5 / 10 %). Tier 3 pieces have no gold (the loadout is nearly complete by then).</description></item>
+/// <item><description>Accessories (2026-11-12): rings are offensive or tank, pendants resources (passive gold in tiers 1 and 2: 5 / 10 %) or utility; see <see cref="MobaArchetype.AccessoryBonusesOf"/>. Tier 3 pieces have no gold (the loadout is nearly complete by then).</description></item>
 /// </list>
 /// </summary>
 public static class MobaItemTraits
@@ -125,22 +125,31 @@ public static class MobaItemTraits
             MaxCooldownReduction,
             CooldownByTier[MobaItemPower.TierIn(champion, InventoryConstants.GlovesSlot, MobaShopCategory.Sets)]
             + CooldownByTier[MobaItemPower.TierIn(champion, InventoryConstants.BootsSlot, MobaShopCategory.Sets)]
-            + ShieldOptionOf(champion, KindCooldown));
+            + ShieldOptionOf(champion, KindCooldown)
+            + MobaArchetype.TotalOf(champion, MobaArchetypeTrait.Cooldown));
 
-    /// <summary>The extra gold from assists (rings).</summary>
+    /// <summary>The extra gold from assists (only the shields give it since 2026-11-12: the rings are combat pieces now).</summary>
     /// <param name="champion">The champion.</param>
-    /// <returns>0..0.30.</returns>
+    /// <returns>0..0.10.</returns>
     public static double AssistGoldBonusOf(Player champion)
-        => GoldByTier[MobaItemPower.TierIn(champion, InventoryConstants.Ring1Slot, MobaShopCategory.Accessories)]
-           + GoldByTier[MobaItemPower.TierIn(champion, InventoryConstants.Ring2Slot, MobaShopCategory.Accessories)]
-           + ShieldOptionOf(champion, KindAssistGold);
+        => ShieldOptionOf(champion, KindAssistGold);
 
-    /// <summary>The extra passive gold (pendant).</summary>
+    /// <summary>The extra passive gold (the "resources" pendant of tiers 1 and 2, and the shields).</summary>
     /// <param name="champion">The champion.</param>
-    /// <returns>0..0.15.</returns>
+    /// <returns>0..0.20.</returns>
     public static double PassiveGoldBonusOf(Player champion)
-        => GoldByTier[MobaItemPower.TierIn(champion, InventoryConstants.PendantSlot, MobaShopCategory.Accessories)]
-           + ShieldOptionOf(champion, KindPassiveGold);
+        => PendantGoldOf(champion) + ShieldOptionOf(champion, KindPassiveGold);
+
+    private static double PendantGoldOf(Player champion)
+    {
+        if (champion.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.PendantSlot) is not { Definition: { } pendant })
+        {
+            return 0;
+        }
+
+        var entry = MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Accessories && e.Group == pendant.Group && e.Number == pendant.Number);
+        return entry is { Variant: MobaShopVariant.Sustain } ? GoldByTier[(int)entry.Tier] : 0;
+    }
 
     /// <summary>Gets the shield options of every known shield / book (shop ones and rolled drops), for the client tooltips.</summary>
     public static IReadOnlyCollection<Views.Moba.MobaShieldOption> ShieldOptionTable
@@ -289,7 +298,7 @@ public static class MobaItemTraits
                 MobaShopCategory.Weapons when entry.Quantity == 1 => (1, AntiHealByTier),
                 MobaShopCategory.Sets or MobaShopCategory.SetsSustain when entry.Group is 8 or 9 => (2, CcResistByTier),
                 MobaShopCategory.Sets or MobaShopCategory.SetsSustain when entry.Group is 10 or 11 => (3, CooldownByTier),
-                MobaShopCategory.Accessories => (entry.Number is 8 or 23 or 24 ? (byte)4 : (byte)5, GoldByTier),
+                MobaShopCategory.Accessories when entry.Variant == MobaShopVariant.Sustain => (KindPassiveGold, GoldByTier),
                 _ => null,
             };
 
@@ -316,6 +325,17 @@ public static class MobaItemTraits
     private static IEnumerable<Views.Moba.MobaItemTrait> ArchetypeTraitsOf(MobaShopEntry entry)
     {
         const double TenthsPerFraction = 1000.0;
+        if (entry.Category == MobaShopCategory.Accessories)
+        {
+            var accessoryType = (ushort)((entry.Group * 512) + entry.Number);
+            foreach (var (kind, value) in MobaArchetype.AccessoryBonusesOf(entry.Variant, (int)entry.Tier))
+            {
+                yield return new Views.Moba.MobaItemTrait(accessoryType, (byte)kind, (byte)Math.Min(byte.MaxValue, Math.Round(value * TenthsPerFraction)));
+            }
+
+            yield break;
+        }
+
         if (entry.Families is not { Length: > 0 } families
             || entry.Category is not (MobaShopCategory.Sets or MobaShopCategory.SetsSustain or MobaShopCategory.Weapons)
             || (entry.Category == MobaShopCategory.Weapons && entry.Quantity != 1))

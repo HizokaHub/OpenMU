@@ -47,6 +47,8 @@ public static class MobaArchetype
 
     private static readonly TimeSpan CacheLife = TimeSpan.FromMilliseconds(250);
 
+    private static readonly byte[] AccessorySlots = { InventoryConstants.Ring1Slot, InventoryConstants.Ring2Slot, InventoryConstants.PendantSlot };
+
     private static readonly byte[] PieceSlots =
     {
         InventoryConstants.HelmSlot, InventoryConstants.ArmorSlot, InventoryConstants.PantsSlot, InventoryConstants.GlovesSlot, InventoryConstants.BootsSlot,
@@ -165,6 +167,32 @@ public static class MobaArchetype
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The bonuses of an accessory by its role (2026-11-12, the variant of its catalog entry): rings are offensive (skill power and critical hits) or tank
+    /// (damage reduction and life); pendants are resources (mana regeneration and life regeneration) or utility (cooldown reduction). The size grows with
+    /// the tier like the other pieces (a third of the full value per tier).
+    /// </summary>
+    /// <param name="role">The variant of the accessory: Aggressive, Bulwark, Sustain or Utility.</param>
+    /// <param name="tier">The tier of the accessory, 1 to 3.</param>
+    /// <returns>The traits with their sizes as fractions (0.05 = 5 %); empty for a role without bonuses.</returns>
+    public static IReadOnlyList<(MobaArchetypeTrait Trait, double Value)> AccessoryBonusesOf(MobaShopVariant role, int tier)
+    {
+        var scale = Math.Clamp(tier, 0, (int)TierCount) / TierCount;
+        if (scale <= 0)
+        {
+            return Array.Empty<(MobaArchetypeTrait, double)>();
+        }
+
+        return role switch
+        {
+            MobaShopVariant.Aggressive => new[] { (MobaArchetypeTrait.SpellPower, 0.04 * scale), (MobaArchetypeTrait.CritChance, 0.02 * scale) },
+            MobaShopVariant.Bulwark => new[] { (MobaArchetypeTrait.Durability, 0.03 * scale), (MobaArchetypeTrait.HealthPool, 0.03 * scale) },
+            MobaShopVariant.Sustain => new[] { (MobaArchetypeTrait.ManaRegen, 0.10 * scale), (MobaArchetypeTrait.HealthRegen, 0.003 * scale) },
+            MobaShopVariant.Utility => new[] { (MobaArchetypeTrait.Cooldown, 0.06 * scale) },
+            _ => Array.Empty<(MobaArchetypeTrait, double)>(),
+        };
     }
 
     /// <summary>The profile of a set piece, by its item (the sets are told apart by their item number inside a family and a tier).</summary>
@@ -306,6 +334,15 @@ public static class MobaArchetype
             if (item?.Definition is { } definition && tier > 0)
             {
                 AddTotals(snapshot, PieceBonusesOf(family, (byte)(FirstPieceGroup + i), tier, SetProfileOf(family, (short)definition.Number)));
+            }
+        }
+
+        foreach (var slot in AccessorySlots)
+        {
+            if (champion.Inventory?.Items.FirstOrDefault(it => it.ItemSlot == slot) is { Definition: { } accessory }
+                && MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Accessories && e.Group == accessory.Group && e.Number == accessory.Number) is { } entry)
+            {
+                AddTotals(snapshot, AccessoryBonusesOf(entry.Variant, (int)entry.Tier));
             }
         }
 
@@ -451,6 +488,9 @@ public enum MobaArchetypeTrait : byte
 
     /// <summary>Life regenerated every second, as a fraction of the maximum life.</summary>
     HealthRegen = 13,
+
+    /// <summary>Less cooldown of the skills (kind 14 is the AG regeneration of the accessories).</summary>
+    Cooldown = 15,
 }
 
 /// <summary>
