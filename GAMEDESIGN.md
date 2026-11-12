@@ -2934,3 +2934,14 @@ Con 9 sets por clase caben en las 5 columnas del panel. Alternativa 4/4/4 (12 se
 - **A decidir cuando se programe:** ¿obligatorio para qué (entrar a partidas, subir de nivel, el modo de clanes)?; dificultad y duración del evento; qué pasa si muere el jugador (reintento, cooldown); si el salto exige que la otra partida acepte; límites (una vez por partida, enfriamiento, no a una partida de otro modo).
 
 - **2026-11-12 (noche):** el usuario dejó el **set rojo de T2 (Legendary rojo) como PENDIENTE** (necesita registrar un set nuevo en cliente y servidor; ver propuesta A). En la tienda, anillos y pendientes se muestran por tier con subtítulos y el rol de cada uno (Ofensivo, Resistencia, Recursos, Utilidad).
+
+### Armas: propuesta de reparto 3 / 3 / 3 por clase con rol (2026-11-12 noche; PENDIENTE DE APROBAR, nada implementado)
+Hoy cada clase vende 1 arma por tier y las repite 3 veces con otras opciones (Standard/Aggressive/Sustain). Propuesta: **9 armas distintas por clase** (3 por tier); en cada tier la 1.ª es **Equilibrada**, la 2.ª **Ofensiva** (crítico y velocidad) y la 3.ª **Recursos** (vida/maná al matar), y el rol se muestra como subtítulo en la casilla. Pool real (nombre y nivel de drop de la BD):
+- **Mago (14 báculos):** T1 Thunder 42, Gorgon 52, Legendary 59; T2 Chaos Lightning 75, Destruction 90, Dragon Soul 100; T3 Platina 110, Grand Viper 147, Chromatic 147 (sobran Resurrection, Imperial, Kundun, Divine).
+- **Caballero (37):** T1 Legendary Sword 44, Lighting Sword 59, Crystal Sword 72; T2 Sword of Destruction 82, Divine Sword of Archangel 86, Dark Breaker 104; T3 Flamberge 137, Knight Blade 140, Bone Blade 147.
+- **Elfa (arcos y ballestas):** T1 Silver Bow 56, Chaos Nature Bow 75, Saint Crossbow 84; T2 Celestial Bow 92, Divine Crossbow of Archangel 100, Albatross Bow 110; T3 Stinger Bow 134, Sylph Wind Bow 147, Air Lyn Bow 147.
+- **Magic Gladiator (espadas y báculos):** T1 Lighting Sword 59, Crystal Sword 72, Rune Blade 100; T2 Thunder Blade 105, Sword Dancer 115, Imperial Sword 139; T3 Dark Reign Blade 140, Explosion Blade 147, Chromatic Staff 147.
+- **Dark Lord (cetros):** T1 Master 72, Great 82, Lord 98; T2 Shining 110, Absolute 135, Great Lord 140; T3 Soleil 146, Stryker 147, Divine Scepter of Archangel 150.
+- **Summoner (báculos de invocador):** T1 Mistery 28, Violent Wind 42, Red Wing 59; T2 Ancient 78, Demonic 100, Divine Stick of Archangel 104; T3 Storm Blitz 110, Eternal Wing 147, Raven 147.
+- **Rage Fighter (solo 4 guantes + mazas):** T1 Sacred Glove 52, Storm Hard Glove 82; T2 Piercing Blade Glove 105 (+ Great Hammer 38 o Crystal Morning Star 66 si se quiere 3); T3 Phoenix Soul Star 147. Reparto 2/1/1 (o 3/3/3 prestando mazas: decidir).
+Las flechas del Elfa se siguen vendiendo aparte. Después de aprobar: reescribir `MobaShopCatalog.Weapon`, mostrar el rol en la casilla grande (ya existe el mecanismo de roles) y revisar con el bot cada clase de la cuenta de prueba.
