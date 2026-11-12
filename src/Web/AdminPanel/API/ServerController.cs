@@ -37,7 +37,8 @@ namespace MUnique.OpenMU.Web.API
             var server = (GameServer)this._gameServers.Values.ElementAt(id);
             if (server is not null)
             {
-                await server.Context.SendGlobalNotificationAsync(msg).ConfigureAwait(false);
+                // Not SendGlobalNotificationAsync: a notice of the administrator must also reach the players of a MOBA match.
+                await server.Context.SendGlobalMessageAsync(msg.TrimStart('!'), MessageType.GoldenCenter).ConfigureAwait(false);
                 return this.Ok("Done");
             }
 

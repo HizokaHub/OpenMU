@@ -106,7 +106,7 @@ public abstract class MiniGameStartBasePlugIn<TConfiguration, TGameState> : Peri
             {
                 if (this.Configuration?.EntranceOpenedMessage is { } openMessage)
                 {
-                    await state.Context.SendEventNotificationAsync(string.Format(openMessage, remainingMinutes)).ConfigureAwait(false);
+                    await state.Context.SendGlobalNotificationAsync(string.Format(openMessage, remainingMinutes)).ConfigureAwait(false);
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(1)).ConfigureAwait(false);
@@ -120,7 +120,7 @@ public abstract class MiniGameStartBasePlugIn<TConfiguration, TGameState> : Peri
 
             if (this.Configuration?.EntranceClosedMessage is { } closedMessage)
             {
-                await state.Context.SendEventNotificationAsync(closedMessage).ConfigureAwait(false);
+                await state.Context.SendGlobalNotificationAsync(closedMessage).ConfigureAwait(false);
             }
         }
         catch (Exception ex)

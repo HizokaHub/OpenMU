@@ -117,7 +117,7 @@ public class HappyHourPlugIn : PeriodicTaskBasePlugIn<HappyHourConfiguration, Pe
             return;
         }
 
-        if (!this.IsPlayerOnMap(player))
+        if (!this.IsPlayerOnMap(player) || player.IsMobaClone)
         {
             return;
         }

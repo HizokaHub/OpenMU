@@ -22,7 +22,7 @@ PESTANAS = {"para_ti": (84, 78), "consumibles": (214, 78), "armas": (349, 78), "
             "sets_t2": (615, 78), "sets_t3": (745, 78), "mascotas": (878, 78)}
 CELDA_ITEM_CARO = (330, 435)      # arma de tier 3, primera de su seccion
 CELDA_ITEM_CARO_2 = (560, 435)    # la segunda arma de tier 3
-BOTON_PAGINA_SIGUIENTE = (917, 491)
+CENTRO_CATALOGO = (500, 300)
 BOTON_COMPRAR = (830, 541)
 BOTON_VENDER = (830, 585)
 BOTON_DESHACER = (830, 626)
@@ -102,9 +102,10 @@ def probar_tienda():
     foto("deshecho")
     piloto.clic(*PESTANAS["consumibles"])
     esperar(PAUSA_UI_S)
-    piloto.clic(*BOTON_PAGINA_SIGUIENTE)
+    foto("consumibles_arriba")
+    piloto.rueda(*CENTRO_CATALOGO, -6)   # baja con la rueda hasta las alas
     esperar(PAUSA_UI_S)
-    foto("consumibles_pagina2")
+    foto("consumibles_abajo")
     return comprobar_log(marca)
 
 

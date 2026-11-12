@@ -8,6 +8,7 @@ Uso (desde la carpeta tools/bot-pruebas):
     python piloto.py foto nombre            captura la ventana del juego en capturas/<nombre>.png y muestra su tamano
     python piloto.py clic X Y [derecho]     clic en coordenadas de la ventana (X, Y como en la captura)
     python piloto.py mover X Y              mueve el raton (para ver tooltips)
+    python piloto.py rueda X Y N            gira la rueda N pasos sobre el punto (N negativo = bajar)
     python piloto.py escribir "texto"       escribe texto (sin Enter)
     python piloto.py tecla enter            pulsa una tecla (enter, tab, esc, f1, a, ...)
     python piloto.py chat "/moba"           abre el chat con Enter, escribe y envia
@@ -40,6 +41,7 @@ PAUSA_ANTES_CLIC_S = 0.15
 CAMPO_CLAVE = (705, 491)  # campo "Contrasena" de la pantalla de acceso (ventana de 1366x768)
 PAUSA_CLIC_S = 0.09
 PAUSA_TECLA_S = 0.09
+PASO_RUEDA = 120  # un "clic" de la rueda de Windows
 FILTRO_LOG = ("[MOBA", "[Warning]", "[Error]", "Exception")
 
 pyautogui.FAILSAFE = True  # mover el raton a una esquina de la pantalla aborta el bot
@@ -126,6 +128,17 @@ def clic(cx, cy, derecho=False):
     pyautogui.mouseUp(button=boton)
 
 
+def rueda(cx, cy, pasos):
+    """Gira la rueda del raton sobre un punto de la ventana (pasos > 0 sube, < 0 baja)."""
+    hwnd = ventana_o_salir()
+    px, py = a_pantalla(hwnd, cx, cy)
+    pyautogui.moveTo(px, py, duration=0.15)
+    time.sleep(PAUSA_ANTES_CLIC_S)
+    for _ in range(abs(int(pasos))):
+        pyautogui.scroll(PASO_RUEDA if pasos > 0 else -PASO_RUEDA)
+        time.sleep(0.15)
+
+
 def mover(cx, cy):
     hwnd = ventana_o_salir()
     px, py = a_pantalla(hwnd, cx, cy)
@@ -199,6 +212,8 @@ def main(argumentos):
         foto(resto[0] if resto else "captura")
     elif orden == "clic":
         clic(resto[0], resto[1], derecho=len(resto) > 2 and resto[2] == "derecho")
+    elif orden == "rueda":
+        rueda(resto[0], resto[1], resto[2])
     elif orden == "mover":
         mover(resto[0], resto[1])
     elif orden == "escribir":

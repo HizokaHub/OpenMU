@@ -179,7 +179,7 @@ public abstract class BaseInvasionPlugIn<TConfiguration> : PeriodicTaskBasePlugI
     protected async Task TrySendStartMessageAsync(Player player, InvasionGameServerState state)
     {
         var configuration = this.Configuration;
-        if (configuration is null || state.MapIds.Count == 0)
+        if (configuration is null || state.MapIds.Count == 0 || player.IsMobaClone)
         {
             return;
         }
@@ -208,7 +208,7 @@ public abstract class BaseInvasionPlugIn<TConfiguration> : PeriodicTaskBasePlugI
     protected async Task TrySendEndMessageAsync(Player player, InvasionGameServerState state)
     {
         var configuration = this.Configuration;
-        if (configuration is null || state.MapIds.Count == 0 || string.IsNullOrWhiteSpace(configuration.EndMessage))
+        if (configuration is null || state.MapIds.Count == 0 || string.IsNullOrWhiteSpace(configuration.EndMessage) || player.IsMobaClone)
         {
             return;
         }

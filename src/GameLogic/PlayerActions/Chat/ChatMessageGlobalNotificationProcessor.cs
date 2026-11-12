@@ -28,6 +28,7 @@ public class ChatMessageGlobalNotificationProcessor : IChatMessageProcessor
             return;
         }
 
-        await sender.GameContext.SendGlobalNotificationAsync(content.Message).ConfigureAwait(false);
+        // Not SendGlobalNotificationAsync: a notice of a game master must also reach the players of a MOBA match.
+        await sender.GameContext.SendGlobalMessageAsync(content.Message.TrimStart('!'), Interfaces.MessageType.GoldenCenter).ConfigureAwait(false);
     }
 }

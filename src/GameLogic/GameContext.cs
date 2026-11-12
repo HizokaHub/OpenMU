@@ -493,8 +493,12 @@ public class GameContext : AsyncDisposable, IGameContext
     /// <inheritdoc/>
     public async ValueTask SendGlobalNotificationAsync(string message)
     {
+        // The notices of the classic events (Chaos Castle, Blood Castle, Devil Square, Castle Siege...) mean nothing in a MOBA match and used to be
+        // drawn over the arena, so the players of a match do not get them. The notices of the administrators go through SendGlobalMessageAsync instead.
         var sendingMessage = message.TrimStart('!');
-        await this.SendGlobalMessageAsync(sendingMessage, MessageType.GoldenCenter).ConfigureAwait(false);
+        await this.ForEachPlayerAsync(player => player.IsMobaClone
+            ? Task.CompletedTask
+            : player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(sendingMessage, MessageType.GoldenCenter)).AsTask()).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
