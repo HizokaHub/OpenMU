@@ -192,8 +192,16 @@ public static class MobaShop
             return;
         }
 
+        // 2026-11-12: a tab change must NOT send "open window" again. The client shows the window again, which hides it first,
+        // and hiding it tells the server the NPC dialog was closed: the server forgot the vendor (OpenedNpc = null) and every
+        // later tab, purchase, preview and sale was refused ("npc null"). Only the first page (a fresh talk) opens the window.
+        var alreadyOpen = Views.TryGetValue(player, out _);
         Views.AddOrUpdate(player, view);
-        await player.InvokeViewPlugInAsync<IOpenNpcWindowPlugIn>(p => p.OpenNpcWindowAsync(NpcWindow.Merchant)).ConfigureAwait(false);
+        if (!alreadyOpen)
+        {
+            await player.InvokeViewPlugInAsync<IOpenNpcWindowPlugIn>(p => p.OpenNpcWindowAsync(NpcWindow.Merchant)).ConfigureAwait(false);
+        }
+
         await player.InvokeViewPlugInAsync<IShowMerchantStoreItemListPlugIn>(p => p.ShowMerchantStoreItemListAsync(view.Items.Values.ToList(), StoreKind.Normal)).ConfigureAwait(false);
         await SendPricesAsync(player, view).ConfigureAwait(false);
     }

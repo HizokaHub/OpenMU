@@ -2758,6 +2758,47 @@ Los jugadores de una partida del modo Comandantes ya tienen un panel en el clien
 **Siguiente (orden):** (1) ajustar con lo que se vea en pantalla (formación, intervalos 48 s/8 s/tope 6, tamaños); (2) habilidades globales en los huecos S/D/Z/C (escudo del nexo, mejorar ataque, vender cola, curar zona); (3) que los héroes aporten esencia con sus kills; (4) conectar el modo a la cola.
 
 
+## Prueba de estrés /mobastress (2026-11-12)
+
+**Para qué sirve:** sacar números reales de cuántas criaturas aguanta el servidor a la vez en una arena de 50×50 tiles (la pregunta del modo 3v3 de oleadas completas), con la IA real de las criaturas de carril y sin gastar nada. Mide **solo el servidor**; el FPS del cliente sale aparte (medidor del cliente, `MuError.log`).
+
+**Uso (GM, en el mapa 200):**
+- Entra con `/moba` (sin eso no recibes el tráfico del mapa completo y la medición de red no es representativa).
+- `/mobastress 100 120` → 100 criaturas (50 azules y 50 rojas) durante 120 s. Repetir con 200, 300 y 400, y con `aoe=5` para añadir ataques extra.
+- `/mobastress <n 10-400> [segundos 5-600] [aoe=0-8]`, `/mobastress estado`, `/mobastress stop`.
+- Por encima de 350 el comando avisa del tope de 400 personajes del cliente (`MAX_CHARACTERS_CLIENT`: criaturas, torretas, nexo y héroes juntos).
+
+**Requisitos:** GM, mapa MOBA 200 y **sin partida en curso**: sin bots, sin oleadas, sin jungla, sin cuenta atrás, sin partida de la cola, sin campeones de otros jugadores con equipo y sin criaturas de partida. El GM queda **sin equipo** (así las criaturas no lo atacan, el AFK no lo manda a la base y no se activan dorados ni anunciador) y se teletransporta junto a la arena. Si durante la prueba aparece algo de lo anterior, la prueba se detiene sola.
+
+**Cómo funciona:**
+- Se elige del terreno real una ventana de 50×50 sin huellas de estructuras (margen de 2 tiles) y con la mayor parte posible de suelo caminable (se pide 90 %, la fracción se compara en pasos de 1 punto y a igual fracción gana la más cercana al centro). En el mapa 200 la mejor ventana libre de estructuras tiene ~90,2 %; si ninguna llega al umbral se usa la mejor y se avisa. Si hay torretas vivas a menos de 8 tiles se avisa de que dispararán a las criaturas y sesgarán el resultado.
+- Las criaturas azules nacen en el tercio oeste y las rojas en el tercio este, y marchan en línea recta hacia el lado contrario (inteligencia real `MobaLaneCreepIntelligence`, mismos stats, mismo daño ×3 entre criaturas).
+- Un único bucle de 1 Hz repone cada 2 s hasta el objetivo (tope de 30 por equipo y pasada, para no soltar 200 de golpe) y, con `aoe=K`, hace que un tercio de las criaturas golpee a hasta K enemigos a ≤ 2 tiles cada segundo (sin timers por criatura; se corta a los 800 ms y se cuenta lo omitido).
+- Aislamiento: las criaturas de prueba van marcadas (`MobaStress.IsStress`), no dan oro, EXP ni botín (no se les engancha `OnCreepKilledAsync` y su generador de botín no entrega nada) y no cuentan en el panel del comandante, en el tope por carril ni en `[MOBA-WAVE]`.
+- Al terminar o parar se retiran todas las criaturas (`RemoveAsync` + `Dispose`), se comprueba que no queden tiles reservados (`tiles_residuales`) y se escribe el resumen.
+
+**Qué leer (log del servidor, `src\Startup\bin\Debug\logs\log<fecha>.txt`, buscar `[MOBA-STRESS]`):** una línea cada 5 s y un `RESUMEN` con `VEREDICTO` al final.
+- `overruns` = ticks omitidos porque el anterior de esa criatura seguía corriendo; `lat_ms` = retraso real de cada tick sobre sus 200 ms; `tick_us` / `esc_us` = tiempo de tick y de escaneo de objetivos (el escaneo es trabajo síncrono, el tick incluye esperas async).
+- `pool_cola` sostenido por encima de 0 = starvation del ThreadPool; `hilos` = hilos del pool.
+- `gc=g0/g1/g2` y `alloc_MB/s` = presión de GC (los gen2 frecuentes son lo que más molesta); `cpu` = uso del proceso (100 % = todos los núcleos).
+- `red_KB/s` y `escrituras/s` = lo que sale por las conexiones (contador `OutgoingBytes` del `Meter` de Network), `observadores` = jugadores mirando el mapa (cada uno multiplica el tráfico).
+- `sin_sitio` = criaturas que no se pudieron colocar por falta de tiles libres en el tercio; `aoe_omitidos` = golpes extra que no cupieron en el presupuesto.
+- Veredicto (umbrales de primera estimación, a calibrar con la primera medición): VERDE = ticks omitidos < 0,5 %, retraso medio < 25 ms y máx < 250 ms, CPU < 70 %, gen2 ≤ 1/min; AMARILLO = omitidos < 3 %, retraso medio < 100 ms y máx < 1 s; ROJO = lo demás.
+- Las muestras del llenado (hasta llegar al 95 % del objetivo; con 400 son ~14 s) van aparte y **no** entran en el RESUMEN; la ventana en que se alcanza la plena carga tampoco. `plena_carga_a` dice cuándo se llegó (o «nunca»). Si no hubo plena carga, o las vivas promedian < 90 % del objetivo, el veredicto empieza por `CARGA INCOMPLETA` (y el resumen usa las muestras del llenado). Con < 6 observadores avisa de que la red real de un 3v3 será mayor. Una prueba que termina antes de la primera muestra da `SIN DATOS`.
+- Las criaturas de prueba llevan 2 waypoints (su tile y la meta, en su propia fila) para que la distancia al carril sea la de un carril real; con un solo waypoint la correa de persecución (10 tiles) soltaba el objetivo en cada pelea.
+- El contador `MobaPerf` (tick, escaneo, omitidos y retraso) está siempre activo en la IA de las criaturas, también en partidas reales; solo el bucle de la prueba lo lee y reinicia (MobaTelemetry no debe leerlo).
+
+**Límites conocidos:**
+- La reposición es un goteo constante (hasta 30 por equipo cada 2 s): no reproduce el pico de una oleada completa que llega de golpe ni el coste por muerte (reparto de EXP y oro, que las criaturas de prueba omiten). Un VERDE aquí no garantiza que ese pico no cause lag.
+- Mide solo el servidor. `aoe=K` aproxima tráfico de animaciones de ataque (`ShowMonsterAttackAnimation`), no números de daño (entre criaturas no se envía `ShowHit`) ni habilidades reales (`Definition.AttackSkill` es null en las cuatro criaturas básicas); medir habilidades de verdad exige datos por unidad que no existen aún.
+- Las criaturas caminan en línea recta y con 90 % de suelo algunas se trabarán: `unstick` / `wiggle` y los diagnósticos `[MOBA-CREEP-BLOCK]` / `[MOBA-CREEP-JITTER]` pueden inflar el log y el tiempo de tick; es coste real, pero conviene mirarlo.
+- `MobaCreepTrace.Count` asigna una cadena y una muestra por tick y criatura (ya existía): infla `alloc_MB/s` y GC; un bucle único de IA lo eliminaría.
+- Cada criatura mantiene dos timers (el propio de 200 ms y el del `BasicMonsterIntelligence`), y eso también queda medido.
+- Con 200 por lado sobre ~800 tiles de tercio la densidad (~25 %) es mayor que una oleada real; si el tercio se llena se omiten spawns y se anota en `sin_sitio`.
+- Tope del cliente: 400 personajes (`_define.h:471`). Los números del servidor no dicen nada del FPS; hay que cruzarlos con el medidor del cliente.
+
+**Pendiente tras la primera medición:** calibrar los umbrales del veredicto, probar `aoe` y varios observadores, decidir si hacer inmunes a las criaturas de prueba a las torretas vivas (hoy solo se avisa) y si añadir un modo `ola` que suelte una oleada completa de golpe cada ~17-50 s, más fiel al 3v3 real.
+
 ## Sesión 2026-11-12: el modo «Comandantes» pasa a «arena corta con plataforma de armado», prueba de estrés en curso y PENDIENTES para dejar el MOBA 100 % operativo para la beta con amigos
 
 **Qué dijo el usuario tras probar la versión estilo Direct Strike (2026-11-01 noche, 5):** «no se parece», y cree que la causa es el **mapa**. El diseño que describe ahora:
@@ -2813,3 +2854,9 @@ Los jugadores de una partida del modo Comandantes ya tienen un panel en el clien
 - Aviso: si el PC no está encendido cuando juegan, no hay servidor (no hay alternativa gratis; un VPS sería gasto real y se pediría confirmación).
 
 **Pendiente que sigue (orden):** (a) esperar a que la otra conversación cierre la prueba de estrés y commitee su código; (b) recién entonces compilar el cliente (`tools\build_cliente.bat`, el `Main.exe` Release actual es del 2026-11-01 21:42), **regenerar el instalador** (`EclipseArena-Setup.exe` y el zip son del 2026-10-25/26: llevan un cliente viejo) y publicar con `tools\publicar-cliente.ps1` (pide permiso del usuario; el instalador pide administrador); (c) validar en juego con el usuario la lista de la «Sesión 2026-11-12» (pendiente 4) y la lista de humo de 10 minutos (pendiente 10); (d) jugabilidad (pendiente 8).
+
+### Ronda de validación 1 (2026-11-12 ~14:00, primera vez que el usuario abre la tienda con el cliente Release del 2026-11-01): hallazgos
+- **Causa raíz de la tienda (pestañas, compra, vista previa y venta, todo «refused … npc null»):** al cambiar de pestaña el servidor reenviaba `OpenNpcWindow(Merchant)`; el cliente hace `Show(NPCSHOP)` con la ventana ya abierta, `HideAllGroupA` la oculta primero y `CNewUINPCShop::ClosingProcess` manda `SendCloseNpcRequest`, así que el servidor ponía `OpenedNpc = null`. Solo la primera pestaña tocada funcionaba. **Arreglo (servidor, `MobaShop.SelectOptionAsync`):** solo la primera página (charla nueva) manda «abrir ventana»; los cambios de pestaña solo mandan la lista de ítems y los precios. Pendiente de validar en juego (requiere reiniciar el servidor).
+- **Clic derecho sobre el panel** disparaba el aviso «elige una skill»: `UpdateMobaMouse` ahora consume el clic derecho cuando el ratón está sobre el panel (cliente, pendiente de compilar/enlazar).
+- **Pendientes visuales de la tienda (cliente):** (1) los modelos 3D de los pasos de «Build» (báculo de ~420 px de alto) y las alas se salen de su casilla: `RenderItem3D` reajusta `sx/sy` por tipo de ítem y no respeta la caja pequeña; hay que recortar con `glScissor` o corregir la escala (probar con capturas); (2) los avisos del servidor («Chaos Castle entrance is open…», eventos) y el chat azul («Bienvenido a Comerciante», «entered the game») se dibujan ENCIMA del panel: deben quedar detrás de la ventana o no mostrarse en la arena; (3) el botón «Vender» no se entiende: solo se activa si el ítem mostrado ya lo tienes (vende tu copia); el texto dice «clic derecho en tu inventario» pero la venta fallaba por la causa raíz de arriba.
+- **Idea del usuario: un bot que pruebe y capture pantalla** (ver propuesta en la conversación): añadir al cliente un modo de autoprueba que vuelque a un archivo el estado de la UI y tome capturas, y un script externo que lo maneje.
