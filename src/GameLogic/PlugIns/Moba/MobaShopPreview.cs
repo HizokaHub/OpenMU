@@ -137,8 +137,8 @@ public static class MobaShopPreview
 
         var name = purchase.Item.Definition?.Name;
         LastPurchases.Remove(player);
-        await inventory.RemoveItemAsync(purchase.Item).ConfigureAwait(false);
-        await player.PersistenceContext.DeleteAsync(purchase.Item).ConfigureAwait(false);
+        // Also tells the client the item left its slot (without it the item stayed drawn in the inventory after the undo).
+        await player.DestroyInventoryItemAsync(purchase.Item).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<Views.Inventory.IUpdateMoneyPlugIn>(p => p.UpdateMoneyAsync()).ConfigureAwait(false);
         await player.ShowBlueMessageAsync($"[Tienda] Compra deshecha: {name} (+{purchase.Price:N0} de oro).").ConfigureAwait(false);
     }

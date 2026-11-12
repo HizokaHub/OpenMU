@@ -58,7 +58,8 @@ public class SellItemToNpcAction
 
     private async ValueTask<bool> SellItemAsync(Player player, Item item)
     {
-        var sellingPrice = PlugIns.Moba.MobaShop.TryGetSellPrice(player, item, out var mobaPrice)
+        var isMobaSale = PlugIns.Moba.MobaShop.TryGetSellPrice(player, item, out var mobaPrice);
+        var sellingPrice = isMobaSale
             ? mobaPrice
             : (int)this._itemPriceCalculator.CalculateSellingPrice(item, item.Durability());
         player.Logger.LogDebug("Calculated selling price {0} for item {1}", sellingPrice, item);
@@ -76,6 +77,11 @@ public class SellItemToNpcAction
         await player.Inventory!.RemoveItemAsync(item).ConfigureAwait(false);
         await player.PersistenceContext.DeleteAsync(item).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<IItemSoldToNpcPlugIn>(p => p.ItemSoldToNpcAsync(true)).ConfigureAwait(false);
+        if (isMobaSale)
+        {
+            // The MOBA shop panel sells with its own button (no item is picked up on the client), so the client has to be told the item left its slot.
+            await player.InvokeViewPlugInAsync<Views.Inventory.IItemRemovedPlugIn>(p => p.RemoveItemAsync(item.ItemSlot)).ConfigureAwait(false);
+        }
 
         player.GameContext.PlugInManager.GetPlugInPoint<IItemSoldToMerchantPlugIn>()?.ItemSold(player, item, player.OpenedNpc!);
         return true;
