@@ -36,17 +36,17 @@ public static class MobaShopCatalog
     /// Gets the pages of the vendor menu, in menu order. A page is one merchant grid (8x15 = 120
     /// cells) and can share several catalog categories, each starting on its own row, top to
     /// bottom in the listed order. Cells used by the widest class (max over classes, plus the
-    /// rows lost to starting each category on a fresh row): consumables + accessories + wings
-    /// about 62, weapons + resource sets about 110, sets about 110.
+    /// rows lost to starting each category on a fresh row): consumables + accessories about 40,
+    /// pets + shields + wings about 70, weapons about 60, sets about 110.
     /// </summary>
     public static IReadOnlyList<MobaShopPage> Pages { get; } = new[]
     {
-        new MobaShopPage("Consumibles, Accesorios y Alas", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories, MobaShopCategory.Wings }),
+        new MobaShopPage("Consumibles y Accesorios", new[] { MobaShopCategory.Consumables, MobaShopCategory.Accessories }),
         new MobaShopPage("Armas", new[] { MobaShopCategory.Weapons }),
         new MobaShopPage("Sets - Tier 1", new[] { MobaShopCategory.Sets }, MobaShopTier.T1),
         new MobaShopPage("Sets - Tier 2", new[] { MobaShopCategory.Sets }, MobaShopTier.T2),
         new MobaShopPage("Sets - Tier 3", new[] { MobaShopCategory.Sets }, MobaShopTier.T3),
-        new MobaShopPage("Mascotas y Escudos", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand }),
+        new MobaShopPage("Mascotas, Escudos y Alas", new[] { MobaShopCategory.Pets, MobaShopCategory.Offhand, MobaShopCategory.Wings }),
     };
 
     /// <summary>The page of the first tier of sets (the pages of tier 2 and 3 follow).</summary>
@@ -58,10 +58,10 @@ public static class MobaShopCatalog
     /// <summary>The page of the weapons.</summary>
     public const int WeaponsPage = 1;
 
-    /// <summary>The page of the wings (it shares the first page with the consumables and the accessories).</summary>
-    public const int WingsPage = 0;
+    /// <summary>The page of the wings (2026-11-12: it shares the last page with the pets and the shields).</summary>
+    public const int WingsPage = 5;
 
-    /// <summary>The page of the shields and the pets.</summary>
+    /// <summary>The page of the shields, the pets and the wings.</summary>
     public const int OffhandPage = 5;
 
     /// <summary>Gets all entries of the catalog.</summary>
