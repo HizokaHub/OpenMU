@@ -46,6 +46,9 @@ public static class MobaShop
 
     /// <summary>Columns of the merchant grid.</summary>
     public const int GridColumns = 8;
+
+    /// <summary>The item level rings and pendants are sold at.</summary>
+    public const byte AccessoryLevel = 9;
     private const int GridRows = 15;
 
     // Zen per price point: equipment is scored by grade + upgrades, consumables are cheap.
@@ -743,6 +746,17 @@ public static class MobaShop
             (level, optionLevel, luck, excellent) = (0, 0, false, 0);
             hasSkill = definition.Skill is not null;
         }
+        if (entry.Category == MobaShopCategory.Accessories)
+        {
+            // Rings and pendants are sold at +9 in every tier (2026-11-12, asked by the user); their own maximum is +4, so it is raised in the configuration in memory.
+            if (definition.MaximumItemLevel < AccessoryLevel)
+            {
+                definition.MaximumItemLevel = AccessoryLevel;
+            }
+
+            level = AccessoryLevel;
+        }
+
         if (entry.Category == MobaShopCategory.Wings)
         {
             // Wings are always sold full option: max level, luck, +4 option, one wing option.

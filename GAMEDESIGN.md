@@ -2984,3 +2984,5 @@ El primer set de cada tier es el Equilibrado (primario de la guía). Sin elegir 
 
 ### Legendary a T2 y SIN set rojo (decisión del usuario, 2026-11-12 noche)
 El usuario aprobó **pasar el Legendary a T2 y no hacer el set rojo** (cancelado el pendiente del Legendary rojo). Mago: T1 Bone, Sphinx, Pad; T2 Grand Soul, Dark Soul, Legendary; T3 Venom Mist, Hades, Eclipse (3 / 3 / 3). Por la regla «un mismo set en el mismo tier para todas las clases», también pasa a T2 para el Magic Gladiator (T1 queda con 3: Storm Crow, Plate, Brass; T2 con 4) y el Summoner (T1 con 3; T2 con 4: Black Rose, Grand Soul, Dark Soul, Legendary).
+
+- **Anillos y pendientes a +9 (pedido del usuario 2026-11-12):** se venden a nivel +9 en todos los tiers (`MobaShop.AccessoryLevel`); su máximo propio es +4, así que se sube a 9 en la configuración en memoria al crear el ítem. Los precios subieron (T1 ~380-400, T2 950, T3 2380-2480).
