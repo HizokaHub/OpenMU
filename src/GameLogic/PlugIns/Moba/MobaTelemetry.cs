@@ -155,6 +155,12 @@ public static class MobaTelemetry
         StatsTable.GetOrCreateValue(victim).CcSecondsThisFight = 0;
     }
 
+    /// <summary>
+    /// Observer of every landed hit on a champion, used by the skill probe (<see cref="MobaSkillProbe"/>) to measure damage without a client.
+    /// <see langword="null"/> when no probe runs.
+    /// </summary>
+    public static Action<MobaProbeHit>? ProbeObserver { get; set; }
+
     /// <summary>Records one landed hit on a champion. Call from the combat trace.</summary>
     /// <param name="attacker">The attacker.</param>
     /// <param name="victim">The victim champion.</param>
@@ -284,10 +290,14 @@ public static class MobaTelemetry
             var dist = DistanceBetween(attacker, victim);
 
             string mitTag = string.Empty;
+            var probeRaw = -1;
             if (MobaDefense.LastMitigation.TryGetValue(victim, out var mt) && (now - mt.WhenUtc) < TimeSpan.FromMilliseconds(250))
             {
                 mitTag = $" raw={mt.Raw} mit={mt.Fraction:P0}";
+                probeRaw = mt.Raw;
             }
+
+            ProbeObserver?.Invoke(new MobaProbeHit(attacker, victim, skill, hit.HealthDamage, hit.ShieldDamage, probeRaw, isCrit, isCombo, dist, pctOfMax));
 
             var lvlTag = LevelTag(attacker, victim);
             if (attacker is Player { IsMobaClone: true } mobaAttacker)

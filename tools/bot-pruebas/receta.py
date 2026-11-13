@@ -92,6 +92,13 @@ def esperar_cambio(antes, timeout=10.0):
     return False
 
 
+def chat_abierto():
+    """La caja de chat abierta es un campo negro liso sobre la barra inferior (y ~655-682); cerrada se ve el mundo."""
+    img = imagen().crop((160, 657, 590, 681)).convert("L")
+    datos = img.tobytes()
+    return (sum(datos) / len(datos)) < 18 and max(datos) < 70
+
+
 def hay_barra_roja(img, region=(740, 80, 1010, 140)):
     """La barra de vida del muñeco enemigo es roja; cuenta pixeles rojos en la region."""
     x0, y0, x1, y1 = region
@@ -126,7 +133,7 @@ class Diario:
         dur = time.time() - t0
         registro = {"paso": nombre, "ok": bool(ok), "segundos": round(dur, 1), "detalle": detalle}
         if not ok:
-            captura = self.dir / f"fallo_{len(self.pasos) + 1:02d}_{nombre}.png"
+            captura = self.dir / f"fallo_{len(self.pasos) + 1:02d}_{re.sub(r'[^A-Za-z0-9_-]', '_', nombre)}.png"
             try:
                 imagen().save(captura)
                 registro["captura"] = str(captura)
@@ -204,6 +211,9 @@ def elegir_y_conectar(x_personaje):
 def comando(texto, patron_log, timeout=10.0, nombre=None):
     """Escribe un comando de chat y espera su senal en el log del servidor (None = solo lo envia)."""
     m0 = marca()
+    if chat_abierto():
+        piloto.tecla("enter")   # caja abierta y vacia: se cierra para que el Enter del chat la abra de nuevo
+        time.sleep(0.6)
     piloto.chat(texto)
     if patron_log is None:
         time.sleep(1.0)
@@ -230,6 +240,9 @@ def verificar_llegada(nombre_pj):
 
 
 def salir(diario):
+    if piloto.buscar_ventana() is None:
+        diario.nota("el cliente ya estaba cerrado")
+        return
     try:
         m0 = marca()
         piloto.chat("/mobaleave")
@@ -353,10 +366,60 @@ def fase_skills(d, x_personaje, nombre_pj):
     d.nota(f"informe de skills: {d.dir / 'skills.md'}")
 
 
+def comando_con_reintento(texto, patron_log, timeout=10.0, intentos=3):
+    """Como comando(), pero si el chat perdio el foco (caja abierta y vacia) cierra la caja con Enter y repite."""
+    ultimo = (False, "sin intentos")
+    for i in range(intentos):
+        ultimo = comando(texto, patron_log, timeout)
+        if ultimo[0]:
+            return ultimo[0], f"{ultimo[1]} (intento {i + 1})"
+        time.sleep(1.0)
+    return ultimo[0], f"{ultimo[1]} (tras {intentos} intentos)"
+
+
+def fase_probe(d, x_personaje, nombre_pj, clases):
+    """Entra a la arena, lanza /mobaskilltest (la medicion corre en el SERVIDOR) y espera el informe sin tocar mouse ni teclado.
+
+    Solo hacen falta /moba y /mobaskilltest: el heroe es el GM que da contexto, no participa. El cliente debe seguir abierto
+    mientras corre; el PC queda libre."""
+    d.paso("abrir_juego", abrir_juego)
+    t.esperar(3)
+    d.paso("entrar_servidor", entrar_al_servidor)
+    d.paso("acceder", acceder)
+    d.paso("elegir_personaje_y_conectar", lambda: elegir_y_conectar(x_personaje))
+    time.sleep(4)
+    m0 = marca()
+
+    def lanzar_prueba():
+        # /moba primero (si ya hay un campeon en una partida, la cuenta se reengancha y no hace dano); luego la prueba
+        comando("/moba", r"\[MOBA\] Clone|\[MOBA-CLIENT\]", 15)
+        time.sleep(8)
+        return comando_con_reintento(f"/mobaskilltest {clases}", r"MOBA-PROBE\] class", 30, intentos=2)
+
+    d.paso("lanzar_mobaskilltest", lanzar_prueba)
+    piloto.cerrar()   # el GM queda como fantasma en la partida y la medicion sigue en el servidor: ya no depende del cliente
+    time.sleep(3)
+    d.nota("cliente cerrado a proposito: la prueba corre sola en el servidor y el PC queda libre")
+    limite = time.time() + 30 * 60
+    ultimo = 0
+    ruta = None
+    while time.time() < limite and ruta is None:
+        time.sleep(5)
+        for linea in nuevas(m0)[ultimo:]:
+            if "[MOBA-PROBE]" in linea:
+                print(linea[linea.find("[MOBA-PROBE]"):][:160])
+                m = re.search(r"report=(.+)$", linea)
+                if m:
+                    ruta = m.group(1).strip()
+        ultimo = len(nuevas(m0))
+    d.paso("informe_listo", lambda: (ruta is not None, f"informe: {ruta}" if ruta else "no apareció report= en 30 min"))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("clase", choices=sorted(CLASES))
-    ap.add_argument("--fase", default="llegada", choices=["llegada", "skills"])
+    ap.add_argument("--fase", default="llegada", choices=["llegada", "skills", "probe"])
+    ap.add_argument("--clases", default="all", help="para --fase probe: all, o un alias (dw, bk, fe, mg, dl, sum, rf)")
     args = ap.parse_args()
     x, sufijo = CLASES[args.clase]
     nombre_pj = f"testgm{sufijo}"
@@ -369,6 +432,8 @@ def main():
             fase_llegada(d, x, nombre_pj)
         elif args.fase == "skills":
             fase_skills(d, x, nombre_pj)
+        elif args.fase == "probe":
+            fase_probe(d, x, nombre_pj, args.clases)
     except Interrumpido as e:
         estado = f"INTERRUMPIDA en {e}"
     finally:
