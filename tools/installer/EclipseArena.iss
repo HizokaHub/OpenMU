@@ -231,9 +231,10 @@ begin
   begin
     if ZeroTierOk then
       Text := 'Eclipse Arena quedo instalado y tu PC ya esta conectado a la red del servidor.' + #13#10 + #13#10 +
-        'ULTIMO PASO: el administrador debe aprobarte. Enviale este ID de ZeroTier (ya esta copiado en tu portapapeles, pegalo con Ctrl+V):' + #13#10 + #13#10 +
-        '        ' + NodeId + #13#10 + #13#10 +
-        'En cuanto te apruebe podras entrar al juego. Crea tu cuenta en http://{#ServerIP}:8080 (la web funciona una vez aprobado).'
+        'Pasos para jugar:' + #13#10 +
+        '  1. Crea tu cuenta en http://{#ServerIP}:8080' + #13#10 +
+        '  2. Abre Eclipse Arena desde el acceso directo (el lanzador actualiza el juego solo).' + #13#10 + #13#10 +
+        'El servidor funciona cuando el PC del administrador esta encendido. Si no conecta, pregunta si esta en linea.'
     else
       Text := 'Eclipse Arena quedo instalado, pero falta un paso con la red:' + #13#10 + #13#10 + ZeroTierMessage;
     WizardForm.FinishedLabel.Caption := Text;
