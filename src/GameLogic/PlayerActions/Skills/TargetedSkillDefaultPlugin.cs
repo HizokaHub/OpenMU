@@ -97,6 +97,16 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             return;
         }
 
+        // MOBA: the Teleport skill can arrive as a normal skill packet (right click with the skill selected, on a target or the ground)
+        // instead of the gate request with gate 0 the classic client sends. It is a jump towards the aimed target, never a hit; it
+        // always answers, so the client does not stay hidden in its teleport animation.
+        if (player.IsMobaClone && skill.Number == PlugIns.Moba.MobaBlink.SkillNumber)
+        {
+            // (aimed at itself there is no direction: the jump is refused and answered)
+            await new WizardTeleportAction().TryTeleportWithSkillAsync(player, target.Position).ConfigureAwait(false);
+            return;
+        }
+
         if (!target.IsActive())
         {
             return;
