@@ -3162,3 +3162,60 @@ Regla: el número principal crece igual en cada rango y el rango 5 vale cerca de
 
 ### Orden de trabajo propuesto
 A (área y multigolpe) → B (buffs y debuffs por rango) → C fase 1 (control) → volver a medir con `/mobaskilltest` → D (arnés de duelos) → ciclo de ajuste hasta el criterio → C fase 2 tras la beta. Implementación con Sonnet 5.5 en esfuerzo medio.
+
+## DECISIONES del usuario sobre la propuesta (2026-11-13, noche) — APROBADO PARA IMPLEMENTAR; nada implementado todavía
+Estas decisiones **mandan sobre la sección «PROPUESTA…» de arriba** donde difieran. Lo que el usuario no comentó (A: área 100 % / 65 % y multigolpe × 1,25; topes de apilado −40 % / +30 %; criterio de duelos) queda como en la propuesta. Meta: **4-6 victorias de 10 en cada cruce**. Orden pedido: «primero veamos cómo está, luego modificamos cosas».
+
+### Reglas generales
+- **Todos los buffs de la Elfa se pueden lanzar sobre un aliado del equipo** (Heal, Recovery, Greater Defense, Greater Damage y también Infinity Arrow, que hoy es solo propio).
+- **Enfriamiento de los buffs con duración:** a rango 1 el enfriamiento es **igual a la duración** y baja con cada punto. El usuario no dio cuánto baja: se asume **−25 % a rango 5** en pasos iguales (45 s: 45/42/39/37/34 · 60 s: 60/56/52/49/45 · 90 s: 90/84/79/73/68 · 130 s: 130/122/114/106/98). Los instantáneos (Heal 10→6 s, Recovery 14→9 s) no cambian. *Por confirmar con el usuario si la lectura es correcta.*
+- **«Solo se tira 1 vez»** (Sleep, Weakness, Innovation): se interpreta como **sin la ventana de gracia de 3 s** de `MobaCooldowns.GraceWindow` (el enfriamiento empieza en el primer lanzamiento) y sin reaplicarse mientras el efecto sigue activo. *Por confirmar.*
+- **«−X % de defensa»** en el MOBA = el objetivo pierde el X % de su mitigación (`MobaDefense.FinalMitigationOf` × (1 − X)): contra un campeón sin ítems (12 % de mitigación base) casi no se nota; contra uno con set completo y vitalidad se nota mucho.
+
+### Buffs (efecto por rango 1 → 5)
+| Nº | Buff | Objetivo | Duración | CD r1→r5 | Efecto | Origen |
+|---|---|---|---|---|---|---|
+| 16 | Soul Barrier | uno mismo | 60 s | 60→45 s | −12 / 15 / 18 / 21 / 24 % de daño recibido + escudo del 12 → 20 % de la vida máx. | propuesta |
+| 233 | Expansion of Wizardry | uno mismo | 90 s | 90→68 s | +8 → +16 % de daño de skills | propuesta |
+| 18 | Defense | uno mismo | 45 s | 45→34 s | −12 / 15 / 18 / 21 / 24 % de daño recibido + escudo del 10 → 18 % | propuesta |
+| 48 | Swell Life | equipo ≤ 10 | 90 s | 90→68 s | +12 / 15 / 18 / 21 / 24 % de vida máx. | propuesta |
+| 26 | Heal | aliado | instantáneo | 10→6 s | cura **5 → 10 %** de la vida máx. del objetivo | usuario |
+| 234 | Recovery | aliado | instantáneo | 14→9 s | recupera **20 %** de la vida máx. (fijo; se interpreta como escudo por ese valor: *por confirmar si es escudo o vida*) | usuario |
+| 27 | Greater Defense | aliado | 60 s | 60→45 s | **−12 → −24 %** de daño recibido | usuario |
+| 28 | Greater Damage | aliado | 60 s | 60→45 s | +6 / 8 / 10 / 12 / 14 % de daño hecho | propuesta |
+| 77 | Infinity Arrow | aliado | 130 s | 130→98 s | +10 / 13 / 16 / 19 / 22 % de daño de ataques básicos | propuesta |
+| 64 | Increase Critical Damage | equipo ≤ 10 | 60 s | 60→45 s | +8 → +16 % de probabilidad de crítico y multiplicador +0,15 → +0,35 | propuesta |
+| 217 | Damage Reflection | uno mismo | 45 s | 45→34 s | refleja **10 → 20 %** del daño recibido | usuario |
+| 218 | Berserker | uno mismo | 60 s | 60→45 s | **+20 % de vida máx.** (fijo, ya no quita vida) y **+5 → +10 %** de daño | usuario |
+| 266 | Ignore Defense | uno mismo | 45 s | 45→34 s | del daño hecho, **un 15 % pasa directo a la vida** (sin mitigación ni escudo); fijo | usuario |
+| 267 | Increase Health | equipo ≤ 10 | 90 s | 90→68 s | **+15 %** de vida máx. (fijo) | usuario |
+| 268 | Increase Block | equipo ≤ 10 | 60 s | 60→45 s | resistencia a control +10 → +26 % | propuesta |
+
+Los buffs con valor fijo (Recovery, Ignore Defense, Increase Health, la vida de Berserker) solo mejoran el enfriamiento al subir de rango; si el usuario quiere que también suba el efecto, pedirle el rango.
+
+### Debuffs y control (decididos por el usuario)
+| Skill | Efecto | Duración r1 → r5 | Probabilidad | Enfriamiento |
+|---|---|---|---|---|
+| Poison / Decay | veneno: quema **3 % de la vida máx. por segundo** | 5 → 10 s | 60 % | el actual |
+| Ice / Ice Storm / Pollution / Strike of Destruction | lento (reducción de velocidad −25 → −45 % de la propuesta) | 1 → 3 s | 65 % | el actual |
+| Ice Arrow | inmoviliza | 1,5 s | 100 % | el actual |
+| Chain Drive | lento | 1,5 → 2,5 s | 75 % | el actual |
+| Fire Slash | −25 % de defensa | 5 → 8 s | 75 % | el actual |
+| Beast Uppercut | −15 % de defensa | 5 → 8 s | 75 % | el actual |
+| Explosion / Requiem | sangrado: **4 % de la vida máx. por segundo** | 6 → 9 s | 60 % | 14 s |
+| Sleep | duerme al oponente | 1 s | 100 % | 10 s, se tira 1 vez |
+| Weakness | −12 % del daño total del oponente | 10 s | 100 % | 15 → 11 s, se tira 1 vez |
+| Innovation | −13 % de defensa de los oponentes | 10 s | 100 % | 15 → 11 s, se tira 1 vez |
+
+- **Ice Arrow 1,5 s** exige subir el recorte de congelación de `MobaCc` (hoy 0,65 s); la tenacidad y los rendimientos decrecientes se mantienen.
+- **Efecto visual del sangrado (cliente `mu-main`):** el sangrado persigue al personaje y va botando sangre al suelo, dejando una mancha que se desvanece cada 1,5 s mientras avanza.
+- **Aviso de fuerza:** veneno hasta 30 % de la vida máx. por lanzamiento (3 % × 10 s) y sangrado hasta 36 % (4 % × 9 s); se juzga con los duelos.
+- **No decidido todavía** (ver tras la primera matriz de duelos): Stun (67) del BK que no aturde, derribos (Uppercut, Beast Uppercut), inmovilizar en área de Ice Storm, silenciar y cegar (fase 2, necesitan cliente).
+
+### Orden de trabajo acordado
+1. Arnés de duelos `/mobaduel` (sección D de la propuesta) y **matriz de duelos del estado actual** («cómo está»): nivel 30 sin ítems y con set completo T3, 10 duelos por cruce.
+2. A: área a todos los campeones enemigos (principal 100 %, resto 65 %), sin fuego amigo, multigolpe normalizado.
+3. B: buffs y debuffs de las tablas de esta sección.
+4. Volver a medir (`/mobaskilltest` y `/mobaduel`) y ajustar hasta 4-6 de 10 en cada cruce (los cruces fuera de 4-6 se repiten a 30 duelos; objetivo 40-60 %).
+5. Efecto visual del sangrado en el cliente.
+6. Control pendiente (lo «no decidido» de arriba) y el resto de pendientes de la beta.
