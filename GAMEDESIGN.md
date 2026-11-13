@@ -3060,3 +3060,105 @@ El usuario aprobó **pasar el Legendary a T2 y no hacer el set rojo** (cancelado
 13. **Cliente:** F9 cicla Default → Orbital → Moba; la cámara orbital con la rueda deja la vista inservible: **dentro de una partida MOBA F9 ahora salta la orbital** (`CameraManager::CycleToNextMode`); F11 resetea la vista. Compilado, sin probar en juego.
 
 **Pendientes de la ronda (para la conversación nueva con Fable 5.2):** decidir (a) multigolpe: normalizar el daño por lanzamiento (dividir la tabla por golpes) y frenar a RF/BK; (b) si el área golpea a todos los campeones; (c) si el rango de un buff debe escalar su efecto y qué hacer con los buffs inservibles (Recovery, Ignore Defense, Increase Block/Health, Damage Reflection, Berserker, Greater Damage/Defense, Increase Critical, Infinity Arrow); (d) combo para DK y MG o quitarlo de la descripción; (e) umbrales «roto/inservible» (propuesta: roto > 1,6× la mediana de DPS, inservible < 0,5×, un buff debe cambiar ≥ 8-10 % de algo); (f) alcance real de Flame/Evil Spirit/debuffs del Summoner; (g) skills de control (stun/sueño): hoy no existe ninguna medida. **Sin medir todavía:** minions, jungla y estructuras; línea de visión y muros; reinicio de enfriamientos al morir; HUD vs servidor (rango, CD, maná); interacción con ítems (robo de vida, anti-curación, crítico); skills bajo control; mascotas del DL; tooltips, sonido y efectos visuales (requieren el bot gráfico, ahorrar capturas); repetir el combo con 700 ms entre pasos. La cuenta `testgm` no tiene Summoner ni Rage Fighter reales (el arnés crea sus cuerpos).
+
+## PROPUESTA de ajuste de skills, buffs, control y duelos (2026-11-13, noche) — PENDIENTE DE APROBAR; nada implementado
+**Pedido del usuario:** (1) las clases que faltan en `testgm2`; (2) duelos 1v1 entre todas las clases, 10 por cruce, buscando 5 a 5, primero nivel 30 sin set y luego con set completo; (3) corregir las skills de área; (4) que cada punto de un buff o debuff cambie su efecto y no solo el enfriamiento; (5) lista de buffs y debuffs con duración, enfriamiento y efecto; (6) incluir aturdir, cegar, etc. con una recomendación.
+
+**Cuentas (comprobado en la BD):** `testgm` tiene Blade Master, Lord Emperor, Grand Master, High Elf y Duel Master; **`testgm2` ya existe con Fist Master (`testgm2Rf`) y Dimension Master (`testgm2Sum`)**, las dos GM. No falta crear nada: las 7 familias están cubiertas entre las dos cuentas. El arnés del servidor no las necesita (crea sus cuerpos); solo hacen falta para revisar lo visual con el bot.
+
+### Causas encontradas en el código
+- **Área a un solo campeón:** `GameConfiguration.AreaSkillHitsPlayer = false` hace que `AreaSkillAttackAction.GetTargetsInRange` (línea ~150) y `TargetedSkillDefaultPlugin` (~234) quiten a todo `Player` de los objetivos implícitos; solo entra el objetivo clicado.
+- **Sleep / Weakness / Innovation «no golpean»:** no es el alcance; su efecto tiene **probabilidad en PvP del 15-17 %** (+ energía/3.700-5.000) en `SleepEffectInitializer`, `WeaknessSummonerEffectInitializer`, `InnovationEffectInitializer`.
+- **Control:** `MobaCc` ya recorta el control duro (aturdir/dormir 1,4 s, congelar 0,65 s), con rendimientos decrecientes (100/60/36/22/15 %, se reinicia a los 7 s), tenacidad por familia (Knight y RF ×0,70, DL ×0,85) y resistencia por ítems (tope 50 %). Falta que alguna skill del kit lo aplique de verdad.
+
+### Lista de buffs HOY (medido, nivel 30)
+| Nº | Buff | Clase | Objetivo | Duración | CD r1→r5 | Maná | Efecto hoy | ¿Cambia con el rango? |
+|---|---|---|---|---|---|---|---|---|
+| 16 | Soul Barrier | Mago | uno mismo | 60 s | 75→55 s | 216 | −22,5 % daño recibido + 9.900 de escudo | no |
+| 233 | Expansion of Wizardry | Mago | uno mismo | 90 s | 120→90 s | 618 | +8 %→+16 % daño de skills | sí |
+| 6 | Teleport | Mago | suelo ≤ 6 | — | 1 s (lo limita el AG: 30 por salto) | 90 | salto | no |
+| 18 | Defense | BK, MG, DL | uno mismo | 45 s | 70→50 s | 90 | −20 % daño recibido + escudo 15 % de la vida máx. | no |
+| 48 | Swell Life | BK | equipo ≤ 10 | 90 s | 120→90 s | 66 | +20 % vida máx. | no |
+| 26 | Heal | Elfa | aliado ≤ 6 | instantáneo | 10→6 s | 60 | +105 de vida + 5.400 de escudo | no |
+| 27 | Greater Defense | Elfa | aliado ≤ 6 | 60 s | 75→55 s | 90 | +64,5 de defensa (0 a −4 % de daño) + 8.100 de escudo | no |
+| 28 | Greater Damage | Elfa | aliado ≤ 6 | 60 s | 75→55 s | 123 | +74 de daño plano (+5-9 %) | no |
+| 77 | Infinity Arrow | Elfa | uno mismo | 130 s | 60→40 s | 153 | nada medible | no |
+| 234 | Recovery | Elfa, Summoner | aliado ≤ 6 | instantáneo | 14→9 s | 123 | +525 de escudo | no |
+| 64 | Increase Critical Damage | DL | equipo ≤ 10 | 60 s | 90→65 s | 153 | multiplicador del crítico +0,15→+0,35 (sin probabilidad de crítico no se nota) | sí, invisible |
+| 217 | Damage Reflection | Summoner | uno mismo | 45 s | 75→55 s | 123 | reflejo medido: 0 | no |
+| 218 | Berserker | Summoner | uno mismo | 60 s | 90→65 s | 309 | −32 % vida máx. y +0 de daño | no |
+| 266 | Ignore Defense | RF | uno mismo | 45 s | 70→50 s | 153 | nada medible | no |
+| 267 | Increase Health | RF | equipo ≤ 10 | 90 s | 120→90 s | 153 | +133 de vida (0,2 %) | no |
+| 268 | Increase Block | RF | equipo ≤ 10 | 60 s | 90→65 s | 153 | resistencia a control +10 %→+26 % (hoy no hay control que resistir) | sí |
+
+### Lista de debuffs HOY
+| Skill | Clase | Efecto que deja | Duración | CD r1→r5 | Estado |
+|---|---|---|---|---|---|
+| 1 Poison / 38 Decay | Mago, MG | Envenenado (daño en el tiempo) | 20 s / 10 s | 6,5→4,5 s | funciona; no cambia con el rango |
+| 7 Ice / 39 Ice Storm / 225 Pollution | Mago, MG, Summoner | Iced (lento) | 10 s | 9→6 / 6,5→4,5 s | se aplica; 10 s es demasiado; no cambia con el rango |
+| 51 Ice Arrow | Elfa | Freeze (inmoviliza) | recortado a ≤ 0,65 s por `MobaCc` | 6,5→4,5 s | funciona; no cambia con el rango |
+| 232 Strike of Destruction / 262 Chain Drive | BK, RF | Cold (lento) | la de MU (sin medir) | 6,5→4,5 s | se aplica; sin ajustar |
+| 55 Fire Slash | MG | −10 % de defensa | 10 s | 6,5→4,5 s | se aplica; efecto mínimo |
+| 261 Beast Uppercut | RF | −10 % de defensa, 10 % de probabilidad | 10 s | 6,5→4,5 s | casi nunca sale |
+| 223 Explosion / 224 Requiem | Summoner | sangrado | 5 s | 6,5→4,5 s | se aplica |
+| 219 Sleep | Summoner | dormir | — | 6,5→4,5 s | **no sale** (15 % de probabilidad en PvP) |
+| 221 Weakness / 222 Innovation | Summoner | −daño / −defensa | — | 6,5→4,5 s | **no salen** (17 % en PvP) |
+| 67 Stun | BK, Elfa | ninguno | — | 6,5→4,5 s | **no aturde** |
+
+### A. Skills de área (recomendación)
+1. Si el lanzador es un campeón del MOBA, el área **golpea a todos los campeones enemigos** dentro de su forma (y a sus invocaciones y mascotas), nunca a aliados (se quita también el fuego amigo de Death Stab, Force y Fire Burst).
+2. **Objetivo principal 100 %, el resto 65 %** (principal = el clicado o, si no hay, el más cercano). Así el 1v1 no cambia y un área no vale el triple contra tres. Contra minions y jungla sigue al 100 % a todos.
+3. **Multigolpe normalizado:** el daño por lanzamiento contra un mismo objetivo = valor de la tabla × 1,25, repartido entre sus golpes (Death Stab 8 golpes: cada uno 0,156 de la tabla). Aplica a Death Stab, Killing Blow, Dragon Roar, Chain Drive, Phoenix Shot, Beast Uppercut, Dragon Slasher, Evil Spirit, Fire Burst, Force, Chain Lightning, Strike of Destruction. Es lo que baja al Rage Fighter de 0,8 s a un tiempo para matar normal.
+
+### B. Buffs y debuffs: cada punto cambia el efecto (recomendación)
+Regla: el número principal crece igual en cada rango y el rango 5 vale cerca del doble del rango 1; la duración no cambia; el enfriamiento sigue bajando como hoy. Umbral: un buff debe cambiar **≥ 8 % de algo a rango 1 y ≥ 15 % a rango 5**. Apilado: dos buffs del mismo tipo no se suman (vale el mayor); tope de **−40 %** de daño recibido y **+30 %** de daño hecho sumando buffs.
+
+| Buff | Efecto propuesto (rango 1 → 5) |
+|---|---|
+| 16 Soul Barrier | −12 / 15 / 18 / 21 / 24 % de daño recibido + escudo del 12 → 20 % de la vida máx. |
+| 233 Expansion | +8 → +16 % de daño de skills (queda igual) |
+| 18 Defense | −12 / 15 / 18 / 21 / 24 % de daño recibido + escudo del 10 → 18 % de la vida máx. |
+| 48 Swell Life | +12 / 15 / 18 / 21 / 24 % de vida máx. (equipo) |
+| 26 Heal | cura 6 / 7,5 / 9 / 10,5 / 12 % de la vida máx. del objetivo (sin escudo) |
+| 234 Recovery | repone escudo por 10 / 12,5 / 15 / 17,5 / 20 % de la vida máx. |
+| 27 Greater Defense | −6 / 8 / 10 / 12 / 14 % de daño recibido al aliado + escudo del 8 → 12 % |
+| 28 Greater Damage | +6 / 8 / 10 / 12 / 14 % de daño hecho (skills y básicos) al aliado |
+| 77 Infinity Arrow | +10 / 13 / 16 / 19 / 22 % de daño de los ataques básicos (la Elfa como tiradora) |
+| 64 Increase Critical Damage | +8 / 10 / 12 / 14 / 16 % de probabilidad de crítico **y** multiplicador +0,15 → +0,35 (equipo) |
+| 217 Damage Reflection | devuelve 10 / 13 / 16 / 19 / 22 % del daño recibido (tope por golpe: 5 % de la vida máx. del atacante) |
+| 218 Berserker | +12 / 15 / 18 / 21 / 24 % de daño de skills a cambio de −20 % de vida máx. fijo |
+| 266 Ignore Defense | ignora 20 / 25 / 30 / 35 / 40 % de la reducción de daño del objetivo (defensa y buffs defensivos) |
+| 267 Increase Health | +8 / 10 / 12 / 14 / 16 % de vida máx. (equipo; no se suma con Swell Life) |
+| 268 Increase Block | resistencia a control +10 → +26 % (queda igual; cobra sentido con C) |
+
+| Debuff | Efecto propuesto (rango 1 → 5); siempre se aplica (probabilidad 100 %) |
+|---|---|
+| Poison / Decay | veneno 5 s: 3 → 6 % de la vida máx. en total + curación recibida −30 → −50 % |
+| Ice / Pollution / Strike of Destruction / Chain Drive | lento −25 → −45 % de velocidad durante 2 s |
+| Fire Slash / Beast Uppercut | vulnerable: +6 → +14 % de daño recibido durante 5 s |
+| Weakness | −10 → −22 % de daño hecho durante 5 s |
+| Innovation | +8 → +16 % de daño recibido durante 5 s (no se suma con «vulnerable») |
+
+### C. Control (recomendación)
+**Tipos:** *aturdir* (no se mueve, no ataca, no lanza), *inmovilizar* (no se mueve, sí ataca y lanza), *lento*, *dormir* (como aturdir, se rompe al recibir daño), *derribar* (aturdimiento de 0,5 s), *silenciar* (se mueve y pega básicos, no lanza skills), *cegar* (los básicos fallan y no puede fijar objetivos a más de 3 casillas).
+**Reglas:** como máximo una skill de control duro por clase; esa skill hace el 60 % del daño de la tabla y su enfriamiento es 12 → 9 s; la duración sube 0,1 s por rango; se mantienen el recorte, los rendimientos decrecientes y la tenacidad de `MobaCc`.
+
+| Clase | Control duro | Control blando y debuffs |
+|---|---|---|
+| Mago | Ice Storm: inmoviliza en área 0,6 → 1,0 s | Ice: lento · Poison/Decay: veneno y anticuración |
+| Blade Knight | Stun (67): aturde 0,8 → 1,2 s · Uppercut: derriba 0,5 s | Strike of Destruction: lento |
+| Elfa | Ice Arrow: inmoviliza 1,0 → 1,4 s (se quita Stun 67 de su kit) | — |
+| Magic Gladiator | — | Fire Slash: vulnerable · Ice: lento |
+| Dark Lord | Fire Scream: silencia 1,0 → 1,5 s (fase 2) | Force Wave: empuja 2 casillas |
+| Summoner | Sleep: duerme 1,5 → 2,5 s | Weakness · Innovation · Pollution: lento · Requiem: ciega 2 → 3 s (fase 2) |
+| Rage Fighter | Beast Uppercut: derriba 0,5 s | Chain Drive: lento · Beast Uppercut: vulnerable |
+
+**Fases:** fase 1 (solo servidor; el cliente ya tiene iconos y efectos de aturdir, congelar, dormir, hielo y veneno): aturdir, inmovilizar, lento, dormir, derribar y los debuffs. Fase 2 (necesita trabajo en el cliente: icono, aviso y, para cegar, recorte de visión): silenciar y cegar. Por comprobar en el cliente: que «Iced/Cold» frene de verdad el movimiento del campeón.
+
+### D. Duelos 1v1 (recomendación)
+- Comando GM nuevo `/mobaduel` en el servidor, sin cliente, como `/mobaskilltest`: dos bots con la **IA real** de `MobaBotPlayer` (4 skills + buffs), nivel 30, skills a rango 5, en un rincón aislado de la arena; gana quien mata. Escribe `duelos_*.json` y un `INFORME_DUELOS.md` con la matriz 7×7 (victorias, duración media, vida restante).
+- Dos pasadas: **sin ítems** y **con set completo T3** (set, arma, escudo y accesorios de la guía BUILD). 21 cruces + 7 espejos = 28 cruces × 10 duelos × 2 pasadas = 560 duelos; con 4 a la vez, la estimación es de cerca de 1 hora (sin medir).
+- **Objetivo:** con 10 duelos, un cruce parejo da entre 4 y 6 victorias solo dos de cada tres veces (un 7-3 o más desigual sale por azar en 1 de cada 3 cruces parejos). Criterio propuesto: primera pasada 10 duelos; todo cruce fuera de 4-6 se repite a 30 y debe quedar entre 40 y 60 %; además cada clase debe quedar entre 45 y 55 % en el total. Elfa y Summoner (apoyo y control) pueden quedar en 40-50 % en 1v1, porque su valor está en el equipo.
+
+### Orden de trabajo propuesto
+A (área y multigolpe) → B (buffs y debuffs por rango) → C fase 1 (control) → volver a medir con `/mobaskilltest` → D (arnés de duelos) → ciclo de ajuste hasta el criterio → C fase 2 tras la beta. Implementación con Sonnet 5.5 en esfuerzo medio.
