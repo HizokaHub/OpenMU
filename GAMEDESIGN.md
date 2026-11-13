@@ -3219,3 +3219,9 @@ Los buffs con valor fijo (Recovery, Ignore Defense, Increase Health, la vida de 
 4. Volver a medir (`/mobaskilltest` y `/mobaduel`) y ajustar hasta 4-6 de 10 en cada cruce (los cruces fuera de 4-6 se repiten a 30 duelos; objetivo 40-60 %).
 5. Efecto visual del sangrado en el cliente.
 6. Control pendiente (lo «no decidido» de arriba) y el resto de pendientes de la beta.
+
+### Confirmaciones del usuario (2026-11-13, noche, 2) — resuelven los 4 «por confirmar»
+1. **Enfriamiento por rango:** −25 % a rango 5 en pasos iguales (45→34, 60→45, 90→68, 130→98). Confirmado.
+2. **Todos los buffs se tiran 1 vez** (no solo Sleep/Weakness/Innovation): se respeta su enfriamiento y **se quita la ventana de gracia de 3 s** (`MobaCooldowns.GraceWindow`); el enfriamiento empieza en el primer lanzamiento. Sin reaplicar mientras el efecto siga activo.
+3. **Recovery:** recupera de una el **20 % de la vida máx.** (vida directa, no escudo; fijo). **Los buffs de valor fijo SÍ suben con el rango**, de un valor inicial a otro final, «de 10 a 15 % por ejemplo». Escala que aplicaré salvo que el usuario la cambie: Ignore Defense (pasa directo a vida) 10 → 15 %; Increase Health +10 → +15 % de vida máx.; Berserker +15 → +20 % de vida máx. (y +5 → +10 % de daño como ya estaba). Recovery queda fijo en 20 %.
+4. **«−X % de defensa»** = el objetivo pierde el X % de su mitigación (`MobaDefense.FinalMitigationOf` × (1 − X)).
