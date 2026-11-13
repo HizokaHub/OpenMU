@@ -379,6 +379,8 @@ public static class MobaShop
             .Where(c => c.Definition is not null && IsUsableBy(c.Definition, characterClass))
             .OrderBy(c => categories.ToList().IndexOf(c.Entry.Category))
             .ThenBy(c => c.Entry.Tier)
+            // Weapons and shields read in the same role order in every tier (balanced, offensive, resources / resistance, cooldown).
+            .ThenBy(c => c.Entry.Category is MobaShopCategory.Weapons or MobaShopCategory.Offhand ? (int)c.Entry.Variant : 0)
             .ThenBy(c => c.Definition!.Group)
             .ThenBy(c => c.Definition!.Number)
             .ThenBy(c => c.Entry.Variant)

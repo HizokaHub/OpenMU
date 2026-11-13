@@ -37,6 +37,10 @@ def main(nombre, x_personaje):
         piloto.clic(*t.PESTANAS[pestana])
         t.esperar(t.PAUSA_UI_S)
         t.foto(f"clase_{nombre}_{pestana}")
+    # Sin esto la cuenta queda como fantasma en la partida y la siguiente clase entra con el campeon de la primera
+    # (el servidor reengancha la cuenta a su campeon: es lo correcto para un reintento, no un error).
+    piloto.chat("/mobaleave")
+    t.esperar(4)
     piloto.cerrar()
 
 

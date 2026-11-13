@@ -37,8 +37,7 @@ public static class MobaShopGuide
 
         Add(Single(configuration, entries, MobaShopCategory.Weapons, MobaShopTier.T1, MobaShopCatalog.WeaponsPage));
         Add(PrimarySet(configuration, entries, MobaShopTier.T1));
-        Add(Single(configuration, entries, MobaShopCategory.Offhand, MobaShopTier.T1, MobaShopCatalog.OffhandPage)
-            ?? Accessory(configuration, MobaShopTier.T1));
+        Add(Shield(configuration, entries, MobaShopTier.T1) ?? Accessory(configuration, MobaShopTier.T1));
         Add(Single(configuration, entries, MobaShopCategory.Wings, MobaShopTier.T1, MobaShopCatalog.WingsPage));
         Add(PrimarySet(configuration, entries, MobaShopTier.T2));
         Add(Single(configuration, entries, MobaShopCategory.Weapons, MobaShopTier.T2, MobaShopCatalog.WeaponsPage));
@@ -64,6 +63,15 @@ public static class MobaShopGuide
     {
         var entry = entries.FirstOrDefault(e => e.Category == category && e.Tier == tier && e.Variant == MobaShopVariant.Standard && e.Quantity == 1);
         return entry is null ? null : Step(configuration, entry, page, MobaShop.PriceOfEntry(configuration, entry));
+    }
+
+    // The shield of the tier the guide recommends is the resistance one (a Standard shield no longer exists: the shields are resistance / cooldown); a class
+    // whose only off-hand is a book (the Summoner) gets that.
+    private static MobaShopRecommendation? Shield(GameConfiguration configuration, List<MobaShopEntry> entries, MobaShopTier tier)
+    {
+        var offhands = entries.Where(e => e.Category == MobaShopCategory.Offhand && e.Tier == tier && e.Quantity == 1).ToList();
+        var entry = offhands.FirstOrDefault(e => e.Variant == MobaShopVariant.Bulwark) ?? offhands.FirstOrDefault();
+        return entry is null ? null : Step(configuration, entry, MobaShopCatalog.OffhandPage, MobaShop.PriceOfEntry(configuration, entry));
     }
 
     private static MobaShopRecommendation? Accessory(GameConfiguration configuration, MobaShopTier tier)
