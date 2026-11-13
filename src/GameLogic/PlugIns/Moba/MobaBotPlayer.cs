@@ -366,6 +366,17 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             return;
         }
 
+        // A duelist (MobaDuel) does nothing until it has an opponent, then runs only the fight logic (no macro brain, no pre-match wait).
+        if (this.DuelMode)
+        {
+            if (this.DuelOpponent is not null)
+            {
+                await this.TickDuelAsync(map).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
         // The match has not started: bots stand still until the countdown is over.
         if (MobaArena.Of(map).IsPreMatch)
         {
@@ -2071,11 +2082,10 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
                     Array.IndexOf(pool, (short)s.Skill!.Number) >= 0
                     && !MobaCooldowns.IsOnCooldown(this, s.Skill!.Number, now));
 
-                if (comboEntry is not null && await this.TryConsumeForSkillAsync(comboEntry).ConfigureAwait(false))
+                if (comboEntry is not null && await this.TryUseSkillAsync(comboEntry, target).ConfigureAwait(false))
                 {
                     this._comboStep++;
                     this._comboResetUtc = now + TimeSpan.FromSeconds(3);
-                    await this.FireSkillAsync(comboEntry, target).ConfigureAwait(false);
                     return;
                 }
 
@@ -2108,10 +2118,9 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
                     continue;
                 }
 
-                if (await this.TryConsumeForSkillAsync(entry).ConfigureAwait(false))
+                if (await this.TryUseSkillAsync(entry, target).ConfigureAwait(false))
                 {
                     this._skillCursor++;
-                    await this.FireSkillAsync(entry, target).ConfigureAwait(false);
                     return;
                 }
 

@@ -377,11 +377,11 @@ def comando_con_reintento(texto, patron_log, timeout=10.0, intentos=3):
     return ultimo[0], f"{ultimo[1]} (tras {intentos} intentos)"
 
 
-def fase_probe(d, x_personaje, nombre_pj, clases):
-    """Entra a la arena, lanza /mobaskilltest (la medicion corre en el SERVIDOR) y espera el informe sin tocar mouse ni teclado.
+def fase_probe(d, x_personaje, nombre_pj, clases, duelo=None):
+    """Entra a la arena, lanza /mobaskilltest (o /mobaduel si se pasa `duelo`) y espera el informe sin tocar mouse ni teclado.
 
-    Solo hacen falta /moba y /mobaskilltest: el heroe es el GM que da contexto, no participa. El cliente debe seguir abierto
-    mientras corre; el PC queda libre."""
+    La medicion corre en el SERVIDOR: solo hacen falta /moba y el comando; el heroe es el GM que da contexto, no participa. El cliente se cierra
+    al lanzar la prueba y el PC queda libre. `duelo` = los argumentos de /mobaduel (ej. "all 10 both 6"); espera un informe por pasada."""
     d.paso("abrir_juego", abrir_juego)
     t.esperar(3)
     d.paso("entrar_servidor", entrar_al_servidor)
@@ -389,30 +389,37 @@ def fase_probe(d, x_personaje, nombre_pj, clases):
     d.paso("elegir_personaje_y_conectar", lambda: elegir_y_conectar(x_personaje))
     time.sleep(4)
     m0 = marca()
+    etiqueta = "[MOBA-DUEL]" if duelo is not None else "[MOBA-PROBE]"
 
     def lanzar_prueba():
         # /moba primero (si ya hay un campeon en una partida, la cuenta se reengancha y no hace dano); luego la prueba
         comando("/moba", r"\[MOBA\] Clone|\[MOBA-CLIENT\]", 15)
         time.sleep(8)
+        if duelo is not None:
+            return comando_con_reintento(f"/mobaduel {duelo}", r"MOBA-DUEL\] ", 30, intentos=2)
         return comando_con_reintento(f"/mobaskilltest {clases}", r"MOBA-PROBE\] class", 30, intentos=2)
 
-    d.paso("lanzar_mobaskilltest", lanzar_prueba)
+    d.paso("lanzar_mobaduel" if duelo is not None else "lanzar_mobaskilltest", lanzar_prueba)
     piloto.cerrar()   # el GM queda como fantasma en la partida y la medicion sigue en el servidor: ya no depende del cliente
     time.sleep(3)
     d.nota("cliente cerrado a proposito: la prueba corre sola en el servidor y el PC queda libre")
-    limite = time.time() + 30 * 60
+    pasadas = 1
+    if duelo is not None:
+        modo = (duelo.split() + ["all", "10", "both"])[2] if len(duelo.split()) >= 3 else "both"
+        pasadas = 2 if modo == "both" else 1
+    limite = time.time() + (150 if duelo is not None else 30) * 60
     ultimo = 0
-    ruta = None
-    while time.time() < limite and ruta is None:
+    rutas = []
+    while time.time() < limite and len(rutas) < pasadas:
         time.sleep(5)
         for linea in nuevas(m0)[ultimo:]:
-            if "[MOBA-PROBE]" in linea:
-                print(linea[linea.find("[MOBA-PROBE]"):][:160])
+            if etiqueta in linea:
+                print(linea[linea.find(etiqueta):][:160])
                 m = re.search(r"report=(.+)$", linea)
                 if m:
-                    ruta = m.group(1).strip()
+                    rutas.append(m.group(1).strip())
         ultimo = len(nuevas(m0))
-    d.paso("informe_listo", lambda: (ruta is not None, f"informe: {ruta}" if ruta else "no apareció report= en 30 min"))
+    d.paso("informe_listo", lambda: (len(rutas) >= pasadas, f"informes: {rutas}" if rutas else "no aparecio report= a tiempo"))
 
 
 def main():
@@ -420,6 +427,7 @@ def main():
     ap.add_argument("clase", choices=sorted(CLASES))
     ap.add_argument("--fase", default="llegada", choices=["llegada", "skills", "probe"])
     ap.add_argument("--clases", default="all", help="para --fase probe: all, o un alias (dw, bk, fe, mg, dl, sum, rf)")
+    ap.add_argument("--duelo", default=None, help="para --fase probe: argumentos de /mobaduel (ej. \"all 10 both 6\"); lanza duelos en vez de /mobaskilltest")
     args = ap.parse_args()
     x, sufijo = CLASES[args.clase]
     nombre_pj = f"testgm{sufijo}"
@@ -433,7 +441,7 @@ def main():
         elif args.fase == "skills":
             fase_skills(d, x, nombre_pj)
         elif args.fase == "probe":
-            fase_probe(d, x, nombre_pj, args.clases)
+            fase_probe(d, x, nombre_pj, args.clases, args.duelo)
     except Interrumpido as e:
         estado = f"INTERRUMPIDA en {e}"
     finally:

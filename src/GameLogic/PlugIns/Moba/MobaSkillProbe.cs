@@ -233,7 +233,7 @@ public static class MobaSkillProbe
         };
     }
 
-    private static async ValueTask<MobaBotPlayer?> SpawnAsync(Player gm, byte classNumber, string name, MobaTeam team, Point at, int level)
+    internal static async ValueTask<MobaBotPlayer?> SpawnAsync(Player gm, byte classNumber, string name, MobaTeam team, Point at, int level, bool dummy = true, bool duel = false)
     {
         var characterClass = gm.GameContext.Configuration.CharacterClasses.FirstOrDefault(cc => cc.Number == classNumber);
         if (characterClass is null)
@@ -244,7 +244,7 @@ public static class MobaSkillProbe
         var clone = await MobaCloneFactory.BuildForClassAsync(gm, characterClass, name).ConfigureAwait(false);
         var account = gm.PersistenceContext.CreateNew<Account>();
         account.LoginName = $"#probe_{name}_{(DateTime.UtcNow.Ticks / 10000) % 100000}";
-        var bot = new MobaBotPlayer(gm.GameContext, team, isDummy: true);
+        var bot = new MobaBotPlayer(gm.GameContext, team, isDummy: dummy) { DuelMode = duel };
         if (!await bot.StartMobaAsync(account, clone, at).ConfigureAwait(false))
         {
             return null;
@@ -272,7 +272,7 @@ public static class MobaSkillProbe
         p.MobaSkillGraceEnds.Clear();
     }
 
-    private static async ValueTask CastCoreAsync(Player caster, SkillEntry entry, IAttackable? target)
+    internal static async ValueTask CastCoreAsync(Player caster, SkillEntry entry, IAttackable? target)
     {
         var skill = entry.Skill!;
         if (target is not null)
