@@ -42,6 +42,12 @@ public class WarpGateAction
             return false;
         }
 
+        if (PlugIns.Moba.MobaLorenciaLock.Blocks(player, enterGate.TargetGate.Map))
+        {
+            await player.ShowBlueMessageAsync(PlugIns.Moba.MobaLorenciaLock.Message).ConfigureAwait(false);
+            return false;
+        }
+
         var requirement = player.SelectedCharacter?.GetEffectiveMoveLevelRequirement(enterGate.LevelRequirement);
         if (requirement > player.Attributes![Stats.Level])
         {

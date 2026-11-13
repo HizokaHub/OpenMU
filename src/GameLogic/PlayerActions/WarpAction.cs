@@ -35,6 +35,12 @@ public class WarpAction
     {
         errorMessage = null;
 
+        if (PlugIns.Moba.MobaLorenciaLock.Blocks(player, warpInfo.Gate?.Map))
+        {
+            errorMessage = PlugIns.Moba.MobaLorenciaLock.Message;
+            return false;
+        }
+
         var requirement = player.SelectedCharacter?.GetEffectiveMoveLevelRequirement(warpInfo.LevelRequirement);
         if (requirement > player.Attributes?[Stats.Level])
         {
