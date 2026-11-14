@@ -406,6 +406,8 @@ public static class MobaArchetype
             return;
         }
 
+        // Removing the old element drops the maximum for an instant and the player clamps the current value to it for good: keep the value from before.
+        var savedCurrent = attributes[current];
         RemoveElement(attributes, maximum, ref element);
         if (wanted > 0)
         {
@@ -414,7 +416,7 @@ public static class MobaArchetype
         }
 
         // A bigger pool arrives full of what it grew by (like buying a life item); a smaller one just caps the current value.
-        attributes[current] = Math.Min(attributes[maximum], attributes[current] + Math.Max(0f, wanted - applied));
+        attributes[current] = Math.Min(attributes[maximum], savedCurrent + Math.Max(0f, wanted - applied));
     }
 
     private static void RemoveElement(IAttributeSystem attributes, AttributeDefinition maximum, ref SimpleElement? element)

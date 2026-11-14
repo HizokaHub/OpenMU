@@ -52,20 +52,39 @@ public static class MobaItemCaps
 
         var (hpMul, _) = MobaProgression.RoleTilt(MobaPassives.FamilyOf(champion));
         var maxHealthCap = MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier;
-        CapAttribute(attributes, Stats.MaximumHealth, maxHealthCap, ref state.HealthElement);
+        CapAttribute(attributes, Stats.MaximumHealth, maxHealthCap, ref state.HealthElement, Stats.CurrentHealth);
 
         // SD is pinned to the level curve on level-up, but the native formula adds the invested stat
         // points afterwards (a Lv3 clone had 7,300 SD on 7,200 HP): re-cap it every tick, leaving room
         // for the temporary Aegis / skill barrier.
         var maxShieldCap = (MobaProgression.ShieldAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier) + MobaCastEffects.TemporaryShieldOf(champion);
-        CapAttribute(attributes, Stats.MaximumShield, maxShieldCap, ref state.ShieldElement);
+        CapAttribute(attributes, Stats.MaximumShield, maxShieldCap, ref state.ShieldElement, Stats.CurrentShield);
         attributes[Stats.CurrentShield] = Math.Min(attributes[Stats.CurrentShield], attributes[Stats.MaximumShield]);
 
         var maxManaCap = MobaProgression.ManaAt(champion.MobaLevel) * MaxResourceMultiplier;
-        CapAttribute(attributes, Stats.MaximumMana, maxManaCap, ref state.ManaElement);
+        CapAttribute(attributes, Stats.MaximumMana, maxManaCap, ref state.ManaElement, Stats.CurrentMana);
     }
 
-    private static void CapAttribute(IAttributeSystem attributes, AttributeDefinition stat, float cap, ref IElement? tracked)
+    private static void CapAttribute(IAttributeSystem attributes, AttributeDefinition stat, float cap, ref IElement? tracked, AttributeDefinition? currentStat = null)
+    {
+        // Removing and re-adding the compensating element drops the maximum for an instant (the first try even overshoots far below the cap),
+        // and Player.OnAttributeValueChanged clamps the current value to that transient maximum for good: with T3 gear every champion
+        // lost most of its life in the first second. The current value is saved and put back (never above the final maximum).
+        var savedCurrent = currentStat is null ? 0f : attributes[currentStat];
+        try
+        {
+            CapAttributeCore(attributes, stat, cap, ref tracked);
+        }
+        finally
+        {
+            if (currentStat is not null && attributes[currentStat] < savedCurrent)
+            {
+                attributes[currentStat] = Math.Min(savedCurrent, attributes[stat]);
+            }
+        }
+    }
+
+    private static void CapAttributeCore(IAttributeSystem attributes, AttributeDefinition stat, float cap, ref IElement? tracked)
     {
         if (tracked is { } previous)
         {

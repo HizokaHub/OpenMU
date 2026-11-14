@@ -41,7 +41,7 @@ public static class MobaDuel
     /// How far from the center of a corner no monster may stand (a duelist that kites backs off several tiles: in the first full matrix a Stone Golem
     /// of a jungle camp 19 tiles away killed a Grand Master).
     /// </summary>
-    private const int MonsterFreeRadius = 24;
+    private const int MonsterFreeRadius = 18;
     private const double TimeoutSeconds = 120;
     private const int CarrierLife = 20;
 
