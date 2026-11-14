@@ -69,6 +69,12 @@ public abstract class EnterQuestMapAction
             return;
         }
 
+        if (PlugIns.Moba.MobaLorenciaLock.Blocks(player, targetMap))
+        {
+            await player.ShowBlueMessageAsync(PlugIns.Moba.MobaLorenciaLock.Message).ConfigureAwait(false);
+            return;
+        }
+
         var targetGate = targetMap.ExitGates.FirstOrDefault();
         if (targetGate is null)
         {

@@ -48,6 +48,12 @@ public class EnterMarketPlaceAction
             return;
         }
 
+        if (PlugIns.Moba.MobaLorenciaLock.Blocks(player, targetMap.Definition))
+        {
+            await player.ShowBlueMessageAsync(PlugIns.Moba.MobaLorenciaLock.Message).ConfigureAwait(false);
+            return;
+        }
+
         player.OpenedNpc = null;
         await player.WarpToAsync(targetGate).ConfigureAwait(false);
     }

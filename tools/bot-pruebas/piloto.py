@@ -18,6 +18,7 @@ Uso (desde la carpeta tools/bot-pruebas):
     python piloto.py login                  escribe la clave de cuenta.local.json en la pantalla de acceso
 """
 import json
+import os
 import subprocess
 import sys
 import time
@@ -33,7 +34,7 @@ RAIZ = Path(__file__).resolve().parent
 CAPTURAS = RAIZ / "capturas"
 CLIENTE = Path(r"C:\Users\aruiz\Proyectos\mu-main\out\build\windows-x64\src\Release")
 LOG_SERVIDOR = RAIZ.parent.parent / "logs" / "servidor.log"
-CUENTA = RAIZ / "cuenta.local.json"
+CUENTA = RAIZ / os.environ.get("MOBA_CUENTA", "cuenta.local.json")
 TITULO = "MU Online"
 ESPERA_VENTANA_S = 60
 PAUSA_ACCION_S = 0.25

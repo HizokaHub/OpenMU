@@ -97,6 +97,12 @@ public class EnterMiniGameAction
         }
 
         var entrance = miniGameDefinition.Entrance ?? throw new InvalidOperationException("mini game entrance not defined");
+        if (PlugIns.Moba.MobaLorenciaLock.Blocks(player, entrance.Map))
+        {
+            await player.ShowBlueMessageAsync(PlugIns.Moba.MobaLorenciaLock.Message).ConfigureAwait(false);
+            return;
+        }
+
         var miniGame = await player.GameContext.GetMiniGameAsync(miniGameDefinition, player).ConfigureAwait(false);
 
         // Snapshot before entering: an event which disallows parties (Chaos Castle) kicks the
