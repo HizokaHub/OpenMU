@@ -29,8 +29,14 @@ public static class MobaBuffs
     /// </summary>
     public const float DefenseDamageTaken = 0.8f;
 
+    /// <summary>The extra maximum life while Swell Life lasts (+12 %).</summary>
+    public const float SwellLifeHealthBoost = 0.12f;
+
     /// <summary>Defense: the skill number.</summary>
     private const short Defense = 18;
+
+    /// <summary>Swell Life: the skill number.</summary>
+    private const short SwellLife = 48;
 
     private static readonly object ConfigLock = new();
 
@@ -93,6 +99,23 @@ public static class MobaBuffs
                     if (powerUp.TargetAttribute == Stats.DamageReceiveDecrement && powerUp.Boost is { } boost)
                     {
                         boost.ConstantValue.Value = DefenseDamageTaken;
+                    }
+                }
+            }
+
+            // Swell Life: the S6 boost grows with Energy (1 % per 20), Vitality (1 % per 100) and party members, capped at +200 %. With the flat
+            // stats of a champion (thousands of points) that made it x3 of the maximum life (found by the 1v1 duels, 2026-11-13: a Blade Knight
+            // went from 78,000 to 234,000 maximum life and died a second later). In a match it is a flat +12 % of the maximum life (rank 1 of the
+            // +12 -> +24 % the user decided; the rank scale comes with the buff rework).
+            if (configuration.Skills.FirstOrDefault(s => s.Number == SwellLife)?.MagicEffectDef is { } swellLife)
+            {
+                foreach (var powerUp in swellLife.PowerUpDefinitions.Concat(swellLife.PowerUpDefinitionsPvp))
+                {
+                    if (powerUp.TargetAttribute == Stats.SwellLifeHealthIncrease && powerUp.Boost is { } boost)
+                    {
+                        boost.RelatedValues.Clear();
+                        boost.ConstantValue.Value = SwellLifeHealthBoost;
+                        boost.MaximumValue = SwellLifeHealthBoost;
                     }
                 }
             }
