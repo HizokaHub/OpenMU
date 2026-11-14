@@ -36,10 +36,19 @@ public static class MobaDuel
     private const int RectWidth = 14;
     private const int RectHeight = 12;
     private const int SeparationTiles = 6;
+
+    /// <summary>
+    /// How far from the center of a corner no monster may stand (a duelist that kites backs off several tiles: in the first full matrix a Stone Golem
+    /// of a jungle camp 19 tiles away killed a Grand Master).
+    /// </summary>
+    private const int MonsterFreeRadius = 32;
     private const double TimeoutSeconds = 120;
     private const int CarrierLife = 20;
 
     private static readonly ConcurrentDictionary<MobaBotPlayer, ConcurrentDictionary<int, long>> Damage = new();
+
+    /// <summary>The damage a duelist took from something that is not its opponent (a jungle monster, a minion, a tower), per duelist.</summary>
+    private static readonly ConcurrentDictionary<MobaBotPlayer, long> Foreign = new();
     private static int _running;
     private static int _cancel;
     private static int _nameCounter;
@@ -150,7 +159,9 @@ public static class MobaDuel
         Dictionary<int, long> ADamage,
         Dictionary<int, long> BDamage,
         int APieces,
-        int BPieces);
+        int BPieces,
+        long AForeign = 0,
+        long BForeign = 0);
 
     private static void OnHit(MobaProbeHit hit)
     {
@@ -158,6 +169,11 @@ public static class MobaDuel
         {
             var perSkill = Damage.GetOrAdd(bot, _ => new ConcurrentDictionary<int, long>());
             perSkill.AddOrUpdate(hit.Skill?.Number ?? 0, hit.Hp + hit.Sd, (_, old) => old + hit.Hp + hit.Sd);
+        }
+        else if (hit.Victim is MobaBotPlayer { DuelMode: true } victim)
+        {
+            // Damage from anything that is not the opponent (a jungle monster, a minion, a tower): the duel is contaminated and the report discards it.
+            Foreign.AddOrUpdate(victim, hit.Hp + hit.Sd, (_, old) => old + hit.Hp + hit.Sd);
         }
     }
 
@@ -229,6 +245,8 @@ public static class MobaDuel
                     ["bDamage"] = r.BDamage,
                     ["aPieces"] = r.APieces,
                     ["bPieces"] = r.BPieces,
+                    ["aForeign"] = r.AForeign,
+                    ["bForeign"] = r.BForeign,
                 }).ToList(),
             };
         }).ToList();
@@ -268,6 +286,8 @@ public static class MobaDuel
                 BDamage = row.ADamage,
                 APieces = row.BPieces,
                 BPieces = row.APieces,
+                AForeign = row.BForeign,
+                BForeign = row.AForeign,
             };
         }
 
@@ -321,6 +341,8 @@ public static class MobaDuel
             Refill(b);
             Damage[a] = new ConcurrentDictionary<int, long>();
             Damage[b] = new ConcurrentDictionary<int, long>();
+            Foreign.TryRemove(a, out _);
+            Foreign.TryRemove(b, out _);
 
             var clock = Stopwatch.StartNew();
             a.DuelOpponent = b;
@@ -342,7 +364,9 @@ public static class MobaDuel
                 Damage.TryGetValue(a, out var da) ? da.ToDictionary(kv => kv.Key, kv => kv.Value) : new Dictionary<int, long>(),
                 Damage.TryGetValue(b, out var db) ? db.ToDictionary(kv => kv.Key, kv => kv.Value) : new Dictionary<int, long>(),
                 piecesA,
-                piecesB);
+                piecesB,
+                Foreign.TryGetValue(a, out var fa) ? fa : 0,
+                Foreign.TryGetValue(b, out var fb) ? fb : 0);
         }
         finally
         {
@@ -355,6 +379,7 @@ public static class MobaDuel
 
                 bot.DuelOpponent = null;
                 Damage.TryRemove(bot, out _);
+                Foreign.TryRemove(bot, out _);
                 try
                 {
                     await bot.StopAsync().ConfigureAwait(false);
@@ -417,7 +442,7 @@ public static class MobaDuel
                 continue;
             }
 
-            if (map.GetAttackablesInRange(center, 18).OfType<NPC.Monster>().Any() || laneDistance < 10)
+            if (map.GetAttackablesInRange(center, MonsterFreeRadius).OfType<NPC.Monster>().Any() || laneDistance < 10)
             {
                 continue;
             }

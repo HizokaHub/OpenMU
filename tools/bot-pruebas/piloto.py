@@ -170,6 +170,11 @@ def login():
     if not CUENTA.exists():
         sys.exit("Falta cuenta.local.json ({\"usuario\": ..., \"clave\": ...}); no esta en git.")
     datos = json.loads(CUENTA.read_text(encoding="utf-8"))
+    # el juego recuerda el ultimo usuario usado: se reescribe siempre el de la cuenta elegida
+    clic(CAMPO_CLAVE[0], CAMPO_CLAVE[1] - 25)
+    for _ in range(16):
+        pulsar("backspace")
+    pyautogui.write(datos["usuario"], interval=0.04)
     clic(*CAMPO_CLAVE)
     pyautogui.write(datos["clave"], interval=0.05)
     pulsar("enter")

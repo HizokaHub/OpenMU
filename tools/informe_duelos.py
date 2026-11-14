@@ -20,14 +20,20 @@ NOMBRE_SKILL = {0: "básico"}
 
 def cargar(carpeta, pasada):
     """Devuelve {(a,b): duelos} con el archivo mas reciente de cada cruce y los metadatos del mas reciente."""
-    cruces, meta, usados = {}, {}, []
+    cruces, meta, usados, excluidos = {}, {}, [], 0
     for ruta in sorted(glob.glob(str(carpeta / f"duelos_{pasada}_*.json"))):
         datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
         usados.append(Path(ruta).name)
         meta = {k: v for k, v in datos.items() if k != "pairs"}
+        meta["excluidos"] = 0
         for p in datos["pairs"]:
+            # Duelos con daño de algo que no es el rival (monstruo de la jungla, minion, torre): contaminados, se descartan.
+            limpios = [d for d in p["duels"] if d.get("aForeign", 0) + d.get("bForeign", 0) == 0]
+            excluidos += len(p["duels"]) - len(limpios)
+            p["duels"] = limpios
             if p["duels"]:
                 cruces[(p["a"], p["b"])] = p
+    meta["excluidos"] = excluidos
     return cruces, meta, usados
 
 
@@ -59,7 +65,7 @@ def seccion(carpeta, pasada):
         nombres[p["a"]], nombres[p["b"]] = p["aName"], p["bName"]
     etiqueta = lambda c: ALIAS.get(c, str(c))
     out = [f"## {NOMBRE_PASADA[pasada]}", ""]
-    out.append(f"Nivel {meta.get('level')}, todas las skills a rango {meta.get('rank')}, tiempo máximo {meta.get('timeoutSeconds')} s por duelo. Archivos: {', '.join(usados)}.")
+    out.append(f"Nivel {meta.get('level')}, todas las skills a rango {meta.get('rank')}, tiempo máximo {meta.get('timeoutSeconds')} s por duelo. Archivos: {', '.join(usados)}. Duelos descartados por daño ajeno (monstruo, minion, torre): {meta.get('excluidos', 0)}.")
     out.append("")
     out.append("Cada celda: **victorias de la clase de la fila - derrotas** (e = empates por tiempo; entre paréntesis, duelos si no son 10). ⚠ = fuera de 40-60 %.")
     out.append("")
