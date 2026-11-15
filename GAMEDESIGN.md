@@ -3267,3 +3267,223 @@ Los buffs con valor fijo (Recovery, Ignore Defense, Increase Health, la vida de 
 - **Reporte 5 (build 2611140117):** sin cambio: (A) 0xc0000374 en ntdll+0xff489 ~50 % de las ejecuciones entre «UI font» y «First Load Files OK» (también con render por software) y (B) 0xc0000005 en combase.dll 30-60 s tras el login. En mi PC ASan no ve nada; hace falta ver la pila en el notebook. Paquete de diagnóstico listo: `mu-main\out\asan-paquete\MU-MOBA-ASan.zip` (Main.exe con ASan + Main.pdb + DLL + Probar-ASan.bat + LEEME.txt): el amigo lo copia a su carpeta del juego, corre el .bat y manda MuError.log, asan_stderr.txt y asan_informe.*. Arreglado además el fallo al cerrar (FrameTimerScheduler vivo). Sospecha abierta: el SetUnhandledExceptionFilter propio puede ser pisado por el runtime .NET (MUnique.Client.Library.dll, NativeAOT) y por eso no apareció «!!! CRASH» en el log; B podría venir de ese hilo de red .NET (usa COM).
 - **Diagnóstico ASan enviado (2026-11-14 01:34):** WhatsApp Web rechazó adjuntar el zip («archivo no compatible», incluso un zip de prueba de 496 B: falla la subida automatizada, no el contenido). Se publicó en el portal como `portal\updates\diagnostico\MU-MOBA-ASan.zip` (SHA-256 d1b22de05b1ea2b95604b5c1b4c41d21d4eeeff904031644eb79c546852b4c3d, 9,4 MB, descargable por ZeroTier en `http://172.27.71.8:8080/updates/diagnostico/MU-MOBA-ASan.zip`) y las instrucciones para el Claude del notebook se enviaron al chat «Tú» de WhatsApp. Al recibir el informe: simbolizar con `llvm-symbolizer` (VS\VC\Tools\Llvm\x64\bin) y `out\build\asan\src\Release\Main.pdb`. Borrar `portal\updates\diagnostico` al terminar.
 - **Causa encontrada con ASan en el notebook (informe 2026-11-14 ~01:55):** `heap-buffer-overflow` en `DivideStringByPixel` (UsefulDef.cpp) llamado desde `CNewUIGensRanking::SetTitleName`: cada trozo recibía `nDstRow` líneas máximas sin descontar las ya usadas, y según la tipografía/DPI del equipo se partía en más líneas y escribía fuera del arreglo (objeto de 1224 B). Corregido (commit e5919809) y publicado como build 2611140156. Falta confirmar en el notebook; si persiste el 0xc0000005 de combase.dll tras el login, es otro bug. El zip de diagnóstico sigue en `portal\updates\diagnostico` (borrar al confirmar).
+
+## COSTOS DE ABRIR AL PÚBLICO (2026-11-15; solo investigación y cálculo: no se contrató, compró ni pagó nada)
+
+**Pedido del usuario:** saber cuánto cuesta de verdad abrir al público el servidor de MU MOBA, por escenario de **10, 50 y 200 jugadores conectados a la vez**, en USD y CLP, con costos fijos, variables y de arranque, y cuántos jugadores que paguen hacen falta para cubrirlos.
+
+**Tipo de cambio usado:** 1 USD = 992,48 CLP (dólar observado del 2026-11-13) y 1 EUR = 1.096,91 CLP → 1 EUR ≈ 1,105 USD ([mindicador.cl](https://mindicador.cl/api), leído el 2026-11-15). La sección «Cobrar por cosméticos» usó ~950; aquí todo va con 992,48.
+
+**Todas las fuentes se leyeron el 2026-11-15.** Lo que no pude confirmar va marcado **(sin confirmar)**. Los supuestos míos van marcados **(supuesto)**.
+
+### Resultado en 8 líneas
+
+1. **Lo más barato que es seguro:** un VPS de **Vultr en Santiago** (2 vCPU / 4 GB, 24 USD) + protección DDoS (10 USD) + dominio `.cl` (9.990 CLP al año) + instalador y actualizaciones en **Cloudflare R2** (0 USD) + backups diarios a R2 (0 USD) ≈ **35 USD/mes (≈ 34.600 CLP)**, o ≈ 41 USD (≈ 40.300 CLP) con los backups automáticos de Vultr. Puede sumarse 19 % de IVA a la factura de Vultr **(sin confirmar)**.
+2. **Totales de infraestructura por mes (esperado):** 10 jugadores **≈ 41 USD (40.300 CLP)** · 50 jugadores **≈ 73 USD (72.900 CLP)** · 200 jugadores **≈ 151 USD (149.900 CLP)**.
+3. **El costo fijo más grande no es el servidor: es formalizarse.** Un contador con plan mensual parte en 30.000 CLP + IVA (35.700 CLP ≈ 36 USD). Hacerlo uno mismo en el SII es gratis pero es tiempo.
+4. **Falta un dato clave:** en `GAMEDESIGN.md` y en los logs del servidor **no hay ningún resultado medido de `/mobastress`** (la sección describe la herramienta y deja la medición pendiente). Lo único medido es: ~730 MB y ~1 núcleo en reposo, y 226 criaturas vivas sin atascos (2026-10-05), todo en el i5-6600K y con el servidor compilado en **Debug**. El tamaño para 50 y sobre todo para 200 es **extrapolación**, no medición.
+5. **La latencia manda:** desde Santiago, São Paulo queda a 118 ms y Miami a 94 ms; Virginia a 139 ms; Alemania a 205 ms. Solo un servidor **en Santiago** da juego local. Los VPS de 5-12 USD (OVH, Contabo) están en EE. UU. o Europa.
+6. **Distribuir el instalador de 581 MB cuesta 0** si va en Cloudflare R2 (salida de datos gratis, 10 GB de almacenamiento gratis). No servirlo desde el VPS: con 200 jugadores se comería hasta 2 TB de la cuota de tráfico.
+7. **Moderación con IA:** de menos de 1 USD a ~50 USD al mes según el volumen, usando primero filtros gratis y la IA de pago solo para lo dudoso.
+8. **Punto de equilibrio (modelo de «Cobrar por cosméticos»):** con 10 conectados (~100 activos al mes) el escenario realista **no cubre** el VPS (ingresa ~26 USD netos contra ~41); con 50 conectados (~500 activos) **sí cubre** infraestructura y contador (130 contra 109); con 200 (~2.000 activos) cubre con holgura (519 contra 187).
+
+### 0. De qué tamaño es el servidor (y qué tan firme es el dato)
+
+**Datos medidos (del usuario y del documento):** servidor ~730 MB de RAM y ~1 núcleo en reposo; 226 criaturas vivas con ticks sin atascos (2026-10-05); el cliente tiene tope de 400 personajes por mapa; el servidor corre desde `src\Startup\bin\Debug` (compilación Debug, más lenta que Release). PC actual: i5-6600K (4 núcleos), 24 GB.
+
+**Lo que NO está medido:** CPU y RAM por partida simultánea, tráfico de red por jugador, y cualquier corrida de `/mobastress`. La prueba «3-5 partidas simultáneas» de las recomendaciones del 2026-10-26 sigue pendiente.
+
+**Supuestos para dimensionar (míos):** partidas 3v3 (6 jugadores) → 10 conectados ≈ 2 partidas, 50 ≈ 8, 200 ≈ 33. RAM base ≈ 2 GB (servidor 0,73 + PostgreSQL + portal + sistema Linux) más un extra por partida que no está medido. En Linux no se paga licencia de Windows (OpenMU ya trae despliegue con Docker en `deploy/`).
+
+| Escenario | Partidas a la vez (supuesto) | Mínimo | Esperado | Con margen | Firmeza |
+|---|---|---|---|---|---|
+| **10 conectados** | ~2 | 2 vCPU / 4 GB / 40 GB | 2 vCPU / 4 GB / 80-100 GB | 4 vCPU / 8 GB | razonable: es poco más que lo que hoy corre en el PC |
+| **50 conectados** | ~8 | 4 vCPU / 8 GB | 4 vCPU / 8 GB / 160-180 GB | 4 vCPU dedicados / 8-12 GB | extrapolado |
+| **200 conectados** | ~33 | 8 vCPU / 16 GB | 8 vCPU / 16 GB / 350 GB | 4-8 vCPU dedicados / 32 GB, o dos servidores | **muy incierto**: 33 partidas son miles de criaturas con timer propio; puede hacer falta el «bucle único» de IA antes que más máquina |
+
+**Antes de contratar para 50 o 200:** compilar en Release, correr `/mobastress` y 3-5 partidas de bots a la vez, y anotar CPU, RAM y `red_KB/s`. Vultr cobra por hora, así que una prueba de una tarde en un VPS cuesta centavos de dólar (es gasto real: pedir confirmación antes).
+
+### 1. Servidor del juego: proveedores comparados
+
+**Latencia desde Santiago (promedio, [WonderNetwork](https://wondernetwork.com/pings/Santiago)):** Buenos Aires 21 ms · Lima 30 ms · Bogotá 67 ms · Miami 94 ms · São Paulo 118 ms · Nueva York 118 ms · Dallas 119 ms · Montreal 131 ms · Washington/Virginia 139 ms · Toronto 143 ms · Los Ángeles 166 ms · Fráncfort 205 ms · Falkenstein 209 ms · Singapur 366 ms. Lectura: un servidor en Santiago también sirve bien a Argentina y Perú; uno en EE. UU. deja a todos sobre 90 ms.
+
+| Proveedor (región) | Latencia desde Santiago | 10 conectados | 50 conectados | 200 conectados | Tráfico incluido | DDoS | Fuente y notas |
+|---|---|---|---|---|---|---|---|
+| **Vultr (Santiago)** | local (sin medir; misma ciudad) | 2 vCPU / 4 GB / 100 GB NVMe: **24 USD** | 4 vCPU / 8 GB / 180 GB: **48 USD** (dedicado 4 vCPU / 8 GB: 90 USD) | 8 vCPU / 16 GB / 350 GB: **96 USD**; 4 vCPU dedicados / 32 GB: 160-195 USD | 5 / 6 / 8 TB; exceso 0,01 USD/GB | +10 USD/mes por servidor (10 Gbps) | Precios de un agregador, revisados el 2026-11-14 ([valebyte](https://valebyte.com/en/vps/chile/?city=Santiago)); la página oficial de Vultr me devolvió error 403. Varias filas del agregador traen el nombre del plan cruzado con otras especificaciones: **confirmar en el panel de Vultr**. DDoS y exceso: [docs de Vultr](https://docs.vultr.com/support/platform/billing/how-much-does-ddos-protection-cost), [exceso](https://docs.vultr.com/support/platform/billing/what-is-the-bandwidth-overage-rate); que el DDoS exista en Santiago: **(sin confirmar)**. Backups automáticos: +20 % ([docs](https://docs.vultr.com/support/platform/billing/how-much-does-it-cost-to-enable-automatic-backups)). |
+| **AWS Lightsail (São Paulo)** | 118 ms | 2 vCPU / 4 GB / 80 GB: 24 USD | 2 vCPU / 8 GB / 160 GB: 44 USD | 4 vCPU / 16 GB: 84 USD; 8 vCPU / 32 GB: 164 USD | la **mitad** de la cuota normal en São Paulo: 2 / 2,5 / 3 / 3,5 TB; exceso desde 0,09 USD/GB (el de São Paulo, **sin confirmar**) | sin confirmar | [aws.amazon.com/lightsail/pricing](https://aws.amazon.com/lightsail/pricing/). Más latencia que Miami y tráfico caro: no conviene. |
+| **OVHcloud VPS** | 131-139 ms si es Canadá o Virginia; ubicación en Sudamérica **sin confirmar** (anunciaron zonas en Santiago y São Paulo en 2025, no hallé que estén activas) | VPS-1, 2 vCore / 4 GB / 40 GB: **desde 4,54 USD** | VPS-2, 4 vCore / 8 GB / 75 GB: **desde 8,50 USD** | VPS-4, 8 vCore / 24 GB / 200 GB: **desde 23,37 USD** | ilimitado | **incluido** | [ovhcloud.com/en/vps](https://www.ovhcloud.com/en/vps/); backup diario incluido. «Desde»: el precio puede exigir compromiso de meses **(sin confirmar)**. La opción más barata con DDoS, pagando en latencia. |
+| **Contabo** | ~118-140 ms (EE. UU.); sin Sudamérica | Cloud VPS 4, 4 vCPU / 8 GB: 4,40-5,50 EUR (≈ 4,9-6,1 USD) | el mismo, o Cloud VPS 6 (6 vCPU / 12 GB): 6,00 EUR (≈ 6,6 USD) | Cloud VPS 8, 8 vCPU / 24 GB: 11,20 EUR (≈ 12,4 USD) | «ilimitado» con uso justo (pueden limitar) | sin confirmar | [contabo.com/en/vps](https://contabo.com/en/vps/); precio efectivo con contrato de **24 meses**, impuestos incluidos; hay cargo de instalación en contratos mensuales (monto no indicado). CPU compartida. |
+| **Hetzner (Ashburn, EE. UU.)** | 139 ms (Alemania: 205-209 ms) | CPX11: 17,49 EUR (20,49 USD) | CCX13, 2 vCPU dedicados / 8 GB: 43,49 EUR (50,99 USD) | CCX33, 8 vCPU dedicados / 32 GB: 140,99 EUR (≈ 156 USD) | 20 TB en Europa; en EE. UU. **sin confirmar** | sin confirmar | Hetzner subió precios dos veces en 2026 (lista del 15 de junio) y los planes baratos CX/CAX no se pueden contratar; tabla de un tercero actualizada el 2026-10-20 ([bitdoze](https://www.bitdoze.com/hetzner-cloud-cost-optimized-plans/)); sin IVA. Ya no es la opción barata. |
+| **DigitalOcean (Nueva York)** | 118 ms; sin Sudamérica | 2 vCPU / 4 GB: 24 USD | 4 vCPU / 8 GB: 48 USD | 8 vCPU / 16 GB: 96 USD (dedicado 8 vCPU / 16 GB: 168 USD) | 4 / 5 / 6 TB | sin confirmar | [digitalocean.com/pricing/droplets](https://www.digitalocean.com/pricing/droplets); backups 20-30 % del servidor. Mismo precio que Vultr Santiago con 118 ms: no conviene. |
+| **Oracle Cloud (Santiago), nivel «Always Free»** | local | **0 USD**: 4 núcleos ARM / 24 GB, 10 TB de salida | — | — | 10 TB | sin confirmar | [Oracle Free Tier](https://developer.oracle.com/free.html). Problemas: capacidad gratis casi nunca disponible según guías de 2026, un blog dice que el tope bajó a 2 núcleos / 12 GB desde junio de 2026 **(en conflicto con la página oficial)**, y la región de la cuenta no se puede cambiar. Sirve para probar el despliegue en Linux, **no** como servidor público único. |
+| **Hosting chileno (hosting.cl)** | local | VPS Estándar 4 vCPU / 4 GB / 100 GB: 79.900 CLP + IVA = **95.081 CLP (≈ 96 USD)** | no hallé plan de 8 GB con precio | — | ilimitado | sin confirmar | [PDF de hosting.cl](https://www.hosting.cl/pdf/VPS/Vps-Estandar.pdf). Cuatro veces el precio de Vultr Santiago; ventaja: factura chilena. |
+
+No coticé Google Cloud ni Azure en Santiago: cobran el tráfico de salida por GB y no hallé una cifra que pueda citar con fecha.
+
+**Tu propio PC como servidor público: no.** Expone la IP de tu casa a ataques, el proveedor de internet puede tenerte tras CGNAT, y si el PC se apaga no hay juego. Vale solo para la beta por ZeroTier.
+
+### 2. Ancho de banda y distribución
+
+**Tráfico del juego (supuestos míos; el `red_KB/s` real está sin medir):** 20 KB/s por jugador conectado (rango 5-50, porque el jugador del MOBA ve el mapa entero), y conexión media del mes = 35 % del pico.
+
+| Escenario | Esperado al mes | Peor caso (pico las 24 h a 50 KB/s) | ¿Cabe en la cuota de Vultr? |
+|---|---|---|---|
+| 10 conectados | ~0,18 TB | 1,3 TB | sí (5 TB) |
+| 50 conectados | ~0,9 TB | 6,5 TB | sí en lo esperado; el peor caso excede 0,5 TB ≈ 5 USD |
+| 200 conectados | ~3,6 TB | 26 TB | sí en lo esperado (8 TB); el peor caso excede 18 TB ≈ 180 USD |
+
+**Instalador (581 MB) y actualizaciones.** Supuestos míos: jugadores activos al mes ≈ 10 × conectados a la vez (100 / 500 / 2.000); instalaciones nuevas al mes entre 50 % y 150 % de los activos; 4 parches al mes de ~30 MB por jugador.
+
+| Escenario | Instaladores al mes | Actualizaciones al mes | Total |
+|---|---|---|---|
+| 10 conectados | 29-87 GB | ~12 GB | 41-99 GB |
+| 50 conectados | 145-436 GB | ~60 GB | 205-496 GB |
+| 200 conectados | 581-1.743 GB | ~240 GB | 0,8-2 TB |
+
+| Opción | Precio | Costo en los 3 escenarios | Notas |
+|---|---|---|---|
+| **Cloudflare R2** (recomendada) | almacenamiento 0,015 USD/GB-mes, **salida gratis**; gratis hasta 10 GB, 1 millón de escrituras y 10 millones de lecturas al mes | **0 USD** (instalador + archivos del actualizador ≈ 2-3 GB) | [developers.cloudflare.com/r2/pricing](https://developers.cloudflare.com/r2/pricing/). Si exige registrar una tarjeta para activarlo: **(sin confirmar)**. El actualizador ya baja archivo por archivo con hash: solo cambia la URL base. |
+| Backblaze B2 | 6,95 USD/TB-mes (≈ 0,007 USD/GB); primeros 10 GB gratis; salida gratis hasta 3× lo almacenado y gratis a través de Cloudflare | 0 USD | [backblaze.com/cloud-storage/pricing](https://www.backblaze.com/cloud-storage/pricing). Buen segundo lugar y buen destino de backups. |
+| Google Drive | gratis | 0 USD | Es lo que se usa hoy. No sirve al actualizador y Drive corta las descargas de archivos grandes muy pedidos (límite no documentado, **sin confirmar** la cifra). Solo para la beta. |
+| Desde el propio VPS | usa la cuota del VPS | 0 USD hasta agotar la cuota | Con 200 conectados puede gastar 2 de los 8 TB. Evitar. |
+
+### 3. Base de datos, backups y respaldo fuera del servidor
+
+- **Base de datos:** PostgreSQL 17 en el mismo VPS: **0 USD**. Una base administrada aparte no se justifica con estos tamaños (no la coticé).
+- **Backup diario** (`pg_dump`, el mismo de las 04:30 de hoy) subido a **R2 o B2**: **0 USD** mientras todo quepa en los 10 GB gratis; pasado eso, 0,007-0,015 USD por GB al mes.
+- **Backups automáticos del VPS completo (Vultr):** +20 % del precio del servidor → **4,80 / 9,60 / 19,20 USD** al mes según el escenario. Opcional si el `pg_dump` sale del servidor y el despliegue se puede rehacer con un script.
+- **Regla:** al menos una copia fuera del proveedor del VPS, y probar la restauración una vez al mes (ya se probó en local el 2026-11-12).
+
+### 4. Dominio, certificado, correo, DDoS y monitoreo
+
+| Ítem | Opción | Costo | Fuente y notas |
+|---|---|---|---|
+| Dominio `.cl` | NIC Chile | **9.990 CLP al año** (≈ 10 USD; ≈ 833 CLP al mes), exento de IVA, tarifa vigente desde el 2023-11-01 | [nic.cl/dominios/tarifas.html](https://www.nic.cl/dominios/tarifas.html) |
+| Certificado HTTPS | Let's Encrypt o el proxy gratis de Cloudflare | 0 | Solo cubre la web (portal); el juego usa TCP propio. |
+| Correo que recibe (soporte@) | Cloudflare Email Routing | 0 | [cloudflare.com/email-routing](https://www.cloudflare.com/products/email-routing) |
+| Correo que envía (verificar cuentas, recuperar clave) | Resend, plan gratis: 3.000 correos al mes, 100 al día, 1 dominio; plan Pro 20 USD/mes (50.000) | 0 (20 USD solo si 200 conectados superan el plan gratis) | [resend.com/pricing](https://resend.com/pricing.md), cifras de mayo de 2026 según terceros |
+| DDoS de la web | Cloudflare gratis delante del portal | 0 | Solo HTTP. |
+| **DDoS del juego (puertos TCP 44405-44406 y 55901-55906)** | Protección del proveedor: Vultr +10 USD/mes; OVH incluida | 10 USD | Cloudflare **no** protege puertos TCP arbitrarios en el plan gratis; su producto para eso (Spectrum) no tiene precio público que pudiera confirmar (**sin confirmar**; todo indica plan empresarial). |
+| Monitoreo | UptimeRobot gratis (50 monitores cada 5 min) o un Uptime Kuma propio en el VPS | 0 | [uptimerobot.com/pricing](https://uptimerobot.com/pricing.md). Fuentes en conflicto sobre si el plan gratis permite uso comercial: **(sin confirmar)**. `iniciar-todo.ps1 -Estado` hay que rehacerlo para Linux. |
+| Firma del instalador (opcional) | Certificado OV vía revendedor ≈ 220 USD al año; desde 2026 exige token físico o HSM en la nube; validez máxima 460 días | 0 si se acepta el aviso de SmartScreen; ≈ 220-400 USD el primer año si se firma | [sslinsights](https://sslinsights.com/digicert-vs-sectigo-code-signing/), [ssldragon](https://www.ssldragon.com/ssl-certificates/code-signing/). El servicio de Microsoft de 9,99 USD/mes acepta personas solo de EE. UU. y Canadá según fuentes de 2024-2026: para Chile, **sin confirmar**. |
+
+### 5. Cobros: pasarelas, mínimo e impuestos
+
+| Pasarela | Comisión vigente | Costo fijo | Notas |
+|---|---|---|---|
+| **Flow** | **2,89 % + IVA** con abono al tercer día hábil; **3,19 % + IVA** con abono al día hábil siguiente (tarjetas, transferencia por Khipu/ETpay, billeteras, Servipag) | ninguno; sin inscripción ni mantención; cada reembolso 202 CLP + IVA | [web.flow.cl/tarifas](https://web.flow.cl/tarifas/). Requisitos para persona natural, monto mínimo por cobro y retiro mínimo: **(sin confirmar)**, la página de tarifas no los trae. Cambio respecto a lo anotado el 2026-11-01: la transferencia ya no aparece más barata que la tarjeta. |
+| **Mercado Pago** | 3,19 % + IVA con el dinero al instante; 2,89 % + IVA a 10 días | ninguno hallado | Página oficial [mercadopago.cl](https://www.mercadopago.cl/herramientas-para-vender/check-out) leída solo por el resumen del buscador (a mí me devolvió error 403): **confirmar**. Sirve de respaldo. |
+| Fase 0: transferencia directa + un GM acredita | 0 % | 0 | Sin código y sin comisión; sirve para el Pack Fundador y para medir demanda. |
+
+**Cuánto queda de cada venta (con inicio de actividades y precio con IVA incluido):** neto = precio / 1,19 − 2,89 % del precio ≈ **81,1 %** del precio (el IVA de la comisión se recupera como crédito). Ejemplo: cosmético de 5.000 CLP → 4.202 sin IVA − 145 de Flow = **4.057 CLP**. Como Flow no cobra un fijo por transacción, **no hay un mínimo por comisión**: una venta de 1.000 CLP deja 811. El mínimo práctico lo pone el trabajo de soporte por venta, no la pasarela.
+
+**Impuestos (lo que pude confirmar; no soy asesor tributario):**
+- **Inicio de actividades:** trámite en línea y sin costo en el SII; para vender corresponde **primera categoría** (la segunda es honorarios y no lleva IVA) ([oficinavirtual.cl, guía 2026](https://www.oficinavirtual.cl/blog/2026/4/13/inicio-de-actividades-en-el-sii-guia-para-empresas-recien-constituidas-en-chile-2026), [ChileAtiende](https://www.chileatiende.gob.cl/fichas/3025-inicio-de-actividades-persona-natural)).
+- **IVA 19 %** incluido en el precio; **F29 todos los meses**, también sin movimiento, hasta el día 12.
+- **Boleta:** el SII tiene emisión gratuita de boleta electrónica (web y app e-Boleta) ([SII](https://www.sii.cl/preguntas_frecuentes/factura_electronica/001_003_7670.htm)); el comprobante de pago electrónico de la pasarela vale como boleta (fuente del SII ya citada en «Cómo cobrar en Chile»).
+- **Renta:** régimen Pro Pyme con tasa de **12,5 %** sobre la utilidad en 2025, 2026 y 2027 (Ley 21.755), 15 % en 2028; PPM de 0,125 % de las ventas. Hay proyectos de ley de 2026 que pueden cambiarlo: **confirmar con el contador** ([lofwork](https://www.lofwork.cl/?p=33701), [Circular SII 53 de 2025](https://www.sii.cl/normativa_legislacion/circulares/2025/circu53.pdf)). Si lo que entra apenas cubre los costos, la utilidad y el impuesto quedan cerca de cero.
+- **Contador:** planes desde **30.000 CLP + IVA al mes** con F29 incluido ([lofwork](https://www.lofwork.cl/servicios-contables/)); 50.000 + IVA en planes pyme; la renta anual (F22) aparte, desde 200.000 CLP + IVA ([contable.app](https://contable.app/blog/servicio-contable-que-se-cobra-aparte-de-la-mensualidad)); rangos de mercado 50.000-150.000 CLP al mes ([cuantomecuesta.com](https://cuantomecuesta.com/cl/contador/), mayo de 2026). Bajo 23 UTA de ventas al año existiría un F29 simplificado gratis en el Portal MIPYME (fuente de terceros, **sin confirmar**).
+- **IVA de servicios extranjeros:** Vultr, Cloudflare y similares pueden sumar 19 % a la factura de un cliente chileno; con inicio de actividades ese IVA puede ser crédito. **(sin confirmar** para cada proveedor**)**.
+- **No hallé** una fuente clara de cómo clasifica el SII la venta de bienes digitales de un videojuego ni qué pasa con donaciones por transferencia sin inicio de actividades: preguntarlo al contador antes de cobrar el primer peso.
+
+### 6. Moderación con IA: costo por mes
+
+**Precios de la API** (por millón de tokens; tabla del 2026-11-03): Claude Haiku 5.5 **0,10 USD entrada / 0,50 USD salida**; Claude Sonnet 5.5 **2 / 10 USD**; por lotes (sin urgencia) cuesta la mitad. El filtro de moderación de OpenAI es **gratis** con límites (250 solicitudes por minuto y 5.000 al día en el nivel gratuito, [documento de OpenAI del 2026-06-02](https://cdn.openai.com/API/docs/omni_moderation_information_for_developers.pdf), [página del modelo](https://developers.openai.com/api/docs/models/omni-moderation-latest)).
+
+**Supuestos míos:** 20 mensajes de chat por jugador y hora; horas jugadas al mes = conexión media × 720 h; clasificar un mensaje = 300 tokens de entrada (reglas + contexto) y 30 de salida; evaluar un caso completo con contexto de partida = 5.000 de entrada y 500 de salida con Sonnet 5.5 (≈ 0,015 USD por caso).
+
+| Escenario | Mensajes al mes | Casos al mes (supuesto) | **Esperado** (filtro gratis + IA solo en lo dudoso) | **Techo** (Haiku lee todo + Sonnet evalúa casos) |
+|---|---|---|---|---|
+| 10 conectados | ~50.000 | ~20 | **< 1 USD** | ~3 USD |
+| 50 conectados | ~250.000 | ~100 | **1-5 USD** | ~13 USD |
+| 200 conectados | ~1.000.000 | ~400 | **5-25 USD** | ~51 USD |
+
+Es gasto real por uso: poner un **tope mensual** en la cuenta de la API. El flujo por etapas ya decidido (reglas simples y detección silenciosa primero, IA solo para casos dudosos) es justo lo que lo mantiene barato.
+
+### 7. Tu tiempo (estimación mía, sin datos medidos)
+
+| Escenario | Horas al mes | En qué se van |
+|---|---|---|
+| 10 conectados | 8-15 h | publicar parches, mirar backups y alertas, soporte por chat, revisar los pocos casos de moderación, acreditar compras a mano |
+| 50 conectados | 20-35 h | lo anterior + soporte de instalación y pagos, apelaciones, F29 mensual, cuadrar ventas con la pasarela |
+| 200 conectados | 50-90 h | lo anterior a mayor volumen + incidentes (caídas, ataques), tramposos, comunidad (Discord), balance; a este nivel conviene sumar 1-2 moderadores voluntarios |
+
+No tiene costo en dinero, pero es el recurso que se acaba primero.
+
+### Totales por escenario (mensual)
+
+**Costos fijos de infraestructura** (no cambian con el uso): servidor, protección DDoS, backups, dominio. **Costos variables:** moderación con IA, exceso de tráfico, correo sobre el plan gratis, comisión de la pasarela (sale de cada venta, por eso va en el neto del punto 8 y no aquí). **Formalización** (contador): fijo, igual en los tres escenarios desde la primera venta.
+
+| | Mínimo | Esperado | Con margen de error |
+|---|---|---|---|
+| **10 conectados — infraestructura** | **0,84 USD (≈ 800 CLP)**: Oracle gratis o el PC propio por ZeroTier + dominio. No es una opción segura para público abierto. | **40,64 USD (≈ 40.300 CLP)**: Vultr 24 + backups 4,80 + DDoS 10 + dominio 0,84 + IA 1 | **84,28 USD (≈ 83.600 CLP)**: 4 vCPU / 8 GB 48 + backups 9,60 + DDoS 10 + dominio 0,84 + IA 3 + 19 % de IVA sobre lo de Vultr 12,84 |
+| **50 conectados — infraestructura** | **49,84 USD (≈ 49.500 CLP)**: 4 vCPU / 8 GB 48 + dominio 0,84 + IA 1; sin DDoS ni backups de Vultr | **73,44 USD (≈ 72.900 CLP)**: 48 + 9,60 + 10 + 0,84 + IA 5 | **154,26 USD (≈ 153.100 CLP)**: CPU dedicada 90 + backups 18 + DDoS 10 + dominio 0,84 + IA 13 + IVA 22,42 |
+| **200 conectados — infraestructura** | **101,84 USD (≈ 101.100 CLP)**: 8 vCPU / 16 GB 96 + dominio 0,84 + IA 5 | **151,04 USD (≈ 149.900 CLP)**: 96 + 19,20 + 10 + 0,84 + IA 25 | **481,20 USD (≈ 477.600 CLP)**: 32 GB dedicado 195 + backups 39 + DDoS 10 + dominio 0,84 + IA 51 + correo 20 + exceso de 10 TB 100 + IVA 65,36 |
+| **Formalización (igual en los tres)** | 0 (hacerlo uno mismo en el SII) | **35,97 USD (35.700 CLP)**: contador 30.000 + IVA | **79,93 USD (≈ 79.300 CLP)**: contador 50.000 + IVA y la renta anual prorrateada (238.000 / 12) |
+| **10 conectados — total** | 0,84 USD (≈ 800 CLP) | **76,61 USD (≈ 76.000 CLP)** | 164,21 USD (≈ 163.000 CLP) |
+| **50 conectados — total** | 49,84 USD (≈ 49.500 CLP) | **109,41 USD (≈ 108.600 CLP)** | 234,19 USD (≈ 232.400 CLP) |
+| **200 conectados — total** | 101,84 USD (≈ 101.100 CLP) | **187,01 USD (≈ 185.600 CLP)** | 561,13 USD (≈ 556.900 CLP) |
+
+**Costos de arranque (una sola vez):**
+
+| Ítem | Costo | Notas |
+|---|---|---|
+| Dominio `.cl`, primer año | 9.990 CLP (≈ 10 USD) | ya contado prorrateado arriba |
+| Inicio de actividades en el SII | 0 | trámite en línea |
+| Alta en Flow / Mercado Pago, R2, Resend, monitoreo | 0 | |
+| Prueba de carga en un VPS por horas | ≈ 1-5 USD | para cerrar el dato que falta del punto 0 |
+| Primera consulta con un contador | sin cifra confirmada | pedir cotización; suele ir incluida al contratar el plan mensual **(sin confirmar)** |
+| Firma del instalador (opcional) | 0, o ≈ 220-400 USD | sin firma queda el aviso de SmartScreen |
+| Pasar el despliegue a Linux, HTTPS y CAPTCHA en el portal, webhook de pago, textos de términos y privacidad | 0 en dinero | es trabajo de desarrollo (horas) |
+| **Total de arranque** | **≈ 11-15 USD (≈ 11.000-15.000 CLP)** sin firma · **≈ 230-415 USD (≈ 228.000-412.000 CLP)** con firma | |
+
+### 8. Cuántos jugadores que paguen hacen falta
+
+**Modelo usado (de «Cobrar por cosméticos»):** paga entre 3 % y 5 % de los activos al mes, entre 5 y 10 USD cada uno; neto ≈ 81,1 % del precio (IVA y Flow), antes de impuesto a la renta. **Supuesto mío nuevo:** activos al mes ≈ 10 × conectados a la vez (100 / 500 / 2.000); si la proporción real es otra, todo se mueve con ella.
+
+Neto por pagador: 5 USD → 4,06 · 8 USD → 6,49 · 10 USD → 8,11.
+
+| Escenario | Costo esperado a cubrir | Pagadores necesarios a 5 / 8 / 10 USD | Eso es este % de los activos (a 8 USD) | Ingreso bruto necesario por jugador activo |
+|---|---|---|---|---|
+| 10 conectados, solo infraestructura | 40,64 USD | 11 / 7 / 6 | 7 % | 0,50 USD (≈ 500 CLP) |
+| 10 conectados, con contador | 76,61 USD | 19 / 12 / 10 | 12 % | 0,94 USD (≈ 940 CLP) |
+| 50 conectados, solo infraestructura | 73,44 USD | 19 / 12 / 10 | 2,4 % | 0,18 USD (≈ 180 CLP) |
+| 50 conectados, con contador | 109,41 USD | 27 / 17 / 14 | 3,4 % | 0,27 USD (≈ 270 CLP) |
+| 200 conectados, con contador | 187,01 USD | 47 / 29 / 24 | 1,5 % | 0,12 USD (≈ 115 CLP) |
+| 200 conectados, con margen de error | 561,13 USD | 139 / 87 / 70 | 4,3 % | 0,35 USD (≈ 345 CLP) |
+
+**Lo que rendiría el modelo en cada escenario (neto al mes):**
+
+| Escenario (activos) | Pesimista (3 % × 5 USD) | Realista (4 % × 8 USD) | Optimista (5 % × 10 USD) | ¿Cubre el costo esperado? |
+|---|---|---|---|---|
+| 10 conectados (100) | 12 USD | 26 USD | 41 USD | **No** en pesimista ni realista (faltan 15-29 USD al mes solo de infraestructura); empata en optimista y sin contador |
+| 50 conectados (500) | 61 USD | 130 USD | 203 USD | **Sí** en realista (130 contra 109 con contador); no en pesimista |
+| 200 conectados (2.000) | 243 USD | 519 USD | 811 USD | **Sí** en los tres contra lo esperado (187); el caso «con margen» (561) solo lo cubre el optimista |
+
+**Lectura:** con 10 conectados el servidor público lo pagas tú (≈ 40.000 CLP al mes) o lo cubre el **Pack Fundador**: el caso realista de esa sección (24 packs × 20 USD ≈ 389 USD netos) paga unos **9 meses** de infraestructura del escenario de 10, o unos 3,5 meses del escenario de 50 con contador. El punto donde el servidor se paga solo, con el modelo realista, está cerca de **40-50 conectados a la vez**.
+
+### Recomendación: la opción más barata que es segura
+
+1. **Antes de gastar:** compilar en Release, medir `/mobastress` y 3-5 partidas de bots a la vez en el PC, y probar el despliegue en Linux (Docker) en el nivel gratis de Oracle en Santiago si da capacidad. Costo: 0.
+2. **Abrir con:** Vultr Santiago 2 vCPU / 4 GB (24 USD) + DDoS (10 USD) + dominio `.cl` + Cloudflare gratis delante del portal + R2 para instalador, actualizaciones y `pg_dump` diario + Resend gratis + monitoreo gratis. **≈ 35 USD al mes (≈ 34.600 CLP)**, sin contrato: se cobra por hora y se puede apagar. Sumar 4,80 USD si quieres los backups automáticos de Vultr.
+3. **Nunca abrir a internet** el panel de administración (5000) ni PostgreSQL; el PC de la casa deja de ser servidor.
+4. **Cobro:** fase 0 con transferencia y acreditación manual + Pack Fundador mientras haya menos de ~10 ventas al mes; Flow (2,89 % + IVA) cuando el volumen lo pida; Mercado Pago de respaldo. Hablar con un contador **antes** de la primera venta.
+5. **Crecer por pasos:** subir a 4 vCPU / 8 GB (48 USD) cuando la CPU pase de ~60 % sostenido o haya más de ~25 conectados; a 8 vCPU / 16 GB (96 USD) sobre ~100. Cambiar de plan en Vultr es un reinicio.
+6. **Si la plata manda sobre la latencia:** OVH VPS-2 (4 vCore / 8 GB, desde 8,50 USD, DDoS y backup incluidos) deja todo en ≈ 10 USD al mes, con 130-140 ms de ping. Para un MOBA lo desaconsejo, pero es la alternativa real más barata.
+
+### Decisiones que te tocan a ti
+
+1. **Latencia o precio:** ¿servidor en Santiago (~35 USD al mes) o en EE. UU. (~10 USD al mes, 130-140 ms)?
+2. **Cuánto pones de tu bolsillo y por cuánto tiempo** mientras haya menos de ~40 conectados (≈ 35.000-40.000 CLP al mes).
+3. **Formalización:** cuándo haces inicio de actividades y si llevas el F29 tú o pagas contador (35.700 CLP al mes o más).
+4. **Cobro al abrir:** solo Pack Fundador por transferencia, o Flow desde el día 1; y si el abono es al tercer día (2,89 %) o al día siguiente (3,19 %).
+5. **Nombre del dominio** (`.cl` a 9.990 CLP al año) y bajo qué marca («MU MOBA»).
+6. **Firmar el instalador** (≈ 220-400 USD el primer año) o aceptar el aviso de SmartScreen.
+7. **Moderación:** tope mensual de gasto en IA y si la IA lee todo el chat o solo lo que marque el filtro gratis.
+8. **Linux o Windows** en el VPS (Linux es lo barato; Windows suma licencia, monto no cotizado).
+9. **Autorizar la prueba de carga** (gratis en tu PC; 1-5 USD si se hace en un VPS por horas) para cerrar el dato que falta.
+10. **Cuántas horas al mes** puedes dedicar; sobre ~50 conectados hace falta ayuda de moderadores.
+
+### Lo que no pude confirmar (resumen)
+
+Resultados de `/mobastress` (no existen todavía) · CPU, RAM y tráfico por partida · precios de Vultr Santiago en su página oficial (error 403; usé un agregador del 2026-11-14) y si su DDoS está en Santiago · ubicación sudamericana de OVH y si su precio «desde» exige compromiso · tráfico incluido y precios completos de Hetzner en EE. UU. · exceso de tráfico de Lightsail en São Paulo · 19 % de IVA en facturas de proveedores extranjeros · requisitos, monto mínimo y retiro mínimo de Flow para persona natural · tabla oficial de Mercado Pago (error 403) · si R2 exige tarjeta · uso comercial del plan gratis de UptimeRobot · precio de Cloudflare Spectrum · firma de código para una persona en Chile · tratamiento tributario exacto de bienes digitales y donaciones · la proporción «activos al mes = 10 × conectados», los mensajes por hora y las horas de operación son supuestos míos, no datos.
