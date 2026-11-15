@@ -249,14 +249,8 @@ public static class MobaItemTraits
     /// <summary>The size (fraction) of one shield option of the champion's equipped off-hand item.</summary>
     private static double ShieldOptionOf(Player champion, byte kind)
     {
-        var item = champion.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot);
-        if (item?.Definition is not { } definition)
-        {
-            return 0;
-        }
-
-        var entry = MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Offhand && e.Group == definition.Group && e.Number == definition.Number);
-        if (entry is null)
+        // The shield / book is looked up in both hands (it sits in slot 1; see MobaItemPower.OffhandOf).
+        if (MobaItemPower.OffhandOf(champion) is not var (item, entry))
         {
             return 0;
         }

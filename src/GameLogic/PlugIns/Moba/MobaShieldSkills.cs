@@ -51,7 +51,7 @@ public static class MobaShieldSkills
     /// <param name="skill">The skill that was cast.</param>
     /// <returns><c>true</c> if the skill comes from the equipped shield / book.</returns>
     public static bool IsEquippedOffhandSkill(Player champion, Skill skill)
-        => champion.Inventory?.Items.FirstOrDefault(i => i.ItemSlot == InventoryConstants.LeftHandSlot) is { HasSkill: true, Definition.Skill: { } offhandSkill }
+        => MobaItemPower.OffhandOf(champion) is { Item: { HasSkill: true, Definition.Skill: { } offhandSkill } }
            && offhandSkill.Number == skill.Number;
 
     /// <summary>

@@ -45,6 +45,10 @@ public sealed partial class MobaBotPlayer
             this.MobaSkillPoints += skillPoints;
             this.MobaBuffPoints += buffPoints;
             character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(this);
+
+            // Like a real level-up (MobaExperience): without the master points a class with a tree (Grand Master, High Elf) fought with an empty
+            // tree term - a fifth less damage, mitigation and critical chance than the classes without a tree.
+            character.MasterLevelUpPoints += MobaMasterTree.PointsPerLevel;
         }
 
         MobaProgression.ApplyLevelScaling(this);

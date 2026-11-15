@@ -361,17 +361,15 @@ public static class MobaArchetype
             }
         }
 
-        if (champion.Inventory?.Items.FirstOrDefault(it => it.ItemSlot == InventoryConstants.LeftHandSlot) is { Definition: { } offhand }
-            && MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Offhand && e.Group == offhand.Group && e.Number == offhand.Number) is { } offhandEntry)
+        // The weapon and the shield / book are looked up in both hands (see MobaItemPower.WeaponOf).
+        if (MobaItemPower.OffhandOf(champion) is { } offhand)
         {
-            AddTotals(snapshot, OffhandBonusesOf(offhandEntry.Variant, (int)offhandEntry.Tier));
+            AddTotals(snapshot, OffhandBonusesOf(offhand.Entry.Variant, (int)offhand.Entry.Tier));
         }
 
-        var weapon = champion.Inventory?.Items.FirstOrDefault(it => it.ItemSlot == InventoryConstants.RightHandSlot);
-        var weaponTier = MobaItemPower.TierIn(champion, InventoryConstants.RightHandSlot, MobaShopCategory.Weapons);
-        if (weapon?.Definition is { } weaponDefinition && weaponTier > 0)
+        if (MobaItemPower.WeaponOf(champion) is { Item.Definition: { } weaponDefinition } weapon)
         {
-            AddTotals(snapshot, PieceBonusesOf(family, WeaponKey, weaponTier, WeaponProfileOf(family, weaponDefinition.Group, (short)weaponDefinition.Number)));
+            AddTotals(snapshot, PieceBonusesOf(family, WeaponKey, (int)weapon.Entry.Tier, WeaponProfileOf(family, weaponDefinition.Group, (short)weaponDefinition.Number)));
         }
     }
 
