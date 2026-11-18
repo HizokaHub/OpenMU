@@ -110,8 +110,19 @@ public static class AttackableExtensions
         }
         else
         {
-            var defenseAttribute = defender.GetDefenseAttribute(attacker);
-            defense = (int)((defender.Attributes[defenseAttribute] + defender.Attributes[Stats.GreaterDefenseBonus]) * defender.Attributes[Stats.DefenseDecrement]);
+            if (defender is Player { IsMobaClone: true } mobaFlatDefender)
+            {
+                // MOBA (2026-11-17, P1): against a champion the flat defense is the one of its level (400 at level 30), whoever attacks. The native
+                // defense grew into the thousands with the Agility spent after the level scaling and with the armour, and as a flat subtraction it
+                // erased the small hits of the classes that spread their damage (MG, GM, SUM). The real reduction is the % mitigation (MobaDefense).
+                defense = (int)MobaProgressionDefense(mobaFlatDefender);
+            }
+            else
+            {
+                var defenseAttribute = defender.GetDefenseAttribute(attacker);
+                defense = (int)((defender.Attributes[defenseAttribute] + defender.Attributes[Stats.GreaterDefenseBonus]) * defender.Attributes[Stats.DefenseDecrement]);
+            }
+
             if (defense < 0)
             {
                 defense = 0;
@@ -161,7 +172,8 @@ public static class AttackableExtensions
                 }
             }
 
-            if (attacker.Attributes[Stats.HasDoubleWield] > 0)
+            // MOBA (2026-11-17, P2): no double-wield bonus for champions; their damage comes from the skill table.
+            if (!isMobaChampionAttacker && attacker.Attributes[Stats.HasDoubleWield] > 0)
             {
                 // Double wield => 110% dmg (55% + 55%).
                 dmg += dmg;
@@ -846,6 +858,9 @@ public static class AttackableExtensions
 
         return hitChance;
     }
+
+    private static float MobaProgressionDefense(Player champion)
+        => PlugIns.Moba.MobaProgression.DefenseAt(Math.Clamp(champion.MobaLevel <= 0 ? 1 : champion.MobaLevel, 1, PlugIns.Moba.MobaLevels.MaxLevel));
 
     private static AttributeDefinition GetDefenseAttribute(this IAttackable defender, IAttacker attacker)
     {

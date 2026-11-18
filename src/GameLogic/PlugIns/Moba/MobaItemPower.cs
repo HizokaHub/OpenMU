@@ -31,6 +31,10 @@ public static class MobaItemPower
         InventoryConstants.PendantSlot, InventoryConstants.Ring1Slot, InventoryConstants.Ring2Slot,
     };
 
+    private static readonly byte[] DefenseSlotsWithoutHelm = DefenseSlots.Where(s => s != InventoryConstants.HelmSlot).ToArray();
+
+    private static readonly byte[] DefenseSlotsWithoutGloves = DefenseSlots.Where(s => s != InventoryConstants.GlovesSlot).ToArray();
+
     /// <summary>How itemized a champion's weapon slots are, 0 (empty/starter) to 1 (both hands T3).</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The offense item fraction, 0..1.</returns>
@@ -93,7 +97,20 @@ public static class MobaItemPower
     /// <summary>How itemized a champion's armour/wings/accessory slots are, 0 to 1 (all T3).</summary>
     /// <param name="champion">The champion.</param>
     /// <returns>The defense item fraction, 0..1.</returns>
-    public static double DefenseFractionOf(Player champion) => FractionOf(champion, DefenseSlots);
+    public static double DefenseFractionOf(Player champion) => FractionOf(champion, DefenseSlotsOf(champion));
+
+    /// <summary>
+    /// The defense slots a class can actually fill (2026-11-17, P3): the Magic Gladiator has no helm in its sets and the Rage Fighter has no gloves
+    /// (they are its weapon), so those slots don't count in the denominator and both classes reach 100 % with their four pieces + wings + accessories.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The slots that count for the defense item fraction.</returns>
+    public static byte[] DefenseSlotsOf(Player champion) => MobaPassives.FamilyOf(champion) switch
+    {
+        MobaFamily.MagicGladiator => DefenseSlotsWithoutHelm,
+        MobaFamily.RageFighter => DefenseSlotsWithoutGloves,
+        _ => DefenseSlots,
+    };
 
     /// <summary>
     /// The shop tier (0 = none, 1..3) of the item equipped in a slot, only if it is a catalog item of
