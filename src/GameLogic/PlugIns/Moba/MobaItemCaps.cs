@@ -50,6 +50,18 @@ public static class MobaItemCaps
 
         CapAttribute(attributes, Stats.ManaUsageReduction, MaxManaUsageReduction, ref state.ManaUsageElement);
 
+        if (MobaF10.Enabled)
+        {
+            // F10: life and SD are PINNED to the model's value (up or down): every life source counts, there is no +20 % cap.
+            var target = MobaF10.HealthOf(champion);
+            PinAttribute(attributes, Stats.MaximumHealth, target, ref state.HealthElement, Stats.CurrentHealth);
+            PinAttribute(attributes, Stats.MaximumShield, (target * MobaProgression.ShieldPerHealth) + MobaCastEffects.TemporaryShieldOf(champion), ref state.ShieldElement, Stats.CurrentShield);
+            attributes[Stats.CurrentShield] = Math.Min(attributes[Stats.CurrentShield], attributes[Stats.MaximumShield]);
+            var manaCap = MobaProgression.ManaAt(champion.MobaLevel) * MaxResourceMultiplier;
+            CapAttribute(attributes, Stats.MaximumMana, manaCap, ref state.ManaElement, Stats.CurrentMana);
+            return;
+        }
+
         var (hpMul, _) = MobaProgression.RoleTilt(MobaPassives.FamilyOf(champion));
         var maxHealthCap = MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier;
         CapAttribute(attributes, Stats.MaximumHealth, maxHealthCap, ref state.HealthElement, Stats.CurrentHealth);
@@ -63,6 +75,39 @@ public static class MobaItemCaps
 
         var maxManaCap = MobaProgression.ManaAt(champion.MobaLevel) * MaxResourceMultiplier;
         CapAttribute(attributes, Stats.MaximumMana, maxManaCap, ref state.ManaElement, Stats.CurrentMana);
+    }
+
+    /// <summary>Like <see cref="CapAttribute"/> but the value is set to the target in both directions (F10).</summary>
+    private static void PinAttribute(IAttributeSystem attributes, AttributeDefinition stat, float target, ref IElement? tracked, AttributeDefinition currentStat)
+    {
+        var savedCurrent = attributes[currentStat];
+        var savedMax = Math.Max(attributes[stat], 1f);
+        if (tracked is { } previous)
+        {
+            attributes.RemoveElement(previous, stat);
+            tracked = null;
+        }
+
+        var current = attributes[stat];
+        var delta = target - current;
+        if (Math.Abs(delta) > 0.5f)
+        {
+            var element = new SimpleElement(delta, AggregateType.AddRaw);
+            attributes.AddElement(element, stat);
+            var effect = attributes[stat] - current;
+            if (Math.Abs(attributes[stat] - target) > 0.5f && Math.Abs(effect) > 0.001f && Math.Sign(effect) == Math.Sign(delta))
+            {
+                // a multiplier on the stat amplifies the flat element: rescale it so the final value lands on the target
+                attributes.RemoveElement(element, stat);
+                element = new SimpleElement(delta * (delta / effect), AggregateType.AddRaw);
+                attributes.AddElement(element, stat);
+            }
+
+            tracked = element;
+        }
+
+        // keep the same life PERCENTAGE when the maximum moves (the current value is clamped by the transient maximum otherwise)
+        attributes[currentStat] = Math.Min(attributes[stat], Math.Max(savedCurrent, savedCurrent * attributes[stat] / savedMax));
     }
 
     private static void CapAttribute(IAttributeSystem attributes, AttributeDefinition stat, float cap, ref IElement? tracked, AttributeDefinition? currentStat = null)

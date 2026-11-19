@@ -111,6 +111,11 @@ public static class MobaDefense
     /// <returns>The final mitigation fraction, 0..<see cref="MaxMitigation"/>.</returns>
     public static double FinalMitigationOf(Player defender)
     {
+        if (MobaF10.Enabled)
+        {
+            return MobaF10.DefenseOf(defender).Mitigation;
+        }
+
         var fromStats = MitigationOf(defender);
         var fromItems = MobaItemPower.DefenseFractionOf(defender) * MaxMitigation;
         var fromTree = MobaMasterTree.Fraction(defender, MobaTreeKind.Defense) * MaxMitigation;
@@ -187,6 +192,11 @@ public static class MobaDefense
 
         var treeDurability = MobaMasterTree.DurabilityDamageReduction * (MobaMasterTree.Fraction(defender, MobaTreeKind.Durability) ?? 0.0);
         var durability = 1.0 - ((1.0 - treeDurability) * (1.0 - MobaArchetype.DurabilityOf(defender)));
+        if (MobaF10.Enabled)
+        {
+            durability = 1.0 - MobaF10.DefenseOf(defender).DamageTaken;   // F10: the durability nodes and traits are already inside the pool
+        }
+
         var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's

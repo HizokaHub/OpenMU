@@ -162,6 +162,13 @@ public static class MobaSkillDamage
             : (DefaultBase, DefaultPerRank, DefaultMaxStatBonus);
 
         var r = Math.Clamp(rank, 1, 5);
+        if (MobaF10.Enabled)
+        {
+            // F10: the damage of the build (stats, tree, pieces, buffs, class lean) is ONE factor, not the 45/20/35 blend on top of the strengthener, buff and trait multipliers.
+            Spread2((baseDamage + (perRank * (r - 1))) * FlatMultiplier * MobaProgression.DamageScale(champion.MobaLevel) * MobaF10.DamageFactor(champion), out min, out max);
+            return;
+        }
+
         var flat = (baseDamage + (perRank * (r - 1))) * FlatMultiplier * (1.0 + MobaMasterTree.StrengthenerBonusOf(champion, skillNumber)) * MobaBuffPower.SpellDamageFactorOf(champion) * MobaArchetype.SpellPowerFactorOf(champion);
 
         // Per-rank stat ratio (LoL AP/AD ratio): the skill scales harder with the primary
@@ -190,6 +197,11 @@ public static class MobaSkillDamage
         const double comboMaxStatBonus = 0.95; // rewards a maxed build like a heavy hitter
 
         var flat = comboFlatBase * FlatMultiplier * 1.25;
+        if (MobaF10.Enabled)
+        {
+            return (int)(flat * MobaProgression.DamageScale(champion.MobaLevel) * MobaF10.DamageFactor(champion));
+        }
+
         var bonus = comboMaxStatBonus * StatBonusMultiplier * BlendedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         return (int)(flat * (1.0 + bonus) * levelScale);
@@ -204,6 +216,12 @@ public static class MobaSkillDamage
         // Basic attacks grow with champion level (a real damage phase between skills), on
         // top of the global level scale and the primary-stat bonus.
         var flat = (BasicAttackDamage + (BasicAttackPerLevel * (Math.Clamp(champion.MobaLevel, 1, 30) - 1))) * FlatMultiplier;
+        if (MobaF10.Enabled)
+        {
+            Spread2(flat * MobaProgression.DamageScale(champion.MobaLevel) * MobaF10.DamageFactor(champion), out min, out max);
+            return;
+        }
+
         var bonus = BasicAttackMaxStatBonus * StatBonusMultiplier * BlendedFraction(champion);
         var levelScale = MobaProgression.DamageScaleFor(champion);
         Spread2(flat * (1.0 + bonus) * levelScale, out min, out max);
