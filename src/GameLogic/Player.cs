@@ -908,6 +908,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// <inheritdoc/>
     public ValueTask ReflectDamageAsync(IAttacker reflector, uint damage)
     {
+        PlugIns.Moba.MobaTelemetry.ReflectObserver?.Invoke(reflector, this, damage);
         return this.HitAsync(this.GetHitInfo(damage, DamageAttributes.Reflected, reflector), reflector, null);
     }
 

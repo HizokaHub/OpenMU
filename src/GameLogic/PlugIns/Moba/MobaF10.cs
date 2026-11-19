@@ -51,6 +51,12 @@ public static class MobaF10
     /// <summary>Gets or sets the global damage scale of the model (calibrated with real duels so that a typical fight lasts as designed).</summary>
     public static double DamageScale { get; set; } = 2.7;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the per-hit cap (30 % of the victim's max HP) and the 2 s burst brake of <see cref="MobaDefense"/> stay on under F10.
+    /// Diagnosis 2026-11-20: they cut 92-96 % of the damage that reaches Summoner / Elf (low HP) but only ~50 % for the others, so the class offsets (psi) mostly compensate them.
+    /// </summary>
+    public static bool HitCapAndBrake { get; set; } = true;
+
     /// <summary>Gets or sets the global life scale of the model.</summary>
     public static double HealthScale { get; set; } = 1.0;
 

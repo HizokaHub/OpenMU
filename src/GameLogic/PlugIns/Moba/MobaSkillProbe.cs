@@ -28,7 +28,8 @@ using MUnique.OpenMU.Pathfinding;
 /// <param name="Combo">Whether it was part of a combo.</param>
 /// <param name="Dist">The distance between attacker and victim.</param>
 /// <param name="PctOfMax">The damage as a fraction of the victim's maximum health.</param>
-public sealed record MobaProbeHit(IAttacker Attacker, Player Victim, Skill? Skill, long Hp, long Sd, int Raw, bool Crit, bool Combo, double Dist, double PctOfMax);
+/// <param name="Attributes">The attributes of the hit (a DoT / passive bolt carries <see cref="DamageAttributes.Poison"/>).</param>
+public sealed record MobaProbeHit(IAttacker Attacker, Player Victim, Skill? Skill, long Hp, long Sd, int Raw, bool Crit, bool Combo, double Dist, double PctOfMax, DamageAttributes Attributes = DamageAttributes.Undefined);
 
 /// <summary>
 /// Server-side skill review (2026-11-13): a champion of a class casts EVERY skill of its kit against level 30 dummies through the same handlers a

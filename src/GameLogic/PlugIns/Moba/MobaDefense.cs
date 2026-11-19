@@ -47,6 +47,9 @@ public static class MobaDefense
     /// <summary>Last mitigation applied per defender (for the [MOBA-DMG] trace): raw pre-mitigation, final, and the effective mitigation fraction.</summary>
     public static readonly ConditionalWeakTable<Player, MitigationTrace> LastMitigation = new();
 
+    /// <summary>Observer of the stages of every mitigated hit (defender, skill, damage in, after mitigation, after the per-hit cap, after the burst brake), used by the duels to measure what the cap and the brake cut. <see langword="null"/> when no probe runs.</summary>
+    public static Action<Player, short, int, int, int, int>? StageObserver { get; set; }
+
     private sealed class BurstState
     {
         public Queue<(long At, int Amount)> Hits { get; } = new();
@@ -202,7 +205,8 @@ public static class MobaDefense
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
         // max HP. Big burst still wins fights - it just can't delete a champion in one frame.
         var capped = final;
-        if (defender.Attributes is { } da)
+        var capsOn = !MobaF10.Enabled || MobaF10.HitCapAndBrake;
+        if (capsOn && defender.Attributes is { } da)
         {
             var hitCap = (int)(da[Stats.MaximumHealth] * MaxHitFractionOfMaxHp);
             if (hitCap > 0 && capped > hitCap)
@@ -211,10 +215,13 @@ public static class MobaDefense
             }
         }
 
-        if (defender.Attributes is { } ba)
+        var afterCap = capped;
+        if (capsOn && defender.Attributes is { } ba)
         {
             capped = ApplyBurstBrake(defender, capped, ba[Stats.MaximumHealth] + ba[Stats.MaximumShield]);
         }
+
+        StageObserver?.Invoke(defender, skillNumber, rawDamage, final, afterCap, capped);
 
         var trace = LastMitigation.GetOrCreateValue(defender);
         trace.Raw = rawDamage;

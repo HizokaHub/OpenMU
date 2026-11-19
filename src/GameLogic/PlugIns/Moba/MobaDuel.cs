@@ -52,6 +52,13 @@ public static class MobaDuel
 
     /// <summary>The damage a duelist took from something that is not its opponent (a jungle monster, a minion, a tower), per duelist.</summary>
     private static readonly ConcurrentDictionary<MobaBotPlayer, long> Foreign = new();
+
+    /// <summary>
+    /// What happens around the damage of every duelist (2026-11-20, to find which channels of the kits F10 does not see): hits and their size per skill
+    /// (a DoT / passive bolt has the key 10000 + skill), heals, reflected damage, what the mitigation, the per-hit cap and the burst brake cut, and
+    /// where the duelist stood and how long it was disabled.
+    /// </summary>
+    private static readonly ConcurrentDictionary<MobaBotPlayer, DuelStats> Measures = new();
     private static int _running;
     private static int _cancel;
     private static int _nameCounter;
@@ -108,6 +115,9 @@ public static class MobaDuel
 
             await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
             MobaTelemetry.ProbeObserver = OnHit;
+            MobaTelemetry.HealObserver = OnHeal;
+            MobaTelemetry.ReflectObserver = OnReflect;
+            MobaDefense.StageObserver = OnStage;
 
             var slots = FindSlots(map, request.Parallel);
             logger.LogInformation("[MOBA-DUEL] {Slots} rincones libres para {Wanted} duelos a la vez.", slots.Count, request.Parallel);
@@ -142,7 +152,11 @@ public static class MobaDuel
         finally
         {
             MobaTelemetry.ProbeObserver = null;
+            MobaTelemetry.HealObserver = null;
+            MobaTelemetry.ReflectObserver = null;
+            MobaDefense.StageObserver = null;
             Damage.Clear();
+            Measures.Clear();
             if (map is not null)
             {
                 await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
@@ -167,7 +181,122 @@ public static class MobaDuel
         long BForeign = 0,
         int[]? ABuffs = null,
         int[]? BBuffs = null,
-        double PrepSeconds = 0);
+        double PrepSeconds = 0,
+        Dictionary<string, object?>? AStat = null,
+        Dictionary<string, object?>? BStat = null);
+
+    /// <summary>The measurements of one duelist during the blows (see <see cref="Measures"/>).</summary>
+    private sealed class DuelStats
+    {
+        /// <summary>Per skill key: count, damage, raw damage (before mitigation), hits with a raw value, crits, sum of the distance.</summary>
+        public ConcurrentDictionary<int, long[]> Hits { get; } = new();
+
+        public ConcurrentDictionary<string, double> Heal { get; } = new();
+
+        public double ReflectDealt;
+
+        /// <summary>Hits taken, damage in, after the mitigation, after the per-hit cap, after the burst brake.</summary>
+        public double[] Stage { get; } = new double[5];
+
+        public int Samples;
+
+        /// <summary>Samples with the opponent within 2, 4, 6 tiles and farther.</summary>
+        public int[] Dist { get; } = new int[4];
+
+        public int Disabled;
+
+        public int Slowed;
+
+        public int LowMana;
+    }
+
+    private static DuelStats StatsOf(MobaBotPlayer bot) => Measures.GetOrAdd(bot, _ => new DuelStats());
+
+    private static void OnStage(Player defender, short skill, int rawIn, int afterMit, int afterCap, int afterBrake)
+    {
+        if (defender is MobaBotPlayer { DuelMode: true } bot)
+        {
+            var s = StatsOf(bot);
+            lock (s.Stage)
+            {
+                s.Stage[0]++;
+                s.Stage[1] += rawIn;
+                s.Stage[2] += afterMit;
+                s.Stage[3] += afterCap;
+                s.Stage[4] += afterBrake;
+            }
+        }
+    }
+
+    private static void OnHeal(Player champion, double amount, string source)
+    {
+        if (champion is MobaBotPlayer { DuelMode: true } bot)
+        {
+            var label = source.StartsWith("vamp(", StringComparison.Ordinal) ? "vamp" : source;
+            StatsOf(bot).Heal.AddOrUpdate(label, amount, (_, old) => old + amount);
+        }
+    }
+
+    private static void OnReflect(IAttacker reflector, Player hurt, uint damage)
+    {
+        if (reflector is MobaBotPlayer { DuelMode: true } bot)
+        {
+            var s = StatsOf(bot);
+            lock (s.Heal)
+            {
+                s.ReflectDealt += damage;
+            }
+        }
+    }
+
+    private static void Sample(MobaBotPlayer me, MobaBotPlayer foe)
+    {
+        if (me.Attributes is not { } a || !me.IsAlive || !foe.IsAlive)
+        {
+            return;
+        }
+
+        var s = StatsOf(me);
+        var d = foe.GetDistanceTo(me.Position);
+        lock (s.Dist)
+        {
+            s.Samples++;
+            s.Dist[d <= 2 ? 0 : d <= 4 ? 1 : d <= 6 ? 2 : 3]++;
+            if (a[Stats.IsStunned] > 0 || a[Stats.IsFrozen] > 0 || a[Stats.IsAsleep] > 0)
+            {
+                s.Disabled++;
+            }
+
+            if (a[Stats.MovementSpeedFactor] < 0.9f)
+            {
+                s.Slowed++;
+            }
+
+            if (a[Stats.CurrentMana] < 0.15f * a[Stats.MaximumMana])
+            {
+                s.LowMana++;
+            }
+        }
+    }
+
+    private static Dictionary<string, object?> Snapshot(MobaBotPlayer bot)
+    {
+        var s = StatsOf(bot);
+        return new Dictionary<string, object?>
+        {
+            ["hits"] = s.Hits.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value.ToArray()),
+            ["casts"] = bot.DuelCasts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+            ["heal"] = s.Heal.ToDictionary(kv => kv.Key, kv => Math.Round(kv.Value)),
+            ["reflect"] = Math.Round(s.ReflectDealt),
+            ["stage"] = s.Stage.Select(v => Math.Round(v)).ToArray(),
+            ["samples"] = s.Samples,
+            ["dist"] = s.Dist.ToArray(),
+            ["disabled"] = s.Disabled,
+            ["slowed"] = s.Slowed,
+            ["lowMana"] = s.LowMana,
+            ["f10"] = MobaF10.Enabled ? new[] { MobaF10.DamageFactor(bot), bot.Attributes?[Stats.MaximumHealth] ?? 0, bot.Attributes?[Stats.MaximumShield] ?? 0, MobaF10.DefenseOf(bot).Mitigation, MobaF10.DefenseOf(bot).DamageTaken } : null,
+        };
+    }
 
     private static void OnHit(MobaProbeHit hit)
     {
@@ -175,6 +304,27 @@ public static class MobaDuel
         {
             var perSkill = Damage.GetOrAdd(bot, _ => new ConcurrentDictionary<int, long>());
             perSkill.AddOrUpdate(hit.Skill?.Number ?? 0, hit.Hp + hit.Sd, (_, old) => old + hit.Hp + hit.Sd);
+
+            var isDot = (hit.Attributes & DamageAttributes.Poison) != 0;
+            var key = (hit.Skill?.Number ?? 0) + (isDot ? 10000 : 0);
+            var row = StatsOf(bot).Hits.GetOrAdd(key, _ => new long[6]);
+            lock (row)
+            {
+                row[0]++;
+                row[1] += hit.Hp + hit.Sd;
+                if (!isDot && hit.Raw >= 0)
+                {
+                    row[2] += hit.Raw;
+                    row[3]++;
+                }
+
+                if (hit.Crit)
+                {
+                    row[4]++;
+                }
+
+                row[5] += (long)Math.Round(hit.Dist * 10);
+            }
         }
         else if (hit.Victim is MobaBotPlayer { DuelMode: true } victim)
         {
@@ -256,6 +406,8 @@ public static class MobaDuel
                     ["aBuffs"] = r.ABuffs,
                     ["bBuffs"] = r.BBuffs,
                     ["prepSeconds"] = Math.Round(r.PrepSeconds, 1),
+                    ["aX"] = r.AStat,
+                    ["bX"] = r.BStat,
                 }).ToList(),
             };
         }).ToList();
@@ -297,6 +449,8 @@ public static class MobaDuel
                 BPieces = row.APieces,
                 AForeign = row.BForeign,
                 BForeign = row.AForeign,
+                AStat = row.BStat,
+                BStat = row.AStat,
             };
         }
 
@@ -375,10 +529,16 @@ public static class MobaDuel
             Damage[b] = new ConcurrentDictionary<int, long>();
             Foreign.TryRemove(a, out _);
             Foreign.TryRemove(b, out _);
+            Measures[a] = new DuelStats();
+            Measures[b] = new DuelStats();
+            a.DuelCasts.Clear();
+            b.DuelCasts.Clear();
             var clock = Stopwatch.StartNew();
             while (a.IsAlive && b.IsAlive && clock.Elapsed.TotalSeconds < TimeoutSeconds && Volatile.Read(ref _cancel) == 0)
             {
                 await Task.Delay(100).ConfigureAwait(false);
+                Sample(a, b);
+                Sample(b, a);
             }
 
             a.DuelOpponent = null;
@@ -398,7 +558,9 @@ public static class MobaDuel
                 Foreign.TryGetValue(b, out var fb) ? fb : 0,
                 buffsA,
                 buffsB,
-                prepSeconds);
+                prepSeconds,
+                Snapshot(a),
+                Snapshot(b));
         }
         finally
         {
@@ -412,6 +574,7 @@ public static class MobaDuel
                 bot.DuelOpponent = null;
                 Damage.TryRemove(bot, out _);
                 Foreign.TryRemove(bot, out _);
+                Measures.TryRemove(bot, out _);
                 try
                 {
                     await bot.StopAsync().ConfigureAwait(false);

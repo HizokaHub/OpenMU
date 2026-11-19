@@ -23,6 +23,9 @@ public sealed partial class MobaBotPlayer
     /// <summary>Gets or sets the opponent of the duel; the bot fights only it. <see langword="null"/> = waiting (or the duel is over).</summary>
     public Player? DuelOpponent { get; set; }
 
+    /// <summary>Gets the casts of the duelist per skill number during the blows (measurement of the duels).</summary>
+    public System.Collections.Concurrent.ConcurrentDictionary<int, int> DuelCasts { get; } = new();
+
     /// <summary>Gets or sets a value indicating whether the duelist is in the preparation phase: it only raises its buffs (all of them, one per tick) and does not attack.</summary>
     public bool DuelBuffing { get; set; }
 
@@ -210,6 +213,12 @@ public sealed partial class MobaBotPlayer
         }
 
         var armed = this.MobaSkillCooldowns.TryGetValue(skill.Number, out var ready) && ready > now;
-        return armed || (this.Attributes?[Stats.CurrentMana] ?? 0f) < manaBefore;
+        var cast = armed || (this.Attributes?[Stats.CurrentMana] ?? 0f) < manaBefore;
+        if (cast)
+        {
+            this.DuelCasts.AddOrUpdate(skill.Number, 1, (_, n) => n + 1);
+        }
+
+        return cast;
     }
 }

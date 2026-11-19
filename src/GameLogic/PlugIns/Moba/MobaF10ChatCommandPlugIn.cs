@@ -58,6 +58,10 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaF10.Enabled = false;
                 message = "F10 apagado (mezcla 45/20/35 de siempre).";
                 break;
+            case "caps" when arguments.Key is "on" or "off":
+                MobaF10.HitCapAndBrake = arguments.Key == "on";
+                message = $"tope por golpe y freno de ráfaga: {(MobaF10.HitCapAndBrake ? "ACTIVOS" : "APAGADOS")} bajo F10";
+                break;
             case "dmg" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d):
                 MobaF10.DamageScale = Math.Clamp(d, 0.01, 100);
                 message = FormattableString.Invariant($"escala global de daño = {MobaF10.DamageScale}");
@@ -72,7 +76,7 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 break;
             default:
                 var psis = string.Join(' ', Enum.GetValues<MobaFamily>().Select(f => FormattableString.Invariant($"{f}={MobaF10.Psi(f):F2}")));
-                message = FormattableString.Invariant($"F10 {(MobaF10.Enabled ? "ACTIVO" : "apagado")} | dmg x{MobaF10.DamageScale} hp x{MobaF10.HealthScale} | psi {psis} | tú: {MobaF10.Describe(player)}");
+                message = FormattableString.Invariant($"F10 {(MobaF10.Enabled ? "ACTIVO" : "apagado")} | dmg x{MobaF10.DamageScale} hp x{MobaF10.HealthScale} | tope+freno {(MobaF10.HitCapAndBrake ? "on" : "off")} | psi {psis} | tú: {MobaF10.Describe(player)}");
                 break;
         }
 

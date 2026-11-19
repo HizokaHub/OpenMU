@@ -161,6 +161,12 @@ public static class MobaTelemetry
     /// </summary>
     public static Action<MobaProbeHit>? ProbeObserver { get; set; }
 
+    /// <summary>Observer of every heal of a champion (life steal, vamp, passives), used by the duels to measure the sustain. <see langword="null"/> when no probe runs.</summary>
+    public static Action<Player, double, string>? HealObserver { get; set; }
+
+    /// <summary>Observer of the damage a champion reflects back (reflector, the one that gets hurt, damage), used by the duels. <see langword="null"/> when no probe runs.</summary>
+    public static Action<IAttacker, Player, uint>? ReflectObserver { get; set; }
+
     /// <summary>Records one landed hit on a champion. Call from the combat trace.</summary>
     /// <param name="attacker">The attacker.</param>
     /// <param name="victim">The victim champion.</param>
@@ -297,7 +303,7 @@ public static class MobaTelemetry
                 probeRaw = mt.Raw;
             }
 
-            ProbeObserver?.Invoke(new MobaProbeHit(attacker, victim, skill, hit.HealthDamage, hit.ShieldDamage, probeRaw, isCrit, isCombo, dist, pctOfMax));
+            ProbeObserver?.Invoke(new MobaProbeHit(attacker, victim, skill, hit.HealthDamage, hit.ShieldDamage, probeRaw, isCrit, isCombo, dist, pctOfMax, hit.Attributes));
 
             var lvlTag = LevelTag(attacker, victim);
             if (attacker is Player { IsMobaClone: true } mobaAttacker)
@@ -430,6 +436,7 @@ public static class MobaTelemetry
                 return;
             }
 
+            HealObserver?.Invoke(champion, amount, source);
             StatsTable.GetOrCreateValue(champion).Healed += (long)amount;
             champion.Logger.LogInformation(
                 "[MOBA-HEAL] {Champion} +{Amount:F0} ({Source}) -> {Hp:F0}/{MaxHp:F0}",
