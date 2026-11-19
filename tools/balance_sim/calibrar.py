@@ -39,6 +39,23 @@ def parse_real(path):
     return out
 
 
+def parse_durations(path):
+    """Duracion media (s) de los duelos por clase y pasada, de la tabla 'Totales por clase' del informe real."""
+    txt = Path(path).read_text(encoding="utf-8")
+    out = {}
+    for name, key in (("sin_items", "## Sin ítems"), ("t3", "## Con set completo T3")):
+        sec = txt[txt.index(key):]
+        d = {}
+        for line in sec.splitlines():
+            m = re.match(r"\|\s*[A-Za-z ]+\((\w+)\)\s*\|\s*\d+\s*\|\s*\d+ %\s*\|\s*(\d+)\s*\|", line)
+            if m and m.group(1) in MY:
+                d[m.group(1)] = float(m.group(2))
+            if len(d) == 7:
+                break
+        out[name] = np.array([d[c_] for c_ in MY])
+    return out
+
+
 def harness_builds(cls, passname, reps):
     n = reps
     L = 30
@@ -79,47 +96,52 @@ def predicted(mod, p, passname, reps, rng):
     B = [harness_builds(c, passname, reps) for c in range(7)]
     O = [sim.outputs(mod, b, p) for b in B]
     P = np.full((7, 7), 0.5)
+    TT = np.zeros((7, 7))
     for i in range(7):
         for j in range(7):
             if i == j:
                 continue
             res = sim.fight(O[i][0], O[i][1], O[j][0], O[j][1], B[i].cls, B[j].cls, rng)
             P[i, j] = float(res["a_wins"].mean())
+            tt = res["ttk"]
+            TT[i, j] = float(np.mean(np.where(np.isfinite(tt), tt, sim.FIGHT_TMAX)))
+    predicted.last_ttk = TT
     return P
 
 
 def cost(mod, p, real, reps=300, seed=3):
     rng = np.random.default_rng(seed)
-    tot, cnt = 0.0, 0
+    tot, cnt, dur = 0.0, 0, 0.0
     for name in ("sin_items", "t3"):
         P = predicted(mod, p, name, reps, rng)
         m = ~np.eye(7, dtype=bool)
         tot += float(np.sum((P[m] - real[name][m]) ** 2))
         cnt += int(m.sum())
-    return tot / cnt
+        pred_dur = np.array([np.mean(np.delete(predicted.last_ttk[i], i)) for i in range(7)])
+        dur += float(np.mean(((pred_dur - REAL_DUR[name]) / REAL_DUR[name]) ** 2))
+    return tot / cnt + 0.15 * dur / 2
 
 
 if __name__ == "__main__":
     real = parse_real(Path(__file__).resolve().parent.parent.parent / "INFORME_DUELOS.md")
+    REAL_DUR = parse_durations(Path(__file__).resolve().parent.parent.parent / "INFORME_DUELOS.md")
     mod = sim.load_formula("f_real")
     p = sim.default_params(mod)
     if "--fit" in sys.argv:
-        sigma_grid = [0.04, 0.08, 0.12]
+        sigma_grid = [0.04]
         best = (1e9, None, None)
         for sg in sigma_grid:
             sim.NOISE_SIGMA = sg
             q = dict(p)
             cur = cost(mod, q, real)
             for rnd in range(5):
-                for c in sim.CLASS_NAMES:
-                    k = f"kit_{c}"
+                for k in ["hps"] + [f"kit_{c}" for c in sim.CLASS_NAMES]:
                     for f in (0.6, 0.8, 0.9, 1.1, 1.25, 1.6):
                         q2 = dict(q)
-                        q2[k] = float(np.clip(q[k] * f, 0.2, 4.0))
+                        q2[k] = float(np.clip(q[k] * f, mod.PARAMS[k][1], mod.PARAMS[k][2]))
                         v = cost(mod, q2, real)
                         if v < cur:
                             cur, q = v, q2
-                q["hps"] = q["hps"]
             if cur < best[0]:
                 best = (cur, sg, q)
             print(f"sigma={sg} coste={cur:.4f}", flush=True)
@@ -143,4 +165,6 @@ if __name__ == "__main__":
         print("simulado:")
         for i, c in enumerate(MY):
             print(f"{c:>5} " + " ".join(f"{100*P[i,j]:4.0f}" for j in range(7)))
+        pd_ = [np.mean(np.delete(predicted.last_ttk[i], i)) for i in range(7)]
+        print("duracion media por clase s (real | simulado):", {c_: (int(REAL_DUR[name][i]), round(float(pd_[i]))) for i, c_ in enumerate(MY)})
         print("% de victorias por clase (real | simulado):", {c: (round(100*np.mean(np.delete(real[name][i], i))), round(100*np.mean(np.delete(P[i], i)))) for i, c in enumerate(MY)})

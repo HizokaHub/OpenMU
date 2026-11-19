@@ -66,9 +66,16 @@ Gana quien mata primero; si nadie muere en 90 s gana quien conserva mas vida rel
 - **C11 (10) equipos 3v3 con buffs compartidos:** 5 composiciones (2 tanques + 1 dano, 3 dano, equilibrada, con apoyo FE/SUM, aleatoria) en los niveles 8, 16, 24 y 30; cada cruce 40-60 %,
   y el equipo CON los buffs que lanzan sus clases debe ganar 55-72 % al mismo tipo de equipo SIN buffs (que los buffs sirvan, se noten y no decidan).
 
+## Kits reales por clase (`kits.py`, `kits.json`)
+`kits.json` (generado por `make_kits.py` desde SKILLS_REGISTRO.md) tiene las 6 skills por defecto de cada clase: dano r1/r5, escala por stat, enfriamiento r1/r5, mana, alcance y si es de area.
+`kits.rotation(b, frac, cdr=0, mana_regen_bonus=0)` calcula para cada personaje la rotacion continua: `skill_dps` (dano de las skills con su escala por stat `x (1 + 2,5 x frac x escala)`), `basic_dps` (basicos en los huecos
+mientras no lanza), `steady` (suma), `burst_mult` (los primeros 6 s lanzando todo), `sustain` (limite por mana con la regeneracion real del servidor), `aoe_share`. `frac` es la fraccion de mezcla de la formula y `cdr` la
+reduccion de enfriamiento que decida la formula. Supuestos MIOS: 1,25 basicos por segundo y 0,5 s de animacion por skill. Una formula nueva PUEDE usarlo (recomendado) o ignorarlo.
+Uso tipico: `dps = rot['steady'] x escala_nivel x tilt x (1+poder_piezas) x crit`, y devolver `burst_mult`, `sustain` y `aoe_share` en `attack`.
+
 ## Calibracion y perillas
 - `calibrar.py [--fit]`: compara `f_real.py` (port de las formulas reales del servidor con un factor de kit por clase) con las matrices de `INFORME_DUELOS.md` (nivel 30, sin items y con T3).
-  Resultado actual: correlacion 0,97 sin items y 0,85 con T3; acierta el ganador en el 100 % y el 88 % de los cruces. Los factores de kit calibrados estan dentro de `f_real.py` (KIT_CAL).
+  Resultado actual (con los kits reales): correlacion 0,98 sin items y 0,89 con T3; acierta el ganador en el 100 % y el 95 % de los cruces; duraciones medias 4-10 s contra 5-13 s reales (las de FE/GM/SUM salen mas cortas). Los factores de kit calibrados estan dentro de `f_real.py` (KIT_CAL).
 - `robust.py fNN --out perillas.json`: sube y baja cada parametro un 15 % y reporta el cambio de puntaje y de dano / vida efectiva (clase mas afectada). Una formula buena tiene perillas que
   ajustan el dano o la vida pero no rompen el puntaje (peor caida < 5 puntos).
 

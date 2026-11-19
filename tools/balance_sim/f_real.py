@@ -4,12 +4,13 @@ se ajusta contra los duelos reales con calibrar.py) resumen la rotacion de cada 
 defensa plana (P1) ni los pasivos de clase (son efectos pequenos frente a las diferencias de kit)."""
 import numpy as np
 import sim
+import kits
 
 FORMULA_TEXT = ("hit = (95+24(r-1)) x 1,5 x (1+Expansion) x (1+poder_piezas) x (1 + 0,55(1+0,6(r-1)/4) x 2,5 x [0,45 stats + 0,20 arbol + 0,35 items]) x EscalaNivel x tilt ; "
                 "dps = hit x (1+crit x 0,75) x hps x kit_clase ; vida = curva x tilt x 1,2 ; mitigacion = 0,45 stats + 0,20 arbol + 0,35 items (tope 70 %)")
 CLS = ["BK", "RF", "DL", "MG", "FE", "GM", "SUM"]
-PARAMS = {"hps": (1.5, 0.3, 6.0)}
-KIT_CAL = {"BK": 0.8, "RF": 0.75, "DL": 0.743, "MG": 0.88, "FE": 1.1, "GM": 0.9, "SUM": 2.2}
+PARAMS = {"hps": (0.796, 0.1, 3.0)}
+KIT_CAL = {"BK": 0.79, "RF": 0.432, "DL": 0.575, "MG": 0.75, "FE": 1.685, "GM": 1.134, "SUM": 1.536}
 PARAMS.update({f"kit_{c}": (KIT_CAL[c], 0.2, 4.0) for c in CLS})
 OFFCAP = np.array([100.0, 64.0, 100.0, 100.0, 80.0, 80.0, 100.0])
 BASIC_LS = np.array([0.14, 0.14, 0.10, 0.10, 0.12, 0.08, 0.08])
@@ -34,26 +35,26 @@ def _sp(b):
     return arm + wep + acc
 
 
-def _factors(b, p):
-    r = b.rank
+def _frac(b):
     stat = np.clip(b.primary / 30000.0, 0, 1)
     tree = np.clip(b.tree[:, 0] / OFFCAP[b.cls], 0, 1)
-    items = _offense_items(b)
-    frac = 0.45 * stat + 0.20 * tree + 0.35 * items
-    ratio = 0.55 * (1 + 0.6 * (r - 1) / 4.0)
+    return 0.45 * stat + 0.20 * tree + 0.35 * _offense_items(b)
+
+
+def _factors(b, p):
+    rot = kits.rotation(b, _frac(b))
     ex = np.where(b.buff[:, 1] > 0, 0.08 + 0.02 * (b.buff[:, 1] - 1), 0.0)
     return {
-        "base_skill": (95 + 24 * (r - 1)) * 1.5,
+        "rotacion_del_kit": rot["steady"],
         "expansion": 1 + ex,
         "poder_piezas": 1 + _sp(b),
-        "ratio_x_fraccion": 1 + ratio * 2.5 * frac,
         "escala_nivel": sim.ref_damage_scale(b.L),
         "tilt": b.dmg_tilt,
-    }
+    }, rot
 
 
 def attack(b, p):
-    f = _factors(b, p)
+    f, rot = _factors(b, p)
     hit = np.ones(b.n)
     for v in f.values():
         hit = hit * v
@@ -66,7 +67,8 @@ def attack(b, p):
     cm = 1.75 + np.where(b.buff[:, 8] > 0, 0.15 + 0.05 * (b.buff[:, 8] - 1), 0.0)
     dps = hit * (1 + crit * (cm - 1)) * p["hps"] * _kit(b, p)
     anti = np.array([0, 0.10, 0.20, 0.30])[b.tier[:, 0]] * 0.6
-    return {"dps_phys": dps * (1 - b.mag), "dps_mag": dps * b.mag, "pen_phys": 0.0, "pen_mag": 0.0, "lifesteal": 0.61 * BASIC_LS[b.cls], "antiheal": anti}
+    return {"dps_phys": dps * (1 - b.mag), "dps_mag": dps * b.mag, "pen_phys": 0.0, "pen_mag": 0.0, "lifesteal": 0.61 * BASIC_LS[b.cls], "antiheal": anti,
+            "burst_mult": rot["burst_mult"], "sustain": rot["sustain"], "aoe_share": rot["aoe_share"]}
 
 
 def defense(b, p):
@@ -97,4 +99,4 @@ def defense(b, p):
 
 
 def decompose(b, p):
-    return {"mode": "mult", "factors": _factors(b, p)}
+    return {"mode": "mult", "factors": _factors(b, p)[0]}

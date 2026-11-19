@@ -39,3 +39,10 @@ Herramienta de análisis. **No modifica el juego ni el servidor.** Código en `t
 
 **Medición del estado actual con los 11 criterios:** `f_real` (juego real) **47,9/100**; `f00_actual` (mi aproximación anterior) 55,5. Evaluación completa (150.000 trayectorias × 17 niveles, 6 millones de duelos individuales + peleas de equipo): 56-103 s.
 Solo el 31 % de los cruces clase × arquetipo cae en 40-60 % en el juego real (10 % en el nivel 1, 26 % en el 10, 31 % en el 30).
+
+---
+# REPORTE 3 (2026-11-18): kits reales por clase (extra 1) y fase 2 pendiente
+- **Kits reales** (`kits.py`): cada clase usa sus 6 skills por defecto con daño, enfriamiento, maná, alcance y escala reales de la tabla del servidor; rotación continua, ráfaga de los primeros 6 s y límite por maná.
+  Con ellos `f_real` reproduce los duelos reales así: correlación 0,98 (sin ítems) y 0,89 (T3), ganador acertado en el 100 % y el 95 % de los cruces; el ajuste residual por clase bajó (kit BK 0,79, RF 0,43, DL 0,58, MG 0,75, FE 1,69, GM 1,13, SUM 1,54), señal de que parte de la diferencia entre clases ya viene de los kits y el resto son los pasivos, el control y el comportamiento de los bots (fase 2).
+- **Juego real con los 11 criterios: 45,7/100.** Duelos de 12-33 s según el nivel; 0 % de los niveles con la matriz clase × arquetipo en banda 40-60 % en promedio (C2 = 0), ninguna celda es pareja: el balance real está lejos de la meta.
+- **Fase 2 (pendiente, a pedido tuyo):** (2) maná y enfriamientos explícitos con rotación real de los bots; (3) pasivos de clase modelados (Frenesí, Segundo aliento, Combustión, Marca del cazador, Impulso híbrido, Eco espiritual); (4) control real (aturdir, ralentizar, dormir, inmovilizar, rendimientos decrecientes, tenacidad); (5) escaramuzas repetidas con vida arrastrada y 5v5. Dejado fuera: farmeo y estructuras.
