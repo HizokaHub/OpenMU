@@ -61,7 +61,7 @@ public sealed partial class MobaBotPlayer
         }
 
         var mana = Math.Clamp(a[Stats.CurrentMana] / Math.Max(1f, a[Stats.MaximumMana]), 0f, 1f);
-        var fight = c.InCombat || c.EnemyChampsNear.Count > 0;
+        var fight = c.InCombat || c.EnemyChampsNear.Count > 0 || this.DuelBuffing;
 
         // Healing first: a teammate (or the bot itself) in trouble beats keeping a buff up.
         if (mana >= FightBuffMana && this.Has(26))
@@ -120,7 +120,7 @@ public sealed partial class MobaBotPlayer
             }
         }
 
-        if (!fight && mana >= BuffUpkeepMana)
+        if ((!fight || this.DuelBuffing) && mana >= BuffUpkeepMana)
         {
             foreach (var number in UpkeepBuffs)
             {

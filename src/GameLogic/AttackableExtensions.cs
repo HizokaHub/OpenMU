@@ -180,7 +180,7 @@ public static class AttackableExtensions
             }
 
             dmg = (int)((dmg * duelDmgDec) - defense);
-            dmg += GetMasterSkillTreePhysicalPassiveDamageBonus(attacker, true);
+            dmg += (isMobaChampionAttacker && PlugIns.Moba.MobaF10.Enabled) ? 0 : GetMasterSkillTreePhysicalPassiveDamageBonus(attacker, true);
 
             if (attacker.Attributes[Stats.IsTwoHandedWeaponEquipped] > 0)
             {
@@ -227,18 +227,23 @@ public static class AttackableExtensions
             }
         }
 
-        dmg += (int)attacker.Attributes[Stats.GreaterDamageBonus];
+        // F10: the damage of the build is ONE factor (MobaF10.DamageFactor); the side channels below would count the same investment twice.
+        var f10Single = isMobaChampionAttacker && PlugIns.Moba.MobaF10.Enabled;
+        if (!f10Single)
+        {
+            dmg += (int)attacker.Attributes[Stats.GreaterDamageBonus];
+        }
 
         /*Scroll of Wrath/Wizardry and Remedy of Love go here (but for now they don't exist)*/
 
         if (damageType == DamageType.Wizardry || damageType == DamageType.Curse)
         {
-            dmg += (int)(dmg * attacker.Attributes[Stats.BerserkerProficiencyMultiplier]);
+            dmg += f10Single ? 0 : (int)(dmg * attacker.Attributes[Stats.BerserkerProficiencyMultiplier]);
         }
         else if (damageType == DamageType.Physical)
         {
             dmg -= (int)(dmg * attacker.Attributes[Stats.WeaknessPhysDmgDecrement]);
-            dmg += GetMasterSkillTreePhysicalPassiveDamageBonus(attacker, false);
+            dmg += f10Single ? 0 : GetMasterSkillTreePhysicalPassiveDamageBonus(attacker, false);
         }
         else
         {
@@ -262,7 +267,7 @@ public static class AttackableExtensions
             dmg = minLevelDmg;
         }
 
-        dmg = (int)(dmg * attacker.Attributes[Stats.AttackDamageIncrease]);
+        dmg = f10Single ? dmg : (int)(dmg * attacker.Attributes[Stats.AttackDamageIncrease]);
         if (dmg > 1)
         {
             dmg = (int)(dmg * defender.Attributes[Stats.DamageReceiveDecrement]);
@@ -311,7 +316,7 @@ public static class AttackableExtensions
             dmg -= (int)(dmg * soulBarrierReduction);
         }
 
-        dmg += (int)attacker.Attributes[Stats.FinalDamageBonus];
+        dmg += f10Single ? 0 : (int)attacker.Attributes[Stats.FinalDamageBonus];
 
         if (isPvp && attacker is not AttackerSurrogate)
         {

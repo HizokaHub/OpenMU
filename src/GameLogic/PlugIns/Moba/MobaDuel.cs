@@ -33,16 +33,19 @@ public static class MobaDuel
     /// <summary>The seven classes of the review (the third job of every family).</summary>
     public static readonly byte[] MainClasses = { 3, 6, 11, 12, 16, 20, 24 };
 
-    private const int RectWidth = 14;
-    private const int RectHeight = 12;
+    private const int RectWidth = 12;
+    private const int RectHeight = 10;
     private const int SeparationTiles = 6;
 
     /// <summary>
     /// How far from the center of a corner no monster may stand (a duelist that kites backs off several tiles: in the first full matrix a Stone Golem
     /// of a jungle camp 19 tiles away killed a Grand Master).
     /// </summary>
-    private const int MonsterFreeRadius = 18;
+    private const int MonsterFreeRadius = 12;
     private const double TimeoutSeconds = 120;
+
+    /// <summary>Maximum length of the buff preparation phase before the blows.</summary>
+    private const double BuffPhaseMaxSeconds = 20;
     private const int CarrierLife = 20;
 
     private static readonly ConcurrentDictionary<MobaBotPlayer, ConcurrentDictionary<int, long>> Damage = new();
@@ -161,7 +164,10 @@ public static class MobaDuel
         int APieces,
         int BPieces,
         long AForeign = 0,
-        long BForeign = 0);
+        long BForeign = 0,
+        int[]? ABuffs = null,
+        int[]? BBuffs = null,
+        double PrepSeconds = 0);
 
     private static void OnHit(MobaProbeHit hit)
     {
@@ -247,6 +253,9 @@ public static class MobaDuel
                     ["bPieces"] = r.BPieces,
                     ["aForeign"] = r.AForeign,
                     ["bForeign"] = r.BForeign,
+                    ["aBuffs"] = r.ABuffs,
+                    ["bBuffs"] = r.BBuffs,
+                    ["prepSeconds"] = Math.Round(r.PrepSeconds, 1),
                 }).ToList(),
             };
         }).ToList();
@@ -344,9 +353,29 @@ public static class MobaDuel
             Foreign.TryRemove(a, out _);
             Foreign.TryRemove(b, out _);
 
-            var clock = Stopwatch.StartNew();
+            // Preparation phase: both raise ALL their buffs (no attack) until neither casts any more; only then do they fight, with full life and mana.
+            a.DuelBuffing = true;
+            b.DuelBuffing = true;
             a.DuelOpponent = b;
             b.DuelOpponent = a;
+            var prep = Stopwatch.StartNew();
+            while (prep.Elapsed.TotalSeconds < BuffPhaseMaxSeconds && (prep.Elapsed.TotalSeconds < 2 || a.DuelBuffIdleTicks < 4 || b.DuelBuffIdleTicks < 4) && Volatile.Read(ref _cancel) == 0)
+            {
+                await Task.Delay(100).ConfigureAwait(false);
+            }
+
+            a.DuelBuffing = false;
+            b.DuelBuffing = false;
+            var prepSeconds = prep.Elapsed.TotalSeconds;
+            var buffsA = ActiveEffects(a);
+            var buffsB = ActiveEffects(b);
+            Refill(a);
+            Refill(b);
+            Damage[a] = new ConcurrentDictionary<int, long>();
+            Damage[b] = new ConcurrentDictionary<int, long>();
+            Foreign.TryRemove(a, out _);
+            Foreign.TryRemove(b, out _);
+            var clock = Stopwatch.StartNew();
             while (a.IsAlive && b.IsAlive && clock.Elapsed.TotalSeconds < TimeoutSeconds && Volatile.Read(ref _cancel) == 0)
             {
                 await Task.Delay(100).ConfigureAwait(false);
@@ -366,7 +395,10 @@ public static class MobaDuel
                 piecesA,
                 piecesB,
                 Foreign.TryGetValue(a, out var fa) ? fa : 0,
-                Foreign.TryGetValue(b, out var fb) ? fb : 0);
+                Foreign.TryGetValue(b, out var fb) ? fb : 0,
+                buffsA,
+                buffsB,
+                prepSeconds);
         }
         finally
         {
@@ -442,7 +474,7 @@ public static class MobaDuel
                 continue;
             }
 
-            if (map.GetAttackablesInRange(center, MonsterFreeRadius).OfType<NPC.Monster>().Any() || laneDistance < 10)
+            if (map.GetAttackablesInRange(center, MonsterFreeRadius).OfType<NPC.Monster>().Any() || laneDistance < 6)
             {
                 continue;
             }
@@ -451,6 +483,19 @@ public static class MobaDuel
         }
 
         return found;
+    }
+
+    /// <summary>The numbers of the magic effects (buffs) active on a duelist when the blows start: the proof that the preparation applied them all.</summary>
+    private static int[] ActiveEffects(Player p)
+    {
+        try
+        {
+            return p.MagicEffectList.ActiveEffects.Values.Select(e => (int)e.Id).OrderBy(i => i).ToArray();
+        }
+        catch (InvalidOperationException)
+        {
+            return Array.Empty<int>();
+        }
     }
 
     private static bool RectWalkable(bool[,] walk, int cx, int cy)

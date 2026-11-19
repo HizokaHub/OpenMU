@@ -23,6 +23,12 @@ public sealed partial class MobaBotPlayer
     /// <summary>Gets or sets the opponent of the duel; the bot fights only it. <see langword="null"/> = waiting (or the duel is over).</summary>
     public Player? DuelOpponent { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the duelist is in the preparation phase: it only raises its buffs (all of them, one per tick) and does not attack.</summary>
+    public bool DuelBuffing { get; set; }
+
+    /// <summary>Gets the number of consecutive preparation ticks in which no buff was cast: the duel starts when both duelists reach a few.</summary>
+    public int DuelBuffIdleTicks { get; private set; }
+
     /// <summary>
     /// Brings the freshly spawned clone to the state of a champion at <paramref name="level"/>: the skill, buff and stat points of the levels
     /// are granted and spent like a human would (<see cref="DevelopIfDueAsync"/>), and every skill of the kit is set to the given rank.
@@ -159,6 +165,13 @@ public sealed partial class MobaBotPlayer
 
         var pos = this.Position;
         var ctx = this.BuildContext(map, pos, DateTime.UtcNow);
+        if (this.DuelBuffing)
+        {
+            // Preparation: both duelists raise every buff before the first blow (nobody attacks while the other is still buffing).
+            this.DuelBuffIdleTicks = await this.TickBuffsAsync(ctx).ConfigureAwait(false) ? 0 : this.DuelBuffIdleTicks + 1;
+            return;
+        }
+
         await this.TickUtilityAsync(ctx).ConfigureAwait(false);
         await this.EngageAsync(ctx, foe).ConfigureAwait(false);
     }

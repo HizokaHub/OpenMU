@@ -39,16 +39,33 @@ public static class MobaF10
 
     private const double ArmourPool = 3.3;
 
-    private static readonly double[] PsiByFamily = new double[Enum.GetValues<MobaFamily>().Length];
+    /// <summary>
+    /// Class offsets calibrated with real duels (2026-11-19, level 30, no items, damage scale 2.7, 8 duels per pair, all classes 39-56 % against the field).
+    /// Large because the kits and the bot rotations are not neutral: SUM and FE need a big negative offset.
+    /// </summary>
+    private static readonly double[] PsiByFamily = BuildPsi();
 
     /// <summary>Gets or sets a value indicating whether the F10 model replaces the 45/20/35 blend (default: environment variable <c>MOBA_F10=1</c>).</summary>
     public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_F10") == "1";
 
     /// <summary>Gets or sets the global damage scale of the model (calibrated with real duels so that a typical fight lasts as designed).</summary>
-    public static double DamageScale { get; set; } = 1.0;
+    public static double DamageScale { get; set; } = 2.7;
 
     /// <summary>Gets or sets the global life scale of the model.</summary>
     public static double HealthScale { get; set; } = 1.0;
+
+    private static double[] BuildPsi()
+    {
+        var psi = new double[Enum.GetValues<MobaFamily>().Length];
+        psi[(int)MobaFamily.Wizard] = -0.443;
+        psi[(int)MobaFamily.Knight] = 1.066;
+        psi[(int)MobaFamily.Elf] = -2.388;
+        psi[(int)MobaFamily.MagicGladiator] = 1.383;
+        psi[(int)MobaFamily.DarkLord] = 2.751;
+        psi[(int)MobaFamily.Summoner] = -3.498;
+        psi[(int)MobaFamily.RageFighter] = 1.129;
+        return psi;
+    }
 
     /// <summary>Gets the class power offset (log of the duel power), set by <c>/mobaf10 psi</c> from the duel calibration.</summary>
     /// <param name="family">The champion family.</param>

@@ -24,7 +24,7 @@ def chat(texto):
 
 def correr():
     antes = set(glob.glob(str(DEBUG / f"duelos_{nombre_json}_*.json")))
-    chat(f"/mobaduel all {duelos} {pasada}")
+    chat(f"/mobaduel all {duelos} {pasada} 12")
     t0 = time.time()
     while time.time() - t0 < 1800:
         time.sleep(15)
@@ -47,7 +47,7 @@ def analizar(arch):
     return {c: v[0] / max(v[1], 1) for c, v in tot.items()}, dur / max(n, 1)
 
 
-gain = 0.10
+gain = 0.45
 registro = []
 for it in range(iters):
     for c, name in FAM.items():
@@ -62,8 +62,9 @@ for it in range(iters):
         break
     for c in FAM:
         x = min(0.96, max(0.04, wr[c]))
-        psi[c] += max(-0.35, min(0.35, -gain * math.log(x / (1 - x))))
+        psi[c] += max(-0.7, min(0.7, -gain * math.log(x / (1 - x))))
     m = sum(psi.values()) / len(psi)
     for c in psi: psi[c] -= m
     gain *= 0.85
+    json.dump({"psi": psi, "registro": registro}, open(RAIZ / "tools/resultados_f10_psi.json", "w"), indent=1)
 print("fin; psi final:", {NOM[c]: round(psi[c], 3) for c in FAM})
