@@ -6,7 +6,7 @@ import sim
 
 ap = argparse.ArgumentParser()
 ap.add_argument("modulo")
-ap.add_argument("--n", type=int, default=100_000)
+ap.add_argument("--n", type=int, default=150_000)
 ap.add_argument("--params", default=None)
 ap.add_argument("--seed", type=int, default=1)
 ap.add_argument("--out", default=None)
