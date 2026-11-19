@@ -50,7 +50,7 @@ PET_UNLOCK = np.array([4, 8, 12, 16])
 DT = 0.5
 FIGHT_TMAX = 90.0
 BURST_SECONDS = 6.0
-NOISE_SIGMA = 0.12
+NOISE_SIGMA = 0.08
 RANGE_PENALTY = 0.05
 
 
@@ -236,6 +236,7 @@ class Trajectory:
         eslot, etier = np.take_along_axis(eslot, o, 1), np.take_along_axis(etier, o, 1)
         ecost = UNIT_GOLD * SLOT_COST_WEIGHT[eslot] * (TIER_PRICE[etier] - 0.7 * TIER_PRICE[etier - 1])
         ecum = np.cumsum(ecost, axis=1)
+        self._ecum, self._eslot = ecum.astype(np.float32), eslot.astype(np.int8)
         gm = np.full(n, 0.6) if reference else np.exp(rng.normal(0, 0.15, n))
         self._gold = (GOLD_AT_30 * gm)[:, None] * (np.clip((Larr - 1) / 29.0, 0, 1) ** 1.5)[None, :]
         self._tier = np.zeros((n, NL, N_SLOT), dtype=np.int8)
@@ -259,7 +260,16 @@ class Trajectory:
         self._buff_noise = rng.random((n, NL, N_BUFF)).astype(np.float32)
         self._buff_rank = rng.random((n, NL, N_BUFF)).astype(np.float32)
 
-    def at(self, k):
+    def tiers_at(self, k, scale):
+        """Tiers que tendria el personaje en levels[k] si hubiera ganado `scale` veces su oro."""
+        g = self._gold[:, k] * scale
+        tier = np.zeros((self.n, N_SLOT), dtype=np.int64)
+        ar = np.arange(self.n)
+        for e in range(3 * N_SLOT):
+            tier[ar, self._eslot[:, e]] += (self._ecum[:, e] <= g).astype(np.int64)
+        return tier
+
+    def at(self, k, gold_scale=1.0):
         L = self.levels[k]
         n = self.n
         rmax = max(1, int(math.floor(1 + 4 * min(1.0, (L - 1) / 20.0))))
@@ -268,9 +278,9 @@ class Trajectory:
         return Builds(
             L=np.full(n, L, dtype=np.int64), cls=self.cls, stats=self._stats[:, k].astype(np.float64),
             stat_budget=CLS_STAT_TOTAL[self.cls] * (L - 1) / (MAX_LEVEL - 1), tree=self._tree[:, k].astype(np.float64),
-            tree_budget=np.full(n, 5.0 * (L - 1)), tier=self._tier[:, k].astype(np.int64), role=self.role.astype(np.int64),
+            tree_budget=np.full(n, 5.0 * (L - 1)), tier=(self._tier[:, k].astype(np.int64) if gold_scale == 1.0 else self.tiers_at(k, gold_scale)), role=self.role.astype(np.int64),
             pet=self._pet[:, k].astype(np.float64), buff=np.where(on, brank, 0).astype(np.int64), rank=self._rank[:, k].astype(np.float64),
-            a=self.a, label=self.label, gold=self._gold[:, k],
+            a=self.a, label=self.label, gold=self._gold[:, k] * gold_scale,
         )
 
 
@@ -327,8 +337,12 @@ def outputs(mod, b, p):
     return _arr(mod.attack(b, p), b.n), _arr(mod.defense(b, p), b.n)
 
 
-def off_power(a):
-    return a["dps_phys"] + a["dps_mag"]
+def off_power(a, L=None):
+    """Dano por segundo sin mitigar (+ dano verdadero y en % de la vida de referencia si la formula los da)."""
+    out = a["dps_phys"] + a["dps_mag"] + a.get("true_dps", 0.0)
+    if "pct_dps" in a and L is not None:
+        out = out + a["pct_dps"] * ref_health(L)
+    return out
 
 
 def ehp(b, d):
@@ -373,6 +387,9 @@ def fight(ao, do, bo, dob, cls_a, cls_b, rng):
     ls_a, ls_b = _g(ao, "lifesteal", 0.0), _g(bo, "lifesteal", 0.0)
     ah_a, ah_b = _g(ao, "antiheal", 0.0), _g(bo, "antiheal", 0.0)
     rf_a, rf_b = _g(do, "reflect", 0.0), _g(dob, "reflect", 0.0)
+    pct_a, pct_b = _g(ao, "pct_dps", 0.0), _g(bo, "pct_dps", 0.0)
+    true_a, true_b = _g(ao, "true_dps", 0.0), _g(bo, "true_dps", 0.0)
+    dr_a, dr_b = np.clip(_g(do, "dot_resist", 0.0), 0, 0.95), np.clip(_g(dob, "dot_resist", 0.0), 0, 0.95)
     dead_a = np.full(M, np.inf)
     dead_b = np.full(M, np.inf)
     sh_a = sh_a + aeg_a
@@ -384,6 +401,9 @@ def fight(ao, do, bo, dob, cls_a, cls_b, rng):
         alive = (dead_a == np.inf) & (dead_b == np.inf)
         da = base_a * f_a * na * DT * alive            # dano de A a B en este paso
         db = base_b * f_b * nb * DT * alive
+        # dano en % de la vida maxima del rival y dano verdadero (ignoran la mitigacion; los reduce `dot_resist`)
+        da = da + (pct_a * max_b + true_a) * (1 - dr_b) * na * DT * alive
+        db = db + (pct_b * max_a + true_b) * (1 - dr_a) * nb * DT * alive
         ab = np.minimum(sh_b, da)
         sh_b = sh_b - ab
         hp_b = hp_b - (da - ab)
@@ -432,13 +452,199 @@ def decompose_shares(dec):
 
 
 LEVELS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 30]
-QUICK_LEVELS = [4, 8, 12, 16, 22, 30]
+QUICK_LEVELS = [4, 8, 10, 14, 16, 18, 22, 25, 30]
 COVER_LEVELS = [8, 16, 24, 30]
 N_CELLS = 7 * 3
 
 
 def cell_of(cls, label):
     return np.where(label >= 0, cls * 3 + np.minimum(label, 2), -1)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Diferencia de nivel / oro y peleas de equipo 3v3
+# ----------------------------------------------------------------------------------------------------------------------
+# Buffs que lanza cada clase: indices de BUFF_NAMES. SELF = solo sobre si mismo; ALLY = sobre todo el equipo (incluido el que lo lanza).
+_SELF = {0: [2], 2: [2], 3: [2], 5: [0, 1], 6: [9, 10], 1: [11], 4: [7]}
+_ALLY = {0: [3], 1: [12, 13], 2: [8], 4: [4, 5, 6, 7, 14], 6: [14]}
+SELF_M = np.zeros((7, N_BUFF), bool)
+ALLY_M = np.zeros((7, N_BUFF), bool)
+for _c, _l in _SELF.items():
+    SELF_M[_c, _l] = True
+for _c, _l in _ALLY.items():
+    ALLY_M[_c, _l] = True
+
+
+def team_buffs(cls, rank, L):
+    """cls, rank: (T,3). Devuelve (T,3,15): rango de cada buff que RECIBE cada miembro de lo que lanzan el y sus aliados."""
+    T = cls.shape[0]
+    buff = np.zeros((T, 3, N_BUFF), dtype=np.int64)
+    if L < 6:
+        return buff
+    r = np.clip(np.rint(rank), 1, 5).astype(np.int64)
+    for c in range(3):
+        for i in range(3):
+            mask = ALLY_M[cls[:, c]] | (SELF_M[cls[:, c]] if i == c else False)
+            buff[:, i, :] = np.maximum(buff[:, i, :], mask * r[:, c, None])
+    return buff
+
+
+def team_fight(sides, rng):
+    """3v3 por pasos. sides = [(attack_dict, defense_dict), (...)] con arrays (T,3). Cada atacante concentra el fuego en el rival vivo con menos vida+escudo;
+    `aoe_share` (opcional) reparte esa parte de su dano al 65 % entre los demas rivales vivos. Devuelve la probabilidad de que gane el lado 0 (T,)."""
+    T = sides[0][1]["hp"].shape[0]
+    one = np.ones((T, 3))
+
+    def g(d, k, default=0.0):
+        return d[k] if k in d else default * one
+
+    st = []
+    for s in (0, 1):
+        att, dfn = sides[s]
+        o_att, o_dfn = sides[1 - s]
+        mp = np.clip(o_dfn["mit_phys"][:, None, :] - g(att, "pen_phys")[:, :, None], 0, 0.95)
+        mm = np.clip(o_dfn["mit_mag"][:, None, :] - g(att, "pen_mag")[:, :, None], 0, 0.95)
+        base = (att["dps_phys"][:, :, None] * (1 - mp) + att["dps_mag"][:, :, None] * (1 - mm)) * o_dfn["dmg_taken_mult"][:, None, :]
+        extra = (g(att, "pct_dps")[:, :, None] * o_dfn["hp"][:, None, :] + g(att, "true_dps")[:, :, None]) * (1 - np.clip(g(o_dfn, "dot_resist"), 0, 0.95)[:, None, :])
+        noise = np.exp(rng.normal(0, NOISE_SIGMA, (T, 3)))
+        st.append({"hp": dfn["hp"].copy(), "mx": dfn["hp"].copy(), "sh": g(dfn, "shield").copy() + g(dfn, "aegis"), "alive": np.ones((T, 3), bool),
+                   "base": base, "extra": extra, "noise": noise, "burst": g(att, "burst_mult", 1.0), "sus": g(att, "sustain", 1.0), "aoe": g(att, "aoe_share"),
+                   "regen": g(dfn, "regen"), "ls": g(att, "lifesteal"), "ah": g(att, "antiheal"), "aeg": g(dfn, "aegis"), "cd": np.maximum(g(dfn, "aegis_cd", 60.0), 1.0)})
+    t = 0.0
+    for _ in range(int(FIGHT_TMAX / DT)):
+        f = [np.where(t < BURST_SECONDS, st[s]["burst"], st[s]["sus"]) for s in (0, 1)]
+        dmg_to = []
+        dealt = []
+        for s in (0, 1):
+            me, foe = st[s], st[1 - s]
+            score = np.where(foe["alive"], foe["hp"] + foe["sh"], np.inf)
+            tgt = np.argmin(score, axis=1)
+            sel = np.eye(3)[tgt][:, None, :]
+            w = sel + 0.65 * me["aoe"][:, :, None] * (1 - sel)
+            D = (me["base"] * (f[s] * me["noise"])[:, :, None] + me["extra"] * me["noise"][:, :, None]) * w
+            D = D * me["alive"][:, :, None] * foe["alive"][:, None, :] * DT
+            dmg_to.append(D.sum(axis=1))
+            dealt.append(D.sum(axis=2))
+        for s in (0, 1):
+            me, foe = st[s], st[1 - s]
+            d = dmg_to[1 - s]                                   # dano que recibe el lado s
+            absorbed = np.minimum(me["sh"], d)
+            me["sh"] = me["sh"] - absorbed
+            me["hp"] = me["hp"] - (d - absorbed)
+            ah = np.clip(foe["ah"].max(axis=1, keepdims=True), 0, 0.95)
+            heal = (me["regen"] * DT + me["ls"] * dealt[s]) * (1 - ah) * me["alive"]
+            me["hp"] = np.minimum(me["mx"], me["hp"] + heal)
+            me["sh"] = me["sh"] + me["aeg"] * (np.floor((t + DT) / me["cd"]) - np.floor(t / me["cd"]))
+        t += DT
+        for s in (0, 1):
+            st[s]["alive"] = st[s]["alive"] & (st[s]["hp"] > 0)
+        if not (st[0]["alive"].any(axis=1) & st[1]["alive"].any(axis=1)).any():
+            break
+    a0, a1 = st[0]["alive"].any(axis=1), st[1]["alive"].any(axis=1)
+    r0 = (np.maximum(st[0]["hp"], 0) * st[0]["alive"]).sum(axis=1) / st[0]["mx"].sum(axis=1)
+    r1 = (np.maximum(st[1]["hp"], 0) * st[1]["alive"]).sum(axis=1) / st[1]["mx"].sum(axis=1)
+    return np.where(a0 & ~a1, 1.0, np.where(a1 & ~a0, 0.0, np.where(r0 > r1, 1.0, np.where(r0 < r1, 0.0, 0.5))))
+
+
+def _team_outputs(mod, p, A, idx, strip):
+    sub = A.take(idx.ravel())
+    T = idx.shape[0]
+    if strip:
+        sub.buff = np.zeros_like(sub.buff)
+    else:
+        sub.buff = team_buffs(A.cls[idx], A.rank[idx], int(A.L[0])).reshape(-1, N_BUFF)
+    ao, do = outputs(mod, sub, p)
+    return ({k: v.reshape(T, 3) for k, v in ao.items()}, {k: v.reshape(T, 3) for k, v in do.items()}), sub
+
+
+def team_eval(mod, p, traj, levels, rng, quick):
+    """Composiciones de equipo (tanque pesado, dano pesado, equilibrado, con apoyo FE/SUM, aleatorio) peleando 3v3 con los buffs de equipo reales de cada clase."""
+    lv = [L for L in ([16, 30] if quick else [8, 16, 24, 30]) if L in levels]
+    T = 150 if quick else 600
+    comp_scores, buff_scores = [], []
+    for L in lv:
+        A = traj.at(levels.index(L))
+        pool = {l: np.where(A.label == l)[0] for l in (0, 1, 2)}
+        support = np.where((A.cls == 4) | (A.cls == 6))[0]
+        if min(len(v) for v in pool.values()) < 30 or len(support) < 30:
+            continue
+        anyi = np.arange(A.n)
+        spec = [(1, 1, 0), (0, 0, 0), (1, 0, 2), ("S", 1, 0), ("R", "R", "R")]
+
+        def sample(sp):
+            cols = []
+            for x in sp:
+                src = support if x == "S" else (anyi if x == "R" else pool[x])
+                cols.append(rng.choice(src, T))
+            return np.stack(cols, axis=1)
+
+        teams = [sample(sp) for sp in spec]
+        out_b = [_team_outputs(mod, p, A, tm, False)[0] for tm in teams]
+        out_n = [_team_outputs(mod, p, A, tm, True)[0] for tm in teams]
+        W = np.full((5, 5), 0.5)
+        for i in range(5):
+            for j in range(5):
+                if i == j:
+                    continue
+                perm = rng.permutation(T)
+                bj = ({k: v[perm] for k, v in out_b[j][0].items()}, {k: v[perm] for k, v in out_b[j][1].items()})
+                W[i, j] = float(team_fight([out_b[i], bj], rng).mean())
+        off = ~np.eye(5, dtype=bool)
+        v = W[off]
+        comp_scores.append(max(0.0, float(np.mean((v >= 0.4) & (v <= 0.6))) - 0.5 * float(np.mean((v < 0.25) | (v > 0.75)))))
+        bw = []
+        for i in range(5):
+            perm = rng.permutation(T)
+            nj = ({k: v_[perm] for k, v_ in out_n[i][0].items()}, {k: v_[perm] for k, v_ in out_n[i][1].items()})
+            bw.append(float(team_fight([out_b[i], nj], rng).mean()))
+        buff_scores.append(float(closeness(np.mean(bw), 0.55, 0.72, 0.2)))
+    c_a = float(np.mean(comp_scores)) if comp_scores else 0.0
+    c_b = float(np.mean(buff_scores)) if buff_scores else 0.0
+    return 0.6 * c_a + 0.4 * c_b, {"composiciones_en_40_60": round(c_a, 3), "valor_de_los_buffs_de_equipo": round(c_b, 3)}
+
+
+def gap_eval(mod, p, traj, levels, outs, members, rng, quick):
+    """Diferencia de nivel (2-3 niveles) y de oro (+25 %): el de menos nivel u oro debe perder la mayoria pero con chances de remontar."""
+    m = 12 if quick else 60
+    lowwr, comeback = [], []
+    pairs = []
+    for a in levels:
+        for b in levels:
+            if a >= 8 and 2 <= b - a <= 3:
+                pairs.append((a, b))
+                break
+    if quick:
+        pairs = pairs[::3]
+    cells = [c for c in range(N_CELLS) if len(members[c]) >= 15]
+
+    def run(oa, ob, cls):
+        IA, IB, CI = [], [], []
+        for i in cells:
+            for j in cells:
+                IA.append(rng.choice(members[i], m))
+                IB.append(rng.choice(members[j], m))
+                CI.append(np.full(m, i * N_CELLS + j))
+        IA, IB, CI = map(np.concatenate, (IA, IB, CI))
+        res = fight({k: v[IA] for k, v in oa[0].items()}, {k: v[IA] for k, v in oa[1].items()}, {k: v[IB] for k, v in ob[0].items()}, {k: v[IB] for k, v in ob[1].items()}, cls[IA], cls[IB], rng)
+        cnt = np.bincount(CI, minlength=N_CELLS * N_CELLS)
+        ok = cnt > 0
+        wr = np.bincount(CI, weights=res["a_wins"], minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
+        return wr
+
+    for (La, Lb) in pairs:
+        wr = run(outs[La], outs[Lb], traj.cls)
+        lowwr.append(float(wr.mean()))
+        comeback.append(float(np.mean((wr >= 0.05) & (wr <= 0.5))))
+    gold_wr = []
+    for L in [x for x in (10, 16, 24) if x in levels][:2 if quick else 3]:
+        k = levels.index(L)
+        rich = outputs(mod, traj.at(k, gold_scale=1.25), p)
+        gold_wr.append(float(run(outs[L], rich, traj.cls).mean()))
+    c_a = float(closeness(np.mean(lowwr) if lowwr else 0.0, 0.22, 0.42, 0.2))
+    c_b = float(closeness(np.mean(comeback) if comeback else 0.0, 0.85, 1.0, 0.5))
+    c_c = float(closeness(np.mean(gold_wr) if gold_wr else 0.0, 0.30, 0.45, 0.2))
+    return (c_a + c_b + c_c) / 3.0, {"menos_nivel_gana_%": round(100 * float(np.mean(lowwr)), 1) if lowwr else None, "menos_nivel_con_chances_%": round(100 * float(np.mean(comeback)), 1) if comeback else None,
+                                      "menos_oro_(-20%)_gana_%": round(100 * float(np.mean(gold_wr)), 1) if gold_wr else None}
 
 
 def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_pair=None):
@@ -456,15 +662,17 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     matrices = {}
     ehp_ratio, dps_ratio, tank_glass = [], [], []
     extreme, dec_off = {}, None
+    outs = {}
 
     for k, L in enumerate(levels):
         A = traj.at(k)
         ao, do = outputs(mod, A, p)
+        outs[L] = (ao, do)
         for d in (ao, do):
             for v in d.values():
                 if not np.all(np.isfinite(v)):
                     all_bad += 1
-        op, ep = off_power(ao), ehp(A, do)
+        op, ep = off_power(ao, L), ehp(A, do)
         power_lv[L] = (float(np.median(op)), float(np.median(ep)))
         IA, IB, CI, CJ = [], [], [], []
         for i in range(N_CELLS):
@@ -519,6 +727,10 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
             if hasattr(mod, "decompose") and sel.size > 50:
                 dec_off = mod.decompose(A.take(sel), p)
 
+    C10, d10 = gap_eval(mod, p, traj, levels, outs, members, rng, quick)
+    C11, d11 = team_eval(mod, p, traj, levels, rng, quick)
+    del outs
+
     # --- C1: cobertura de elementos (personaje de referencia, nivel por nivel) ---
     ref_n = 2500 if quick else 20_000
     Rt = Trajectory(ref_n, COVER_LEVELS, rng, reference=True)
@@ -526,11 +738,11 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     for k, L in enumerate(COVER_LEVELS):
         R = Rt.at(k)
         bo0, bd0 = outputs(mod, R, p)
-        b_off, b_def = off_power(bo0), ehp(R, bd0)
+        b_off, b_def = off_power(bo0, L), ehp(R, bd0)
         for e in ELEMENTS:
             Rb = apply_bump(R, e)
             bo1, bd1 = outputs(mod, Rb, p)
-            ro = off_power(bo1) / np.maximum(b_off, 1e-9) - 1.0
+            ro = off_power(bo1, L) / np.maximum(b_off, 1e-9) - 1.0
             rd = ehp(Rb, bd1) / np.maximum(b_def, 1e-9) - 1.0
             po = [float(np.median(ro[R.cls == c])) for c in range(7)]
             pd = [float(np.median(rd[R.cls == c])) for c in range(7)]
@@ -598,10 +810,10 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     ratios = np.array([max(abs(el_delta["item_" + SLOT_NAMES[s]][0]), abs(el_delta["item_" + SLOT_NAMES[s]][1])) / SLOT_COST_WEIGHT[s] for s in range(N_SLOT)])
     C9 = float(max(0.0, 1.0 - np.std(ratios) / max(np.mean(ratios), 1e-9)))
 
-    total = 20 * C1 + 30 * C2 + 15 * C3 + 5 * C4 + 5 * C5 + 5 * C6 + 10 * C7 + 5 * C8 + 5 * C9
+    total = 20 * C1 + 25 * C2 + 10 * C3 + 5 * C4 + 5 * C5 + 5 * C6 + 5 * C7 + 5 * C8 + 5 * C9 + 5 * C10 + 10 * C11
     rep.update({"score": round(float(total), 2), "C1_cobertura": round(C1, 3), "C2_duelos_40_60": round(C2, 3), "C3_arquetipos": round(C3, 3),
                 "C4_ninguna_celda_manda": round(C4, 3), "C5_duracion": round(C5, 3), "C6_niveles": round(C6, 3), "C7_sin_topes": round(C7, 3),
-                "C8_transparencia": round(C8, 3), "C9_paridad_items": round(C9, 3)})
+                "C8_transparencia": round(C8, 3), "C9_paridad_items": round(C9, 3), "C10_nivel_y_oro": round(C10, 3), "C11_equipos_3v3": round(C11, 3)})
     if detail:
         cls_vs_cls = None
         Wl = matrices.get(16) if 16 in matrices else matrices.get(max(matrices))
@@ -621,6 +833,8 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
             "extremos_ultimo_nivel": {k_: round(v, 3) for k_, v in extreme.items()},
             "recortes_del_simulador_%": round(100 * clips_tot / max(duels_tot, 1), 4),
             "duelos_simulados": duels_tot,
+            "diferencia_de_nivel_y_oro": d10,
+            "equipos_3v3": d11,
             "elementos_muertos(<0.5%)": dead,
             "delta_por_elemento_%(ofensa,defensa)": {k_: (round(100 * o, 2), round(100 * d, 2)) for k_, (o, d) in el_delta.items()},
             "minimo_entre_clases_%": {k_: round(100 * v, 2) for k_, v in el_min.items()},

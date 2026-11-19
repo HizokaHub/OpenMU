@@ -40,26 +40,42 @@ Todo debe ser un array (N,) o un numero. Sin topes duros (ver abajo).
 - **Mascotas:** se desbloquean en los niveles 4, 8, 12 y 16 y suben de poder hasta el 30. **Buffs:** de nivel 6 en adelante cada pelea tiene un conjunto distinto activo (10-70 % de cada uno).
 - **Rango de skills:** sube de 1 a 5 hacia el nivel 17.
 
+## Salidas nuevas (v2.1)
+attack: `pct_dps` (dano por segundo como fraccion de la vida MAXIMA del rival: veneno, sangrado, Death Stab), `true_dps` (dano verdadero absoluto por segundo), `aoe_share` (parte del dano que
+salpica al 65 % a los demas rivales en 3v3). defense: `dot_resist` (reduce el dano en % de vida y el verdadero). El dano en % y el verdadero ignoran la mitigacion y la reduccion de dano.
+**Buffs en equipo:** en el 3v3 cada miembro RECIBE los buffs que lanzan sus companeros segun su clase: BK Swell Life (equipo) y Defense (propio); RF Increase Health e Increase Block (equipo) e Ignore Defense (propio);
+DL Increase Critical Damage (equipo) y Defense; MG Defense; FE Heal, Greater Defense, Greater Damage, Infinity Arrow y Recovery (equipo); GM Soul Barrier y Expansion (propios); SUM Recovery (equipo), Reflection y Berserker (propios).
+El rango del buff es el rango medio de skills del lanzador. La formula los ve en `b.buff` como siempre (Heal y Recovery = curacion recibida: traducelos a `regen`).
+
 ## Duelo (por pasos de 0,5 s, hasta 90 s)
 Cada paso: dano de A a B (= dps x (1 - mitigacion + penetracion) x dmg_taken_mult x alcance x control), primero contra el escudo y luego contra la vida; reflejo; curacion
-(regen + vida al golpear, recortada por el anticurar del rival); Egida periodica. Variabilidad de habilidad: cada lado multiplica su dano por un factor lognormal (sigma 12 %).
+(regen + vida al golpear, recortada por el anticurar del rival); Egida periodica. Variabilidad de habilidad: cada lado multiplica su dano por un factor lognormal (sigma 8 %; los bots del servidor real miden ~4 %).
 Alcance: un cuerpo a cuerpo contra un rival de mas alcance pierde 5 % de tiempo de pelea por casilla de diferencia (hasta 20 %).
 Gana quien mata primero; si nadie muere en 90 s gana quien conserva mas vida relativa (y cuenta como "tabla" en C5).
 
 ## Puntuacion (0-100), la calcula `sim.evaluate`
-- **C2 (30) duelos parejos en CADA nivel:** se simulan todas las parejas de las 21 celdas (7 clases x {dano, tanque, mixto}) en 17 niveles (1 a 30); cada pareja debe quedar entre 40 y 60 %
+- **C2 (25) duelos parejos en CADA nivel:** se simulan todas las parejas de las 21 celdas (7 clases x {dano, tanque, mixto}) en 17 niveles (1 a 30); cada pareja debe quedar entre 40 y 60 %
   (5-5, 6-4, 4-6). Puntua el porcentaje de parejas en banda menos la mitad del porcentaje de parejas extremas (< 25 % o > 75 %).
 - **C1 (20) cobertura:** cada uno de los 41 elementos (5 stats, 6 nodos del arbol, 11 ranuras de items, 4 mascotas, 15 buffs), al subir UNA unidad estandar en un personaje de referencia
   (niveles 8, 16, 24, 30), mueve el dano o la vida efectiva entre 1,5 % y 12 % ("todo sirve, se nota y ninguno manda"). Se mide por clase y vale la clase a la que mas le sirve.
-- **C3 (15) identidad:** vida efectiva del tanque 1,8-3,5 x la del de dano; dano del de dano 1,8-3,5 x el del tanque; tanque contra dano 40-60 %.
+- **C3 (10) identidad:** vida efectiva del tanque 1,8-3,5 x la del de dano; dano del de dano 1,8-3,5 x el del tanque; tanque contra dano 40-60 %.
 - **C4 (5)** ninguna celda gana mas del 58 % ni menos del 42 % contra el campo. **C5 (5)** duelos de 5-25 s (3-30 s antes del nivel 5) y casi sin tablas. **C6 (5)** el poder crece 3-15 % por nivel sin saltos.
-- **C7 (10) sin topes:** extremos (p99,9) a menos de 3 x la mediana, mitigacion < 85 %, sin recortes del simulador, sin NaN. **C8 (5)** transparencia: hay >= 10 factores en el golpe y cada uno pesa 1-45 %.
+- **C7 (5) sin topes:** extremos (p99,9) a menos de 3 x la mediana, mitigacion < 85 %, sin recortes del simulador, sin NaN. **C8 (5)** transparencia: hay >= 10 factores en el golpe y cada uno pesa 1-45 %.
 - **C9 (5)** paridad: una ranura mas cara rinde proporcionalmente mas.
+- **C10 (5) diferencia de nivel y de oro:** quien tiene 2-3 niveles menos debe ganar entre 22 y 42 % (casi siempre con alguna chance de remontar: 5-50 % en el 85 % de los cruces); quien tiene 20 % menos oro, entre 30 y 45 %.
+- **C11 (10) equipos 3v3 con buffs compartidos:** 5 composiciones (2 tanques + 1 dano, 3 dano, equilibrada, con apoyo FE/SUM, aleatoria) en los niveles 8, 16, 24 y 30; cada cruce 40-60 %,
+  y el equipo CON los buffs que lanzan sus clases debe ganar 55-72 % al mismo tipo de equipo SIN buffs (que los buffs sirvan, se noten y no decidan).
+
+## Calibracion y perillas
+- `calibrar.py [--fit]`: compara `f_real.py` (port de las formulas reales del servidor con un factor de kit por clase) con las matrices de `INFORME_DUELOS.md` (nivel 30, sin items y con T3).
+  Resultado actual: correlacion 0,97 sin items y 0,85 con T3; acierta el ganador en el 100 % y el 88 % de los cruces. Los factores de kit calibrados estan dentro de `f_real.py` (KIT_CAL).
+- `robust.py fNN --out perillas.json`: sube y baja cada parametro un 15 % y reporta el cambio de puntaje y de dano / vida efectiva (clase mas afectada). Una formula buena tiene perillas que
+  ajustan el dano o la vida pero no rompen el puntaje (peor caida < 5 puntos).
 
 ## Comandos (siempre `python -I -X utf8`, desde `tools/balance_sim`)
 - `run.py fNN_nombre --n 150000 [--params '{"k":v}'|archivo.json] [--out informe.json] [--quick]` -> informe JSON con puntuacion y detalle.
 - `tune.py fNN_nombre --iters 40 --pop 8 --n 12000 --out mejores.json [--start params.json]` -> ajusta PARAMS (estrategia evolutiva, misma semilla).
-- Referencia del juego actual: `f00_actual.py` (aprox. de la mezcla 45/20/35 con topes) ~57 puntos.
+- Referencia del juego actual: `f00_actual.py` (aprox. de la mezcla 45/20/35 con topes) ~55 puntos; `f_real.py` (el juego real, calibrado) ~48.
 Evalua final con `--n 150000` (2,5 millones de personajes-nivel + 6 millones de duelos) cuando los parametros esten ajustados.
 
 ## Semantica de los elementos (para que la formula los use con sentido)

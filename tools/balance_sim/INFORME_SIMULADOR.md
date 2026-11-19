@@ -27,3 +27,15 @@ Herramienta de análisis. **No modifica el juego ni el servidor.** Código en `t
 1. **Etapa 1:** 9 agentes diseñadores, uno por familia de fórmula (multiplicativa por cubos, producto de potencias, rating→%, presupuesto con pesos, plana+ratio, paridad por coste, saturación, intercambio ofensa↔defensa, capas por categoría). Cada uno escribe su módulo, lo ajusta con `tune.py` y entrega puntuación, fórmula en texto y reparto en % del golpe.
 2. **Etapa 2:** la fórmula 10 (híbrida con lo mejor de las 9) y 2 críticos por fórmula (uno busca personajes que la rompan, otro audita niveles 1-30 y cobertura).
 3. **Etapa 3:** síntesis, comparación y las 10 fórmulas finales con significado de cada término y su % sobre el golpe. Tras cada etapa recibes un reporte.
+
+---
+# REPORTE 2 (2026-11-18): las 5 mejoras pedidas
+
+1. **Fórmula real portada y calibrada** (`f_real.py`, `calibrar.py`). Reproduce tus matrices de duelos reales: correlación **0,97** sin ítems y **0,85** con T3, acierta el ganador en el 100 % y el 88 % de los cruces. Descubrimiento: los duelos reales de los bots casi no tienen variación (σ ≈ 4 %), por eso salen 10-0 y 0-10. El simulador puntúa con σ = 8 % (más exigente que un humano, menos que un bot). Límite: la calibración es solo en nivel 30 (es lo único medido) y el factor de kit por clase resume las skills (SUM sale ×2,2, BK ×0,8, RF ×0,75, DL ×0,74…).
+2. **Daño en % de la vida máxima, daño verdadero y reducción de ambos** (`pct_dps`, `true_dps`, `dot_resist`): veneno, sangrado, Death Stab y similares ya cuentan en el duelo.
+3. **Prueba de perillas** (`robust.py`): sube y baja cada parámetro un 15 %. En `f_real`, la peor caída de puntaje es 1,1 puntos, es decir, sus perillas mueven el balance poco; sirve de referencia.
+4. **Diferencia de nivel y de oro** (C10): quien tiene 2-3 niveles menos debe ganar 22-42 % con chances de remontar; quien tiene 20 % menos de oro, 30-45 %. Hoy el juego real: nivel 23 %, remontada posible en el 48 % de los cruces, oro 43 %.
+5. **Equipos 3v3 con buffs compartidos y daño en área** (C11): cada clase lanza sus buffs reales a su equipo; se mide si 5 composiciones se llevan 40-60 % y si el equipo con buffs gana 55-72 % al equipo sin buffs. Hoy el juego real: composiciones 57 %, valor de los buffs 78 %.
+
+**Medición del estado actual con los 11 criterios:** `f_real` (juego real) **47,9/100**; `f00_actual` (mi aproximación anterior) 55,5. Evaluación completa (150.000 trayectorias × 17 niveles, 6 millones de duelos individuales + peleas de equipo): 56-103 s.
+Solo el 31 % de los cruces clase × arquetipo cae en 40-60 % en el juego real (10 % en el nivel 1, 26 % en el 10, 31 % en el 30).
