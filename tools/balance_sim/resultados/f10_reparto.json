@@ -1,0 +1,254 @@
+{
+ "nv5_dano": {
+  "ataque": {
+   "base_(nivel+clase)": 32.4,
+   "ofensa_piezas": 24.5,
+   "ofensa_stats": 14.1,
+   "critico_equipo": 8.7,
+   "ofensa_arma": 6.9,
+   "critico_agilidad": 6.3,
+   "ofensa_arbol": 4.9,
+   "rotacion_(enfriamiento+mana)": 1.5,
+   "ofensa_mascotas": 0.7,
+   "ofensa_buffs": 0.0
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 22.7,
+   "vida_items": 20.1,
+   "base_nivel_(vida_base)": 19.3,
+   "vida_stats": 8.2,
+   "mitigacion+menos_dano_stats": 8.2,
+   "mitigacion+menos_dano_arbol": 6.6,
+   "vida_arma": 4.9,
+   "mitigacion+menos_dano_arma": 4.8,
+   "vida_arbol": 3.0,
+   "sosten_items": 1.7
+  },
+  "dps_mediana": 295.9,
+  "ehp_mediana": 2845.0
+ },
+ "nv5_tanque": {
+  "ataque": {
+   "base_(nivel+clase)": 45.4,
+   "ofensa_piezas": 24.3,
+   "ofensa_stats": 11.4,
+   "critico_agilidad": 6.1,
+   "ofensa_arma": 4.3,
+   "critico_equipo": 3.7,
+   "rotacion_(enfriamiento+mana)": 2.3,
+   "ofensa_arbol": 2.1,
+   "ofensa_mascotas": 0.5,
+   "ofensa_buffs": 0.0
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 24.3,
+   "vida_items": 22.6,
+   "vida_stats": 11.4,
+   "mitigacion+menos_dano_stats": 11.4,
+   "base_nivel_(vida_base)": 9.8,
+   "mitigacion+menos_dano_arbol": 9.6,
+   "vida_arbol": 3.9,
+   "vida_arma": 3.0,
+   "mitigacion+menos_dano_arma": 2.9,
+   "sosten_items": 1.0
+  },
+  "dps_mediana": 247.5,
+  "ehp_mediana": 3406.0
+ },
+ "nv5_mixto": {
+  "ataque": {
+   "base_(nivel+clase)": 37.5,
+   "ofensa_piezas": 23.7,
+   "ofensa_stats": 13.3,
+   "critico_agilidad": 6.7,
+   "critico_equipo": 6.2,
+   "ofensa_arma": 5.6,
+   "ofensa_arbol": 3.5,
+   "rotacion_(enfriamiento+mana)": 2.9,
+   "ofensa_mascotas": 0.6,
+   "ofensa_buffs": 0.0
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 23.1,
+   "vida_items": 21.1,
+   "base_nivel_(vida_base)": 12.9,
+   "vida_stats": 10.2,
+   "mitigacion+menos_dano_stats": 10.2,
+   "mitigacion+menos_dano_arbol": 8.9,
+   "vida_arma": 4.0,
+   "mitigacion+menos_dano_arma": 3.9,
+   "vida_arbol": 3.6,
+   "sosten_items": 1.8
+  },
+  "dps_mediana": 271.3,
+  "ehp_mediana": 3104.0
+ },
+ "nv15_dano": {
+  "ataque": {
+   "ofensa_piezas": 39.6,
+   "critico_equipo": 12.9,
+   "ofensa_stats": 12.5,
+   "base_(nivel+clase)": 10.7,
+   "ofensa_arma": 8.8,
+   "critico_agilidad": 5.5,
+   "ofensa_arbol": 4.8,
+   "rotacion_(enfriamiento+mana)": 2.3,
+   "ofensa_mascotas": 1.4,
+   "ofensa_buffs": 1.4
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 25.7,
+   "vida_items": 22.7,
+   "base_nivel_(vida_base)": 15.3,
+   "vida_stats": 5.7,
+   "mitigacion+menos_dano_stats": 5.7,
+   "mitigacion+menos_dano_arbol": 4.9,
+   "vida_arma": 4.2,
+   "mitigacion+menos_dano_arma": 4.1,
+   "vida_buffs": 2.4,
+   "vida_arbol": 2.2
+  },
+  "dps_mediana": 797.0,
+  "ehp_mediana": 5612.0
+ },
+ "nv15_tanque": {
+  "ataque": {
+   "ofensa_piezas": 38.4,
+   "base_(nivel+clase)": 19.1,
+   "ofensa_stats": 12.1,
+   "ofensa_arma": 8.2,
+   "critico_equipo": 6.4,
+   "critico_agilidad": 6.2,
+   "rotacion_(enfriamiento+mana)": 4.0,
+   "ofensa_buffs": 2.4,
+   "ofensa_arbol": 2.2,
+   "ofensa_mascotas": 1.0
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 27.5,
+   "vida_items": 25.7,
+   "base_nivel_(vida_base)": 8.5,
+   "mitigacion+menos_dano_arbol": 7.2,
+   "vida_stats": 6.9,
+   "mitigacion+menos_dano_stats": 6.9,
+   "vida_arma": 4.0,
+   "mitigacion+menos_dano_arma": 4.0,
+   "vida_arbol": 3.0,
+   "vida_buffs": 1.4
+  },
+  "dps_mediana": 415.6,
+  "ehp_mediana": 11087.0
+ },
+ "nv15_mixto": {
+  "ataque": {
+   "ofensa_piezas": 37.9,
+   "base_(nivel+clase)": 13.7,
+   "ofensa_stats": 13.0,
+   "critico_equipo": 9.8,
+   "ofensa_arma": 8.3,
+   "critico_agilidad": 6.2,
+   "rotacion_(enfriamiento+mana)": 4.5,
+   "ofensa_arbol": 3.7,
+   "ofensa_buffs": 1.8,
+   "ofensa_mascotas": 1.2
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 26.1,
+   "vida_items": 24.0,
+   "base_nivel_(vida_base)": 10.8,
+   "vida_stats": 6.8,
+   "mitigacion+menos_dano_stats": 6.8,
+   "mitigacion+menos_dano_arbol": 6.6,
+   "vida_arma": 4.1,
+   "mitigacion+menos_dano_arma": 4.1,
+   "vida_arbol": 2.7,
+   "sosten_items": 2.1
+  },
+  "dps_mediana": 580.9,
+  "ehp_mediana": 8018.0
+ },
+ "nv30_dano": {
+  "ataque": {
+   "ofensa_piezas": 43.0,
+   "critico_equipo": 14.4,
+   "ofensa_stats": 10.8,
+   "ofensa_arma": 8.5,
+   "base_(nivel+clase)": 5.7,
+   "ofensa_arbol": 5.6,
+   "critico_agilidad": 5.3,
+   "rotacion_(enfriamiento+mana)": 3.2,
+   "ofensa_mascotas": 2.3,
+   "ofensa_buffs": 1.1
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 24.5,
+   "vida_items": 21.8,
+   "base_nivel_(vida_base)": 18.0,
+   "mitigacion+menos_dano_arbol": 5.7,
+   "vida_stats": 5.5,
+   "mitigacion+menos_dano_stats": 5.5,
+   "vida_arma": 3.5,
+   "mitigacion+menos_dano_arma": 3.5,
+   "vida_arbol": 2.6,
+   "sosten_items": 1.9
+  },
+  "dps_mediana": 1953.6,
+  "ehp_mediana": 10737.0
+ },
+ "nv30_tanque": {
+  "ataque": {
+   "ofensa_piezas": 39.8,
+   "ofensa_stats": 13.2,
+   "base_(nivel+clase)": 12.7,
+   "ofensa_arma": 8.9,
+   "critico_equipo": 7.0,
+   "critico_agilidad": 6.6,
+   "rotacion_(enfriamiento+mana)": 5.2,
+   "ofensa_arbol": 2.8,
+   "ofensa_buffs": 1.9,
+   "ofensa_mascotas": 1.8
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 27.1,
+   "vida_items": 25.5,
+   "base_nivel_(vida_base)": 10.6,
+   "mitigacion+menos_dano_arbol": 8.2,
+   "vida_stats": 4.8,
+   "mitigacion+menos_dano_stats": 4.8,
+   "vida_arma": 4.2,
+   "mitigacion+menos_dano_arma": 4.1,
+   "vida_arbol": 3.5,
+   "mitigacion+menos_dano_mascotas": 2.3
+  },
+  "dps_mediana": 706.4,
+  "ehp_mediana": 30783.0
+ },
+ "nv30_mixto": {
+  "ataque": {
+   "ofensa_piezas": 40.7,
+   "ofensa_stats": 12.9,
+   "critico_equipo": 10.9,
+   "ofensa_arma": 8.4,
+   "base_(nivel+clase)": 7.0,
+   "critico_agilidad": 6.2,
+   "rotacion_(enfriamiento+mana)": 5.8,
+   "ofensa_arbol": 4.5,
+   "ofensa_mascotas": 2.1,
+   "ofensa_buffs": 1.5
+  },
+  "defensa": {
+   "mitigacion+menos_dano_items": 25.3,
+   "vida_items": 23.4,
+   "base_nivel_(vida_base)": 13.0,
+   "mitigacion+menos_dano_arbol": 7.5,
+   "vida_stats": 5.8,
+   "mitigacion+menos_dano_stats": 5.8,
+   "vida_arma": 3.8,
+   "mitigacion+menos_dano_arma": 3.7,
+   "vida_arbol": 3.1,
+   "mitigacion+menos_dano_mascotas": 2.0
+  },
+  "dps_mediana": 1166.4,
+  "ehp_mediana": 18477.0
+ }
+}

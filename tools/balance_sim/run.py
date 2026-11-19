@@ -16,7 +16,8 @@ mod = sim.load_formula(a.modulo)
 p = sim.default_params(mod)
 if a.params:
     src = Path(a.params).read_text(encoding="utf-8") if Path(a.params).exists() else a.params
-    p.update(json.loads(src))
+    _d = json.loads(src)
+    p.update(_d.get("params", _d) if isinstance(_d.get("params"), dict) else _d)
 t0 = time.time()
 rep = sim.evaluate(mod, p, n=a.n, seed=a.seed, quick=a.quick)
 rep["segundos"] = round(time.time() - t0, 1)

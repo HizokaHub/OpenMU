@@ -425,7 +425,8 @@ def fight(ao, do, bo, dob, cls_a, cls_b, rng):
     ra, rb = hp_a / np.maximum(max_a, 1), hp_b / np.maximum(max_b, 1)
     a_wins = np.where(dead_b < dead_a, 1.0, np.where(dead_a < dead_b, 0.0, np.where(ra >= rb, 1.0, 0.0)))
     a_wins = np.where(stall, np.where(ra > rb, 1.0, np.where(ra < rb, 0.0, 0.5)), a_wins)
-    return {"a_wins": a_wins, "ttk": np.minimum(dead_a, dead_b), "stall": stall, "clips": clips, "n": 2 * M}
+    return {"a_wins": a_wins, "ttk": np.minimum(dead_a, dead_b), "stall": stall, "clips": clips, "n": 2 * M,
+            "ra": np.clip(ra, 0.0, 1.0), "rb": np.clip(rb, 0.0, 1.0)}
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -663,6 +664,7 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     ehp_ratio, dps_ratio, tank_glass = [], [], []
     extreme, dec_off = {}, None
     outs = {}
+    c12_lv = {}
 
     for k, L in enumerate(levels):
         A = traj.at(k)
@@ -684,27 +686,51 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
                 CI.append(np.full(m_pair, i))
                 CJ.append(np.full(m_pair, j))
         IA, IB, CI, CJ = map(np.concatenate, (IA, IB, CI, CJ))
-        sa = {kk: v[IA] for kk, v in ao.items()}
-        sd = {kk: v[IA] for kk, v in do.items()}
-        sb = {kk: v[IB] for kk, v in ao.items()}
-        sdb = {kk: v[IB] for kk, v in do.items()}
-        res = fight(sa, sd, sb, sdb, A.cls[IA], A.cls[IB], rng)
-        clips_tot += res["clips"]
-        duels_tot += res["n"]
-        stall_tot += float(res["stall"].mean())
-        W = np.full(N_CELLS * N_CELLS, np.nan)
-        T = np.full(N_CELLS * N_CELLS, np.nan)
         idx = CI * N_CELLS + CJ
         cnt = np.bincount(idx, minlength=N_CELLS * N_CELLS)
         ok = cnt > 0
-        W[ok] = np.bincount(idx, weights=res["a_wins"], minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
-        tt = np.where(np.isfinite(res["ttk"]), res["ttk"], FIGHT_TMAX)
-        T[ok] = np.bincount(idx, weights=tt, minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
-        W, T = W.reshape(N_CELLS, N_CELLS), T.reshape(N_CELLS, N_CELLS)
+        # v2.2: cada nivel se mide con los buffs aleatorios de siempre Y sin buffs (el balance debe valer en ambos casos;
+        # asi el azar de los buffs no puede esconder cruces extremos)
+        A0 = A.copy()
+        A0.buff[:] = 0
+        ao0, do0 = outputs(mod, A0, p)
+        modes = []
+        for (mo, md) in ((ao, do), (ao0, do0)):
+            sa = {kk: v[IA] for kk, v in mo.items()}
+            sd = {kk: v[IA] for kk, v in md.items()}
+            sb = {kk: v[IB] for kk, v in mo.items()}
+            sdb = {kk: v[IB] for kk, v in md.items()}
+            res = fight(sa, sd, sb, sdb, A.cls[IA], A.cls[IB], rng)
+            clips_tot += res["clips"]
+            duels_tot += res["n"]
+            stall_tot += float(res["stall"].mean()) / 2.0
+            tt = np.where(np.isfinite(res["ttk"]), res["ttk"], FIGHT_TMAX)
+            win = res["a_wins"]
+            wrem = np.where(win >= 0.5, res["ra"], res["rb"])        # vida que le queda al ganador (fraccion de su vida maxima)
+            Wm = np.full(N_CELLS * N_CELLS, np.nan)
+            Tm = np.full(N_CELLS * N_CELLS, np.nan)
+            Sm = np.zeros(N_CELLS * N_CELLS)
+            Rm = np.full(N_CELLS * N_CELLS, np.nan)
+            Wm[ok] = np.bincount(idx, weights=win, minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
+            Tm[ok] = np.bincount(idx, weights=tt, minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
+            Sm[ok] = np.bincount(idx, weights=res["stall"].astype(float), minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
+            Rm[ok] = np.bincount(idx, weights=wrem, minlength=N_CELLS * N_CELLS)[ok] / cnt[ok]
+            modes.append({"W": Wm.reshape(N_CELLS, N_CELLS), "T": Tm.reshape(N_CELLS, N_CELLS), "S": Sm.reshape(N_CELLS, N_CELLS),
+                          "R": Rm.reshape(N_CELLS, N_CELLS), "wrem": wrem, "stall": res["stall"]})
+        W, T = modes[0]["W"], modes[0]["T"]
         off_mask = ~np.eye(N_CELLS, dtype=bool) & ~np.isnan(W)
-        vals = W[off_mask]
-        band_frac[L] = float(np.mean((vals >= 0.40) & (vals <= 0.60)))
-        extreme_frac[L] = float(np.mean((vals < 0.25) | (vals > 0.75)))
+        bf, ef, nh, st, ck = [], [], [], [], []
+        for md in modes:
+            vals, sv = md["W"][off_mask], md["S"][off_mask]
+            bf.append(float(np.mean((vals >= 0.40) & (vals <= 0.60) & (sv < 0.10))))
+            ef.append(float(np.mean((vals < 0.25) | (vals > 0.75) | (sv >= 0.10))))
+            nh.append(float(np.mean((vals >= 0.30) & (vals <= 0.70) & (sv < 0.10))))
+            fin = ~md["stall"]
+            st.append(float(np.mean(md["wrem"][fin] > 0.85)) if fin.any() else 1.0)           # paseos: el ganador casi no recibio dano
+            ck.append(float(np.mean(md["wrem"][fin])) if fin.any() else 1.0)
+        band_frac[L], extreme_frac[L] = float(np.mean(bf)), float(np.mean(ef))
+        c12_lv[L] = {"nadie_imposible_30_70": float(np.mean(nh)), "paseos_%": float(np.mean(st)), "vida_media_del_ganador": float(np.mean(ck)),
+                     "banda_sin_buffs": bf[1], "banda_con_buffs": bf[0]}
         with np.errstate(all="ignore"):
             cell_mean[k] = np.nanmean(W, axis=1)
         ttk_med[L] = float(np.nanmedian(T))
@@ -776,8 +802,8 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     # --- C5: duracion de las peleas ---
     c5 = []
     for L, t in ttk_med.items():
-        lo, hi = (3.0, 30.0) if L < 5 else (5.0, 25.0)
-        c5.append(float(closeness(t, lo, hi, 15.0)) if math.isfinite(t) else 0.0)
+        lo, hi = (3.0, 30.0) if L < 5 else (6.0, 22.0)
+        c5.append(float(closeness(t, lo, hi, 6.0 if L >= 5 else 15.0)) if math.isfinite(t) else 0.0)
     C5 = float(np.mean(c5)) * (1.0 - min(1.0, 5.0 * stall_tot / len(levels)))
 
     # --- C6: crecimiento suave entre niveles ---
@@ -810,8 +836,17 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
     ratios = np.array([max(abs(el_delta["item_" + SLOT_NAMES[s]][0]), abs(el_delta["item_" + SLOT_NAMES[s]][1])) / SLOT_COST_WEIGHT[s] for s in range(N_SLOT)])
     C9 = float(max(0.0, 1.0 - np.std(ratios) / max(np.mean(ratios), 1e-9)))
 
-    total = 20 * C1 + 25 * C2 + 10 * C3 + 5 * C4 + 5 * C5 + 5 * C6 + 5 * C7 + 5 * C8 + 5 * C9 + 5 * C10 + 10 * C11
-    rep.update({"score": round(float(total), 2), "C1_cobertura": round(C1, 3), "C2_duelos_40_60": round(C2, 3), "C3_arquetipos": round(C3, 3),
+    # --- C12 (v2.2): "todos pueden matar y morir en el intento": ningun cruce imposible (30-70 %), sin paseos (el ganador casi sin dano)
+    #     y el ganador termina con la vida bastante gastada (el perdedor tambien pego) ---
+    c12 = []
+    for L in lv_scored:
+        d = c12_lv[L]
+        c12.append(0.5 * d["nadie_imposible_30_70"] + 0.25 * float(closeness(d["vida_media_del_ganador"], 0.15, 0.55, 0.30))
+                   + 0.25 * float(closeness(d["paseos_%"], 0.0, 0.10, 0.25)))
+    C12 = float(np.mean(c12)) if c12 else 0.0
+
+    total = 15 * C1 + 15 * C2 + 10 * C3 + 5 * C4 + 5 * C5 + 5 * C6 + 5 * C7 + 5 * C8 + 5 * C9 + 5 * C10 + 10 * C11 + 15 * C12
+    rep.update({"score": round(float(total), 2), "C12_matar_y_morir": round(C12, 3), "C1_cobertura": round(C1, 3), "C2_duelos_40_60": round(C2, 3), "C3_arquetipos": round(C3, 3),
                 "C4_ninguna_celda_manda": round(C4, 3), "C5_duracion": round(C5, 3), "C6_niveles": round(C6, 3), "C7_sin_topes": round(C7, 3),
                 "C8_transparencia": round(C8, 3), "C9_paridad_items": round(C9, 3), "C10_nivel_y_oro": round(C10, 3), "C11_equipos_3v3": round(C11, 3)})
     if detail:
@@ -825,6 +860,7 @@ def evaluate(mod, p, n=60_000, seed=1, levels=None, detail=True, quick=False, m_
             "porcentaje_de_cruces_en_40_60_por_nivel": {str(L): round(100 * band_frac[L], 1) for L in levels},
             "porcentaje_de_cruces_extremos_(<25_o_>75)_por_nivel": {str(L): round(100 * extreme_frac[L], 1) for L in levels},
             "ttk_mediano_s_por_nivel": {str(L): round(v, 1) for L, v in ttk_med.items()},
+            "c12_por_nivel": {str(L): {k_: round(v, 3) for k_, v in d.items()} for L, d in c12_lv.items()},
             "winrate_clase_vs_clase_nivel16": cls_vs_cls,
             "ehp_tanque_sobre_dano": round(float(np.mean(ehp_ratio)), 2) if ehp_ratio else None,
             "dps_dano_sobre_tanque": round(float(np.mean(dps_ratio)), 2) if dps_ratio else None,

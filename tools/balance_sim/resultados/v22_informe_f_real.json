@@ -1,0 +1,546 @@
+{
+ "n_trayectorias": 100000,
+ "niveles": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  8,
+  10,
+  12,
+  14,
+  16,
+  18,
+  20,
+  22,
+  25,
+  28,
+  30
+ ],
+ "duelos_por_pareja_de_celdas": 400,
+ "score": 48.94,
+ "C12_matar_y_morir": 0.446,
+ "C1_cobertura": 0.574,
+ "C2_duelos_40_60": 0.0,
+ "C3_arquetipos": 0.798,
+ "C4_ninguna_celda_manda": 0.223,
+ "C5_duracion": 0.739,
+ "C6_niveles": 0.576,
+ "C7_sin_topes": 1.0,
+ "C8_transparencia": 0.2,
+ "C9_paridad_items": 0.201,
+ "C10_nivel_y_oro": 0.665,
+ "C11_equipos_3v3": 0.765,
+ "detalle": {
+  "porcentaje_de_cruces_en_40_60_por_nivel": {
+   "1": 14.4,
+   "2": 11.9,
+   "3": 11.1,
+   "4": 10.6,
+   "5": 10.8,
+   "6": 12.5,
+   "8": 9.5,
+   "10": 8.2,
+   "12": 7.6,
+   "14": 7.6,
+   "16": 8.2,
+   "18": 10.2,
+   "20": 12.1,
+   "22": 11.7,
+   "25": 13.5,
+   "28": 13.1,
+   "30": 15.4
+  },
+  "porcentaje_de_cruces_extremos_(<25_o_>75)_por_nivel": {
+   "1": 82.1,
+   "2": 82.9,
+   "3": 83.2,
+   "4": 83.5,
+   "5": 83.2,
+   "6": 81.7,
+   "8": 82.3,
+   "10": 83.2,
+   "12": 82.1,
+   "14": 80.5,
+   "16": 79.4,
+   "18": 77.6,
+   "20": 73.9,
+   "22": 70.5,
+   "25": 70.4,
+   "28": 70.4,
+   "30": 69.9
+  },
+  "ttk_mediano_s_por_nivel": {
+   "1": 22.9,
+   "2": 31.6,
+   "3": 32.8,
+   "4": 32.0,
+   "5": 31.0,
+   "6": 30.1,
+   "8": 25.9,
+   "10": 22.2,
+   "12": 19.1,
+   "14": 16.6,
+   "16": 14.6,
+   "18": 13.8,
+   "20": 13.4,
+   "22": 13.5,
+   "25": 13.1,
+   "28": 12.6,
+   "30": 12.5
+  },
+  "c12_por_nivel": {
+   "1": {
+    "nadie_imposible_30_70": 0.179,
+    "paseos_%": 0.239,
+    "vida_media_del_ganador": 0.521,
+    "banda_sin_buffs": 0.145,
+    "banda_con_buffs": 0.143
+   },
+   "2": {
+    "nadie_imposible_30_70": 0.169,
+    "paseos_%": 0.246,
+    "vida_media_del_ganador": 0.538,
+    "banda_sin_buffs": 0.121,
+    "banda_con_buffs": 0.117
+   },
+   "3": {
+    "nadie_imposible_30_70": 0.145,
+    "paseos_%": 0.22,
+    "vida_media_del_ganador": 0.546,
+    "banda_sin_buffs": 0.11,
+    "banda_con_buffs": 0.112
+   },
+   "4": {
+    "nadie_imposible_30_70": 0.142,
+    "paseos_%": 0.212,
+    "vida_media_del_ganador": 0.549,
+    "banda_sin_buffs": 0.107,
+    "banda_con_buffs": 0.105
+   },
+   "5": {
+    "nadie_imposible_30_70": 0.132,
+    "paseos_%": 0.213,
+    "vida_media_del_ganador": 0.551,
+    "banda_sin_buffs": 0.11,
+    "banda_con_buffs": 0.107
+   },
+   "6": {
+    "nadie_imposible_30_70": 0.171,
+    "paseos_%": 0.239,
+    "vida_media_del_ganador": 0.572,
+    "banda_sin_buffs": 0.114,
+    "banda_con_buffs": 0.136
+   },
+   "8": {
+    "nadie_imposible_30_70": 0.161,
+    "paseos_%": 0.254,
+    "vida_media_del_ganador": 0.578,
+    "banda_sin_buffs": 0.083,
+    "banda_con_buffs": 0.107
+   },
+   "10": {
+    "nadie_imposible_30_70": 0.143,
+    "paseos_%": 0.266,
+    "vida_media_del_ganador": 0.584,
+    "banda_sin_buffs": 0.074,
+    "banda_con_buffs": 0.09
+   },
+   "12": {
+    "nadie_imposible_30_70": 0.15,
+    "paseos_%": 0.274,
+    "vida_media_del_ganador": 0.588,
+    "banda_sin_buffs": 0.069,
+    "banda_con_buffs": 0.083
+   },
+   "14": {
+    "nadie_imposible_30_70": 0.149,
+    "paseos_%": 0.26,
+    "vida_media_del_ganador": 0.577,
+    "banda_sin_buffs": 0.064,
+    "banda_con_buffs": 0.088
+   },
+   "16": {
+    "nadie_imposible_30_70": 0.164,
+    "paseos_%": 0.252,
+    "vida_media_del_ganador": 0.57,
+    "banda_sin_buffs": 0.064,
+    "banda_con_buffs": 0.1
+   },
+   "18": {
+    "nadie_imposible_30_70": 0.176,
+    "paseos_%": 0.242,
+    "vida_media_del_ganador": 0.561,
+    "banda_sin_buffs": 0.09,
+    "banda_con_buffs": 0.114
+   },
+   "20": {
+    "nadie_imposible_30_70": 0.199,
+    "paseos_%": 0.23,
+    "vida_media_del_ganador": 0.553,
+    "banda_sin_buffs": 0.112,
+    "banda_con_buffs": 0.131
+   },
+   "22": {
+    "nadie_imposible_30_70": 0.238,
+    "paseos_%": 0.226,
+    "vida_media_del_ganador": 0.55,
+    "banda_sin_buffs": 0.095,
+    "banda_con_buffs": 0.138
+   },
+   "25": {
+    "nadie_imposible_30_70": 0.242,
+    "paseos_%": 0.217,
+    "vida_media_del_ganador": 0.543,
+    "banda_sin_buffs": 0.124,
+    "banda_con_buffs": 0.145
+   },
+   "28": {
+    "nadie_imposible_30_70": 0.246,
+    "paseos_%": 0.209,
+    "vida_media_del_ganador": 0.536,
+    "banda_sin_buffs": 0.105,
+    "banda_con_buffs": 0.157
+   },
+   "30": {
+    "nadie_imposible_30_70": 0.258,
+    "paseos_%": 0.204,
+    "vida_media_del_ganador": 0.531,
+    "banda_sin_buffs": 0.136,
+    "banda_con_buffs": 0.171
+   }
+  },
+  "winrate_clase_vs_clase_nivel16": {
+   "BK": {
+    "BK": 0.5,
+    "RF": 0.99,
+    "DL": 0.96,
+    "MG": 0.99,
+    "FE": 0.1,
+    "GM": 0.88,
+    "SUM": 0.16
+   },
+   "RF": {
+    "BK": 0.01,
+    "RF": 0.5,
+    "DL": 0.17,
+    "MG": 0.35,
+    "FE": 0.0,
+    "GM": 0.13,
+    "SUM": 0.0
+   },
+   "DL": {
+    "BK": 0.04,
+    "RF": 0.83,
+    "DL": 0.5,
+    "MG": 0.71,
+    "FE": 0.0,
+    "GM": 0.35,
+    "SUM": 0.0
+   },
+   "MG": {
+    "BK": 0.01,
+    "RF": 0.64,
+    "DL": 0.29,
+    "MG": 0.5,
+    "FE": 0.0,
+    "GM": 0.19,
+    "SUM": 0.0
+   },
+   "FE": {
+    "BK": 0.9,
+    "RF": 1.0,
+    "DL": 1.0,
+    "MG": 1.0,
+    "FE": 0.5,
+    "GM": 0.96,
+    "SUM": 0.65
+   },
+   "GM": {
+    "BK": 0.13,
+    "RF": 0.87,
+    "DL": 0.64,
+    "MG": 0.83,
+    "FE": 0.04,
+    "GM": 0.51,
+    "SUM": 0.08
+   },
+   "SUM": {
+    "BK": 0.84,
+    "RF": 1.0,
+    "DL": 1.0,
+    "MG": 1.0,
+    "FE": 0.37,
+    "GM": 0.93,
+    "SUM": 0.5
+   }
+  },
+  "ehp_tanque_sobre_dano": 1.29,
+  "dps_dano_sobre_tanque": 1.4,
+  "tanque_vs_dano_winrate": 0.412,
+  "partidas_sin_muerto_en_90s_%": 1.91,
+  "extremos_ultimo_nivel": {
+   "dps_p99.9_sobre_mediana": 2.807,
+   "ehp_p99.9_sobre_mediana": 2.359,
+   "mit_max": 0.625
+  },
+  "recortes_del_simulador_%": 0.0,
+  "duelos_simulados": 11995200,
+  "diferencia_de_nivel_y_oro": {
+   "menos_nivel_gana_%": 27.3,
+   "menos_nivel_con_chances_%": 35.7,
+   "menos_oro_(-20%)_gana_%": 45.4
+  },
+  "equipos_3v3": {
+   "composiciones_en_40_60": 0.65,
+   "valor_de_los_buffs_de_equipo": 0.938
+  },
+  "elementos_muertos(<0.5%)": [
+   "arbol_vida",
+   "arbol_mana",
+   "mascota_ataque",
+   "mascota_vital",
+   "mascota_veloz",
+   "buff_SoulBarrier",
+   "buff_SwellLife",
+   "buff_Heal",
+   "buff_GreaterDamage",
+   "buff_InfinityArrow",
+   "buff_Reflection",
+   "buff_Berserker",
+   "buff_IgnoreDefense",
+   "buff_IncreaseHealth",
+   "buff_IncreaseBlock",
+   "buff_Recovery"
+  ],
+  "delta_por_elemento_%(ofensa,defensa)": {
+   "STR": [
+    11.25,
+    0.0
+   ],
+   "AGI": [
+    6.86,
+    0.0
+   ],
+   "ENE": [
+    10.16,
+    0.0
+   ],
+   "VIT": [
+    0.0,
+    3.05
+   ],
+   "CMD": [
+    8.08,
+    0.0
+   ],
+   "arbol_ofensa": [
+    3.12,
+    0.0
+   ],
+   "arbol_defensa": [
+    0.0,
+    2.13
+   ],
+   "arbol_critico": [
+    1.28,
+    0.0
+   ],
+   "arbol_durabilidad": [
+    0.0,
+    1.41
+   ],
+   "arbol_vida": [
+    0.0,
+    0.0
+   ],
+   "arbol_mana": [
+    0.0,
+    0.0
+   ],
+   "item_arma": [
+    13.59,
+    0.0
+   ],
+   "item_escudo": [
+    6.52,
+    0.0
+   ],
+   "item_casco": [
+    0.0,
+    1.47
+   ],
+   "item_armadura": [
+    0.0,
+    1.43
+   ],
+   "item_pantalon": [
+    0.0,
+    1.43
+   ],
+   "item_guantes": [
+    0.0,
+    1.56
+   ],
+   "item_botas": [
+    0.0,
+    1.65
+   ],
+   "item_alas": [
+    0.0,
+    1.47
+   ],
+   "item_colgante": [
+    0.0,
+    1.58
+   ],
+   "item_anillo1": [
+    0.0,
+    1.64
+   ],
+   "item_anillo2": [
+    0.0,
+    1.64
+   ],
+   "mascota_ataque": [
+    0.0,
+    0.0
+   ],
+   "mascota_guardia": [
+    0.0,
+    2.96
+   ],
+   "mascota_vital": [
+    0.0,
+    0.0
+   ],
+   "mascota_veloz": [
+    0.0,
+    0.0
+   ],
+   "buff_SoulBarrier": [
+    0.0,
+    0.0
+   ],
+   "buff_Expansion": [
+    12.0,
+    0.0
+   ],
+   "buff_Defense": [
+    0.0,
+    20.99
+   ],
+   "buff_SwellLife": [
+    0.0,
+    0.0
+   ],
+   "buff_Heal": [
+    0.0,
+    0.0
+   ],
+   "buff_GreaterDefense": [
+    0.0,
+    20.99
+   ],
+   "buff_GreaterDamage": [
+    0.0,
+    0.0
+   ],
+   "buff_InfinityArrow": [
+    0.0,
+    0.0
+   ],
+   "buff_IncCrit": [
+    4.25,
+    0.0
+   ],
+   "buff_Reflection": [
+    0.0,
+    0.0
+   ],
+   "buff_Berserker": [
+    0.0,
+    0.0
+   ],
+   "buff_IgnoreDefense": [
+    0.0,
+    0.0
+   ],
+   "buff_IncreaseHealth": [
+    0.0,
+    0.0
+   ],
+   "buff_IncreaseBlock": [
+    0.0,
+    0.0
+   ],
+   "buff_Recovery": [
+    0.0,
+    0.0
+   ]
+  },
+  "minimo_entre_clases_%": {
+   "STR": 0.0,
+   "AGI": 2.06,
+   "ENE": 0.0,
+   "VIT": 2.16,
+   "CMD": 0.0,
+   "arbol_ofensa": 1.78,
+   "arbol_defensa": 2.03,
+   "arbol_critico": 1.24,
+   "arbol_durabilidad": 1.41,
+   "arbol_vida": 0.0,
+   "arbol_mana": 0.0,
+   "item_arma": 6.53,
+   "item_escudo": 0.0,
+   "item_casco": 1.19,
+   "item_armadura": 1.19,
+   "item_pantalon": 1.19,
+   "item_guantes": 1.24,
+   "item_botas": 1.24,
+   "item_alas": 1.19,
+   "item_colgante": 1.35,
+   "item_anillo1": 1.39,
+   "item_anillo2": 1.39,
+   "mascota_ataque": 0.0,
+   "mascota_guardia": 2.95,
+   "mascota_vital": 0.0,
+   "mascota_veloz": 0.0,
+   "buff_SoulBarrier": 0.0,
+   "buff_Expansion": 12.0,
+   "buff_Defense": 20.91,
+   "buff_SwellLife": 0.0,
+   "buff_Heal": 0.0,
+   "buff_GreaterDefense": 20.91,
+   "buff_GreaterDamage": 0.0,
+   "buff_InfinityArrow": 0.0,
+   "buff_IncCrit": 3.28,
+   "buff_Reflection": 0.0,
+   "buff_Berserker": 0.0,
+   "buff_IgnoreDefense": 0.0,
+   "buff_IncreaseHealth": 0.0,
+   "buff_IncreaseBlock": 0.0,
+   "buff_Recovery": 0.0
+  },
+  "participacion_en_el_golpe_nivel_max_%": {
+   "rotacion_del_kit": 70.53,
+   "escala_nivel": 27.17,
+   "poder_piezas": 1.41,
+   "expansion": 0.45,
+   "tilt": 0.44
+  }
+ },
+ "segundos": 240.1,
+ "params": {
+  "hps": 0.796,
+  "kit_BK": 0.79,
+  "kit_RF": 0.432,
+  "kit_DL": 0.575,
+  "kit_MG": 0.75,
+  "kit_FE": 1.685,
+  "kit_GM": 1.134,
+  "kit_SUM": 1.536
+ }
+}
