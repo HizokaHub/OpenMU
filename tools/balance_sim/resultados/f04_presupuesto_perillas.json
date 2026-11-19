@@ -1,0 +1,1143 @@
+{
+ "puntaje_base": 82.08,
+ "peor_caida_de_puntaje": -4.92,
+ "caida_media": -0.83,
+ "perillas_que_no_mueven_nada(<0.1%)": [
+  "w_buff_GreaterDamage",
+  "w_buff_InfinityArrow",
+  "ls",
+  "pen_crit",
+  "pen_ign",
+  "refl"
+ ],
+ "perillas": {
+  "kd": {
+   "+": {
+    "d_score": -1.93,
+    "d_dano_%_clase_mas_afectada": -36.82,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -2.3,
+    "d_dano_%_clase_mas_afectada": 58.27,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "kh": {
+   "+": {
+    "d_score": -0.87,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -4.97
+   },
+   "-": {
+    "d_score": -0.39,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 5.23
+   }
+  },
+  "w_STR": {
+   "+": {
+    "d_score": -0.36,
+    "d_dano_%_clase_mas_afectada": 1.69,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.25
+   },
+   "-": {
+    "d_score": 0.21,
+    "d_dano_%_clase_mas_afectada": -1.69,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.29
+   }
+  },
+  "w_AGI": {
+   "+": {
+    "d_score": -0.4,
+    "d_dano_%_clase_mas_afectada": 2.58,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.53
+   },
+   "-": {
+    "d_score": -0.43,
+    "d_dano_%_clase_mas_afectada": -2.8,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.58
+   }
+  },
+  "w_ENE": {
+   "+": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": 1.88,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.43
+   },
+   "-": {
+    "d_score": -0.37,
+    "d_dano_%_clase_mas_afectada": -1.89,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.46
+   }
+  },
+  "w_VIT": {
+   "+": {
+    "d_score": -0.56,
+    "d_dano_%_clase_mas_afectada": -0.56,
+    "d_vidaefectiva_%_clase_mas_afectada": 2.56
+   },
+   "-": {
+    "d_score": -0.59,
+    "d_dano_%_clase_mas_afectada": 0.57,
+    "d_vidaefectiva_%_clase_mas_afectada": -2.57
+   }
+  },
+  "w_CMD": {
+   "+": {
+    "d_score": -0.12,
+    "d_dano_%_clase_mas_afectada": 2.86,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.7
+   },
+   "-": {
+    "d_score": -0.14,
+    "d_dano_%_clase_mas_afectada": -2.95,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.86
+   }
+  },
+  "w_arbol_ofensa": {
+   "+": {
+    "d_score": -0.17,
+    "d_dano_%_clase_mas_afectada": 0.96,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.24
+   },
+   "-": {
+    "d_score": -0.04,
+    "d_dano_%_clase_mas_afectada": -0.89,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.22
+   }
+  },
+  "w_arbol_defensa": {
+   "+": {
+    "d_score": -0.3,
+    "d_dano_%_clase_mas_afectada": -0.16,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.07
+   },
+   "-": {
+    "d_score": -0.25,
+    "d_dano_%_clase_mas_afectada": 0.24,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.89
+   }
+  },
+  "w_arbol_critico": {
+   "+": {
+    "d_score": -0.05,
+    "d_dano_%_clase_mas_afectada": 0.6,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.2
+   },
+   "-": {
+    "d_score": -0.26,
+    "d_dano_%_clase_mas_afectada": -0.96,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.28
+   }
+  },
+  "w_arbol_durabilidad": {
+   "+": {
+    "d_score": 0.08,
+    "d_dano_%_clase_mas_afectada": -0.21,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.21
+   },
+   "-": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": 0.27,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.37
+   }
+  },
+  "w_arbol_vida": {
+   "+": {
+    "d_score": -0.04,
+    "d_dano_%_clase_mas_afectada": -0.39,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.93
+   },
+   "-": {
+    "d_score": 0.05,
+    "d_dano_%_clase_mas_afectada": 0.28,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.9
+   }
+  },
+  "w_arbol_mana": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.58,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.49,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "w_item_arma": {
+   "+": {
+    "d_score": -0.26,
+    "d_dano_%_clase_mas_afectada": 1.52,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.5
+   },
+   "-": {
+    "d_score": -0.26,
+    "d_dano_%_clase_mas_afectada": -1.47,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.51
+   }
+  },
+  "w_item_escudo": {
+   "+": {
+    "d_score": 0.11,
+    "d_dano_%_clase_mas_afectada": 0.67,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.19
+   },
+   "-": {
+    "d_score": 0.15,
+    "d_dano_%_clase_mas_afectada": -0.61,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.14
+   }
+  },
+  "w_item_casco": {
+   "+": {
+    "d_score": -0.29,
+    "d_dano_%_clase_mas_afectada": 0.91,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.19
+   },
+   "-": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": -0.9,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.78
+   }
+  },
+  "w_item_armadura": {
+   "+": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": 2.1,
+    "d_vidaefectiva_%_clase_mas_afectada": 3.43
+   },
+   "-": {
+    "d_score": -0.05,
+    "d_dano_%_clase_mas_afectada": -2.29,
+    "d_vidaefectiva_%_clase_mas_afectada": -2.51
+   }
+  },
+  "w_item_pantalon": {
+   "+": {
+    "d_score": -0.28,
+    "d_dano_%_clase_mas_afectada": 1.46,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.8
+   },
+   "-": {
+    "d_score": 0.22,
+    "d_dano_%_clase_mas_afectada": -1.23,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.43
+   }
+  },
+  "w_item_guantes": {
+   "+": {
+    "d_score": -0.24,
+    "d_dano_%_clase_mas_afectada": 1.13,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.3
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.99,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.9
+   }
+  },
+  "w_item_botas": {
+   "+": {
+    "d_score": -0.43,
+    "d_dano_%_clase_mas_afectada": 1.01,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.99
+   },
+   "-": {
+    "d_score": -0.04,
+    "d_dano_%_clase_mas_afectada": -0.81,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.01
+   }
+  },
+  "w_item_alas": {
+   "+": {
+    "d_score": -0.43,
+    "d_dano_%_clase_mas_afectada": 1.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.79
+   },
+   "-": {
+    "d_score": -0.44,
+    "d_dano_%_clase_mas_afectada": -1.36,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.56
+   }
+  },
+  "w_item_colgante": {
+   "+": {
+    "d_score": -0.21,
+    "d_dano_%_clase_mas_afectada": 0.76,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.65
+   },
+   "-": {
+    "d_score": -0.01,
+    "d_dano_%_clase_mas_afectada": -0.89,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.89
+   }
+  },
+  "w_item_anillo1": {
+   "+": {
+    "d_score": -0.14,
+    "d_dano_%_clase_mas_afectada": 0.9,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.09
+   },
+   "-": {
+    "d_score": 0.09,
+    "d_dano_%_clase_mas_afectada": -0.68,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.82
+   }
+  },
+  "w_item_anillo2": {
+   "+": {
+    "d_score": -0.05,
+    "d_dano_%_clase_mas_afectada": 0.64,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.04
+   },
+   "-": {
+    "d_score": -0.14,
+    "d_dano_%_clase_mas_afectada": -0.72,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.09
+   }
+  },
+  "w_mascota_ataque": {
+   "+": {
+    "d_score": -0.02,
+    "d_dano_%_clase_mas_afectada": 0.32,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.09
+   },
+   "-": {
+    "d_score": 0.16,
+    "d_dano_%_clase_mas_afectada": -0.29,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.08
+   }
+  },
+  "w_mascota_guardia": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.04,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.29
+   },
+   "-": {
+    "d_score": -0.06,
+    "d_dano_%_clase_mas_afectada": 0.04,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.3
+   }
+  },
+  "w_mascota_vital": {
+   "+": {
+    "d_score": 0.0,
+    "d_dano_%_clase_mas_afectada": -0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.21
+   },
+   "-": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": 0.07,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.13
+   }
+  },
+  "w_mascota_veloz": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.35,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.03
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.37,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.03
+   }
+  },
+  "w_buff_SoulBarrier": {
+   "+": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": -0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.32
+   },
+   "-": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": 0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.17
+   }
+  },
+  "w_buff_Expansion": {
+   "+": {
+    "d_score": 0.06,
+    "d_dano_%_clase_mas_afectada": 0.18,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.02
+   },
+   "-": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": -0.08,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.04
+   }
+  },
+  "w_buff_Defense": {
+   "+": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": -0.02,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.34
+   },
+   "-": {
+    "d_score": 0.17,
+    "d_dano_%_clase_mas_afectada": 0.04,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.29
+   }
+  },
+  "w_buff_SwellLife": {
+   "+": {
+    "d_score": -0.01,
+    "d_dano_%_clase_mas_afectada": -0.08,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.15
+   },
+   "-": {
+    "d_score": -0.08,
+    "d_dano_%_clase_mas_afectada": 0.08,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.15
+   }
+  },
+  "w_buff_Heal": {
+   "+": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": -0.09,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.23
+   },
+   "-": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": 0.09,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.08
+   }
+  },
+  "w_buff_GreaterDefense": {
+   "+": {
+    "d_score": 0.0,
+    "d_dano_%_clase_mas_afectada": -0.02,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.22
+   },
+   "-": {
+    "d_score": -0.13,
+    "d_dano_%_clase_mas_afectada": 0.04,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.13
+   }
+  },
+  "w_buff_GreaterDamage": {
+   "+": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": 0.09,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.03
+   },
+   "-": {
+    "d_score": -0.18,
+    "d_dano_%_clase_mas_afectada": -0.09,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.04
+   }
+  },
+  "w_buff_InfinityArrow": {
+   "+": {
+    "d_score": -0.04,
+    "d_dano_%_clase_mas_afectada": 0.09,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.04
+   },
+   "-": {
+    "d_score": -0.16,
+    "d_dano_%_clase_mas_afectada": -0.06,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.04
+   }
+  },
+  "w_buff_IncCrit": {
+   "+": {
+    "d_score": -0.02,
+    "d_dano_%_clase_mas_afectada": 0.24,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.12
+   },
+   "-": {
+    "d_score": -0.2,
+    "d_dano_%_clase_mas_afectada": -0.13,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.12
+   }
+  },
+  "w_buff_Reflection": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.01,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.32
+   },
+   "-": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": -0.01,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.32
+   }
+  },
+  "w_buff_Berserker": {
+   "+": {
+    "d_score": 0.0,
+    "d_dano_%_clase_mas_afectada": 0.12,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.12
+   },
+   "-": {
+    "d_score": -0.04,
+    "d_dano_%_clase_mas_afectada": -0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.1
+   }
+  },
+  "w_buff_IgnoreDefense": {
+   "+": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": 0.35,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.08
+   },
+   "-": {
+    "d_score": -0.06,
+    "d_dano_%_clase_mas_afectada": -0.36,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.08
+   }
+  },
+  "w_buff_IncreaseHealth": {
+   "+": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": -0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.24
+   },
+   "-": {
+    "d_score": -0.1,
+    "d_dano_%_clase_mas_afectada": 0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.21
+   }
+  },
+  "w_buff_IncreaseBlock": {
+   "+": {
+    "d_score": -0.01,
+    "d_dano_%_clase_mas_afectada": -0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.26
+   },
+   "-": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": 0.05,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.25
+   }
+  },
+  "w_buff_Recovery": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.06,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.33
+   },
+   "-": {
+    "d_score": -0.14,
+    "d_dano_%_clase_mas_afectada": 0.06,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.08
+   }
+  },
+  "sat_stat": {
+   "+": {
+    "d_score": -0.02,
+    "d_dano_%_clase_mas_afectada": -0.29,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.12
+   },
+   "-": {
+    "d_score": 0.16,
+    "d_dano_%_clase_mas_afectada": 0.29,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.29
+   }
+  },
+  "sat_tree": {
+   "+": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": -0.29,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.64
+   },
+   "-": {
+    "d_score": -0.11,
+    "d_dano_%_clase_mas_afectada": 0.3,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.73
+   }
+  },
+  "afin_sec": {
+   "+": {
+    "d_score": -0.01,
+    "d_dano_%_clase_mas_afectada": 0.39,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.05
+   },
+   "-": {
+    "d_score": 0.05,
+    "d_dano_%_clase_mas_afectada": -0.39,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.05
+   }
+  },
+  "afin_otro": {
+   "+": {
+    "d_score": -0.02,
+    "d_dano_%_clase_mas_afectada": 0.59,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.08
+   },
+   "-": {
+    "d_score": -0.01,
+    "d_dano_%_clase_mas_afectada": -0.5,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.09
+   }
+  },
+  "agi_crit": {
+   "+": {
+    "d_score": -0.48,
+    "d_dano_%_clase_mas_afectada": 1.07,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.32
+   },
+   "-": {
+    "d_score": -0.47,
+    "d_dano_%_clase_mas_afectada": -1.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.31
+   }
+  },
+  "vit_vida": {
+   "+": {
+    "d_score": 0.02,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.04
+   },
+   "-": {
+    "d_score": 0.08,
+    "d_dano_%_clase_mas_afectada": -0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.06
+   }
+  },
+  "item_generico": {
+   "+": {
+    "d_score": 0.18,
+    "d_dano_%_clase_mas_afectada": 2.63,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.7
+   },
+   "-": {
+    "d_score": -0.59,
+    "d_dano_%_clase_mas_afectada": -2.75,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.6
+   }
+  },
+  "arma_base": {
+   "+": {
+    "d_score": 0.09,
+    "d_dano_%_clase_mas_afectada": 0.89,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.16
+   },
+   "-": {
+    "d_score": -0.42,
+    "d_dano_%_clase_mas_afectada": -0.84,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.16
+   }
+  },
+  "escudo_dur": {
+   "+": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": -0.08,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.56
+   },
+   "-": {
+    "d_score": 0.12,
+    "d_dano_%_clase_mas_afectada": 0.08,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.55
+   }
+  },
+  "gamma": {
+   "+": {
+    "d_score": -0.94,
+    "d_dano_%_clase_mas_afectada": -2.19,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.77
+   },
+   "-": {
+    "d_score": -0.4,
+    "d_dano_%_clase_mas_afectada": 2.74,
+    "d_vidaefectiva_%_clase_mas_afectada": -2.04
+   }
+  },
+  "rho": {
+   "+": {
+    "d_score": -0.12,
+    "d_dano_%_clase_mas_afectada": -4.14,
+    "d_vidaefectiva_%_clase_mas_afectada": 3.71
+   },
+   "-": {
+    "d_score": -1.96,
+    "d_dano_%_clase_mas_afectada": 4.38,
+    "d_vidaefectiva_%_clase_mas_afectada": -4.28
+   }
+  },
+  "Ko": {
+   "+": {
+    "d_score": -0.15,
+    "d_dano_%_clase_mas_afectada": -4.88,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.97,
+    "d_dano_%_clase_mas_afectada": 6.07,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "Ap": {
+   "+": {
+    "d_score": -0.41,
+    "d_dano_%_clase_mas_afectada": 7.71,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.59,
+    "d_dano_%_clase_mas_afectada": -7.61,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "Kp": {
+   "+": {
+    "d_score": 0.14,
+    "d_dano_%_clase_mas_afectada": -4.73,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.94,
+    "d_dano_%_clase_mas_afectada": 5.79,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "Kc": {
+   "+": {
+    "d_score": -0.46,
+    "d_dano_%_clase_mas_afectada": -1.51,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.34,
+    "d_dano_%_clase_mas_afectada": 1.83,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "cmax": {
+   "+": {
+    "d_score": -0.06,
+    "d_dano_%_clase_mas_afectada": 2.12,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": -2.05,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "cm": {
+   "+": {
+    "d_score": -0.17,
+    "d_dano_%_clase_mas_afectada": 4.66,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.97,
+    "d_dano_%_clase_mas_afectada": -4.68,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "cdr_max": {
+   "+": {
+    "d_score": 0.18,
+    "d_dano_%_clase_mas_afectada": 2.52,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.07,
+    "d_dano_%_clase_mas_afectada": -2.46,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "K_cdr": {
+   "+": {
+    "d_score": 0.1,
+    "d_dano_%_clase_mas_afectada": 1.75,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.14,
+    "d_dano_%_clase_mas_afectada": -2.1,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "mb_max": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.7,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": -0.49,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "K_mana": {
+   "+": {
+    "d_score": 0.0,
+    "d_dano_%_clase_mas_afectada": -0.46,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.81,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "gd": {
+   "+": {
+    "d_score": -0.69,
+    "d_dano_%_clase_mas_afectada": 20.89,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.03,
+    "d_dano_%_clase_mas_afectada": -17.28,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "gh": {
+   "+": {
+    "d_score": -0.76,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 12.27
+   },
+   "-": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -10.93
+   }
+  },
+  "H1": {
+   "+": {
+    "d_score": 0.06,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -0.89,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "Ah": {
+   "+": {
+    "d_score": -0.69,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 5.97
+   },
+   "-": {
+    "d_score": -0.35,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -5.81
+   }
+  },
+  "Kh": {
+   "+": {
+    "d_score": -0.58,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -3.57
+   },
+   "-": {
+    "d_score": -0.33,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 4.32
+   }
+  },
+  "Km": {
+   "+": {
+    "d_score": -0.19,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -6.05
+   },
+   "-": {
+    "d_score": -1.53,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 8.48
+   }
+  },
+  "mu": {
+   "+": {
+    "d_score": -0.85,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 3.41
+   },
+   "-": {
+    "d_score": -0.75,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -3.47
+   }
+  },
+  "Kd": {
+   "+": {
+    "d_score": -0.15,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -3.17
+   },
+   "-": {
+    "d_score": -0.88,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 4.26
+   }
+  },
+  "rr": {
+   "+": {
+    "d_score": 0.03,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.86
+   },
+   "-": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.36
+   }
+  },
+  "Ks": {
+   "+": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -0.65
+   },
+   "-": {
+    "d_score": 0.17,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.96
+   }
+  },
+  "ls": {
+   "+": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.29,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "sh0": {
+   "+": {
+    "d_score": -0.15,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.45
+   },
+   "-": {
+    "d_score": -0.41,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.42
+   }
+  },
+  "pen_crit": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "pen_ign": {
+   "+": {
+    "d_score": 0.04,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -0.05,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "m0": {
+   "+": {
+    "d_score": -0.44,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 1.41
+   },
+   "-": {
+    "d_score": -0.39,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -1.35
+   }
+  },
+  "refl": {
+   "+": {
+    "d_score": 0.01,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": 0.0,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "dmg_BK": {
+   "+": {
+    "d_score": -2.97,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -3.66,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_BK": {
+   "+": {
+    "d_score": -3.6,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -3.97,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_RF": {
+   "+": {
+    "d_score": -3.21,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -3.09,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_RF": {
+   "+": {
+    "d_score": -2.63,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -1.98,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_DL": {
+   "+": {
+    "d_score": -3.23,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -3.58,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_DL": {
+   "+": {
+    "d_score": -3.72,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -3.83,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_MG": {
+   "+": {
+    "d_score": -3.09,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -4.02,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_MG": {
+   "+": {
+    "d_score": -2.95,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -3.88,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_FE": {
+   "+": {
+    "d_score": -1.96,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -4.92,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_FE": {
+   "+": {
+    "d_score": -2.5,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -4.3,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_GM": {
+   "+": {
+    "d_score": -3.28,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -2.77,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_GM": {
+   "+": {
+    "d_score": -2.11,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -2.19,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  },
+  "dmg_SUM": {
+   "+": {
+    "d_score": -1.75,
+    "d_dano_%_clase_mas_afectada": 15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   },
+   "-": {
+    "d_score": -3.48,
+    "d_dano_%_clase_mas_afectada": -15.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 0.0
+   }
+  },
+  "hp_SUM": {
+   "+": {
+    "d_score": -2.53,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": 15.0
+   },
+   "-": {
+    "d_score": -4.07,
+    "d_dano_%_clase_mas_afectada": 0.0,
+    "d_vidaefectiva_%_clase_mas_afectada": -15.0
+   }
+  }
+ }
+}

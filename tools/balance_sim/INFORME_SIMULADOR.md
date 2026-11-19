@@ -46,3 +46,25 @@ Solo el 31 % de los cruces clase × arquetipo cae en 40-60 % en el juego real (1
   Con ellos `f_real` reproduce los duelos reales así: correlación 0,98 (sin ítems) y 0,89 (T3), ganador acertado en el 100 % y el 95 % de los cruces; el ajuste residual por clase bajó (kit BK 0,79, RF 0,43, DL 0,58, MG 0,75, FE 1,69, GM 1,13, SUM 1,54), señal de que parte de la diferencia entre clases ya viene de los kits y el resto son los pasivos, el control y el comportamiento de los bots (fase 2).
 - **Juego real con los 11 criterios: 45,7/100.** Duelos de 12-33 s según el nivel; 0 % de los niveles con la matriz clase × arquetipo en banda 40-60 % en promedio (C2 = 0), ninguna celda es pareja: el balance real está lejos de la meta.
 - **Fase 2 (pendiente, a pedido tuyo):** (2) maná y enfriamientos explícitos con rotación real de los bots; (3) pasivos de clase modelados (Frenesí, Segundo aliento, Combustión, Marca del cazador, Impulso híbrido, Eco espiritual); (4) control real (aturdir, ralentizar, dormir, inmovilizar, rendimientos decrecientes, tenacidad); (5) escaramuzas repetidas con vida arrastrada y 5v5. Dejado fuera: farmeo y estructuras.
+
+---
+# REPORTE 4 (2026-11-19): piloto de la etapa 1 (3 familias)
+
+Consumo: 3 agentes, 933.000 tokens de subagentes, 232 llamadas a herramientas, 4 h 6 min de reloj (2 corren a la vez por los 4 núcleos). Cuota: la semanal pasó de 4 % a 17 % (≈ 13 puntos; unos 4,3 por agente). Sin gasto en dinero.
+
+| Fórmula | Puntaje (n=150.000) | Estado |
+|---|---|---|
+| `f01_cubos` (multiplicativa por cubos) | 85,68 (antes de ajustar 75,6) | completa; perillas peor caída −2,6 |
+| `f04_presupuesto` (presupuesto con pesos) | 80,96 (antes de ajustar 75,9) | completa; perillas peor caída −4,9 |
+| `f07_saturacion` (saturación) | solo 76,5 en corrida rápida | **incompleta** (la ronda 2 de tune no terminó; no hay 150k, ni robust, ni resumen) |
+
+**El puntaje bruto engaña (hallazgos sobre el simulador, sin corregir):**
+1. `f01` puntúa más pero tiene C6 = 0,47: peleas de 27 s en nivel 1 y de **4 s en nivel 30**; el ajuste lo sacrificó por C2 (0,75). `f04` tiene peleas de 4,4 s (nv1) a 14,9 s (nv30) y C6 = 0,89, pero C2 solo 0,44 (niveles 25-30 en banda 33 %).
+2. Hueco del tiempo límite: si nadie muere en 90 s gana quien conserva más vida relativa, casi todo queda 50-50. `f07` lo explotó (94 % de peleas sin muerto, 89,7 puntos) y se descartó.
+3. C2 premia el azar: los buffs aleatorios por pelea bajan los cruces extremos; `f01` llegó a inflar buffs y mascotas (+274 % de vida) para eso.
+4. `run.py --params` no lee el JSON de `tune.py` (clave `params`); `fight()` cuenta como recorte toda penetración mayor que la mitigación del rival; `tune.py` es poco eficaz con ~100 perillas (`f04` usó una búsqueda propia fuera de la carpeta).
+5. Ambas fórmulas usan 14 constantes por clase calibradas con script (no una ley general).
+
+**Ideas que valen para la híbrida (f10):** un solo cubo de vida donde suman TODAS las fuentes (stats, nodo, piezas, mascota, SwellLife, IncreaseHealth, Berserker); pesos por elemento calibrados para que cada uno mueva ≈ 2-3 %; ítems = parte genérica + parte por rol; reparto suave ofensa/defensa por razón con exponente gamma (identidad tanque/daño con una perilla: vida efectiva ×2,0, daño ×1,9, tanque vs daño 56 %); penetración acotada por la mitigación base con 1−exp; crítico y daño verdadero como parte que ignora mitigación; desglose del golpe con 10 factores en 1-45 %.
+
+Archivos: `f01_cubos.py`, `f04_presupuesto.py`, `f07_saturacion.py` (incompleto), y en `resultados/`: `*_RESUMEN.md`, `*_informe.json`, `*_params.json`, `*_perillas.json` de f01 y f04.
