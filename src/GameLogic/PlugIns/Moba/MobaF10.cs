@@ -40,8 +40,9 @@ public static class MobaF10
     private const double ArmourPool = 3.3;
 
     /// <summary>
-    /// Class offsets calibrated with real duels (2026-11-19, level 30, no items, damage scale 2.7, 8 duels per pair, all classes 39-56 % against the field).
-    /// Large because the kits and the bot rotations are not neutral: SUM and FE need a big negative offset.
+    /// Class offsets calibrated with real duels (2026-11-20, level 30, no items, damage scale 1.5, 8 duels per pair, all classes 38-59 % against the field, duels of 10 s),
+    /// AFTER the channels that F10 did not see were brought into the model (crowd-control rule, buff ledger, cap and brake against the reference life, reflection,
+    /// passives, master tree): they went from +-3.5 to +-0.6. What is left is mostly positioning (range, kiting).
     /// </summary>
     private static readonly double[] PsiByFamily = BuildPsi();
 
@@ -49,7 +50,7 @@ public static class MobaF10
     public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_F10") == "1";
 
     /// <summary>Gets or sets the global damage scale of the model (calibrated with real duels so that a typical fight lasts as designed).</summary>
-    public static double DamageScale { get; set; } = 2.7;
+    public static double DamageScale { get; set; } = 1.5;
 
     /// <summary>
     /// Gets or sets a value indicating whether the per-hit cap (30 % of the victim's max HP) and the 2 s burst brake of <see cref="MobaDefense"/> stay on under F10.
@@ -57,19 +58,22 @@ public static class MobaF10
     /// </summary>
     public static bool HitCapAndBrake { get; set; } = true;
 
+    /// <summary>The most of the damage received a reflection can send back under F10 (the Reflection buff of the game gives 30-60 %).</summary>
+    public const float MaxReflect = 0.25f;
+
     /// <summary>Gets or sets the global life scale of the model.</summary>
     public static double HealthScale { get; set; } = 1.0;
 
     private static double[] BuildPsi()
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
-        psi[(int)MobaFamily.Wizard] = -0.443;
-        psi[(int)MobaFamily.Knight] = 1.066;
-        psi[(int)MobaFamily.Elf] = -2.388;
-        psi[(int)MobaFamily.MagicGladiator] = 1.383;
-        psi[(int)MobaFamily.DarkLord] = 2.751;
-        psi[(int)MobaFamily.Summoner] = -3.498;
-        psi[(int)MobaFamily.RageFighter] = 1.129;
+        psi[(int)MobaFamily.Wizard] = 0.34;
+        psi[(int)MobaFamily.Knight] = 0.11;
+        psi[(int)MobaFamily.Elf] = -0.50;
+        psi[(int)MobaFamily.MagicGladiator] = 0.41;
+        psi[(int)MobaFamily.DarkLord] = 0.41;
+        psi[(int)MobaFamily.Summoner] = -0.59;
+        psi[(int)MobaFamily.RageFighter] = -0.18;
         return psi;
     }
 
@@ -117,10 +121,13 @@ public static class MobaF10
             vit = Math.Clamp((a[Stats.TotalVitality] - MobaCloneFactory.BaselineStatValue) / MobaStatEconomy.MaxPerStat, 0.0, 1.0);
         }
 
-        var treeOff = MobaMasterTree.Fraction(champion, MobaTreeKind.Offense) ?? 0.0;
-        var treeDef = MobaMasterTree.Fraction(champion, MobaTreeKind.Defense) ?? 0.0;
-        var treeHealth = MobaMasterTree.Fraction(champion, MobaTreeKind.Health) ?? 0.0;
-        var treeDur = MobaMasterTree.Fraction(champion, MobaTreeKind.Durability) ?? 0.0;
+        // A class without a master tree gets the reference tree (the same decision as giving every class the four branches): no class starts
+        // below the reference only because the tree does not exist for it.
+        var refTree = 0.3 * ((Math.Clamp(champion.MobaLevel, 1, 30) - 1) / 29.0);
+        var treeOff = MobaMasterTree.Fraction(champion, MobaTreeKind.Offense) ?? refTree;
+        var treeDef = MobaMasterTree.Fraction(champion, MobaTreeKind.Defense) ?? refTree;
+        var treeHealth = MobaMasterTree.Fraction(champion, MobaTreeKind.Health) ?? refTree;
+        var treeDur = MobaMasterTree.Fraction(champion, MobaTreeKind.Durability) ?? refTree;
         var itemOff = MobaItemPower.OffenseFractionOf(champion);
         var itemDef = MobaItemPower.DefenseFractionOf(champion);
         var spellPower = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.SpellPower);
@@ -129,15 +136,25 @@ public static class MobaF10
 
         // buffs received (rank 0..5 of the caster's skill): all of them count at once, stacked with diminishing returns
         double Buff(short skill) => MobaBuffPower.RankOn(champion, skill) / 5.0;
-        const double Kb = 0.12;
-        var buffOff = Kb * (1.0 - Math.Exp(-((0.10 * Buff(MobaBuffPower.ExpansionOfWizardry)) + (0.05 * Buff(218))) / Kb));
-        var buffLife = Kb * (1.0 - Math.Exp(-((0.10 * Buff(48)) + (0.10 * Buff(267)) + (0.05 * Buff(218)) + (0.10 * Buff(26)) + (0.10 * Buff(234))) / Kb));
-        var buffDur = Kb * (1.0 - Math.Exp(-(0.06 * Buff(MobaBuffPower.IncreaseBlock)) / Kb));
+        // THE BUFF LEDGER (2026-11-20): every buff of the game counts in some % of the hit damage (offense), of the life, or against the hit (durability).
+        // Buffs whose real effect stays alive under F10 are NOT here (they would count twice): Defense 18 and Second Wind (DamageReceiveDecrement),
+        // Damage Reflection 217 (reflect, see MobaDefense.ReflectedDamage), Increase Block 268 (crowd-control resistance, see MobaCc.ShapeHardCc).
+        // Their real effect on the hit is switched off under F10 and the pool carries it: Soul Barrier 16, Ignore Defense 266, the crit bonus of 64.
+        var buffOff = BuffPool(0.10 * Buff(MobaBuffPower.ExpansionOfWizardry), 0.05 * Buff(218), 0.10 * Buff(28), 0.08 * Buff(77), 0.06 * Buff(MobaBuffPower.IncreaseCriticalDamage), 0.05 * Buff(266));
+        var buffLife = BuffPool(0.10 * Buff(48), 0.10 * Buff(267), 0.05 * Buff(218), 0.10 * Buff(26), 0.10 * Buff(234));
+        var buffDur = BuffPool(0.10 * Buff(16), 0.06 * Buff(27));
 
         var offense = (0.5 * Sat(prim, SatStat)) + (0.5 * Sat(treeOff, SatTree)) + (WeaponPool * itemOff) + (0.25 * ArmourPool * itemDef) + (3.0 * spellPower) + buffOff;
         var life = (0.25 * Sat(vit, SatStat)) + (0.5 * Sat(treeHealth, SatTree)) + (0.25 * ArmourPool * itemDef) + (2.0 * healthPool) + (0.3 * itemOff) + buffLife;
         var durability = (0.25 * Sat(vit, SatStat)) + (0.5 * Sat(treeDef, SatTree)) + (0.5 * Sat(treeDur, SatTree)) + (0.5 * ArmourPool * itemDef) + (3.0 * durItems) + buffDur;
         return new Pools(offense, life, durability);
+    }
+
+    /// <summary>Buffs received stack with diminishing returns: all of them count at once, the next one adds less.</summary>
+    private static double BuffPool(params double[] terms)
+    {
+        const double Kb = 0.20;
+        return Kb * (1.0 - Math.Exp(-terms.Sum() / Kb));
     }
 
     /// <summary>The pools of the reference build of a level: the default clone of the bots (35 % primary / 35 % VIT, no items before level 3, tier by level, 30 % of each tree).</summary>

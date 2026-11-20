@@ -908,6 +908,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// <inheritdoc/>
     public ValueTask ReflectDamageAsync(IAttacker reflector, uint damage)
     {
+        if (PlugIns.Moba.MobaF10.Enabled && this.IsMobaClone && reflector is Player { IsMobaClone: true })
+        {
+            // F10: the reflected damage goes through the mitigation of the one that receives it (it used to bypass everything).
+            damage = PlugIns.Moba.MobaDefense.PenetratingShare(damage, this, 0.0);
+        }
+
         PlugIns.Moba.MobaTelemetry.ReflectObserver?.Invoke(reflector, this, damage);
         return this.HitAsync(this.GetHitInfo(damage, DamageAttributes.Reflected, reflector), reflector, null);
     }
@@ -915,6 +921,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// <inheritdoc/>
     public ValueTask ApplyPoisonDamageAsync(IAttacker initialAttacker, uint damage)
     {
+        if (PlugIns.Moba.MobaF10.Enabled && this.IsMobaClone && initialAttacker is Player { IsMobaClone: true })
+        {
+            // F10: the passive bolts and the special damage of a champion are a % of the hit that mostly goes through the mitigation (half of it is penetrating).
+            damage = PlugIns.Moba.MobaDefense.PenetratingShare(damage, this, 0.5);
+        }
+
         return this.HitAsync(new HitInfo(damage, 0, DamageAttributes.Poison), initialAttacker, null);
     }
 
@@ -1693,6 +1705,11 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             var attackableAttacker = attacker is AttackerSurrogate surrogate ? surrogate.Owner : (IAttackable)attacker;
 
             var reflectPercentage = this.Attributes[Stats.DamageReflection];
+            if (PlugIns.Moba.MobaF10.Enabled && this.IsMobaClone)
+            {
+                reflectPercentage = Math.Min(reflectPercentage, PlugIns.Moba.MobaF10.MaxReflect);
+            }
+
             if (reflectPercentage > 0)
             {
                 var reflectedDamage = (hitInfo.HealthDamage + hitInfo.ShieldDamage) * reflectPercentage;

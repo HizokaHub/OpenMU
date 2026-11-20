@@ -45,6 +45,13 @@ public class MagicEffectsList : AsyncDisposable
     /// <param name="effect">The effect.</param>
     public async ValueTask AddEffectAsync(MagicEffect effect)
     {
+        if (!PlugIns.Moba.MobaCc.ShapeHardCc(this._owner, effect))
+        {
+            // immune after a hard control (MOBA F10 crowd-control rule)
+            effect.Dispose();
+            return;
+        }
+
         bool added = false;
         using (await this._addLock.LockAsync())
         {

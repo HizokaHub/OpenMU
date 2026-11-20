@@ -1,6 +1,6 @@
 """Calibra en lazo cerrado el psi por clase de F10 con duelos REALES (/mobaduel) usando el bot de pruebas.
 Requiere: servidor arriba, Main.exe en la arena MOBA con la cuenta GM, nadie tocando el PC.
-Uso: python -I -X utf8 tools/calibrar_f10.py [iteraciones=4] [duelos_por_cruce=4] [pasada=plain]"""
+Uso: python -I -X utf8 tools/calibrar_f10.py [iteraciones=4] [duelos_por_cruce=4] [pasada=plain] [ganancia=0.45]"""
 import glob, json, math, subprocess, sys, time
 from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
@@ -47,7 +47,7 @@ def analizar(arch):
     return {c: v[0] / max(v[1], 1) for c, v in tot.items()}, dur / max(n, 1)
 
 
-gain = 0.45
+gain = float(sys.argv[4]) if len(sys.argv) > 4 else 0.45
 registro = []
 for it in range(iters):
     for c, name in FAM.items():

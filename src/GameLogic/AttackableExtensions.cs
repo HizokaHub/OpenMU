@@ -101,7 +101,8 @@ public static class AttackableExtensions
             ? Math.Min(attacker.Attributes[Stats.ExcellentDamageChance], PlugIns.Moba.MobaCombatStats.MaxExcellentHitChance)
             : attacker.Attributes[Stats.ExcellentDamageChance];
         bool isExcellentHit = Rand.NextRandomBool(excellentChance);
-        bool isIgnoringDefense = Rand.NextRandomBool(attacker.Attributes[Stats.DefenseIgnoreChance]);
+        // F10: the Ignore Defense buff and the ignore-defense chance of the pieces live in the offense pool (the flat defense of a champion is a % there).
+        bool isIgnoringDefense = !(isMobaChampionAttacker && PlugIns.Moba.MobaF10.Enabled) && Rand.NextRandomBool(attacker.Attributes[Stats.DefenseIgnoreChance]);
 
         var defense = 0;
         if (isIgnoringDefense)
@@ -308,7 +309,8 @@ public static class AttackableExtensions
 
         float manaToll = 0;
         var soulBarrierManaToll = defender.Attributes[Stats.SoulBarrierManaTollPerHit];
-        if (soulBarrierManaToll > 0 && defender.Attributes[Stats.CurrentMana] > soulBarrierManaToll)
+        if (soulBarrierManaToll > 0 && defender.Attributes[Stats.CurrentMana] > soulBarrierManaToll
+            && !(defender is Player { IsMobaClone: true } && PlugIns.Moba.MobaF10.Enabled))
         {
             manaToll = soulBarrierManaToll;
             float soulBarrierReduction = defender.Attributes[Stats.SoulBarrierReceiveDecrement];

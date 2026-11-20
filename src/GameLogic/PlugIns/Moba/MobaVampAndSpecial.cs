@@ -59,6 +59,14 @@ public static class MobaVampAndSpecial
                 var vAttr = champVictim.Attributes;
                 var extra = (maxHpFrac * (vAttr?[Stats.MaximumHealth] ?? 0))
                             + (curHpFrac * (vAttr?[Stats.CurrentHealth] ?? 0));
+                if (MobaF10.Enabled)
+                {
+                    // F10: a % of the REFERENCE life of the level, scaled by the damage factor of the attacker (it used to be a % of the real life, which
+                    // F10 makes vary 12x between classes, and did not grow with the attacker at all).
+                    var referenceLife = MobaProgression.HealthAt(Math.Clamp(champVictim.MobaLevel <= 0 ? 1 : champVictim.MobaLevel, 1, MobaLevels.MaxLevel)) * MobaF10.HealthScale;
+                    var livePart = vAttr is { } va && va[Stats.MaximumHealth] > 0 ? va[Stats.CurrentHealth] / va[Stats.MaximumHealth] : 1f;
+                    extra = ((maxHpFrac) + (curHpFrac * livePart)) * referenceLife * (MobaF10.DamageFactor(attacker) / MobaF10.DamageScale);
+                }
                 var trueDmg = (uint)Math.Max(1, extra);
                 if (extra >= 1)
                 {

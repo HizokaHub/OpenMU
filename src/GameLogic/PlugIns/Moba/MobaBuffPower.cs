@@ -102,7 +102,7 @@ public static class MobaBuffPower
     /// <summary>The multiplier of a critical hit of the champion: the base plus what Increase Critical Damage adds.</summary>
     /// <param name="champion">The attacking champion.</param>
     /// <returns>The crit multiplier.</returns>
-    public static double CritMultiplierOf(Player champion) => MobaCombatStats.CritMultiplier + CritBonusForRank(RankOn(champion, IncreaseCriticalDamage));
+    public static double CritMultiplierOf(Player champion) => MobaCombatStats.CritMultiplier + (MobaF10.Enabled ? 0.0 : CritBonusForRank(RankOn(champion, IncreaseCriticalDamage)));
 
     /// <summary>The spell damage factor of Expansion of Wizardry at a rank.</summary>
     /// <param name="rank">The rank of the buff, 0 when it is not active.</param>

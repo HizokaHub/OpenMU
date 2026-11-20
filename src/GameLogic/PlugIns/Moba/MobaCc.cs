@@ -49,6 +49,8 @@ public static class MobaCc
 
     private sealed class DrState
     {
+        public DateTime ImmuneUntil;
+
         public int Stacks;
 
         public DateTime LastCcUtc;
@@ -61,6 +63,53 @@ public static class MobaCc
     /// (basic tenacity). Call from the match tick.
     /// </summary>
     /// <param name="gameContext">The game context.</param>
+    /// <summary>
+    /// The crowd-control rule of F10 (2026-11-20), applied the moment a hard control (stun, freeze, sleep) lands on a champion, not once a second afterwards:
+    /// each control in a row lasts half of the previous one, the champion is immune for <see cref="ImmunitySeconds"/> after it, and the stacks reset after
+    /// <see cref="DiminishReset"/> without control. The crowd-control resistance of the class, the pieces and the Increase Block buff shortens every control.
+    /// (The old rule let every control below 0.65 s / 1.4 s through and an Elf froze its rival 60-75 % of the duel with them.)
+    /// </summary>
+    /// <param name="owner">The one that gets the control.</param>
+    /// <param name="effect">The magic effect about to be added (its duration is shortened here).</param>
+    /// <returns><see langword="false"/> if the champion is immune and the effect must be discarded.</returns>
+    public static bool ShapeHardCc(IAttackable owner, MagicEffect effect)
+    {
+        if (!MobaF10.Enabled || owner is not Player { IsMobaClone: true } champion
+            || !effect.PowerUpElements.Any(e => Array.IndexOf(HardCcAttributes, e.Target) >= 0))
+        {
+            return true;
+        }
+
+        var dr = DrByChampion.GetOrCreateValue(champion);
+        lock (dr)
+        {
+            var now = DateTime.UtcNow;
+            if (now < dr.ImmuneUntil)
+            {
+                return false;
+            }
+
+            if (now - dr.LastCcUtc > DiminishReset)
+            {
+                dr.Stacks = 0;
+            }
+
+            var resist = Math.Min(0.8, MobaItemTraits.CcResistOf(champion) + MobaBuffPower.CcResistBonusOf(champion));
+            var factor = Math.Pow(0.5, dr.Stacks) * TenacityMul(MobaPassives.FamilyOf(champion)) * (1.0 - resist);
+            var shaped = TimeSpan.FromMilliseconds(Math.Max(100, effect.Duration.TotalMilliseconds * factor));
+            effect.Duration = shaped;
+            effect.ResetTimer();
+            dr.Stacks++;
+            dr.LastCcUtc = now;
+            dr.ImmuneUntil = now + shaped + TimeSpan.FromSeconds(ImmunitySeconds);
+        }
+
+        return true;
+    }
+
+    /// <summary>Immunity after a hard control, in seconds.</summary>
+    public const double ImmunitySeconds = 1.5;
+
     public static async ValueTask CapCrowdControlAsync(IGameContext gameContext)
     {
         try

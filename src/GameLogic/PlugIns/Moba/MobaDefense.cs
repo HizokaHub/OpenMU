@@ -172,6 +172,28 @@ public static class MobaDefense
     }
 
     /// <summary>
+    /// The life the per-hit cap and the burst brake are measured against under F10: the reference life of the level, the same for every class (with its own
+    /// life a low-life class was rescued by its own cap: the diagnosis of 2026-11-20 found that 92-96 % of what reached the Summoner and the Elf was cut).
+    /// </summary>
+    private static float ReferenceMaxHealth(Player defender)
+        => (float)(MobaProgression.HealthAt(Math.Clamp(defender.MobaLevel <= 0 ? 1 : defender.MobaLevel, 1, MobaLevels.MaxLevel)) * MobaF10.HealthScale);
+
+    /// <summary>
+    /// Damage of a source that is not a hit (reflection, passive bolts, special damage) under F10: it goes through the mitigation and the durability of the
+    /// victim, except for the penetrating share, which ignores them.
+    /// </summary>
+    /// <param name="damage">The damage before the victim's defense.</param>
+    /// <param name="victim">The victim.</param>
+    /// <param name="penetration">The share (0..1) of the defense that is ignored.</param>
+    /// <returns>The damage after the defense (at least 1).</returns>
+    public static uint PenetratingShare(uint damage, Player victim, double penetration)
+    {
+        var mitigation = FinalMitigationOf(victim) * (1.0 - penetration);
+        var taken = 1.0 - ((1.0 - MobaF10.DefenseOf(victim).DamageTaken) * (1.0 - penetration));
+        return (uint)Math.Max(1, damage * (1.0 - mitigation) * taken);
+    }
+
+    /// <summary>
     /// Applies MOBA mitigation to a raw damage value: reduces it by the defender's final
     /// (stat + item blend) mitigation, minus the casting skill's armour penetration.
     /// </summary>
@@ -208,7 +230,7 @@ public static class MobaDefense
         var capsOn = !MobaF10.Enabled || MobaF10.HitCapAndBrake;
         if (capsOn && defender.Attributes is { } da)
         {
-            var hitCap = (int)(da[Stats.MaximumHealth] * MaxHitFractionOfMaxHp);
+            var hitCap = (int)((MobaF10.Enabled ? ReferenceMaxHealth(defender) : da[Stats.MaximumHealth]) * MaxHitFractionOfMaxHp);
             if (hitCap > 0 && capped > hitCap)
             {
                 capped = hitCap;
@@ -218,7 +240,7 @@ public static class MobaDefense
         var afterCap = capped;
         if (capsOn && defender.Attributes is { } ba)
         {
-            capped = ApplyBurstBrake(defender, capped, ba[Stats.MaximumHealth] + ba[Stats.MaximumShield]);
+            capped = ApplyBurstBrake(defender, capped, MobaF10.Enabled ? ReferenceMaxHealth(defender) * (1f + MobaProgression.ShieldPerHealth) : ba[Stats.MaximumHealth] + ba[Stats.MaximumShield]);
         }
 
         StageObserver?.Invoke(defender, skillNumber, rawDamage, final, afterCap, capped);
