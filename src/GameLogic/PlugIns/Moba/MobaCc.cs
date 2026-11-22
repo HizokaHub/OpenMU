@@ -94,7 +94,7 @@ public static class MobaCc
                 dr.Stacks = 0;
             }
 
-            var resist = Math.Min(0.8, MobaItemTraits.CcResistOf(champion) + MobaBuffPower.CcResistBonusOf(champion));
+            var resist = Math.Min(0.8, MobaItemTraits.CcResistOf(champion));   // already includes the Increase Block buff
             var factor = Math.Pow(0.5, dr.Stacks) * TenacityMul(MobaPassives.FamilyOf(champion)) * (1.0 - resist);
             var shaped = TimeSpan.FromMilliseconds(Math.Max(100, effect.Duration.TotalMilliseconds * factor));
             effect.Duration = shaped;

@@ -363,7 +363,7 @@ public static class AttackableExtensions
             if (isMobaChampionAttacker && attacker is Player mobaAtk && defender is Player { IsMobaClone: true } mobaDefender)
             {
                 var mobaCrit = (attributes & DamageAttributes.Critical) == 0
-                    && Rand.NextRandomBool(PlugIns.Moba.MobaCombatStats.FinalCritChanceOf(mobaAtk));
+                    && Rand.NextRandomBool(PlugIns.Moba.MobaF10.Enabled ? PlugIns.Moba.MobaF10.CritReference : PlugIns.Moba.MobaCombatStats.FinalCritChanceOf(mobaAtk));
                 if (mobaCrit)
                 {
                     attributes |= DamageAttributes.Critical;

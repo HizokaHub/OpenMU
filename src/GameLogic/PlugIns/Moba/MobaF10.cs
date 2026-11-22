@@ -61,6 +61,13 @@ public static class MobaF10
     /// <summary>The most of the damage received a reflection can send back under F10 (the Reflection buff of the game gives 30-60 %).</summary>
     public const float MaxReflect = 0.25f;
 
+    /// <summary>
+    /// The critical chance of the live roll under F10 (2026-11-20): the same for every class. What a champion has above or below it (AGI, tree, pieces, traits)
+    /// enters the damage factor as the ratio of expected damage (<see cref="CritRatio"/>), so the roll no longer decides the balance by luck of the class
+    /// (the Wizard crit 29 % of its hits and the Elf 16 %).
+    /// </summary>
+    public const double CritReference = 0.20;
+
     /// <summary>Gets or sets the global life scale of the model.</summary>
     public static double HealthScale { get; set; } = 1.0;
 
@@ -196,7 +203,28 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        return DamageScale * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * Psi(family)));
+        return DamageScale * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * Psi(family))) * CritRatio(champion) * CooldownRatio(champion);
+    }
+
+    /// <summary>Expected damage of the champion's critical chance over the expected damage of the reference chance (the live roll uses the reference).</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The ratio (1 = the reference).</returns>
+    public static double CritRatio(Player champion)
+    {
+        var m = MobaCombatStats.CritMultiplier - 1.0;
+        return (1.0 + (MobaCombatStats.FinalCritChanceOf(champion) * m)) / (1.0 + (CritReference * m));
+    }
+
+    /// <summary>
+    /// The skills of the champion come back sooner with cooldown reduction (pieces, traits): half of its damage is bound to cooldowns,
+    /// so the damage per second grows by half of the extra casts.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The factor (1 = no reduction).</returns>
+    public static double CooldownRatio(Player champion)
+    {
+        var cdr = Math.Clamp(MobaItemTraits.CooldownReductionOf(champion), 0.0, 0.65);
+        return 1.0 + (0.5 * cdr / (1.0 - cdr));
     }
 
     /// <summary>Gets the maximum life the model gives a champion.</summary>
