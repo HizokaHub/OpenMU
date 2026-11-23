@@ -75,7 +75,7 @@ public static class MobaF10
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
         psi[(int)MobaFamily.Wizard] = 0.38;
-        psi[(int)MobaFamily.Knight] = 0.02;
+        psi[(int)MobaFamily.Knight] = 0.06;
         psi[(int)MobaFamily.Elf] = -0.49;
         psi[(int)MobaFamily.MagicGladiator] = 0.45;
         psi[(int)MobaFamily.DarkLord] = 0.40;

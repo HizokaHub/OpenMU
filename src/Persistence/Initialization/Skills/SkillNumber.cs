@@ -400,4 +400,7 @@ internal enum SkillNumber
     RecoversSdFully = 616,
     IncreaseTripleDamageChance = 617,
     #endregion
+
+    /// <summary>MOBA: the Rush closing skill (S21 skill 813 brought to a free number, see GAMEDESIGN.md).</summary>
+    Rush = 638,
 }

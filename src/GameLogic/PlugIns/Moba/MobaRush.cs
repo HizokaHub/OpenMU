@@ -15,15 +15,15 @@ using MUnique.OpenMU.Pathfinding;
 /// powerful blow"): the champion jumps next to an enemy champion up to <see cref="RangeTiles"/> tiles away and hits it. It is the melee answer to the
 /// range counters of the 1v1 (the diagnosis of 2026-11-22: GM beats BK 92 %, RF beats BK 92 %...).
 /// <para>
-/// PHASE 0: server only and without the database. The skill has no row in the skill table yet (F1), so the bots use it as part of their engage logic and
-/// the hit is dealt with the skill entry of Lunge (20), which every Blade Knight learns, with <see cref="BlowFactor"/> on top. It is on by default
+/// PHASE 1: the skill has its row (638) in the database (update <c>AddRushSkillPlugIn</c>); the bots use it as part of their engage logic, a champion that
+/// learns it casts it through the generic skill packet, and the hit is dealt with the skill entry of Lunge (20), which every Blade Knight learns, with <see cref="BlowFactor"/> on top. It is on by default
 /// (<see cref="Enabled"/>): on by default since the duels validated it (2026-11-22); <c>MOBA_RUSH=0</c> or <c>/mobaf10 rush off</c> turns it off.
 /// </para>
 /// </summary>
 public static class MobaRush
 {
-    /// <summary>The S21 skill number (virtual: it has no row in the configuration yet).</summary>
-    public const short SkillNumber = 813;
+    /// <summary>The skill number of the row in the configuration (S21 has it as 813, which does not fit the client table of 650).</summary>
+    public const short SkillNumber = 638;
 
     /// <summary>Lunge (the carrier of the hit in phase 0).</summary>
     private const short CarrierSkill = 20;

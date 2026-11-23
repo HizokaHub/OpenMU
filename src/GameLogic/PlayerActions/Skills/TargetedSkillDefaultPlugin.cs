@@ -122,6 +122,18 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
             return;
         }
 
+        // MOBA: Rush (the Blade Knight closing skill, see MobaRush) is a jump next to an enemy champion and a blow, handled by the MOBA logic
+        // (cooldown, minimum distance, landing tile); it costs nothing and is never cast on an ally.
+        if (player.IsMobaClone && skill.Number == PlugIns.Moba.MobaRush.SkillNumber)
+        {
+            if (PlugIns.Moba.MobaTeams.AreEnemies(player, target))
+            {
+                await PlugIns.Moba.MobaRush.TryRushAsync(player, target).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
         // MOBA: the helpful skills (Heal, Greater Damage, Greater Defense, Recovery, ...) are for the caster's own side: the
         // restriction "any player" would let an Elf heal or empower an enemy champion.
         if (player.IsMobaClone && target != player && skill.SkillType is SkillType.Buff or SkillType.Regeneration

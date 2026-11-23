@@ -60,7 +60,7 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 break;
             case "rush" when arguments.Key is "on" or "off":
                 MobaRush.Enabled = arguments.Key == "on";
-                message = $"Rush (skill 813 de S21, acercamiento del Blade Knight): {(MobaRush.Enabled ? "ACTIVO" : "apagado")}";
+                message = $"Rush (skill 638, el 813 de S21; acercamiento del Blade Knight): {(MobaRush.Enabled ? "ACTIVO" : "apagado")}";
                 break;
             case "rushblow" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rb):
                 MobaRush.BlowFactor = Math.Clamp(rb, 0.1, 10);
