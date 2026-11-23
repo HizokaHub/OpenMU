@@ -1367,6 +1367,13 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
 
         if (dist > range)
         {
+            // Rush (S21 skill 813): a melee champion closes the gap with a jump and a blow instead of walking in (off unless MobaRush.Enabled).
+            if (target is Player && await MobaRush.TryRushAsync(this, target).ConfigureAwait(false))
+            {
+                this.EngageNote("rush", target);
+                return;
+            }
+
             // Opportunistic last-hit: while closing on the real target, if an enemy creep
             // is already in our face, hit it instead of eating free creep damage. This is
             // what stops the "creeps beat on the bot and it never hits back" behaviour.
