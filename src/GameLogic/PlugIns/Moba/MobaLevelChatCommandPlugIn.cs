@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
+using MUnique.OpenMU.GameLogic.Views.Character;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -50,6 +51,7 @@ public class MobaLevelChatCommandPlugIn : ChatCommandPlugInBase<MobaLevelChatCom
                 player.MobaSkillPoints += skillPoints;
                 player.MobaBuffPoints += buffPoints;
                 character.LevelUpPoints += MobaStatEconomy.PointsPerLevel(player);
+                character.MasterLevelUpPoints += MobaMasterTree.PointsPerLevel;
             }
         }
         else if (target < from)
@@ -62,12 +64,19 @@ public class MobaLevelChatCommandPlugIn : ChatCommandPlugInBase<MobaLevelChatCom
                 player.MobaSkillPoints = Math.Max(0, player.MobaSkillPoints - skillPoints);
                 player.MobaBuffPoints = Math.Max(0, player.MobaBuffPoints - buffPoints);
                 character.LevelUpPoints = Math.Max(0, character.LevelUpPoints - MobaStatEconomy.PointsPerLevel(player));
+                character.MasterLevelUpPoints = Math.Max(0, character.MasterLevelUpPoints - MobaMasterTree.PointsPerLevel);
             }
         }
 
         player.MobaExperience = 0;
+        if (player.Attributes is { } attributes)
+        {
+            attributes[Stats.MasterLevel] = player.MobaLevel; // shown in the master tree window
+        }
+
         MobaProgression.ApplyLevelScaling(player);
         await MobaExperience.PushStateAsync(player).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<IUpdateMasterStatsPlugIn>(p => p.SendMasterStatsAsync()).ConfigureAwait(false);
 
         await player.ShowBlueMessageAsync(
             $"[mobalevel] Nivel de campeón {from} → {player.MobaLevel}. skill={player.MobaSkillPoints} sin gastar, stats={character.LevelUpPoints:N0}. HP {player.Attributes?[Stats.MaximumHealth]:N0}, escala daño x{MobaProgression.DamageScale(player.MobaLevel):F1}. (/mobastats)")

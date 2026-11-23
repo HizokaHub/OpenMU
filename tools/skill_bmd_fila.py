@@ -2,7 +2,7 @@
 Uso:
   python -I -X utf8 tools/skill_bmd_fila.py ver   <archivo.bmd> <numero>     muestra una fila
   python -I -X utf8 tools/skill_bmd_fila.py prueba <archivo.bmd>             comprueba que descifrar y recifrar da los mismos bytes
-  python -I -X utf8 tools/skill_bmd_fila.py rush  <archivo.bmd> [salida.bmd] agrega/actualiza la fila 638 (Rush) a partir de la de Crescent Moon Slash (44), con el icono de maestria 29 (Lunge Strengthener)
+  python -I -X utf8 tools/skill_bmd_fila.py rush  <archivo.bmd> [salida.bmd] agrega/actualiza la fila 638 (Rush) a partir de la de Crescent Moon Slash (44), con el icono de maestria 29 (Lunge Strengthener) y rango 6 (fila del arbol maestro)
 """
 import struct
 import sys
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         salida = sys.argv[3] if len(sys.argv) > 3 else ruta
         fila = bytearray(filas[44])                 # Crescent Moon Slash: un ataque de espada normal (uso 0, no de objeto)
         fila[:50] = b"Rush".ljust(50, b"\0")
-        poner(fila, Level=0, Damage=70, Mana=0, AbilityGuage=0, Distance=7, Delay=0, Magic_Icon=29, SkillBrand=0, Energy=0, Charisma=0, Strength=0, Dexterity=0)
+        poner(fila, Level=0, Damage=70, Mana=0, AbilityGuage=0, Distance=7, Delay=0, Magic_Icon=29, SkillRank=6, SkillBrand=0, Energy=0, Charisma=0, Strength=0, Dexterity=0)
         fila[81:84] = bytes(3)
         clases = bytearray(7)
         clases[1] = filas[20][85]                   # solo la familia Knight (DKBK)
