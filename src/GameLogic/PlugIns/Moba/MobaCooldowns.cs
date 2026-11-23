@@ -26,6 +26,11 @@ public static class MobaCooldowns
     /// </summary>
     public static readonly TimeSpan GraceWindow = TimeSpan.FromSeconds(3);
 
+    /// <summary>The grace window of a skill: none for the Rush (a second jump inside the window would make it a permanent closing).</summary>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <returns>The grace window.</returns>
+    public static TimeSpan GraceOf(short skillNumber) => skillNumber == MobaRush.SkillNumber ? TimeSpan.Zero : GraceWindow;
+
     /// <summary>Cooldown per rank (seconds, index 0 = rank 1) for a skill with no explicit entry.</summary>
     private static readonly double[] DefaultPerRank = { 6.5, 6.0, 5.5, 5.0, 4.5 };
 
@@ -46,6 +51,7 @@ public static class MobaCooldowns
 
         // --- Gap-closer ---
         [20] = new[] { 5.0, 4.5, 4.0, 3.5, 3.0 },   // Lunge
+        [638] = new[] { 20.0, 19.0, 18.0, 17.0, 16.0 }, // Rush (closing jump; validated in duels with 20 s, see MobaRush)
 
         // --- Mid-cost nukes ---
         [4] = new[] { 6.0, 5.5, 5.0, 4.5, 4.0 },    // Fire Ball

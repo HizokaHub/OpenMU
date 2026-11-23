@@ -1284,7 +1284,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             // grace window ride the same timers so the champion can keep firing.
             if (PlugIns.Moba.MobaCooldowns.IsFreshCast(this, skill.Number, now))
             {
-                var grace = PlugIns.Moba.MobaCooldowns.GraceWindow;
+                var grace = PlugIns.Moba.MobaCooldowns.GraceOf(skill.Number);
                 this.MobaSkillGraceEnds[skill.Number] = now.Add(grace);
                 this.MobaSkillCooldowns[skill.Number] = now.Add(grace).Add(cooldown);
                 await this.InvokeViewPlugInAsync<Views.Moba.IMobaSkillCooldownPlugIn>(

@@ -6,8 +6,10 @@ namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
+using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
@@ -53,8 +55,9 @@ public static class MobaRush
     /// <summary>Tries to rush at the target: jumps next to it and hits it. Does nothing (returns <see langword="false"/>) if it is not ready or not worth it.</summary>
     /// <param name="champion">The rushing champion.</param>
     /// <param name="target">The enemy.</param>
+    /// <param name="consume">For a player that cast the skill: pays the cast (champion point, cooldown by rank) once every check has passed and returns <see langword="false"/> if it can't be paid; <see langword="null"/> for the bots, which use <see cref="CooldownSeconds"/>.</param>
     /// <returns><see langword="true"/> if the champion rushed.</returns>
-    public static async ValueTask<bool> TryRushAsync(Player champion, IAttackable target)
+    public static async ValueTask<bool> TryRushAsync(Player champion, IAttackable target, Func<ValueTask<bool>>? consume = null)
     {
         if (!Has(champion) || !champion.IsAlive || !target.IsAlive || champion.CurrentMap is not { } map || champion.Attributes is not { } a)
         {
@@ -68,7 +71,7 @@ public static class MobaRush
 
         var cooldown = Cooldowns.GetOrCreateValue(champion);
         var now = DateTime.UtcNow;
-        if (now < cooldown.ReadyUtc)
+        if (consume is null && now < cooldown.ReadyUtc)
         {
             return false;
         }
@@ -98,7 +101,25 @@ public static class MobaRush
             return false;
         }
 
+        if (consume is not null && !await consume().ConfigureAwait(false))
+        {
+            return false;
+        }
+
         cooldown.ReadyUtc = now.AddSeconds(CooldownSeconds);
+
+        // The echo first (the client plays the pose and the flash where the champion stands), then the jump itself.
+        var rushSkill = champion.GameContext.Configuration.Skills.FirstOrDefault(s => s.Number == SkillNumber);
+        if (rushSkill is not null)
+        {
+            await champion.ForEachWorldObserverAsync<IShowSkillAnimationPlugIn>(p => p.ShowSkillAnimationAsync(champion, target, rushSkill, true), true).ConfigureAwait(false);
+        }
+
+        if (champion is not MobaBotPlayer)
+        {
+            champion.Logger.LogInformation("[MOBA-RUSH] \"{Name}\" rushes at {Distance:F1} tiles: {From} -> {To}", champion.SelectedCharacter?.Name, distance, champion.Position, landing);
+        }
+
         await champion.MoveAsync(landing).ConfigureAwait(false);
         champion.Rotation = champion.Position.GetDirectionTo(target.Position);
         if (champion is MobaBotPlayer bot)
@@ -106,7 +127,11 @@ public static class MobaRush
             bot.DuelCasts.AddOrUpdate(SkillNumber, 1, (_, n) => n + 1);
         }
 
-        var carrier = champion.SelectedCharacter?.LearnedSkills.FirstOrDefault(e => e.Skill?.Number == CarrierSkill);
+        // A player's blow is its own Rush entry (its rank, the damage table has the same numbers as Lunge); the bots lend Lunge's.
+        var learned = champion.SelectedCharacter?.LearnedSkills;
+        var ownEntry = learned?.FirstOrDefault(e => e.Skill?.Number == SkillNumber);
+        var lungeEntry = learned?.FirstOrDefault(e => e.Skill?.Number == CarrierSkill);
+        var carrier = consume is null ? lungeEntry ?? ownEntry : ownEntry ?? lungeEntry;
         await target.AttackByAsync(champion, carrier, false, BlowFactor).ConfigureAwait(false);
         return true;
     }

@@ -128,7 +128,7 @@ public class TargetedSkillDefaultPlugin : TargetedSkillPluginBase
         {
             if (PlugIns.Moba.MobaTeams.AreEnemies(player, target))
             {
-                await PlugIns.Moba.MobaRush.TryRushAsync(player, target).ConfigureAwait(false);
+                await PlugIns.Moba.MobaRush.TryRushAsync(player, target, () => player.TryConsumeForSkillAsync(skillEntry)).ConfigureAwait(false);
             }
 
             return;

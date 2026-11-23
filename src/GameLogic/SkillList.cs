@@ -138,7 +138,11 @@ public sealed class SkillList : ISkillList, IDisposable
 
         foreach (var skill in wanted.Where(s => !this.ContainsSkill((ushort)s.Number)))
         {
-            await this.AddLearnedSkillAsync(new SkillEntry { Skill = skill, Level = 0 }).ConfigureAwait(false);
+            // (created by the persistence context: a plain "new SkillEntry" is refused by the learned skills collection)
+            var entry = this._player.PersistenceContext.CreateNew<SkillEntry>();
+            entry.Skill = skill;
+            entry.Level = 0;
+            await this.AddLearnedSkillAsync(entry).ConfigureAwait(false);
         }
     }
 

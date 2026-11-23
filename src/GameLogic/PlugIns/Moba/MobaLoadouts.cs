@@ -64,8 +64,8 @@ public static class MobaLoadouts
         [Family.Wizard] = new short[] { 17, 4, 3, 11, 1, 7, 9, 2, 39, 5, 8, 10, 12, 13, 14, 38, 40, 45, 76, 16, 233, 6 },
         // Blade Knight - full melee kit + buffs.
         // Falling Slash, Lunge, Uppercut, Cyclone, Slash, Twisting Slash, Rageful Blow, Death Stab, Strike of Destruction,
-        // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm, Defense, Swell Life
-        [Family.Knight] = new short[] { 19, 20, 21, 22, 23, 41, 42, 43, 232, 44, 47, 49, 67, 76, 18, 48 },
+        // Crescent Moon Slash, Impale, Fire Breath, Stun, Plasma Storm, Defense, Swell Life, Rush (638: the closing jump, see MobaRush)
+        [Family.Knight] = new short[] { 19, 20, 21, 22, 23, 41, 42, 43, 232, 44, 47, 49, 67, 76, 18, 48, 638 },
         // High Elf - every ranged attack + party buffs + the seven monster summons.
         // Triple Shot, Ice Arrow, Penetration, Multi-Shot, Heal, Greater Damage, Greater Defense, Stun, Plasma Storm,
         // Infinity Arrow, Recovery, Summon Goblin/Stone Golem/Assassin/Elite Yeti/Dark Knight/Bali/Soldier

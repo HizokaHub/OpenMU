@@ -67,6 +67,7 @@ public static class MobaSkillDamage
         [19] = (60, 14, 0.40),   // Falling Slash
         [23] = (65, 15, 0.40),   // Slash
         [20] = (70, 16, 0.40),   // Lunge
+        [638] = (70, 16, 0.40),  // Rush (the blow of the closing jump: the numbers of Lunge, see MobaRush)
         [45] = (55, 13, 0.35),   // Lance
         [8] = (60, 14, 0.40),    // Twister
         [38] = (65, 15, 0.40),   // Decay (also DoT)
