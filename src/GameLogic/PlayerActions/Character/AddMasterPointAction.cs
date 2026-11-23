@@ -46,6 +46,12 @@ public class AddMasterPointAction
             return;
         }
 
+        if (skill.Number == PlugIns.Moba.MobaRush.SkillNumber && !player.IsMobaClone)
+        {
+            await player.ShowBlueMessageAsync("[MOBA] Rush solo se aprende dentro de una partida del MOBA.").ConfigureAwait(false);
+            return;
+        }
+
         if (player.IsMobaClone && !PlugIns.Moba.MobaMasterTree.IsAllowed(skill))
         {
             await player.ShowBlueMessageAsync("[MOBA] Ese nodo del árbol no está disponible en la partida (se habilitan por tipo; por ahora no están: fortalecedores de skill, recuperación al matar y maestrías con efecto).").ConfigureAwait(false);

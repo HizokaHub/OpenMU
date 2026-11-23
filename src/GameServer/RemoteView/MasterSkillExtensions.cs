@@ -116,6 +116,7 @@ public static class MasterSkillExtensions
                 { 360, 89 },
                 { 361, 90 },
                 { 362, 92 },
+                { 638, 57 },
             }
         },
         {

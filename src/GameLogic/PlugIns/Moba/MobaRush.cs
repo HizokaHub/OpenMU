@@ -47,10 +47,20 @@ public static class MobaRush
     /// <summary>Gets or sets a value indicating whether the rush exists (default: on; <c>MOBA_RUSH=0</c> turns it off).</summary>
     public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_RUSH") != "0";
 
-    /// <summary>Whether the champion has the rush: the Knight family (Blade Knight; the Blade Master and the Rage Fighter are to be confirmed).</summary>
+    /// <summary>
+    /// Whether the champion has the rush: the Knight family (Blade Knight / Blade Master; the Rage Fighter is to be confirmed). A player needs the master
+    /// tree node (<see cref="LevelOf"/> at least 1, F3); the bots have it from the start so the F10 calibration stays as it was.
+    /// </summary>
     /// <param name="champion">The champion.</param>
     /// <returns><see langword="true"/> if it can rush.</returns>
-    public static bool Has(Player champion) => Enabled && champion.IsMobaClone && MobaPassives.FamilyOf(champion) == MobaFamily.Knight;
+    public static bool Has(Player champion)
+        => Enabled && champion.IsMobaClone && MobaPassives.FamilyOf(champion) == MobaFamily.Knight && (champion is MobaBotPlayer || LevelOf(champion) > 0);
+
+    /// <summary>The level (rank 1..5) of the champion's Rush master node, 0 if it has not learned it.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The node level.</returns>
+    public static int LevelOf(Player champion)
+        => champion.SelectedCharacter?.LearnedSkills.FirstOrDefault(e => e.Skill?.Number == SkillNumber)?.Level ?? 0;
 
     /// <summary>Tries to rush at the target: jumps next to it and hits it. Does nothing (returns <see langword="false"/>) if it is not ready or not worth it.</summary>
     /// <param name="champion">The rushing champion.</param>

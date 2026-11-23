@@ -167,4 +167,39 @@ public class MobaMasterTreeTests
             Assert.That(nodes.All(n => MobaMasterTree.IsKillRecoveryTarget(n.MasterDefinition!.TargetAttribute) && MobaMasterTree.IsAllowed(n)), Is.True, characterClass.Name);
         }
     }
+
+    /// <summary>Builds the Rush node as the update <c>AddRushMasterNodePlugIn</c> does (middle root, rank 6, 5 levels, no attribute, no replaced skill).</summary>
+    private static Skill CreateRushNode()
+    {
+        var skill = new Skill { Number = MobaRush.SkillNumber, Name = "Rush" };
+        skill.MasterDefinition = new MasterSkillDefinition { Rank = 6, MaximumLevel = 5, MinimumLevel = 1, ValueFormula = "level", DisplayValueFormula = "level" };
+        return skill;
+    }
+
+    /// <summary>The Rush node is an "unlock" node: allowed in a match, it asks for 40 points in the root and it is the client's index 57 for the Blade Master.</summary>
+    [Test]
+    public void RushNodeIsAnAllowedUnlockOfRankSix()
+    {
+        var rush = CreateRushNode();
+        Assert.That(MobaMasterTree.KindOf(rush), Is.EqualTo(MobaTreeKind.Unlock));
+        Assert.That(MobaMasterTree.IsAllowed(rush), Is.True);
+        Assert.That(MobaMasterTree.IsOffense(rush), Is.False);
+        Assert.That(MobaMasterTree.PointsNeededInRoot(rush), Is.EqualTo(40));
+
+        // Blade Master (class 7): middle root (slots 37-72), row 6 (rank 6), column 1 = 37 + 5 * 4 = 57; it must not collide with another node of the class.
+        var bladeMaster = this._gameConfiguration.CharacterClasses.First(c => c.Number == 7);
+        var index = GameServer.RemoteView.MasterSkillExtensions.GetMasterSkillIndex(rush, bladeMaster);
+        Assert.That(index, Is.EqualTo(57));
+        var others = this._gameConfiguration.Skills.Where(s => s.MasterDefinition is not null && s.QualifiedCharacters.Contains(bladeMaster))
+            .Select(s => (int)GameServer.RemoteView.MasterSkillExtensions.GetMasterSkillIndex(s, bladeMaster));
+        Assert.That(others, Does.Not.Contain(57));
+    }
+
+    /// <summary>Rush is no longer a pick of the Knight loadout (it comes from the master tree) and champion points cannot rank it up.</summary>
+    [Test]
+    public void RushIsNotPickableAndHasNoChampionPoints()
+    {
+        Assert.That(MobaLoadouts.SelectableFor(7), Does.Not.Contain(MobaRush.SkillNumber));
+        Assert.That(MobaLoadouts.SelectableFor(6), Does.Not.Contain(MobaRush.SkillNumber));
+    }
 }

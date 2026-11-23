@@ -50,6 +50,9 @@ public enum MobaTreeKind
 
     /// <summary>Recovery after killing a monster: the native values are divisors read as multipliers (a full heal per kill), so they stay off until given MOBA values.</summary>
     KillRecovery,
+
+    /// <summary>A node that gives an active skill (Rush): the first point teaches it, the node level is its rank (1..5). It feeds no blend and has no cap.</summary>
+    Unlock,
 }
 
 /// <summary>
@@ -114,6 +117,7 @@ public static class MobaMasterTree
         MobaTreeKind.Utility,
         MobaTreeKind.Strengthener,
         MobaTreeKind.KillRecovery,
+        MobaTreeKind.Unlock,
     };
 
     /// <summary>The order a player (or a bot) fills the tree: (kind, share of that kind's cap to reach in this stage).</summary>
@@ -162,6 +166,12 @@ public static class MobaMasterTree
 
         return KindCache.GetOrAdd(skill.Number, _ =>
         {
+            // Rush is the only node that gives a skill instead of a bonus.
+            if (skill.Number == MobaRush.SkillNumber && definition.ReplacedSkill is null && definition.TargetAttribute is null)
+            {
+                return MobaTreeKind.Unlock;
+            }
+
             var kind = Classify(definition.ReplacedSkill is not null, definition.TargetAttribute?.Designation?.ToString());
 
             // Only the strengtheners of a damaging skill have something to add to; the rest (buffs, summons...) stay off.

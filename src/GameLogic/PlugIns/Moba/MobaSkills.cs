@@ -95,6 +95,11 @@ public static class MobaSkills
             return SkillUpResult.NotInMatch;
         }
 
+        if (skillNumber == MobaRush.SkillNumber)
+        {
+            return SkillUpResult.MasterNode;
+        }
+
         var entry = character.LearnedSkills.FirstOrDefault(s => s.Skill?.Number == skillNumber);
         if (entry?.Skill is null)
         {
@@ -150,5 +155,8 @@ public static class MobaSkills
 
         /// <summary>The skill is already at <see cref="SkillLevelCap"/>.</summary>
         AtCap,
+
+        /// <summary>The skill (Rush) is ranked up in the master tree, not with champion points.</summary>
+        MasterNode,
     }
 }

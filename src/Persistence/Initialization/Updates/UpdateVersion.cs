@@ -549,4 +549,9 @@ public enum UpdateVersion
     /// The version of the <see cref="AddRushSkillPlugIn"/>.
     /// </summary>
     AddRushSkill = 108,
+
+    /// <summary>
+    /// The version of the <see cref="AddRushMasterNodePlugIn"/>.
+    /// </summary>
+    AddRushMasterNode = 109,
 }

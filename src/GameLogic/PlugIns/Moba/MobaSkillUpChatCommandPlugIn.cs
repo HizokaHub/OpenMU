@@ -41,6 +41,7 @@ public class MobaSkillUpChatCommandPlugIn : ChatCommandPlugInBase<MobaSkillUpCha
             MobaSkills.SkillUpResult.NoBuffPoints => "[MOBA] No tenés puntos de buffs sin gastar (se ganan en los niveles 5, 10, 15, 20, 25 y 30).",
             MobaSkills.SkillUpResult.SkillNotLearned => $"[MOBA] No aprendiste la habilidad #{arguments.SkillNumber}. Usá /skills para ver las tuyas.",
             MobaSkills.SkillUpResult.AtCap => $"[MOBA] Esa habilidad ya está al máximo ({MobaSkills.SkillLevelCap}).",
+            MobaSkills.SkillUpResult.MasterNode => "[MOBA] Rush se sube en el árbol Master (rama central, hacen falta 40 puntos en ella), no con puntos de habilidad.",
             _ => "[MOBA] No estás en una partida.",
         };
 
