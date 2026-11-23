@@ -298,6 +298,12 @@ public static class MobaPets
         return true;
     }
 
+    /// <summary>The numbers of the utility pets (Angel, Imp, Demon, Spirit, Panda, Unicorn, Skeleton...) the champion has switched on.</summary>
+    /// <param name="player">The champion.</param>
+    /// <returns>The pet numbers (group 13), empty without pets.</returns>
+    public static IReadOnlyCollection<short> ActiveUtilityNumbers(Player player)
+        => ActiveByPlayer.TryGetValue(player, out var active) ? active.Utility.Keys.ToArray() : Array.Empty<short>();
+
     /// <summary>Whether the Dark Horse of the champion is switched on (from the inventory).</summary>
     /// <param name="player">The champion.</param>
     /// <returns><see langword="true"/> while it works.</returns>

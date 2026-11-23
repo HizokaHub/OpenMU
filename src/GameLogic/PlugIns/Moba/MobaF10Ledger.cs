@@ -4,6 +4,8 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using MUnique.OpenMU.GameLogic.Attributes;
+
 /// <summary>
 /// The CHANNEL LEDGER of F10 (2026-11-23). Design rule: every element of a build (stat, tree node, piece trait, buff, pet) must give some percent to the
 /// damage of the hit (<see cref="LedgerChannel.Offense"/>), some percent against the hit (<see cref="LedgerChannel.Life"/> or
@@ -46,6 +48,9 @@ public static class MobaF10Ledger
 
         /// <summary>Outside combat (gold, recovery between fights): deliberately not a combat channel.</summary>
         OutsideCombat,
+
+        /// <summary>A real mechanic of the game that every build gets by the same rule at every hit or step (hit rate, movement), so it needs no pool term.</summary>
+        Live,
 
         /// <summary>Declared but still without a weight: the audit reports it as pending.</summary>
         Pending,
@@ -96,11 +101,18 @@ public static class MobaF10Ledger
         }
 
         var horizon = Math.Clamp(Horizon, 1.0, 120.0);
+        var level = Math.Clamp(champion.MobaLevel <= 0 ? 1 : champion.MobaLevel, 1, MobaLevels.MaxLevel);
+        var attributes = champion.Attributes;
 
-        // (1) MANA: the pool and the regeneration move the share of the fight spent dry (only what depends on mana).
-        var manaPool = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.ManaPool);
+        // (1) MANA: the pool, the regeneration, the master tree (maximum mana, usage reduction) move the share of the fight spent dry.
+        // A tree-less class counts the reference tree (no deviation), like PoolsOf.
+        var refTree = 0.3 * ((level - 1) / 29.0);
+        var treeMana = (MobaMasterTree.Fraction(champion, MobaTreeKind.Mana) ?? refTree) - refTree;
+        var manaPool = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.ManaPool) + (TreeManaPoolAtFull * treeMana);
         var manaRegen = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.ManaRegen);
-        var manaGain = ManaDependence(family) * DrySharePerHorizon(horizon) * ((0.6 * manaPool) + (0.8 * manaRegen));
+        var usage = Math.Clamp(attributes is null ? 0.0 : attributes[Stats.ManaUsageReduction], 0.0, 0.6);
+        var usageAsRegen = usage / (1.0 - usage);   // a cost cut of u gives the same endurance as u/(1-u) more regeneration
+        var manaGain = ManaDependence(family) * DrySharePerHorizon(horizon) * ((0.6 * manaPool) + (0.8 * (manaRegen + usageAsRegen)));
 
         // (2) COOLDOWN is already in DamageFactor (CooldownRatio); crit in CritRatio; spell power in the base pool.
 
@@ -109,20 +121,113 @@ public static class MobaF10Ledger
         var sdOffense = (MobaItemTraits.SdPierceOf(champion) * 0.9 * SdShare) + (MobaItemTraits.SdBypassOf(champion) * SdShare);
         var sdLife = MobaItemTraits.SdGuardOf(champion) * SdShare;
 
-        // (4) SUSTAIN over the horizon: regeneration (fraction of the life per second), leech (a part of the damage dealt: ~ the life of the rival
-        // by the end of a won fight, half on average) and the heal power over the life buff the champion carries.
+        // (4) SUSTAIN over the horizon: regeneration (fraction of the life per second) and the heal power over the life buffs the champion carries.
         var regen = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.HealthRegen) * horizon;
         var healPower = MobaArchetype.TotalOf(champion, MobaArchetypeTrait.HealPower);
         var healBuffs = 0.1 * ((MobaBuffPower.RankOn(champion, 26) / 5.0) + (MobaBuffPower.RankOn(champion, 234) / 5.0));
         var sustain = regen + (healPower * healBuffs);
 
-        // anti-heal of the weapon: cuts the sustain the rival would have (the reference sustain of a rival is ~10 % of its life).
+        // (5) ANTI-HEAL of the weapon: cuts the sustain the rival would have (the reference sustain of a rival is ~10 % of its life).
         var antiHeal = MobaItemTraits.AntiHealOf(champion) * 0.10;
 
-        var offense = GainOffense(sdOffense + manaGain + antiHeal);
-        var life = GainLife(sdLife + sustain);
+        // (6) PETS: the damage of the utility pets (Imp, Demon, Skeleton) was a parallel channel that F10 switches off, and their +75 life is pinned out.
+        // Their damage taken reduction (Angel, Spirit, Panda, Unicorn) and speed stay live through DamageReceiveDecrement and the hit rate / movement.
+        var petDamage = 0.0;
+        var petLife = 0.0;
+        var refLife = MobaProgression.HealthAt(level) * MobaF10.HealthScale;
+        foreach (var number in MobaPets.ActiveUtilityNumbers(champion))
+        {
+            if (PetDamageGain.TryGetValue(number, out var g))
+            {
+                petDamage += g;
+            }
+
+            if (PetLifeFlat.TryGetValue(number, out var flat))
+            {
+                petLife += flat / Math.Max(1.0, refLife);
+            }
+        }
+
+        // The Dark Lord's pets are part of its kit but the reference (the bots) switches none on: what they add is a share of the total damage.
+        if (family == MobaFamily.DarkLord)
+        {
+            var (earthshake, raven) = MobaPets.DarkLordPetShare(level, 3);
+            petDamage += MobaPets.IsHorseActive(champion) ? earthshake / (1.0 - earthshake) : 0.0;
+            petDamage += MobaPets.IsRavenActive(champion) ? raven / (1.0 - raven) : 0.0;
+        }
+
+        // (7) AG of the accessories (Soul Master family): more jumps of the Teleport, which is repositioning, counted as life (a part of the escapes).
+        var agGain = 0.0;
+        if (MobaBlink.UsesGauge(champion))
+        {
+            agGain = AgGateWeight * (MobaBlink.RegenPerSecond(champion) / MobaBlink.RegenPerSecondFor(Array.Empty<int>()) - 1.0);
+        }
+
+        // (8) MOVEMENT (mount of the Dark Lord, wings): position gate, a part of the fights is won or lost by kiting. Counted as life.
+        var speedGain = 0.0;
+        if (attributes is not null)
+        {
+            speedGain = MoveSpeedWeight * Math.Max(0.0, (attributes[Stats.MovementSpeed] / BaseMoveSpeed) - 1.0);
+        }
+
+        var offense = GainOffense(sdOffense + manaGain + antiHeal + petDamage);
+        var life = GainLife(sdLife + sustain + petLife + agGain + speedGain);
         return new Extra(offense, life, 0.0);
     }
+
+    /// <summary>
+    /// The hit-rate ratio of a champion over the one of its weapon (1 = none): the attack speed above the speed of the weapon, from pieces, pets, auras and the
+    /// masteries (1 % more hits per point). It is a LIVE channel: it multiplies every hit by the same rule for everyone, so it needs no pool term; the bots (which hit
+    /// on a timer) use it to shorten their interval so that they hit like a player whose client follows the stat.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The ratio, 1..1.7.</returns>
+    public static double HitRateRatio(Player champion)
+    {
+        if (champion.Attributes is not { } a)
+        {
+            return 1.0;
+        }
+
+        var extra = Math.Clamp(a[Stats.AttackSpeedAny] - a[Stats.AttackSpeedByWeapon], 0f, MobaItemCaps.MaxAttackSpeed);
+        return 1.0 + (extra / 100.0);
+    }
+
+    /// <summary>
+    /// What a champion's damage taken is worth in durability pool units: the pool lowers the damage taken (and the mitigation) by <c>exp(-0.465 * x)</c> at once
+    /// (0.5 of the pool goes to the factor on the damage taken, 0.5 to the mitigation with the magic share).
+    /// </summary>
+    /// <param name="reduction">The wanted reduction of the damage taken (0.05 = 5 % less).</param>
+    /// <returns>The pool units.</returns>
+    public static double GainDurability(double reduction) => reduction <= 0 ? 0 : -Math.Log(1.0 - Math.Min(reduction, 0.95)) / DurabilityExponent;
+
+    /// <summary>Exponent of the total damage taken per unit of the durability pool: <c>KD * (phi * (1 + mu) / 2 + (1 - phi))</c> with phi 0.5 and mu 0.72.</summary>
+    public const double DurabilityExponent = 0.5 * ((0.5 * 1.72 / 2.0) + 0.5);
+
+    /// <summary>Maximum mana a full mana tree gives, as the fraction a mana-pool trait of the pieces gives (a trait of 0.20 is a fifth more mana).</summary>
+    private const double TreeManaPoolAtFull = 0.20;
+
+    /// <summary>Share of the life a full AG regeneration (+100 %) of the Soul Master accessories is worth in escapes (first estimate, to be checked by ablation).</summary>
+    private const double AgGateWeight = 0.15;
+
+    /// <summary>Share of the life a +100 % of movement speed would be worth in kiting (first estimate; the mounts give +10 %).</summary>
+    private const double MoveSpeedWeight = 0.30;
+
+    /// <summary>The movement speed of a champion with the wings (native unit).</summary>
+    private const double BaseMoveSpeed = 15.0;
+
+    private static readonly Dictionary<short, double> PetDamageGain = new()
+    {
+        [1] = 0.05,    // Imp
+        [64] = 0.08,   // Demon
+        [123] = 0.04,  // Skeleton
+    };
+
+    private static readonly Dictionary<short, double> PetLifeFlat = new()
+    {
+        [0] = 75,      // Guardian Angel
+        [65] = 75,     // Spirit of Guardian
+    };
 
     /// <summary>One declared element of the ledger.</summary>
     /// <param name="Name">The element.</param>
@@ -149,14 +254,14 @@ public static class MobaF10Ledger
         new("item:SdPierce", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf"),
         new("item:SdBypass", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf"),
         new("item:SdGuard", LedgerChannel.Life, "MobaF10Ledger.ExtraOf"),
-        new("item:GaugeRegen", LedgerChannel.Pending, "AG regeneration of the accessories (pays the Teleport of the Soul Master): needs the AG gate"),
+        new("item:GaugeRegen", LedgerChannel.Gate, "MobaF10Ledger.ExtraOf (AG regeneration of the accessories = more Teleports, counted as life for the Soul Master family)"),
         new("tree:Offense", LedgerChannel.Offense, "MobaF10.PoolsOf"),
         new("tree:Health", LedgerChannel.Life, "MobaF10.PoolsOf"),
-        new("tree:Mana", LedgerChannel.Pending, "tree nodes of maximum mana: not yet in the mana gate"),
+        new("tree:Mana", LedgerChannel.Gate, "MobaF10Ledger.ExtraOf (mana gate: tree fraction over the reference tree)"),
         new("tree:Defense", LedgerChannel.Durability, "MobaF10.PoolsOf"),
         new("tree:Crit", LedgerChannel.Offense, "MobaF10.CritRatio (FinalCritChanceOf includes the tree)"),
         new("tree:Recovery", LedgerChannel.OutsideCombat, "native values are out of combat"),
-        new("tree:Utility", LedgerChannel.Pending, "mana usage reduction and attack speed of the masteries: needs the speed channel"),
+        new("tree:Utility", LedgerChannel.Gate, "mana usage reduction in the mana gate (ManaUsageReduction); attack speed of the masteries in the live hit rate"),
         new("tree:Strengthener", LedgerChannel.Offense, "MobaMasterTree.StrengthenerBonusOf (damage of the skill)"),
         new("tree:Useless", LedgerChannel.OutsideCombat, "meaningless in the MOBA"),
         new("tree:Shield", LedgerChannel.Life, "Aegis barrier (MobaCastEffects), not the pool"),
@@ -164,13 +269,14 @@ public static class MobaF10Ledger
         new("tree:KillRecovery", LedgerChannel.OutsideCombat, "off until MOBA values"),
         new("tree:Unlock", LedgerChannel.Offense, "gives an active skill (Rush): counted by the kit"),
         new("tree:Other", LedgerChannel.OutsideCombat, "not available"),
-        new("stat:attackSpeed", LedgerChannel.Pending, "attack speed (stats, pets, auras): hits per second; needs the reference speed per class"),
-        new("stat:moveSpeed", LedgerChannel.Pending, "movement speed: position gate"),
-        new("rule:flatDefense400", LedgerChannel.Pending, "flat defense of 400 per hit before the factor: still a flat subtraction"),
+        new("stat:attackSpeed", LedgerChannel.Live, "HitRateRatio: pieces, pets, aura and masteries shorten the hit interval (bots: MobaBotPlayer speedFactor; players: the client follows the stat)"),
+        new("stat:moveSpeed", LedgerChannel.Life, "MobaF10Ledger.ExtraOf (position gate: speed above the 15 of the wings, counted as life)"),
+        new("rule:flatDefense400", LedgerChannel.Durability, "AttackableExtensions: under F10 the flat defense of the level is 0 (it only erased small hits); the mitigation is the percent of the pools"),
         new("rule:penetration", LedgerChannel.Offense, "MobaDefense.PenetrationBySkill (kit, absorbed by the class offset)"),
         new("rule:leech", LedgerChannel.Life, "MobaVampAndSpecial (class intrinsic, absorbed by the class offset)"),
-        new("pet:pets", LedgerChannel.Pending, "pets from the inventory: attack speed and stats; the Dark Raven/Horse are the kit of the Dark Lord"),
-        new("aura:command banner", LedgerChannel.Pending, "attack speed of the allies in range: team channel"),
+        new("pet:utility", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Imp, Demon, Skeleton damage; Angel, Spirit life; damage taken stays live; Demon speed in the hit rate)"),
+        new("pet:darkLordPets", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Earthshake and Raven shares of DarkLordPetShare, the reference has none)"),
+        new("aura:command banner", LedgerChannel.Live, "adds attack speed to the allies in range: counted by HitRateRatio like any attack speed"),
         new("buff:ledger", LedgerChannel.Offense, "MobaF10.PoolsOf (buff ledger 2026-11-20)"),
     };
 

@@ -1400,6 +1400,11 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         var nowT = DateTime.UtcNow;
         var agi = this.Attributes is { } a2 ? Math.Max(0, a2[Stats.TotalAgility] - MobaCloneFactory.BaselineStatValue) : 0f;
         var speedFactor = Math.Clamp(1.0 - (agi / 60000.0), 0.45, 1.0);
+        if (MobaF10.Enabled && MobaF10Ledger.Enabled)
+        {
+            // F10 ledger: the attack speed of pieces, pets and masteries is a live channel (the client of a player follows the stat); a bot hits on a timer.
+            speedFactor /= MobaF10Ledger.HitRateRatio(this);
+        }
 
         var targetHpPct = target is Player tp && tp.Attributes is { } ta
             ? Math.Clamp(ta[Stats.CurrentHealth] / Math.Max(1f, ta[Stats.MaximumHealth]), 0f, 1f)

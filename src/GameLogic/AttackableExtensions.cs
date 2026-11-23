@@ -116,7 +116,9 @@ public static class AttackableExtensions
                 // MOBA (2026-11-17, P1): against a champion the flat defense is the one of its level (400 at level 30), whoever attacks. The native
                 // defense grew into the thousands with the Agility spent after the level scaling and with the armour, and as a flat subtraction it
                 // erased the small hits of the classes that spread their damage (MG, GM, SUM). The real reduction is the % mitigation (MobaDefense).
-                defense = (int)MobaProgressionDefense(mobaFlatDefender);
+                // F10 (2026-11-23): the flat defense becomes a percent: the mitigation of the pools already carries it, and a flat subtraction only erased
+                // the small hits of the classes that spread their damage (a channel of its own that F10 did not see).
+                defense = PlugIns.Moba.MobaF10.Enabled && PlugIns.Moba.MobaF10Ledger.Enabled ? 0 : (int)MobaProgressionDefense(mobaFlatDefender);
             }
             else
             {

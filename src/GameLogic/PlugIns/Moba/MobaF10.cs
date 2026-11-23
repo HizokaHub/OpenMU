@@ -261,6 +261,6 @@ public static class MobaF10
     {
         var pools = PoolsOf(champion);
         var (mit, dtm) = DefenseOf(champion);
-        return FormattableString.Invariant($"O={pools.Offense:F2} vida={pools.Life:F2} dur={pools.Durability:F2} dano x{DamageFactor(champion):F2} vida {HealthOf(champion):F0} mit {mit:P0} recibido x{dtm:F2}");
+        return FormattableString.Invariant($"O={pools.Offense:F2} vida={pools.Life:F2} dur={pools.Durability:F2} dano x{DamageFactor(champion):F2} vida {HealthOf(champion):F0} mit {mit:P0} recibido x{dtm:F2} golpes/s x{MobaF10Ledger.HitRateRatio(champion):F2}");
     }
 }
