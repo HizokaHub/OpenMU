@@ -154,7 +154,10 @@ public static class MobaF10
         var offense = (0.5 * Sat(prim, SatStat)) + (0.5 * Sat(treeOff, SatTree)) + (WeaponPool * itemOff) + (0.25 * ArmourPool * itemDef) + (3.0 * spellPower) + buffOff;
         var life = (0.25 * Sat(vit, SatStat)) + (0.5 * Sat(treeHealth, SatTree)) + (0.25 * ArmourPool * itemDef) + (2.0 * healthPool) + (0.3 * itemOff) + buffLife;
         var durability = (0.25 * Sat(vit, SatStat)) + (0.5 * Sat(treeDef, SatTree)) + (0.5 * Sat(treeDur, SatTree)) + (0.5 * ArmourPool * itemDef) + (3.0 * durItems) + buffDur;
-        return new Pools(offense, life, durability);
+
+        // The channels the first translation did not see (mana, sustain, SD, anti-heal): see MobaF10Ledger.
+        var extra = MobaF10Ledger.ExtraOf(champion, family);
+        return new Pools(offense + extra.Offense, life + extra.Life, durability + extra.Durability);
     }
 
     /// <summary>Buffs received stack with diminishing returns: all of them count at once, the next one adds less.</summary>

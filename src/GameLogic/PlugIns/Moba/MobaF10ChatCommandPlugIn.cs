@@ -74,6 +74,18 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaF10.HitCapAndBrake = arguments.Key == "on";
                 message = $"tope por golpe y freno de ráfaga: {(MobaF10.HitCapAndBrake ? "ACTIVOS" : "APAGADOS")} bajo F10";
                 break;
+            case "canales" when arguments.Key is "on" or "off":
+                MobaF10Ledger.Enabled = arguments.Key == "on";
+                message = $"libro de canales (maná, sostén, SD, anticura): {(MobaF10Ledger.Enabled ? "ACTIVO" : "apagado")}";
+                break;
+            case "horizonte" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var t):
+                MobaF10Ledger.Horizon = Math.Clamp(t, 1, 120);
+                message = FormattableString.Invariant($"horizonte de pelea T = {MobaF10Ledger.Horizon} s");
+                break;
+            case "audit":
+                var (orphans, pending) = MobaF10Ledger.Audit();
+                message = FormattableString.Invariant($"auditoría: {orphans.Count} huérfanos {(orphans.Count > 0 ? string.Join(", ", orphans) : string.Empty)} | {pending.Count} pendientes de peso: {string.Join("; ", pending.Select(p => p.Split(" -> ")[0]))}");
+                break;
             case "dmg" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d):
                 MobaF10.DamageScale = Math.Clamp(d, 0.01, 100);
                 message = FormattableString.Invariant($"escala global de daño = {MobaF10.DamageScale}");
