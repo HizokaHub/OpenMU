@@ -16,8 +16,8 @@ using MUnique.OpenMU.Pathfinding;
 /// range counters of the 1v1 (the diagnosis of 2026-11-22: GM beats BK 92 %, RF beats BK 92 %...).
 /// <para>
 /// PHASE 0: server only and without the database. The skill has no row in the skill table yet (F1), so the bots use it as part of their engage logic and
-/// the hit is dealt with the skill entry of Lunge (20), which every Blade Knight learns, with <see cref="BlowFactor"/> on top. It is off by default
-/// (<see cref="Enabled"/>, <c>MOBA_RUSH=1</c> or <c>/mobaf10 rush on</c>) until the duels validate it.
+/// the hit is dealt with the skill entry of Lunge (20), which every Blade Knight learns, with <see cref="BlowFactor"/> on top. It is on by default
+/// (<see cref="Enabled"/>): on by default since the duels validated it (2026-11-22); <c>MOBA_RUSH=0</c> or <c>/mobaf10 rush off</c> turns it off.
 /// </para>
 /// </summary>
 public static class MobaRush
@@ -42,8 +42,8 @@ public static class MobaRush
 
     private static readonly ConditionalWeakTable<Player, Cooldown> Cooldowns = new();
 
-    /// <summary>Gets or sets a value indicating whether the rush exists (default: environment variable <c>MOBA_RUSH=1</c>).</summary>
-    public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_RUSH") == "1";
+    /// <summary>Gets or sets a value indicating whether the rush exists (default: on; <c>MOBA_RUSH=0</c> turns it off).</summary>
+    public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_RUSH") != "0";
 
     /// <summary>Whether the champion has the rush: the Knight family (Blade Knight; the Blade Master and the Rage Fighter are to be confirmed).</summary>
     /// <param name="champion">The champion.</param>

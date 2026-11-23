@@ -74,13 +74,13 @@ public static class MobaF10
     private static double[] BuildPsi()
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
-        psi[(int)MobaFamily.Wizard] = 0.34;
-        psi[(int)MobaFamily.Knight] = 0.11;
-        psi[(int)MobaFamily.Elf] = -0.50;
-        psi[(int)MobaFamily.MagicGladiator] = 0.41;
-        psi[(int)MobaFamily.DarkLord] = 0.41;
-        psi[(int)MobaFamily.Summoner] = -0.59;
-        psi[(int)MobaFamily.RageFighter] = -0.18;
+        psi[(int)MobaFamily.Wizard] = 0.38;
+        psi[(int)MobaFamily.Knight] = 0.02;
+        psi[(int)MobaFamily.Elf] = -0.49;
+        psi[(int)MobaFamily.MagicGladiator] = 0.45;
+        psi[(int)MobaFamily.DarkLord] = 0.40;
+        psi[(int)MobaFamily.Summoner] = -0.62;
+        psi[(int)MobaFamily.RageFighter] = -0.13;
         return psi;
     }
 
