@@ -185,8 +185,8 @@ public static class MobaBuffPower
 
     /// <summary>Ignore Defense: share of the mitigation of the target the hits skip (0 when not active).</summary>
     /// <param name="rank">The rank on the receiver.</param>
-    /// <returns>0.20 to 0.40.</returns>
-    public static double IgnoreDefenseShare(int rank) => rank <= 0 ? 0 : Scale(rank, 0.20, 0.40);
+    /// <returns>0.10 to 0.20 (lowered from 0.20 - 0.40 on 2026-11-25: against a tank at 60 % mitigation the old top end was +60 % damage).</returns>
+    public static double IgnoreDefenseShare(int rank) => rank <= 0 ? 0 : Scale(rank, 0.10, 0.20);
 
     /// <summary>Damage Reflection: share of the damage taken that goes back to the attacker (0 when not active).</summary>
     /// <param name="rank">The rank on the receiver.</param>
