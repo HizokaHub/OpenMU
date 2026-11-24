@@ -128,8 +128,12 @@ public static class MobaLaneWalls
     /// <returns>A task.</returns>
     public static async ValueTask TickAsync(IGameContext gameContext)
     {
-        var players = (await gameContext.GetPlayersAsync().ConfigureAwait(false)).Where(p => p.IsMobaClone && p.CurrentMap is not null).ToList();
-        foreach (var group in players.GroupBy(p => p.CurrentMap!))
+        // The map of each player is read ONCE: the bots of the duels leave the map while this runs (2026-11-25: reading CurrentMap twice crashed the server).
+        var players = (await gameContext.GetPlayersAsync().ConfigureAwait(false))
+            .Select(p => (Player: p, Map: p.CurrentMap))
+            .Where(x => x.Player.IsMobaClone && x.Map is not null)
+            .ToList();
+        foreach (var group in players.GroupBy(x => x.Map!))
         {
             if (group.Key.MapId != MobaCloneFactory.ArenaMapNumber || MobaArena.Of(group.Key).LaneWallTiles.Count == 0)
             {
@@ -137,7 +141,7 @@ public static class MobaLaneWalls
             }
 
             var rects = RectsFor(MobaArena.Of(group.Key).Format);
-            foreach (var player in group)
+            foreach (var (player, _) in group)
             {
                 await player.InvokeViewPlugInAsync<IMobaWallsPlugIn>(p => p.ShowWallsAsync(rects)).ConfigureAwait(false);
             }

@@ -489,6 +489,7 @@ public static class MobaDuel
         }
 
         logger.LogInformation("[MOBA-DUEL] pasada {Pass}: {Total} duelos, {Slots} a la vez.", passName, total, Math.Min(slots.Count, request.Parallel));
+        MobaBotPlayer.TakeTickStats();   // start from zero
         var done = 0;
 
         // The first duel runs alone: the lazy configuration of the shop and the clones is not thread safe.
@@ -565,6 +566,8 @@ public static class MobaDuel
         };
         var path = Path.Combine(AppContext.BaseDirectory, $"duelos_{passName}_{DateTime.Now:yyyyMMdd_HHmmss}.json");
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
+        var (tickCount, tickMean, tickSkipped, tickBuckets) = MobaBotPlayer.TakeTickStats();
+        logger.LogInformation("[MOBA-DUEL] salud del servidor: {Count} ticks de bots, separacion media {Mean:F0} ms (ideal 280), {Skipped} saltados; <=350 ms {B0}, <=500 {B1}, <=1000 {B2}, mas {B3}.", tickCount, tickMean, tickSkipped, tickBuckets[0], tickBuckets[1], tickBuckets[2], tickBuckets[3]);
         logger.LogInformation("[MOBA-DUEL] report={Path}", path);
         return path;
     }

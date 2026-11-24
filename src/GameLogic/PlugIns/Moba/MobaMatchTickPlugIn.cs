@@ -38,6 +38,19 @@ public class MobaMatchTickPlugIn : IPeriodicTaskPlugIn
     /// <inheritdoc />
     public async ValueTask ExecuteTaskAsync(GameContext gameContext)
     {
+        // An exception inside one of the ticks used to take the whole server down (the process died on a race of the duels, 2026-11-25): it is logged and the next tick tries again.
+        try
+        {
+            await this.RunTicksAsync(gameContext).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            gameContext.LoggerFactory.CreateLogger<MobaMatchTickPlugIn>().LogError(ex, "[MOBA] error in the match tick (the server goes on).");
+        }
+    }
+
+    private async ValueTask RunTicksAsync(GameContext gameContext)
+    {
         // The arena terrain is a copy of Crywolf, which carries a big safezone; on
         // safezone tiles PvP is blocked (champions can't damage each other). A MOBA
         // arena has no safe tiles - strip the flag from every arena map (copies included) once it is live.

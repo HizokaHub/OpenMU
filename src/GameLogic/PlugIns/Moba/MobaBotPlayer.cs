@@ -141,6 +141,30 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     private readonly bool _isDummy;
     private Timer? _brain;
     private int _ticking;
+    private long _lastTickStartMs;
+
+    // Tick health (2026-11-25): how late the brains of the bots run when the server is busy (many duels at once). The gap is the time between two ticks that really ran
+    // (280 ms when the server keeps up); a tick that finds the previous one still running is skipped and counted.
+    private static long _tickCount;
+    private static long _tickGapSumMs;
+    private static long _tickSkipped;
+    private static readonly long[] TickBuckets = new long[4];   // gap <= 350 ms, <= 500 ms, <= 1000 ms, longer
+
+    /// <summary>Returns and resets the tick statistics of the bots: how many ticks ran, their mean gap in ms, how many were skipped, and the gaps by size.</summary>
+    /// <returns>The statistics.</returns>
+    public static (long Count, double MeanGapMs, long Skipped, long[] Buckets) TakeTickStats()
+    {
+        var count = Interlocked.Exchange(ref _tickCount, 0);
+        var sum = Interlocked.Exchange(ref _tickGapSumMs, 0);
+        var skipped = Interlocked.Exchange(ref _tickSkipped, 0);
+        var buckets = new long[TickBuckets.Length];
+        for (var i = 0; i < buckets.Length; i++)
+        {
+            buckets[i] = Interlocked.Exchange(ref TickBuckets[i], 0);
+        }
+
+        return (count, count > 0 ? (double)sum / count : 0, skipped, buckets);
+    }
     private int _skillCursor;
     private DateTime _nextActionUtc;
     private DateTime _nextBasicUtc;
@@ -344,9 +368,20 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     {
         if (Interlocked.Exchange(ref this._ticking, 1) == 1)
         {
+            Interlocked.Increment(ref _tickSkipped);
             return;
         }
 
+        var nowMs = Environment.TickCount64;
+        if (this._lastTickStartMs != 0)
+        {
+            var gap = nowMs - this._lastTickStartMs;
+            Interlocked.Increment(ref _tickCount);
+            Interlocked.Add(ref _tickGapSumMs, gap);
+            Interlocked.Increment(ref TickBuckets[gap <= 350 ? 0 : gap <= 500 ? 1 : gap <= 1000 ? 2 : 3]);
+        }
+
+        this._lastTickStartMs = nowMs;
         try
         {
             await this.TickAsync().ConfigureAwait(false);

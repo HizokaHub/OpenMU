@@ -120,6 +120,7 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 break;
         }
 
+        player.Logger.LogInformation("[MOBA-F10] {Message}", message);   // the calibration script reads this to check that every value arrived (a chat command can lose a digit)
         await player.ShowBlueMessageAsync($"[mobaf10] {message}").ConfigureAwait(false);
     }
 

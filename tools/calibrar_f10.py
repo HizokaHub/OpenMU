@@ -22,6 +22,28 @@ if Path(RAIZ / "tools/resultados_f10_psi.json").exists():
 objetivo, comando = (psi, "psi") if pasada == "plain" else (psit, "psit")
 
 
+def poner(comando, nombre, valor):
+    """Manda /mobaf10 psi|psit y comprueba en el log del servidor que el valor llego completo (el chat puede perder un digito); reintenta hasta 4 veces."""
+    log = RAIZ / "logs/servidor.log"
+    for intento in range(4):
+        tam = log.stat().st_size
+        chat(f"/mobaf10 {comando} {nombre} {valor:.3f}")
+        with open(log, "rb") as f:
+            f.seek(tam)
+            nuevo = f.read().decode("utf-8", errors="replace")
+        etiqueta = "psi con" if comando == "psit" else "psi "
+        for linea in nuevo.splitlines():
+            if "[MOBA-F10]" in linea and etiqueta in linea and "=" in linea:
+                try:
+                    recibido = float(linea.rsplit("=", 1)[1].strip().strip("\"").replace(",", "."))
+                except ValueError:
+                    continue
+                if abs(recibido - valor) < 0.0006:
+                    return
+        print(f"  (aviso) {comando} {nombre} {valor:.3f} no llego bien (intento {intento + 1}); lo repito", flush=True)
+    raise SystemExit(f"no consegui fijar {comando} {nombre} {valor:.3f}")
+
+
 def chat(texto):
     subprocess.run([sys.executable, "-I", str(PILOTO), "chat", texto], check=True, capture_output=True, timeout=120)
     time.sleep(2.5)
@@ -56,8 +78,8 @@ gain = float(sys.argv[4]) if len(sys.argv) > 4 else 0.45
 registro = []
 for it in range(iters):
     for c, name in FAM.items():
-        chat(f"/mobaf10 psi {name} {psi[c]:.3f}")
-        chat(f"/mobaf10 psit {name} {psit[c]:.3f}")
+        poner("psi", name, psi[c])
+        poner("psit", name, psit[c])
     arch = correr()
     wr, dur = analizar(arch)
     desv = max(abs(v - 0.5) for v in wr.values())
@@ -68,7 +90,7 @@ for it in range(iters):
         break
     for c in FAM:
         x = min(0.96, max(0.04, wr[c]))
-        objetivo[c] += max(-0.7, min(0.7, -gain * math.log(x / (1 - x))))
+        objetivo[c] += max(-0.25, min(0.25, -gain * math.log(x / (1 - x))))
     m = sum(objetivo.values()) / len(objetivo)
     for c in objetivo: objetivo[c] -= m
     gain *= 0.85

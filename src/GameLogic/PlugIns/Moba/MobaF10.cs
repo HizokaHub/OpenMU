@@ -78,16 +78,17 @@ public static class MobaF10
     /// <summary>Gets or sets the global life scale of the model.</summary>
     public static double HealthScale { get; set; } = 1.0;
 
+    // Calibrated 2026-11-25 with the static duels (4 hand-picked skills + all buffs, no items, level 30, 60 at a time): second iteration of tools/calibrar_f10.py, deviation 0.12.
     private static double[] BuildPsi()
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
-        psi[(int)MobaFamily.Wizard] = 0.44;
-        psi[(int)MobaFamily.Knight] = 0.02;
-        psi[(int)MobaFamily.Elf] = -0.65;
-        psi[(int)MobaFamily.MagicGladiator] = 0.41;
-        psi[(int)MobaFamily.DarkLord] = 0.36;
-        psi[(int)MobaFamily.Summoner] = -0.68;
-        psi[(int)MobaFamily.RageFighter] = 0.10;
+        psi[(int)MobaFamily.Wizard] = 0.590;
+        psi[(int)MobaFamily.Knight] = -0.011;
+        psi[(int)MobaFamily.Elf] = -0.283;
+        psi[(int)MobaFamily.MagicGladiator] = 0.386;
+        psi[(int)MobaFamily.DarkLord] = 0.389;
+        psi[(int)MobaFamily.Summoner] = -0.340;
+        psi[(int)MobaFamily.RageFighter] = -0.732;
         return psi;
     }
 
