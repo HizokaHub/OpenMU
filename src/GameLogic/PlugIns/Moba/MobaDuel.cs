@@ -33,8 +33,10 @@ public static class MobaDuel
     /// <summary>The seven classes of the review (the third job of every family).</summary>
     public static readonly byte[] MainClasses = { 3, 6, 11, 12, 16, 20, 24 };
 
-    private const int RectWidth = 12;
-    private const int RectHeight = 10;
+    // The corner of a duel: 12x10 when they move (kiting, jumps); static duels fight two tiles apart, so a smaller one holds them and the arena fits more of them.
+    private static int RectWidth => Static ? 10 : 12;
+
+    private static int RectHeight => Static ? 8 : 10;
     private const int SeparationTiles = 6;
 
     /// <summary>Distance of the static duels: every class reaches at this distance (the melee ones hit from two tiles).</summary>
@@ -44,7 +46,7 @@ public static class MobaDuel
     /// How far from the center of a corner no monster may stand (a duelist that kites backs off several tiles: in the first full matrix a Stone Golem
     /// of a jungle camp 19 tiles away killed a Grand Master).
     /// </summary>
-    private const int MonsterFreeRadius = 12;
+    private static int MonsterFreeRadius => Static ? 8 : 12;
     private const double TimeoutSeconds = 120;
 
     /// <summary>Maximum length of the buff preparation phase before the blows.</summary>
@@ -77,6 +79,8 @@ public static class MobaDuel
     public static bool FullKit { get; set; }
 
     private static bool _jungleWasRunning;
+    private static bool _turretsWereUp;
+    private static bool _nexusesWereUp;
 
     /// <summary>
     /// Gets or sets a value indicating whether the duelists fight WITHOUT MOVING (default <see langword="true"/> since 2026-11-24): they start two tiles apart, in reach of
@@ -183,6 +187,21 @@ public static class MobaDuel
 
             // The jungle camps take whole stretches of the arena out of the corners for the duels (a radius free of monsters is asked): the camps are removed for the run
             // (2026-11-24: 16 corners became many more) and put back when it ends.
+            // The turrets, the nexuses and the inhibitors shoot at the duelists and take the lanes out of the corners (2026-11-24, balance tests only): they go away for the
+            // run and come back when it ends, if they were there.
+            _turretsWereUp = MobaStructureSpawner.HasTurrets(map);
+            _nexusesWereUp = MobaStructureSpawner.HasNexuses(map);
+            if (_turretsWereUp)
+            {
+                await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
+            }
+
+            if (_nexusesWereUp)
+            {
+                await MobaStructureSpawner.RemoveInhibitorsAsync(map).ConfigureAwait(false);
+                await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
+            }
+
             _jungleWasRunning = MobaJungle.IsRunning(map);
             if (_jungleWasRunning)
             {
@@ -241,6 +260,19 @@ public static class MobaDuel
             if (map is not null)
             {
                 await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
+            }
+
+            if (map is not null && _turretsWereUp)
+            {
+                _turretsWereUp = false;
+                await MobaStructureSpawner.SpawnTurretsAsync(map, gm.GameContext).ConfigureAwait(false);
+            }
+
+            if (map is not null && _nexusesWereUp)
+            {
+                _nexusesWereUp = false;
+                await MobaStructureSpawner.SpawnNexusesAsync(map, gm.GameContext).ConfigureAwait(false);
+                await MobaStructureSpawner.SpawnInhibitorsAsync(map, gm.GameContext).ConfigureAwait(false);
             }
 
             if (map is not null && _jungleWasRunning)
@@ -725,7 +757,7 @@ public static class MobaDuel
                 continue;
             }
 
-            if (map.GetAttackablesInRange(center, MonsterFreeRadius).OfType<NPC.Monster>().Any() || laneDistance < 6)
+            if (map.GetAttackablesInRange(center, MonsterFreeRadius).OfType<NPC.Monster>().Any() || (!Static && laneDistance < 6))
             {
                 continue;
             }

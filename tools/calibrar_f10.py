@@ -29,7 +29,7 @@ def chat(texto):
 
 def correr():
     antes = set(glob.glob(str(DEBUG / f"duelos_{nombre_json}_*.json")))
-    chat(f"/mobaduel all {duelos} {pasada} 12")
+    chat(f"/mobaduel all {duelos} {pasada} 60")
     t0 = time.time()
     while time.time() - t0 < 1800:
         time.sleep(15)
