@@ -110,6 +110,15 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaF10.HealthScale = Math.Clamp(h, 0.01, 100);
                 message = FormattableString.Invariant($"escala global de vida = {MobaF10.HealthScale}");
                 break;
+            case "pair" when string.Equals(arguments.Key, "clear", StringComparison.OrdinalIgnoreCase):
+                MobaF10.ClearPairPsi();
+                message = "tabla de cruces vaciada";
+                break;
+            case "pair" when arguments.Key?.Split('-') is { Length: 2 } sides && ResolveFamily(sides[0]) is { } pairAttacker && ResolveFamily(sides[1]) is { } pairDefender
+                             && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pairValue):
+                MobaF10.SetPairPsi(pairAttacker, pairDefender, Math.Clamp(pairValue, -2, 2));
+                message = FormattableString.Invariant($"cruce {pairAttacker}>{pairDefender} = {MobaF10.PairPsi(pairAttacker, pairDefender)}");
+                break;
             case "psi" when ResolveFamily(arguments.Key) is { } family && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v):
                 MobaF10.SetPsi(family, Math.Clamp(v, -3, 3));
                 message = FormattableString.Invariant($"psi {family} = {MobaF10.Psi(family)}");

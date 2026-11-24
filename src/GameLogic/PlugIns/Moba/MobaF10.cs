@@ -75,20 +75,65 @@ public static class MobaF10
     /// </summary>
     public const double CritReference = 0.20;
 
-    /// <summary>Gets or sets the global life scale of the model.</summary>
-    public static double HealthScale { get; set; } = 1.0;
+    /// <summary>Gets or sets the global life scale of the model (1.35 since 2026-11-25: it makes the duels last 10-15 s so a team fight does not end in one second).</summary>
+    public static double HealthScale { get; set; } = 1.35;
 
-    // Calibrated 2026-11-25 with the static duels (4 hand-picked skills + all buffs, no items, level 30, 60 at a time): second iteration of tools/calibrar_f10.py, deviation 0.12.
+    // Calibrated 2026-11-25 (evening) with the static duels (4 hand-picked skills rotated by the bots, all buffs, no items, level 30, 60 at a time, life scale 1.35) with tools/calibrar_f10.py.
+    // The matchup table (2026-11-25): a log factor on the damage of a family against ANOTHER one, [attacker, defender]. The class offsets (psi) move a family against EVERY rival, so
+    // fixing one matchup moved all the others; this table moves one matchup only (the extreme counters are brought to 30-70 % without touching the classes that are already right).
+    private static readonly double[,] PairPsiTable = BuildPairPsi();
+
+    /// <summary>Gets the log factor on the damage of a family against another one (0 = none).</summary>
+    /// <param name="attacker">The attacking family.</param>
+    /// <param name="defender">The defending family.</param>
+    /// <returns>The offset.</returns>
+    public static double PairPsi(MobaFamily attacker, MobaFamily defender) => PairPsiTable[(int)attacker, (int)defender];
+
+    /// <summary>Sets the log factor on the damage of a family against another one.</summary>
+    /// <param name="attacker">The attacking family.</param>
+    /// <param name="defender">The defending family.</param>
+    /// <param name="value">The offset.</param>
+    public static void SetPairPsi(MobaFamily attacker, MobaFamily defender, double value) => PairPsiTable[(int)attacker, (int)defender] = value;
+
+    /// <summary>Clears the whole matchup table.</summary>
+    public static void ClearPairPsi() => Array.Clear(PairPsiTable);
+
+    /// <summary>The factor the matchup table puts on the damage of the attacker against the defender (1 when F10 is off).</summary>
+    /// <param name="attacker">The attacking champion.</param>
+    /// <param name="defender">The defending champion.</param>
+    /// <returns>The factor.</returns>
+    public static double PairFactorOf(Player attacker, Player defender)
+        => Enabled ? Math.Exp(PairPsi(MobaPassives.FamilyOf(attacker), MobaPassives.FamilyOf(defender))) : 1.0;
+
+    // Calibrated 2026-11-25 with tools/calibrar_pares_f10.py: the matchups above 80 % (or below 20 %) were brought to 70 % (30 %).
+    private static double[,] BuildPairPsi()
+    {
+        var table = new double[Enum.GetValues<MobaFamily>().Length, Enum.GetValues<MobaFamily>().Length];
+        table[(int)MobaFamily.Wizard, (int)MobaFamily.MagicGladiator] = -0.021;
+        table[(int)MobaFamily.Knight, (int)MobaFamily.Elf] = 0.040;
+        table[(int)MobaFamily.Knight, (int)MobaFamily.RageFighter] = 0.050;
+        table[(int)MobaFamily.Elf, (int)MobaFamily.Knight] = -0.040;
+        table[(int)MobaFamily.Elf, (int)MobaFamily.RageFighter] = 0.062;
+        table[(int)MobaFamily.MagicGladiator, (int)MobaFamily.Wizard] = 0.021;
+        table[(int)MobaFamily.MagicGladiator, (int)MobaFamily.RageFighter] = 0.090;
+        table[(int)MobaFamily.DarkLord, (int)MobaFamily.RageFighter] = 0.063;
+        table[(int)MobaFamily.RageFighter, (int)MobaFamily.Knight] = -0.050;
+        table[(int)MobaFamily.RageFighter, (int)MobaFamily.Elf] = -0.062;
+        table[(int)MobaFamily.RageFighter, (int)MobaFamily.MagicGladiator] = -0.090;
+        table[(int)MobaFamily.RageFighter, (int)MobaFamily.DarkLord] = -0.063;
+        return table;
+    }
+
     private static double[] BuildPsi()
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
-        psi[(int)MobaFamily.Wizard] = 0.590;
-        psi[(int)MobaFamily.Knight] = -0.011;
-        psi[(int)MobaFamily.Elf] = -0.283;
-        psi[(int)MobaFamily.MagicGladiator] = 0.386;
-        psi[(int)MobaFamily.DarkLord] = 0.389;
-        psi[(int)MobaFamily.Summoner] = -0.340;
-        psi[(int)MobaFamily.RageFighter] = -0.732;
+        psi[(int)MobaFamily.Wizard] = 0.575;
+        psi[(int)MobaFamily.Knight] = -0.006;
+        psi[(int)MobaFamily.Elf] = -0.173;
+        psi[(int)MobaFamily.MagicGladiator] = 0.353;
+        psi[(int)MobaFamily.DarkLord] = 0.354;
+        psi[(int)MobaFamily.Summoner] = -0.386;
+        psi[(int)MobaFamily.RageFighter] = -0.718;
         return psi;
     }
 

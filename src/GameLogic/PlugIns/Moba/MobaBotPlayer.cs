@@ -166,6 +166,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         return (count, count > 0 ? (double)sum / count : 0, skipped, buckets);
     }
     private int _skillCursor;
+    private readonly Dictionary<short, DateTime> _lastSkillUseUtc = new();
     private DateTime _nextActionUtc;
     private DateTime _nextBasicUtc;
     private DateTime _nextKiteUtc;
@@ -2177,12 +2178,15 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         if (skills.Count > 0 && manaPct > 0.10f)
         {
             var core = CorePriority.TryGetValue(MobaPassives.FamilyOf(this), out var pri) ? pri : Array.Empty<short>();
-            var ordered = skills
-                .OrderBy(s =>
-                {
-                    var idx = Array.IndexOf(core, (short)s.Skill!.Number);
-                    return idx >= 0 ? idx : 100 + ((this._skillCursor + s.Skill!.Number) % 50);
-                })
+            // Duels (2026-11-25): the skill used LEAST recently goes first, so the duelist rotates through ALL its skills. With the fixed priority and the recast grace window
+            // the first two skills were always ready and the other two were never cast (the Rage Fighter fought with 2 of its 4 attacks, the Grand Master with 2 of 4).
+            var ordered = (this.DuelMode
+                    ? skills.OrderBy(s => this._lastSkillUseUtc.TryGetValue((short)s.Skill!.Number, out var lastUse) ? lastUse : DateTime.MinValue)
+                    : skills.OrderBy(s =>
+                    {
+                        var idx = Array.IndexOf(core, (short)s.Skill!.Number);
+                        return idx >= 0 ? idx : 100 + ((this._skillCursor + s.Skill!.Number) % 50);
+                    }))
                 .ToList();
 
             foreach (var entry in ordered)
@@ -2195,6 +2199,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
                 if (await this.TryUseSkillAsync(entry, target).ConfigureAwait(false))
                 {
                     this._skillCursor++;
+                    this._lastSkillUseUtc[(short)entry.Skill!.Number] = now;
                     return;
                 }
 
