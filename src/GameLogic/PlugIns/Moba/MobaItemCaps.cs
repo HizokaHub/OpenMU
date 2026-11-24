@@ -63,7 +63,7 @@ public static class MobaItemCaps
         }
 
         var (hpMul, _) = MobaProgression.RoleTilt(MobaPassives.FamilyOf(champion));
-        var maxHealthCap = MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier;
+        var maxHealthCap = (MobaProgression.HealthAt(champion.MobaLevel) * hpMul * MaxResourceMultiplier) + MobaBuffPower.TemporaryLifeOf(champion);
         CapAttribute(attributes, Stats.MaximumHealth, maxHealthCap, ref state.HealthElement, Stats.CurrentHealth);
 
         // SD is pinned to the level curve on level-up, but the native formula adds the invested stat

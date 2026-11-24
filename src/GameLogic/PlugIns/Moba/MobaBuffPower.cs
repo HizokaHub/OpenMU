@@ -282,6 +282,22 @@ public static class MobaBuffPower
         }
     }
 
+    /// <summary>The extra maximum life the life buffs (Swell Life, Increase Health) grant right now, on top of the level curve: the +20 % cap of <see cref="MobaItemCaps"/> does not eat it.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The extra life, 0 if none.</returns>
+    public static float TemporaryLifeOf(Player champion)
+    {
+        if (!LifeBoosts.TryGetValue(champion, out var holds))
+        {
+            return 0f;
+        }
+
+        lock (holds)
+        {
+            return holds.Values.Sum(e => e.Value);
+        }
+    }
+
     private static async Task ReleaseLifeBoostAsync(Player receiver, short skillNumber, short effectNumber, SimpleElement element)
     {
         var holds = LifeBoosts.GetOrCreateValue(receiver);

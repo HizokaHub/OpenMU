@@ -44,7 +44,10 @@ public static class MobaSkillProbe
 
     private static readonly TargetedSkillDefaultPlugin DefaultPlugin = new();
     private static readonly AreaSkillAttackAction AreaAction = new();
-    private static readonly ConcurrentQueue<MobaProbeHit> Hits = new();
+    // Since 2026-11-25 the classes are probed at the SAME time, each in its own spot of the map: every class has its own queue of hits and the observer routes
+    // a hit to the class whose caster, attacker, ally or targets took part in it. The bodies are built one at a time (they share one persistence context).
+    private static readonly ConcurrentDictionary<object, Ctx> Owners = new();
+    private static readonly SemaphoreSlim SpawnLock = new(1, 1);
     private static int _running;
 
     private static readonly (string Name, AttributeDefinition Attribute)[] WatchedAttributes =
@@ -79,6 +82,9 @@ public static class MobaSkillProbe
 
         var map = gm.CurrentMap;
         MobaBotPlayer? carrier = null;
+        var turretsWereUp = false;
+        var nexusesWereUp = false;
+        var jungleWasRunning = false;
         try
         {
             if (!gm.IsMobaClone || map is null)
@@ -87,28 +93,68 @@ public static class MobaSkillProbe
             }
 
             await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
-            MobaTelemetry.ProbeObserver = hit => Hits.Enqueue(hit);
+            MobaTelemetry.ProbeObserver = hit =>
+            {
+                if (hit.Attacker is { } attacker && Owners.TryGetValue(attacker, out var byAttacker))
+                {
+                    byAttacker.Hits.Enqueue(hit);
+                }
+                else if (hit.Victim is { } victim && Owners.TryGetValue(victim, out var byVictim))
+                {
+                    byVictim.Hits.Enqueue(hit);
+                }
+            };
             var started = DateTime.UtcNow;
-            var classes = new List<object>();
+
+            // The turrets, nexuses, inhibitors and the jungle go away for the run (they shoot at the probes and fill the spots) and come back at the end, as in the duels.
+            turretsWereUp = MobaStructureSpawner.HasTurrets(map);
+            nexusesWereUp = MobaStructureSpawner.HasNexuses(map);
+            if (turretsWereUp)
+            {
+                await MobaStructureSpawner.RemoveTurretsAsync(map).ConfigureAwait(false);
+            }
+
+            if (nexusesWereUp)
+            {
+                await MobaStructureSpawner.RemoveInhibitorsAsync(map).ConfigureAwait(false);
+                await MobaStructureSpawner.RemoveNexusesAsync(map).ConfigureAwait(false);
+            }
+
+            jungleWasRunning = MobaJungle.IsRunning(map);
+            if (jungleWasRunning)
+            {
+                await MobaJungle.ExtinguishAsync(map).ConfigureAwait(false);
+            }
 
             // The bodies are built with the persistence context of a carrier bot that lives as long as the run: the context of the game master
             // is disposed when its client closes, and the review must not depend on it.
             carrier = new MobaBotPlayer(gm.GameContext, MobaTeam.Blue, isDummy: true);
-            foreach (var number in classNumbers)
+            var spots = FindProbeSpots(map, classNumbers.Count);
+            gm.Logger.LogInformation("[MOBA-PROBE] {Classes} class(es) in {Spots} spot(s) of the map: {List}", classNumbers.Count, spots.Count, string.Join(" ", spots.Select(sp => $"{sp.X},{sp.Y}")));
+            var results = new Dictionary<byte, object>();
+            var batchSize = Math.Max(1, spots.Count);
+            foreach (var batch in classNumbers.Chunk(batchSize))
             {
-                gm.Logger.LogInformation("[MOBA-PROBE] class {Class} start", number);
-                try
+                var tasks = batch.Select((number, i) => Task.Run(async () =>
                 {
-                    classes.Add(await RunClassAsync(carrier, number, level, quick: number is 4 or 7).ConfigureAwait(false));
-                }
-                catch (Exception ex)
+                    gm.Logger.LogInformation("[MOBA-PROBE] class {Class} start", number);
+                    try
+                    {
+                        return (number, (object)await RunClassAsync(carrier, number, level, quick: number is 4 or 7, spots[i]).ConfigureAwait(false));
+                    }
+                    catch (Exception ex)
+                    {
+                        gm.Logger.LogWarning(ex, "[MOBA-PROBE] class {Class} failed", number);
+                        return (number, (object)new Dictionary<string, object?> { ["class"] = number, ["error"] = ex.Message });
+                    }
+                })).ToList();
+                foreach (var (number, result) in await Task.WhenAll(tasks).ConfigureAwait(false))
                 {
-                    gm.Logger.LogWarning(ex, "[MOBA-PROBE] class {Class} failed", number);
-                    classes.Add(new Dictionary<string, object?> { ["class"] = number, ["error"] = ex.Message });
+                    results[number] = result;
                 }
-
-                await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
             }
+
+            var classes = classNumbers.Select(n => results[n]).ToList();
 
             var report = new Dictionary<string, object?>
             {
@@ -129,8 +175,24 @@ public static class MobaSkillProbe
             if (map is not null)
             {
                 await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
+                if (turretsWereUp)
+                {
+                    await MobaStructureSpawner.SpawnTurretsAsync(map, gm.GameContext).ConfigureAwait(false);
+                }
+
+                if (nexusesWereUp)
+                {
+                    await MobaStructureSpawner.SpawnNexusesAsync(map, gm.GameContext).ConfigureAwait(false);
+                    await MobaStructureSpawner.SpawnInhibitorsAsync(map, gm.GameContext).ConfigureAwait(false);
+                }
+
+                if (jungleWasRunning)
+                {
+                    await MobaJungle.EnsureStartedAsync(map, gm.GameContext).ConfigureAwait(false);
+                }
             }
 
+            Owners.Clear();
             Interlocked.Exchange(ref _running, 0);
         }
     }
@@ -145,20 +207,89 @@ public static class MobaSkillProbe
         public List<MobaBotPlayer> Targets = new();
         public List<Point> Homes = new();
         public List<Dictionary<string, object?>> Rows = new();
+        public ConcurrentQueue<MobaProbeHit> Hits = new();
+        public int Dx;
+        public int Dy;
+        public List<MobaBotPlayer> Bots = new();
     }
 
-    private static async ValueTask<Dictionary<string, object?>> RunClassAsync(Player gm, byte classNumber, int level, bool quick)
+    /// <summary>The free spots of the map where classes are probed side by side: a walkable block with no monsters, far from the others (the first one is the old spot of the probe).</summary>
+    private static List<Point> FindProbeSpots(GameMap map, int wanted)
+    {
+        var walk = map.Terrain.WalkMap;
+        var found = new List<Point>();
+        foreach (var (x, y) in Enumerable.Range(0, 64).SelectMany(i => Enumerable.Range(0, 64).Select(j => (x: 16 + (i * 4), y: 16 + (j * 4))))
+                     .OrderBy(c => Math.Abs(c.x - 120) + Math.Abs(c.y - 124)))
+        {
+            if (found.Count >= Math.Max(1, wanted))
+            {
+                break;
+            }
+
+            if (x + 14 >= 255 || y + 14 >= 255 || found.Any(f => Math.Abs(f.X - x) < 22 && Math.Abs(f.Y - y) < 24))
+            {
+                continue;
+            }
+
+            // The cells where the bodies stand must be walkable, and most of the block around them (the area skills need room, not a perfect square).
+            var free = true;
+            var walkable = 0;
+            var total = 0;
+            for (var px = x - 8; px <= x + 9; px++)
+            {
+                for (var py = y - 12; py <= y + 8; py++)
+                {
+                    total++;
+                    walkable += walk[px, py] ? 1 : 0;
+                    if (px >= x && px <= x + 2 && py >= y - 6 && py <= y + 5 && !walk[px, py])
+                    {
+                        free = false;
+                    }
+                }
+            }
+
+            free = free && walkable >= total * 0.9;
+            if (free && !map.GetAttackablesInRange(new Point((byte)x, (byte)y), 14).OfType<NPC.Monster>().Any())
+            {
+                found.Add(new Point((byte)x, (byte)y));
+            }
+        }
+
+        if (found.Count == 0)
+        {
+            found.Add(new Point(120, 124));
+        }
+
+        return found;
+    }
+
+    private static async ValueTask<Dictionary<string, object?>> RunClassAsync(Player gm, byte classNumber, int level, bool quick, Point origin)
     {
         var characterClass = gm.GameContext.Configuration.CharacterClasses.First(c => c.Number == classNumber);
-        var c = new Ctx { Gm = gm, Level = level };
-        c.Caster = await SpawnAsync(gm, classNumber, "probeC", MobaTeam.Blue, new Point(120, 124), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el lanzador");
-        c.Attacker = await SpawnAsync(gm, 6, "probeB", MobaTeam.Red, new Point(120, 118), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el atacante");
-        c.Ally = await SpawnAsync(gm, 6, "probeA", MobaTeam.Blue, new Point(120, 129), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el aliado");
+        var c = new Ctx { Gm = gm, Level = level, Dx = origin.X - 120, Dy = origin.Y - 124 };
+        await SpawnLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+        c.Caster = await SpawnAsync(gm, classNumber, "probeC", MobaTeam.Blue, new Point((byte)(120 + c.Dx), (byte)(124 + c.Dy)), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el lanzador");
+        c.Attacker = await SpawnAsync(gm, 6, "probeB", MobaTeam.Red, new Point((byte)(120 + c.Dx), (byte)(118 + c.Dy)), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el atacante");
+        c.Ally = await SpawnAsync(gm, 6, "probeA", MobaTeam.Blue, new Point((byte)(120 + c.Dx), (byte)(129 + c.Dy)), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear el aliado");
         for (var i = 0; i < 3; i++)
         {
-            var t = await SpawnAsync(gm, 6, $"probeT{i}", MobaTeam.Red, new Point((byte)(120 + (i == 1 ? 1 : 0) + (i == 2 ? 1 : 0)), (byte)(i == 2 ? 129 : 128)), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear un objetivo");
+            var t = await SpawnAsync(gm, 6, $"probeT{i}", MobaTeam.Red, new Point((byte)(120 + c.Dx + (i == 1 ? 1 : 0) + (i == 2 ? 1 : 0)), (byte)((i == 2 ? 129 : 128) + c.Dy)), level).ConfigureAwait(false) ?? throw new InvalidOperationException("no se pudo crear un objetivo");
             c.Targets.Add(t);
-            c.Homes.Add(new Point((byte)(120 + (i == 1 ? 1 : 0) + (i == 2 ? 1 : 0)), (byte)(i == 2 ? 129 : 128)));
+            c.Homes.Add(new Point((byte)(120 + c.Dx + (i == 1 ? 1 : 0) + (i == 2 ? 1 : 0)), (byte)((i == 2 ? 129 : 128) + c.Dy)));
+        }
+        }
+        finally
+        {
+            SpawnLock.Release();
+        }
+
+        c.Bots.AddRange(new[] { c.Caster, c.Attacker, c.Ally });
+        c.Bots.AddRange(c.Targets);
+        foreach (var bot in c.Bots)
+        {
+            Owners[bot] = c;
         }
 
         await Task.Delay(500).ConfigureAwait(false);
@@ -217,6 +348,20 @@ public static class MobaSkillProbe
         // 4) combo
         info["combo"] = await ProbeComboAsync(c, kit).ConfigureAwait(false);
         info["rows"] = c.Rows;
+        foreach (var bot in c.Bots)
+        {
+            try
+            {
+                await bot.StopAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // best effort: the final cleanup removes whatever is left
+            }
+
+            Owners.TryRemove(bot, out _);
+        }
+
         return info;
     }
 
@@ -344,7 +489,7 @@ public static class MobaSkillProbe
             await PlaceAsync(caster, target.Position.X, target.Position.Y - (int)distance).ConfigureAwait(false);
         }
 
-        while (Hits.TryDequeue(out _))
+        while (c.Hits.TryDequeue(out _))
         {
         }
 
@@ -363,7 +508,7 @@ public static class MobaSkillProbe
         row["hpAfterCast"] = Math.Round(caster.Attributes[Stats.CurrentHealth]);
         row["shieldAfterCast"] = Math.Round(caster.Attributes[Stats.CurrentShield]);
         await Task.Delay(settleMs).ConfigureAwait(false);
-        var mine = Hits.Where(h => ReferenceEquals(h.Attacker, caster)).ToList();
+        var mine = c.Hits.Where(h => ReferenceEquals(h.Attacker, caster)).ToList();
         var hasCooldown = caster.MobaSkillCooldowns.TryGetValue(skill.Number, out var ready) && ready > t0;
         row["cast"] = spent > 0.5f || mine.Count > 0 || hasCooldown;
         row["manaSpent"] = Math.Round(spent);
@@ -464,19 +609,19 @@ public static class MobaSkillProbe
         // the attacker (a level 30 Blade Knight) hits the caster with Falling Slash at rank 5
         var fallingSlash = c.Attacker.SelectedCharacter!.LearnedSkills.First(e => e.Skill!.Number == 19);
         Refill(c.Caster);
-        await PlaceAsync(c.Caster, 120, 126).ConfigureAwait(false);
-        await PlaceAsync(c.Attacker, 120, 124).ConfigureAwait(false);
+        await PlaceAsync(c.Caster, 120 + c.Dx, 126 + c.Dy).ConfigureAwait(false);
+        await PlaceAsync(c.Attacker, 120 + c.Dx, 124 + c.Dy).ConfigureAwait(false);
         fallingSlash.Level = 5;
         ResetCooldowns(c.Attacker);
         Refill(c.Attacker);
-        while (Hits.TryDequeue(out _))
+        while (c.Hits.TryDequeue(out _))
         {
         }
 
         await CastCoreAsync(c.Attacker, fallingSlash, c.Caster).ConfigureAwait(false);
         var reflected = c.Attacker.Attributes![Stats.MaximumHealth] - c.Attacker.Attributes[Stats.CurrentHealth] + Math.Max(0f, c.Attacker.Attributes[Stats.MaximumShield] - c.Attacker.Attributes[Stats.CurrentShield]);
         await Task.Delay(SettleMs).ConfigureAwait(false);
-        var taken = Hits.Where(h => ReferenceEquals(h.Attacker, c.Attacker) && ReferenceEquals(h.Victim, c.Caster)).Sum(h => h.Hp + h.Sd);
+        var taken = c.Hits.Where(h => ReferenceEquals(h.Attacker, c.Attacker) && ReferenceEquals(h.Victim, c.Caster)).Sum(h => h.Hp + h.Sd);
         return (dealt, taken, reflected);
     }
 
@@ -585,14 +730,14 @@ public static class MobaSkillProbe
                 c.Caster.MobaSkillCooldowns.Remove((short)n);
                 c.Caster.MobaSkillGraceEnds.Remove((short)n);
                 Refill(c.Caster);
-                await PlaceAsync(c.Caster, 120, 126).ConfigureAwait(false);
-                while (Hits.TryDequeue(out _))
+                await PlaceAsync(c.Caster, 120 + c.Dx, 126 + c.Dy).ConfigureAwait(false);
+                while (c.Hits.TryDequeue(out _))
                 {
                 }
 
                 await CastCoreAsync(c.Caster, entry, c.Targets[0]).ConfigureAwait(false);
                 await Task.Delay(450).ConfigureAwait(false);
-                var mine = Hits.Where(h => ReferenceEquals(h.Attacker, c.Caster)).ToList();
+                var mine = c.Hits.Where(h => ReferenceEquals(h.Attacker, c.Caster)).ToList();
                 steps.Add(new Dictionary<string, object?>
                 {
                     ["skill"] = n,
