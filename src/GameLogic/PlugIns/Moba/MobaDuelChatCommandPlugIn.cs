@@ -101,7 +101,7 @@ public class MobaDuelChatCommandPlugIn : ChatCommandPlugInBase<MobaDuelChatComma
         var pass = arguments.Pass?.Trim().ToLowerInvariant();
         var plain = pass is null or "" or "both" or "plain";
         var t3 = pass is null or "" or "both" or "t3";
-        var request = new MobaDuelRequest(pairs, Math.Clamp(arguments.Duels, 1, 100), plain, t3, MobaLevels.MaxLevel, Math.Clamp(arguments.Parallel, 1, 12));
+        var request = new MobaDuelRequest(pairs, Math.Clamp(arguments.Duels, 1, 100), plain, t3, MobaLevels.MaxLevel, Math.Clamp(arguments.Parallel, 1, 60));
         await player.ShowBlueMessageAsync($"[mobaduel] Empieza: {pairs.Count} cruces x {request.Duels} duelos, pasadas: {(plain ? "sin ítems " : string.Empty)}{(t3 ? "T3" : string.Empty)}. Mira el log [MOBA-DUEL]; el informe queda en duelos_*.json.").ConfigureAwait(false);
 
         // runs in the background: the chat command must not block the game loop
