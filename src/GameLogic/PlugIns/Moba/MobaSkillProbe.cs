@@ -242,10 +242,10 @@ public static class MobaSkillProbe
             return null;
         }
 
-        var clone = await MobaCloneFactory.BuildForClassAsync(gm, characterClass, name).ConfigureAwait(false);
+        var clone = await MobaCloneFactory.BuildForClassAsync(gm, characterClass, name, duel && !MobaDuel.FullKit ? MobaDuel.PicksFor(gm.GameContext.Configuration, classNumber) : null).ConfigureAwait(false);
         var account = gm.PersistenceContext.CreateNew<Account>();
         account.LoginName = $"#probe_{name}_{(DateTime.UtcNow.Ticks / 10000) % 100000}";
-        var bot = new MobaBotPlayer(gm.GameContext, team, isDummy: dummy) { DuelMode = duel };
+        var bot = new MobaBotPlayer(gm.GameContext, team, isDummy: dummy) { DuelMode = duel, DuelStatic = duel && MobaDuel.Static };
         if (!await bot.StartMobaAsync(account, clone, at).ConfigureAwait(false))
         {
             return null;

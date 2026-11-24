@@ -90,6 +90,18 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaF10.SetPsiTier(tierFamily, Math.Clamp(vt, -3, 3));
                 message = FormattableString.Invariant($"psi con ítems {tierFamily} = {MobaF10.PsiTier(tierFamily)}");
                 break;
+            case "kit" when arguments.Key is "full" or "picks":
+                MobaDuel.FullKit = arguments.Key == "full";
+                message = MobaDuel.FullKit ? "duelos con el kit COMPLETO de la clase (rango 5)" : "duelos con las 4 skills por defecto + buffs de la clase (como en la arena)";
+                break;
+            case "estatico" when arguments.Key is "on" or "off":
+                MobaDuel.Static = arguments.Key == "on";
+                message = MobaDuel.Static ? "duelos ESTÁTICOS (a 2 casillas, sin kiting, saltos ni Rush)" : "duelos con movimiento (kiting, Teleport y Rush)";
+                break;
+            case "utilidad" when arguments.Key is "on" or "off":
+                MobaDuel.Utility = arguments.Key == "on";
+                message = MobaDuel.Utility ? "duelos con skills de control permitidas" : "duelos SIN skills de control (solo daño)";
+                break;
             case "dmg" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d):
                 MobaF10.DamageScale = Math.Clamp(d, 0.01, 100);
                 message = FormattableString.Invariant($"escala global de daño = {MobaF10.DamageScale}");

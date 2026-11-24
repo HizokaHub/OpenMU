@@ -145,6 +145,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     private DateTime _nextActionUtc;
     private DateTime _nextBasicUtc;
     private DateTime _nextKiteUtc;
+    private DateTime _nextBlinkUtc;
     private DateTime _manaConserveUntilUtc;
     private DateTime _nextDevelopUtc;
     private DateTime _comboResetUtc;
@@ -1365,7 +1366,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             }
         }
 
-        if (dist > range)
+        if (dist > range && !(this.DuelStatic && dist <= range + 2))
         {
             // Rush (S21 skill 813): a melee champion closes the gap with a jump and a blow instead of walking in (off unless MobaRush.Enabled).
             if (target is Player && await MobaRush.TryRushAsync(this, target).ConfigureAwait(false))
@@ -1416,7 +1417,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         // not a replacement for the attack rotation, and never while the bot itself is the one
         // slowed/CC'd: it couldn't out-run anything then, so standing and fighting is strictly
         // better than a kite attempt that can't actually create distance.
-        if (ranged && target is Player && targetHpPct > 0.35 && dist <= range - 1
+        if (ranged && !this.DuelStatic && target is Player && targetHpPct > 0.35 && dist <= range - 1
             && nowT >= this._nextKiteUtc
             && !IsHardControlled(this) && !IsSlowed(this)
             && (IsHardControlled(target) || IsSlowed(target)))
@@ -1426,6 +1427,23 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             this.EngageNote("kiting back (target slowed/CC'd)", target);
             await this.WalkTowardAsync(away).ConfigureAwait(false);
             return;
+        }
+
+        // Teleport of the Soul Master (2026-11-24, duels): a champion that pays its jumps with the AG gauge flashes away when a rival is on top of it, to get its range
+        // back, through the same path a player's jump takes (mana, AG, crowd control, base rules). Throttled: a jump every few seconds, never while controlled.
+        if (this.DuelMode && !this.DuelStatic && target is Player && ranged && dist <= 2.5 && nowT >= this._nextBlinkUtc
+            && MobaBlink.UsesGauge(this) && MobaBlink.HasGauge(this) && !IsHardControlled(this))
+        {
+            this._nextBlinkUtc = nowT + TimeSpan.FromSeconds(3);
+            var gaugeBefore = this.Attributes?[Stats.CurrentAbility] ?? 0f;
+            this.EngageNote("teleport away (rival on top of us)", target);
+            await new MUnique.OpenMU.GameLogic.PlayerActions.WizardTeleportAction().TryTeleportWithSkillAsync(this, StepAway(pos, target.Position, 6)).ConfigureAwait(false);
+            if ((this.Attributes?[Stats.CurrentAbility] ?? 0f) < gaugeBefore)
+            {
+                this.DuelCasts.AddOrUpdate(MobaBlink.SkillNumber, 1, (_, n) => n + 1);
+                this._nextActionUtc = nowT + TimeSpan.FromMilliseconds(500);
+                return;
+            }
         }
 
         // Skill action ready -> use the full skill/combo pick (falls back to a basic itself).

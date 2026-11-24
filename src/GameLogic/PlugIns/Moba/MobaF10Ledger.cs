@@ -4,6 +4,8 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 
 /// <summary>
@@ -148,6 +150,23 @@ public static class MobaF10Ledger
             }
         }
 
+        // FENRIR (mount of the pet slot): the black one adds damage and the gold one a little of damage and life through attributes F10 switches off or pins; the blue one
+        // (less damage taken) stays live through DamageReceiveDecrement and every colour gives speed (live, see MovementSpeed below).
+        if (champion.Inventory?.GetItem(InventoryConstants.PetSlot) is { Definition: { Group: 13, Number: 37 } } fenrir)
+        {
+            var colours = fenrir.ItemOptions.Select(o => o.ItemOption?.OptionType).ToList();
+            if (colours.Contains(ItemOptionTypes.BlackFenrir))
+            {
+                petDamage += FenrirBlackDamage;
+            }
+
+            if (colours.Contains(ItemOptionTypes.GoldFenrir))
+            {
+                petDamage += FenrirGoldDamage;
+                petLife += FenrirGoldLife;
+            }
+        }
+
         // The Dark Lord's pets are part of its kit but the reference (the bots) switches none on: what they add is a share of the total damage.
         if (family == MobaFamily.DarkLord)
         {
@@ -216,6 +235,15 @@ public static class MobaF10Ledger
     /// <summary>The movement speed of a champion with the wings (native unit).</summary>
     private const double BaseMoveSpeed = 15.0;
 
+    /// <summary>Damage of the black Fenrir (the shop says 10 %).</summary>
+    private const double FenrirBlackDamage = 0.10;
+
+    /// <summary>Damage of the gold Fenrir (first estimate: half of the black one, it also gives life and mana).</summary>
+    private const double FenrirGoldDamage = 0.05;
+
+    /// <summary>Life of the gold Fenrir as a fraction of the life of the level (first estimate).</summary>
+    private const double FenrirGoldLife = 0.05;
+
     private static readonly Dictionary<short, double> PetDamageGain = new()
     {
         [1] = 0.05,    // Imp
@@ -275,6 +303,7 @@ public static class MobaF10Ledger
         new("rule:penetration", LedgerChannel.Offense, "MobaDefense.PenetrationBySkill (kit, absorbed by the class offset)"),
         new("rule:leech", LedgerChannel.Life, "MobaVampAndSpecial (class intrinsic, absorbed by the class offset)"),
         new("pet:utility", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Imp, Demon, Skeleton damage; Angel, Spirit life; damage taken stays live; Demon speed in the hit rate)"),
+        new("pet:fenrir", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (black +10 % damage, gold +5 % damage and life; blue less damage taken stays live; speed live)"),
         new("pet:darkLordPets", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Earthshake and Raven shares of DarkLordPetShare, the reference has none)"),
         new("aura:command banner", LedgerChannel.Live, "adds attack speed to the allies in range: counted by HitRateRatio like any attack speed"),
         new("buff:ledger", LedgerChannel.Offense, "MobaF10.PoolsOf (buff ledger 2026-11-20)"),

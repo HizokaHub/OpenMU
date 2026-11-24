@@ -220,7 +220,10 @@ public static class MobaBlink
         }
     }
 
-    private static bool HasGauge(Player player)
+    /// <summary>Whether the champion has the AG of one jump.</summary>
+    /// <param name="player">The player.</param>
+    /// <returns><see langword="true"/> if it can pay a jump.</returns>
+    public static bool HasGauge(Player player)
         => !UsesGauge(player) || (player.Attributes?[Stats.CurrentAbility] ?? 0f) >= JumpCost - 0.5f;
 
     private sealed class Carry

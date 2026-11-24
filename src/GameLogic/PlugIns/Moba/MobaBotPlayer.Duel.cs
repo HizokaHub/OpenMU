@@ -20,6 +20,9 @@ public sealed partial class MobaBotPlayer
     /// <summary>Gets or sets a value indicating whether this bot only lives for a duel: it does nothing until <see cref="DuelOpponent"/> is set.</summary>
     public bool DuelMode { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the duelist fights without moving (no kiting, jumps or rushes: see <see cref="MobaDuel.Static"/>).</summary>
+    public bool DuelStatic { get; set; }
+
     /// <summary>Gets or sets the opponent of the duel; the bot fights only it. <see langword="null"/> = waiting (or the duel is over).</summary>
     public Player? DuelOpponent { get; set; }
 

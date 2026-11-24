@@ -37,6 +37,9 @@ public static class MobaDuel
     private const int RectHeight = 10;
     private const int SeparationTiles = 6;
 
+    /// <summary>Distance of the static duels: every class reaches at this distance (the melee ones hit from two tiles).</summary>
+    private const int StaticSeparationTiles = 2;
+
     /// <summary>
     /// How far from the center of a corner no monster may stand (a duelist that kites backs off several tiles: in the first full matrix a Stone Golem
     /// of a jungle camp 19 tiles away killed a Grand Master).
@@ -65,6 +68,69 @@ public static class MobaDuel
 
     /// <summary>Gets a value indicating whether a duel run is going on.</summary>
     public static bool IsRunning => Volatile.Read(ref _running) == 1;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the duelists take the WHOLE kit of their class at rank 5 (the old way) instead of what a champion really takes into the
+    /// arena: the 4 default attacks plus the buffs of the class (Teleport of the Soul Master included). Default <see langword="false"/> since 2026-11-24: the duels with the
+    /// whole kit measured something nobody plays (17 skills of the Magic Gladiator in a fight, Plasma Storm without Fenrir).
+    /// </summary>
+    public static bool FullKit { get; set; }
+
+    private static bool _jungleWasRunning;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the duelists fight WITHOUT MOVING (default <see langword="true"/> since 2026-11-24): they start two tiles apart, in reach of
+    /// every class, and neither kites, jumps, rushes nor walks in. Mobility is gameplay, not balance: the first duels rewarded whoever hit and backed away (the rival follows
+    /// and loses time), which nobody can do for a whole fight in a real match, so the class that kites best always won.
+    /// </summary>
+    public static bool Static { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the duelists may carry skills that control (stun, freeze, sleep). Default <see langword="false"/>: the balance duels measure
+    /// damage against life; control is judged apart (the first duels left a Dark Lord stunned two thirds of the fight).
+    /// </summary>
+    public static bool Utility { get; set; }
+
+    /// <summary>
+    /// The four attacks a duelist takes: the default attacks for the classes of combos (Blade Knight, Magic Gladiator: their stages need those skills), and for the others
+    /// the four with the most damage per second of the skills a player can pick, without controls (unless <see cref="Utility"/>), buffs, summons or the Plasma Storm.
+    /// </summary>
+    /// <param name="configuration">The game configuration.</param>
+    /// <param name="classNumber">The class.</param>
+    /// <returns>The skill numbers.</returns>
+    public static IReadOnlyList<short> PicksFor(DataModel.Configuration.GameConfiguration configuration, byte classNumber)
+    {
+        var defaults = MobaLoadouts.BotPicksFor(classNumber);
+        if (classNumber is 4 or 6 or 7 or 12 or 13)   // Knight and Magic Gladiator families
+        {
+            return defaults;
+        }
+
+        var ranked = new List<(short Number, double Dps)>();
+        foreach (var number in MobaLoadouts.SelectableFor(classNumber))
+        {
+            if (number == 76 || MobaLoadouts.IsBuff(number) || configuration.Skills.FirstOrDefault(sk => sk.Number == number) is not { } skill
+                || (int)skill.SkillType > (int)DataModel.Configuration.SkillType.AreaSkillExplicitTarget)
+            {
+                continue;
+            }
+
+            var controls = skill.MagicEffectDef?.PowerUpDefinitions.Any(p => p.TargetAttribute is { } t && (t == Stats.IsStunned || t == Stats.IsFrozen || t == Stats.IsAsleep)) == true;
+            if (controls && !Utility)
+            {
+                continue;
+            }
+
+            var flat = MobaSkillDamage.FlatDamageOf(number, 5);
+            if (flat > 0)
+            {
+                ranked.Add((number, flat / Math.Max(0.5, MobaCooldowns.SecondsOf(number, 5))));
+            }
+        }
+
+        var picks = ranked.OrderByDescending(r => r.Dps).Take(MobaLoadouts.BotSkillCount).Select(r => r.Number).ToList();
+        return picks.Count == MobaLoadouts.BotSkillCount ? picks : defaults;
+    }
 
     /// <summary>Asks the run to stop after the duels in progress.</summary>
     public static void Cancel() => Interlocked.Exchange(ref _cancel, 1);
@@ -114,12 +180,27 @@ public static class MobaDuel
             }
 
             await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
+
+            // The jungle camps take whole stretches of the arena out of the corners for the duels (a radius free of monsters is asked): the camps are removed for the run
+            // (2026-11-24: 16 corners became many more) and put back when it ends.
+            _jungleWasRunning = MobaJungle.IsRunning(map);
+            if (_jungleWasRunning)
+            {
+                await MobaJungle.ExtinguishAsync(map).ConfigureAwait(false);
+            }
+
             MobaTelemetry.ProbeObserver = OnHit;
             MobaTelemetry.HealObserver = OnHeal;
             MobaTelemetry.ReflectObserver = OnReflect;
             MobaDefense.StageObserver = OnStage;
 
             var slots = FindSlots(map, request.Parallel);
+            logger.LogInformation("[MOBA-DUEL] estatico={Static} utilidad={Utility} kit={Kit}", Static, Utility, FullKit ? "completo" : "4 + buffs");
+            foreach (var classNumber in MainClasses)
+            {
+                logger.LogInformation("[MOBA-DUEL] picks clase {Class}: {Picks}", classNumber, string.Join(", ", PicksFor(gm.GameContext.Configuration, classNumber).Select(n => $"{gm.GameContext.Configuration.Skills.FirstOrDefault(sk => sk.Number == n)?.Name}#{n}")));
+            }
+
             logger.LogInformation("[MOBA-DUEL] {Slots} rincones libres para {Wanted} duelos a la vez.", slots.Count, request.Parallel);
             if (slots.Count == 0)
             {
@@ -160,6 +241,12 @@ public static class MobaDuel
             if (map is not null)
             {
                 await MobaBotPlayer.ClearAllAsync(map).ConfigureAwait(false);
+            }
+
+            if (map is not null && _jungleWasRunning)
+            {
+                _jungleWasRunning = false;
+                await MobaJungle.EnsureStartedAsync(map, gm.GameContext).ConfigureAwait(false);
             }
 
             Interlocked.Exchange(ref _running, 0);
@@ -479,8 +566,9 @@ public static class MobaDuel
     {
         var carrier = CarrierFor(gm, slot);
         var id = Interlocked.Increment(ref _nameCounter) % 100000;
-        var north = new Point(slot.X, (byte)(slot.Y - (SeparationTiles / 2)));
-        var south = new Point(slot.X, (byte)(slot.Y + (SeparationTiles / 2)));
+        var separation = Static ? StaticSeparationTiles : SeparationTiles;
+        var north = new Point(slot.X, (byte)(slot.Y - (separation / 2)));
+        var south = new Point(slot.X, (byte)(slot.Y + (separation / 2)));
         MobaBotPlayer? a = null;
         MobaBotPlayer? b = null;
         try
