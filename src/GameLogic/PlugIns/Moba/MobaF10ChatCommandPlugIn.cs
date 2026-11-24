@@ -86,6 +86,10 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 var (orphans, pending) = MobaF10Ledger.Audit();
                 message = FormattableString.Invariant($"auditoría: {orphans.Count} huérfanos {(orphans.Count > 0 ? string.Join(", ", orphans) : string.Empty)} | {pending.Count} pendientes de peso: {string.Join("; ", pending.Select(p => p.Split(" -> ")[0]))}");
                 break;
+            case "psit" when ResolveFamily(arguments.Key) is { } tierFamily && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var vt):
+                MobaF10.SetPsiTier(tierFamily, Math.Clamp(vt, -3, 3));
+                message = FormattableString.Invariant($"psi con ítems {tierFamily} = {MobaF10.PsiTier(tierFamily)}");
+                break;
             case "dmg" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d):
                 MobaF10.DamageScale = Math.Clamp(d, 0.01, 100);
                 message = FormattableString.Invariant($"escala global de daño = {MobaF10.DamageScale}");

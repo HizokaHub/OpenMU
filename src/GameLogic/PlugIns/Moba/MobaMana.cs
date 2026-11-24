@@ -58,7 +58,7 @@ public static class MobaMana
     public static double MostExpensiveSkillCost(Player champion)
     {
         var cost = 0d;
-        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<MUnique.OpenMU.DataModel.Entities.SkillEntry>())
+        foreach (var entry in MobaMasterTree.LearnedOf(champion))
         {
             if (entry.Level <= 0 || entry.Skill is not { } skill)
             {

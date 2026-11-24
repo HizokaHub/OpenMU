@@ -188,7 +188,7 @@ public static class MobaMasterTree
     public static double StrengthenerBonusOf(Player champion, short skillNumber)
     {
         var points = 0;
-        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        foreach (var entry in LearnedOf(champion))
         {
             if (entry.Skill is { MasterDefinition.ReplacedSkill: not null } skill && KindOf(skill) == MobaTreeKind.Strengthener && skill.GetBaseSkill().Number == skillNumber)
             {
@@ -324,7 +324,7 @@ public static class MobaMasterTree
             return;
         }
 
-        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        foreach (var entry in LearnedOf(champion))
         {
             var target = entry.Skill?.MasterDefinition?.TargetAttribute;
             if (!IsKillRecoveryTarget(target))
@@ -341,6 +341,29 @@ public static class MobaMasterTree
         }
     }
 
+    /// <summary>
+    /// A snapshot of the skills the champion has learned. The list is changed by other threads (a duel assembling its fighters, a champion learning a node) while the
+    /// periodic tick reads it, and enumerating it then throws and takes the whole server down (2026-11-23): the copy is retried and never enumerates the live list.
+    /// </summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>The learned skills (empty if there is no character or the list kept changing).</returns>
+    public static IReadOnlyList<DataModel.Entities.SkillEntry> LearnedOf(Player champion)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            try
+            {
+                return champion.SelectedCharacter?.LearnedSkills?.ToArray() ?? Array.Empty<DataModel.Entities.SkillEntry>();
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+            {
+                System.Threading.Thread.SpinWait(200);
+            }
+        }
+
+        return Array.Empty<DataModel.Entities.SkillEntry>();
+    }
+
     /// <summary>Gets the weighted points the champion has in nodes of a kind.</summary>
     /// <param name="champion">The champion.</param>
     /// <param name="kind">The kind.</param>
@@ -348,7 +371,7 @@ public static class MobaMasterTree
     public static double PointsIn(Player champion, MobaTreeKind kind)
     {
         var points = 0.0;
-        foreach (var entry in champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        foreach (var entry in LearnedOf(champion))
         {
             if (entry.Skill is { MasterDefinition: not null } skill && KindOf(skill) == kind)
             {
@@ -470,7 +493,7 @@ public static class MobaMasterTree
             return true;
         }
 
-        var inRoot = (champion.SelectedCharacter?.LearnedSkills ?? Enumerable.Empty<DataModel.Entities.SkillEntry>())
+        var inRoot = (LearnedOf(champion))
             .Where(e => e.Skill?.MasterDefinition?.Root?.Id == definition.Root?.Id)
             .Sum(e => (int)e.Level);
         return inRoot >= needed;

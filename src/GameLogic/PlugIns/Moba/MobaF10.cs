@@ -46,6 +46,13 @@ public static class MobaF10
     /// </summary>
     private static readonly double[] PsiByFamily = BuildPsi();
 
+    /// <summary>
+    /// The class offset that comes WITH the items (2026-11-23): the traits of the pieces (spell power, life, durability, mana, regeneration) are not in the reference build,
+    /// so a fully equipped champion carries a class-specific excess that the offset of the unequipped build (<see cref="Psi"/>) cannot see. It is scaled by the fraction
+    /// of items the champion wears (<see cref="ItemFraction"/>) and calibrated on the T3 pass.
+    /// </summary>
+    private static readonly double[] PsiTierByFamily = new double[Enum.GetValues<MobaFamily>().Length];
+
     /// <summary>Gets or sets a value indicating whether the F10 model replaces the 45/20/35 blend (default: environment variable <c>MOBA_F10=1</c>).</summary>
     public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_F10") == "1";
 
@@ -74,13 +81,13 @@ public static class MobaF10
     private static double[] BuildPsi()
     {
         var psi = new double[Enum.GetValues<MobaFamily>().Length];
-        psi[(int)MobaFamily.Wizard] = 0.38;
-        psi[(int)MobaFamily.Knight] = 0.06;
-        psi[(int)MobaFamily.Elf] = -0.49;
-        psi[(int)MobaFamily.MagicGladiator] = 0.45;
-        psi[(int)MobaFamily.DarkLord] = 0.40;
-        psi[(int)MobaFamily.Summoner] = -0.62;
-        psi[(int)MobaFamily.RageFighter] = -0.13;
+        psi[(int)MobaFamily.Wizard] = 0.44;
+        psi[(int)MobaFamily.Knight] = 0.02;
+        psi[(int)MobaFamily.Elf] = -0.65;
+        psi[(int)MobaFamily.MagicGladiator] = 0.41;
+        psi[(int)MobaFamily.DarkLord] = 0.36;
+        psi[(int)MobaFamily.Summoner] = -0.68;
+        psi[(int)MobaFamily.RageFighter] = 0.10;
         return psi;
     }
 
@@ -88,6 +95,27 @@ public static class MobaF10
     /// <param name="family">The champion family.</param>
     /// <returns>The offset (0 = neutral).</returns>
     public static double Psi(MobaFamily family) => PsiByFamily[(int)family];
+
+    /// <summary>Gets the class offset that scales with the items worn (see <see cref="PsiTierByFamily"/>).</summary>
+    /// <param name="family">The champion family.</param>
+    /// <returns>The offset at full items.</returns>
+    public static double PsiTier(MobaFamily family) => PsiTierByFamily[(int)family];
+
+    /// <summary>Sets the class offset that scales with the items worn.</summary>
+    /// <param name="family">The champion family.</param>
+    /// <param name="value">The offset at full items.</param>
+    public static void SetPsiTier(MobaFamily family, double value) => PsiTierByFamily[(int)family] = value;
+
+    /// <summary>The fraction of items a champion wears (0 = none, 1 = full T3): mean of the offense and defense item fractions.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns>0..1.</returns>
+    public static double ItemFraction(Player champion) => Math.Clamp(0.5 * (MobaItemPower.OffenseFractionOf(champion) + MobaItemPower.DefenseFractionOf(champion)), 0.0, 1.0);
+
+    /// <summary>The class offset of a champion: the one of the unequipped build plus the one of the items it wears.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="family">Its family.</param>
+    /// <returns>The offset.</returns>
+    public static double PsiOf(Player champion, MobaFamily family) => Psi(family) + (PsiTier(family) * ItemFraction(champion));
 
     /// <summary>Sets the class power offset.</summary>
     /// <param name="family">The champion family.</param>
@@ -206,7 +234,7 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        return DamageScale * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * Psi(family))) * CritRatio(champion) * CooldownRatio(champion);
+        return DamageScale * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family))) * CritRatio(champion) * CooldownRatio(champion);
     }
 
     /// <summary>Expected damage of the champion's critical chance over the expected damage of the reference chance (the live roll uses the reference).</summary>
@@ -238,7 +266,7 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        var factor = HealthScale * Math.Exp((KD * (pools.Life - reference.Life)) - (0.5 * Lean(family)) + (0.5 * Psi(family)));
+        var factor = HealthScale * Math.Exp((KD * (pools.Life - reference.Life)) - (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family)));
         return (float)(MobaProgression.HealthAt(champion.MobaLevel) * factor);
     }
 

@@ -13,8 +13,13 @@ duelos = int(sys.argv[2]) if len(sys.argv) > 2 else 4
 pasada = sys.argv[3] if len(sys.argv) > 3 else "plain"
 nombre_json = "sin_items" if pasada == "plain" else "t3"
 psi = {c: 0.0 for c in FAM}
+psit = {c: 0.0 for c in FAM}
 if Path(RAIZ / "tools/resultados_f10_psi.json").exists():
-    psi.update({int(k): v for k, v in json.load(open(RAIZ / "tools/resultados_f10_psi.json"))["psi"].items()})
+    _j = json.load(open(RAIZ / "tools/resultados_f10_psi.json"))
+    psi.update({int(k): v for k, v in _j["psi"].items()})
+    psit.update({int(k): v for k, v in _j.get("psit", {}).items()})
+# con la pasada plain se calibra el psi del build sin piezas; con t3 se calibra el psi con piezas (psit), que se suma al anterior segun las piezas puestas
+objetivo, comando = (psi, "psi") if pasada == "plain" else (psit, "psit")
 
 
 def chat(texto):
@@ -52,19 +57,20 @@ registro = []
 for it in range(iters):
     for c, name in FAM.items():
         chat(f"/mobaf10 psi {name} {psi[c]:.3f}")
+        chat(f"/mobaf10 psit {name} {psit[c]:.3f}")
     arch = correr()
     wr, dur = analizar(arch)
     desv = max(abs(v - 0.5) for v in wr.values())
-    print(f"iter {it}: winrate " + " ".join(f"{NOM[c]} {wr[c]:.2f}" for c in FAM) + f" | duracion {dur:.1f} s | desviacion maxima {desv:.2f} | psi " + " ".join(f"{NOM[c]} {psi[c]:+.2f}" for c in FAM), flush=True)
-    registro.append({"iter": it, "winrate": {NOM[c]: wr[c] for c in FAM}, "duracion": dur, "psi": {NOM[c]: psi[c] for c in FAM}, "archivo": Path(arch).name})
-    json.dump({"psi": psi, "registro": registro}, open(RAIZ / "tools/resultados_f10_psi.json", "w"), indent=1)
+    print(f"iter {it}: winrate " + " ".join(f"{NOM[c]} {wr[c]:.2f}" for c in FAM) + f" | duracion {dur:.1f} s | desviacion maxima {desv:.2f} | " + comando + " " + " ".join(f"{NOM[c]} {objetivo[c]:+.2f}" for c in FAM), flush=True)
+    registro.append({"iter": it, "winrate": {NOM[c]: wr[c] for c in FAM}, "duracion": dur, "psi": {NOM[c]: objetivo[c] for c in FAM}, "archivo": Path(arch).name})
+    json.dump({"psi": psi, "psit": psit, "registro": registro}, open(RAIZ / "tools/resultados_f10_psi.json", "w"), indent=1)
     if desv < 0.15:
         break
     for c in FAM:
         x = min(0.96, max(0.04, wr[c]))
-        psi[c] += max(-0.7, min(0.7, -gain * math.log(x / (1 - x))))
-    m = sum(psi.values()) / len(psi)
-    for c in psi: psi[c] -= m
+        objetivo[c] += max(-0.7, min(0.7, -gain * math.log(x / (1 - x))))
+    m = sum(objetivo.values()) / len(objetivo)
+    for c in objetivo: objetivo[c] -= m
     gain *= 0.85
-    json.dump({"psi": psi, "registro": registro}, open(RAIZ / "tools/resultados_f10_psi.json", "w"), indent=1)
-print("fin; psi final:", {NOM[c]: round(psi[c], 3) for c in FAM})
+    json.dump({"psi": psi, "psit": psit, "registro": registro}, open(RAIZ / "tools/resultados_f10_psi.json", "w"), indent=1)
+print("fin;", comando, "final:", {NOM[c]: round(objetivo[c], 3) for c in FAM})
