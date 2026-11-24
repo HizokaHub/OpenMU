@@ -155,6 +155,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     private bool _isDominant;
     private int _developSkillCursor;
     private int _comboStep;
+    private short _lastComboSkill;
     private Player? _aggressor;
     private DateTime _nextUtilityUtc;
     private DateTime _nextWardUtc;
@@ -2056,12 +2057,6 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
     }
 
-    // Blade Knight combo, three DISTINCT stages (no shared skills, so each stage can always
-    // fire even if the previous stage's skill is now on cooldown): opener -> mid -> finisher.
-    private static readonly short[] ComboStep1 = { 19, 23, 20 };   // Falling Slash / Slash / Lunge - quick opener
-    private static readonly short[] ComboStep2 = { 22, 21, 41 };   // Cyclone / Uppercut / Twisting Slash - mid
-    private static readonly short[] ComboStep3 = { 232, 43, 42, 44 }; // Strike of Destruction / Death Stab / Rageful Blow / Crescent - finisher
-
     /// <summary>Skill numbers a family should reach for FIRST when off cooldown (its "core rotation"), highest impact first.</summary>
     private static readonly Dictionary<MobaFamily, short[]> CorePriority = new()
     {
@@ -2101,32 +2096,46 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
             .ToList() ?? new List<SkillEntry>();
 
-        // A combo class walks stage 1 -> 2 -> 3. If a stage's skills are all on cooldown the
-        // stage is SKIPPED (counter still advances) so the combo always reaches its finisher.
-        if (skills.Count > 0 && this.ComboState is not null && this._comboStep < 3 && manaPct > 0.15f)
+        // A combo class walks the steps of ITS combo definition (the server's, so the bot completes the same combo a player does: 2026-11-24 the stages were guessed and
+        // stage 2 asked for skills that only count as a first step, so no combo was ever completed). Each step needs one of its skills, different from the one of the step
+        // before; if a later step has nothing ready the combo is abandoned (skipping a step would break it) and the normal rotation goes on.
+        var comboDefinition = this.SelectedCharacter?.CharacterClass?.ComboDefinition;
+        if (skills.Count > 0 && this.ComboState is not null && comboDefinition is not null && manaPct > 0.15f)
         {
-            for (var guard = 0; guard < 3 && this._comboStep < 3; guard++)
+            var orders = comboDefinition.Steps.Select(st => st.Order).Distinct().OrderBy(o => o).ToList();
+            if (this._comboStep >= orders.Count || now > this._comboResetUtc)
             {
-                var pool = this._comboStep switch { 0 => ComboStep1, 1 => ComboStep2, _ => ComboStep3 };
-                var comboEntry = skills.FirstOrDefault(s =>
-                    Array.IndexOf(pool, (short)s.Skill!.Number) >= 0
-                    && !MobaCooldowns.IsOnCooldown(this, s.Skill!.Number, now));
+                this._comboStep = 0;
+            }
 
-                if (comboEntry is not null && await this.TryUseSkillAsync(comboEntry, target).ConfigureAwait(false))
+            var order = orders[this._comboStep];
+            var last = orders.Count - 1 == this._comboStep;
+            var pool = comboDefinition.Steps.Where(st => st.Order == order && st.Skill is not null && (!last || st.IsFinalStep)).Select(st => (short)st.Skill!.Number).ToHashSet();
+            var core = CorePriority.TryGetValue(MobaPassives.FamilyOf(this), out var comboCore) ? comboCore : Array.Empty<short>();
+            var comboEntry = skills
+                .Where(sk => pool.Contains((short)sk.Skill!.Number) && (this._comboStep == 0 || (short)sk.Skill.Number != this._lastComboSkill) && !MobaCooldowns.IsOnCooldown(this, sk.Skill.Number, now))
+                .OrderBy(sk => Array.IndexOf(core, (short)sk.Skill!.Number) is var i && i >= 0 ? i : 100)
+                .FirstOrDefault();
+
+            if (comboEntry is not null && await this.TryUseSkillAsync(comboEntry, target).ConfigureAwait(false))
+            {
+                this._lastComboSkill = (short)comboEntry.Skill!.Number;
+                this._comboStep = this._comboStep + 1 >= orders.Count ? 0 : this._comboStep + 1;
+                this._comboResetUtc = now + TimeSpan.FromSeconds(3);
+                if (this._comboStep == 0)
                 {
-                    this._comboStep++;
-                    this._comboResetUtc = now + TimeSpan.FromSeconds(3);
-                    return;
+                    this.DuelCasts.AddOrUpdate(-1, 1, (_, n) => n + 1);   // key -1: combos completed (the duel report counts them)
                 }
 
-                this._comboStep++; // stage unavailable - skip to the next one
+                return;
+            }
+
+            if (this._comboStep > 0)
+            {
+                this._comboStep = 0;   // the next step has nothing ready: abandon the combo, go on with the rotation
             }
         }
 
-        if (this._comboStep >= 3 || now > this._comboResetUtc)
-        {
-            this._comboStep = 0;
-        }
 
         // Skill pick: core-rotation skills first (highest impact), then everything else
         // round-robin so the whole kit gets used, not just one button.
