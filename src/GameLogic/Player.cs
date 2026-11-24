@@ -1258,7 +1258,7 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
         if (skill.ConsumeRequirements.Any(r => RequiredValue(r) > this.Attributes![r.Attribute]))
         {
-            if (this.IsMobaClone && this is not PlugIns.Moba.MobaBotPlayer)
+            if (this.IsMobaClone)
             {
                 var missing = skill.ConsumeRequirements.Where(r => RequiredValue(r) > this.Attributes![r.Attribute])
                     .Select(r => $"{r.Attribute?.Designation} need {RequiredValue(r):F0} have {this.Attributes![r.Attribute]:F0}");

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.PlugIns;
 
-/// <summary>Arguments for <c>/mobaskilltest [class|all] [level]</c>.</summary>
+/// <summary>Arguments for <c>/mobaskilltest [class|all] [level] [skills]</c>.</summary>
 public class MobaSkillTestChatCommandArgs : ArgumentsBase
 {
     /// <summary>Gets or sets the class alias ("dw", "bk", "fe", "mg", "dl", "sum", "rf") or "all" (default).</summary>
@@ -20,6 +20,10 @@ public class MobaSkillTestChatCommandArgs : ArgumentsBase
     /// <summary>Gets or sets the champion level of the caster and the targets (default 30).</summary>
     [Argument("level", false)]
     public int Level { get; set; } = 30;
+
+    /// <summary>Gets or sets the skills to measure, numbers separated by commas (e.g. "217,218"); empty measures the whole kit.</summary>
+    [Argument("skills", false)]
+    public string? Skills { get; set; }
 }
 
 /// <summary>
@@ -75,6 +79,12 @@ public class MobaSkillTestChatCommandPlugIn : ChatCommandPlugInBase<MobaSkillTes
         }
 
         var level = Math.Clamp(arguments.Level, 1, MobaLevels.MaxLevel);
+        IReadOnlySet<short>? only = null;
+        if (!string.IsNullOrWhiteSpace(arguments.Skills))
+        {
+            only = arguments.Skills.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(t => short.TryParse(t, out var n) ? n : (short)-1).Where(n => n > 0).ToHashSet();
+        }
+
         await player.ShowBlueMessageAsync($"[mobaskilltest] Empieza ({classes.Count} clase(s), nivel {level}). Mira el log [MOBA-PROBE]; el informe queda en un archivo skilltest_*.json.").ConfigureAwait(false);
 
         // runs in the background: the chat command must not block the game loop
@@ -82,7 +92,7 @@ public class MobaSkillTestChatCommandPlugIn : ChatCommandPlugInBase<MobaSkillTes
         {
             try
             {
-                var path = await MobaSkillProbe.RunAsync(player, classes, level).ConfigureAwait(false);
+                var path = await MobaSkillProbe.RunAsync(player, classes, level, only).ConfigureAwait(false);
                 await player.ShowBlueMessageAsync($"[mobaskilltest] Listo: {path}").ConfigureAwait(false);
             }
             catch (Exception ex)

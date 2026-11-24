@@ -73,7 +73,7 @@ public static class MobaSkillProbe
     /// <param name="classNumbers">The classes to probe.</param>
     /// <param name="level">The champion level of caster and targets.</param>
     /// <returns>The path of the report.</returns>
-    public static async ValueTask<string> RunAsync(Player gm, IReadOnlyList<byte> classNumbers, int level)
+    public static async ValueTask<string> RunAsync(Player gm, IReadOnlyList<byte> classNumbers, int level, IReadOnlySet<short>? only = null)
     {
         if (Interlocked.Exchange(ref _running, 1) == 1)
         {
@@ -102,6 +102,15 @@ public static class MobaSkillProbe
                 else if (hit.Victim is { } victim && Owners.TryGetValue(victim, out var byVictim))
                 {
                     byVictim.Hits.Enqueue(hit);
+                }
+            };
+            // The damage a reflection lands on the attacker is counted by the telemetry (the life and shield of the attacker regenerate in the second that follows, so
+            // reading what it lost, as the first versions did, measured a fraction of it).
+            MobaTelemetry.ReflectObserver = (reflector, victim, damage) =>
+            {
+                if (Owners.TryGetValue(victim, out var owner))
+                {
+                    Interlocked.Add(ref owner.ReflectedDamage, damage);
                 }
             };
             var started = DateTime.UtcNow;
@@ -140,7 +149,7 @@ public static class MobaSkillProbe
                     gm.Logger.LogInformation("[MOBA-PROBE] class {Class} start", number);
                     try
                     {
-                        return (number, (object)await RunClassAsync(carrier, number, level, quick: number is 4 or 7, spots[i]).ConfigureAwait(false));
+                        return (number, (object)await RunClassAsync(carrier, number, level, quick: number is 4 or 7, spots[i], only).ConfigureAwait(false));
                     }
                     catch (Exception ex)
                     {
@@ -171,6 +180,7 @@ public static class MobaSkillProbe
         finally
         {
             MobaTelemetry.ProbeObserver = null;
+            MobaTelemetry.ReflectObserver = null;
             carrier?.PersistenceContext.Dispose();
             if (map is not null)
             {
@@ -208,6 +218,7 @@ public static class MobaSkillProbe
         public List<Point> Homes = new();
         public List<Dictionary<string, object?>> Rows = new();
         public ConcurrentQueue<MobaProbeHit> Hits = new();
+        public long ReflectedDamage;
         public int Dx;
         public int Dy;
         public List<MobaBotPlayer> Bots = new();
@@ -263,7 +274,7 @@ public static class MobaSkillProbe
         return found;
     }
 
-    private static async ValueTask<Dictionary<string, object?>> RunClassAsync(Player gm, byte classNumber, int level, bool quick, Point origin)
+    private static async ValueTask<Dictionary<string, object?>> RunClassAsync(Player gm, byte classNumber, int level, bool quick, Point origin, IReadOnlySet<short>? only = null)
     {
         var characterClass = gm.GameContext.Configuration.CharacterClasses.First(c => c.Number == classNumber);
         var c = new Ctx { Gm = gm, Level = level, Dx = origin.X - 120, Dy = origin.Y - 124 };
@@ -315,7 +326,7 @@ public static class MobaSkillProbe
         if (!quick)
         {
             // 1) attacks, summons, heals and buffs
-            foreach (var entry in kit)
+            foreach (var entry in kit.Where(e => only is null || only.Contains((short)e.Skill!.Number)))
             {
                 try
                 {
@@ -329,7 +340,7 @@ public static class MobaSkillProbe
 
             // 2) buffs: attributes, damage dealt and taken with and without them
             var probeAttack = kit.FirstOrDefault(e => Classify(e.Skill!) == "attack" && e.Skill!.SkillType == SkillType.DirectHit);
-            foreach (var entry in kit.Where(e => Classify(e.Skill!) is "buff" or "heal"))
+            foreach (var entry in kit.Where(e => Classify(e.Skill!) is "buff" or "heal" && (only is null || only.Contains((short)e.Skill!.Number))))
             {
                 try
                 {
@@ -342,11 +353,18 @@ public static class MobaSkillProbe
             }
 
             // 3) level curve
-            info["levelCurve"] = LevelCurve(c, kit);
+            if (only is null)
+            {
+                info["levelCurve"] = LevelCurve(c, kit);
+            }
         }
 
-        // 4) combo
-        info["combo"] = await ProbeComboAsync(c, kit).ConfigureAwait(false);
+        // 4) combo (a run limited to some skills leaves it out)
+        if (only is null)
+        {
+            info["combo"] = await ProbeComboAsync(c, kit).ConfigureAwait(false);
+        }
+
         info["rows"] = c.Rows;
         foreach (var bot in c.Bots)
         {
@@ -612,6 +630,7 @@ public static class MobaSkillProbe
         await PlaceAsync(c.Caster, 120 + c.Dx, 126 + c.Dy).ConfigureAwait(false);
         await PlaceAsync(c.Attacker, 120 + c.Dx, 124 + c.Dy).ConfigureAwait(false);
         fallingSlash.Level = 5;
+        Interlocked.Exchange(ref c.ReflectedDamage, 0);
         ResetCooldowns(c.Attacker);
         Refill(c.Attacker);
         while (c.Hits.TryDequeue(out _))
@@ -619,8 +638,9 @@ public static class MobaSkillProbe
         }
 
         await CastCoreAsync(c.Attacker, fallingSlash, c.Caster).ConfigureAwait(false);
-        var reflected = c.Attacker.Attributes![Stats.MaximumHealth] - c.Attacker.Attributes[Stats.CurrentHealth] + Math.Max(0f, c.Attacker.Attributes[Stats.MaximumShield] - c.Attacker.Attributes[Stats.CurrentShield]);
+        // The reflected damage comes back half a second after the hit (Player.HitAsync): it is read after the wait, from what the telemetry saw land.
         await Task.Delay(SettleMs).ConfigureAwait(false);
+        double reflected = Interlocked.Read(ref c.ReflectedDamage);
         var taken = c.Hits.Where(h => ReferenceEquals(h.Attacker, c.Attacker) && ReferenceEquals(h.Victim, c.Caster)).Sum(h => h.Hp + h.Sd);
         return (dealt, taken, reflected);
     }
