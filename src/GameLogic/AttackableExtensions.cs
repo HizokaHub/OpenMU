@@ -501,6 +501,11 @@ public static class AttackableExtensions
                 {
                     value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, value * PlugIns.Moba.MobaArchetype.HealPowerFactorOf(player));
                 }
+                else if (regeneration.CurrentAttribute == Stats.CurrentShield && player.IsMobaClone && skill.Number == PlugIns.Moba.MobaBuffPower.RecoverySkill)
+                {
+                    // MOBA: Recovery gives back a share of the MAXIMUM shield of the target (50 % at rank 1, 80 % at rank 5), not level + energy / 4.
+                    value = (float)(target.Attributes[Stats.MaximumShield] * PlugIns.Moba.MobaBuffPower.RecoveryShareForRank(skillEntry.Level));
+                }
 
                 target.Attributes[regeneration.CurrentAttribute] = Math.Min(
                     target.Attributes[regeneration.CurrentAttribute] + value,

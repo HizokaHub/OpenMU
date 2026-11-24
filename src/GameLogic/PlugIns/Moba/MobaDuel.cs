@@ -102,9 +102,9 @@ public static class MobaDuel
         [6] = new short[] { 43, 41, 42, 22 },        // Blade Knight: Death Stab, Twisting Slash, Rageful Blow, Cyclone
         [11] = new short[] { 24, 51, 235, 52 },      // High Elf: Triple Shot, Ice Arrow, Multi-Shot, Penetration
         [12] = new short[] { 237, 236, 3, 14 },      // Magic Gladiator: Gigantic Storm, Flame Strike, Lightning, Inferno
-        [16] = new short[] { 61, 238, 65, 78 },      // Lord Emperor: Fire Burst, Chaotic Diseier, Electric Spike, Fire Scream
+        [16] = new short[] { 61, 66, 65, 78 },       // Lord Emperor: Fire Burst, Force Wave, Electric Spike, Fire Scream (Chaotic Diseier 238 is learned in the master tree at level 5: the duels are calibrated with Force Wave only, then tested with the horse and Chaotic)
         [20] = new short[] { 215, 230, 214, 7 },     // Summoner: Chain Lightning, Lightning Shock, Drain Life, Ice
-        [24] = new short[] { 265, 264, 263, 262 },   // Rage Fighter: Dragon Slasher, Dragon Roar, Dark Side, Chain Drive (Phoenix Shot 270 is the fifth, not taken)
+        [24] = new short[] { 265, 264, 263, 270 },   // Rage Fighter: Dragon Slasher, Dragon Roar, Dark Side, Phoenix Shot (Chain Drive 262 swapped out by the designer, 2026-11-25)
     };
 
     /// <summary>

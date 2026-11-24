@@ -49,7 +49,6 @@ public static class MobaPets
     private const short HorseNumber = 4;
     private const short RavenNumber = 5;
     private const short EarthshakeSkill = 62;
-
     /// <summary>The numbers (group 13) of the utility pets which can be switched on from the inventory, in the bit order of <see cref="ExtraMaskOf"/>.</summary>
     private static readonly short[] UtilityPetNumbers = { 0, 1, 64, 65, 67, 80, 106, 123 };
 

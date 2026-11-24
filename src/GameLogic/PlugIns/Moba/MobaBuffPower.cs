@@ -104,6 +104,18 @@ public static class MobaBuffPower
     /// <returns>The crit multiplier.</returns>
     public static double CritMultiplierOf(Player champion) => MobaCombatStats.CritMultiplier + (MobaF10.Enabled ? 0.0 : CritBonusForRank(RankOn(champion, IncreaseCriticalDamage)));
 
+    /// <summary>The Recovery skill (the High Elf's): it gives back a share of the MAXIMUM shield of the target.</summary>
+    public const short RecoverySkill = 234;
+
+    /// <summary>
+    /// The share of the maximum shield that Recovery gives back at a rank (2026-11-25): 50 % at rank 1 up to 80 % at rank 5. It used to give <c>level + energy / 4</c> (525 points, 2-3 % of
+    /// the shield). A shield point saves exactly one life point (90 % of a hit goes to the shield and takes 90 % out of the damage it would do to life), so 80 % is about 27 % of the
+    /// maximum life; with the cooldown of 14 s down to 9 s and the strong hitters taking the whole shield in 2-4 s, it is a panic button, not a way to stand still.
+    /// </summary>
+    /// <param name="rank">The rank of the skill (1-5).</param>
+    /// <returns>The share (0.50 to 0.80).</returns>
+    public static double RecoveryShareForRank(int rank) => 0.50 + (0.075 * (Math.Clamp(rank, 1, MobaSkills.SkillLevelCap) - 1));
+
     /// <summary>The spell damage factor of Expansion of Wizardry at a rank.</summary>
     /// <param name="rank">The rank of the buff, 0 when it is not active.</param>
     /// <returns>1 when not active, else 1.08 (rank 1) to 1.16 (rank 5).</returns>

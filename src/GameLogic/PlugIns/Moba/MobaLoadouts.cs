@@ -73,11 +73,11 @@ public static class MobaLoadouts
         // Magic Gladiator - hybrid: wizard spells + knight slashes + Defense.
         // Energy Ball, Fire Ball, Lightning, Ice, Falling Slash, Cyclone, Twisting Slash, Fire Slash, Power Slash,
         // Poison, Meteorite, Flame, Evil Spirit, Power Wave, Inferno, Spiral Slash, Flame Strike, Gigantic Storm, Plasma Storm, Defense
-        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 56, 1, 2, 5, 9, 11, 14, 57, 236, 237, 76, 18 },
+        [Family.MagicGladiator] = new short[] { 17, 4, 3, 7, 19, 22, 41, 55, 1, 2, 5, 9, 11, 14, 57, 236, 237, 76, 18 },   // Power Slash (56) comes with the magic swords (Rune Blade, Sword Dancer, Imperial Sword, Explosion Blade, Dark Reign Blade), not with the kit
         // Lord Emperor - scepter skills + basic slashes + buffs + Summon (Earthshake 62 / Chaotic 238 need the Dark Horse mount).
         // Force, Fire Burst, Force Wave, Electric Spike, Fire Scream, Falling Slash, Lunge, Uppercut, Cyclone, Slash,
         // Fire Blast, Plasma Storm, Defense, Increase Critical Damage, Summon
-        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76, 18, 64, 63, 238 },
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76, 18, 64, 63 },
         // Summoner - full curse / nature kit + debuffs (Lightning Orb 216 & Blind 220 are not in the config).
         // Fire Ball, Ice, Meteorite, Power Wave, Lance, Drain Life, Chain Lightning, Explosion, Requiem, Pollution,
         // Lightning Shock, Plasma Storm, Damage Reflection, Berserker, Sleep, Weakness, Innovation, Recovery
@@ -115,7 +115,7 @@ public static class MobaLoadouts
         [Family.Wizard] = new short[] { 9, 39, 5, 8, 12, 14 },
         [Family.Knight] = new short[] { 19, 22, 41, 42, 43, 232 },
         [Family.Elf] = new short[] { 24, 51, 52, 235, 67, 76 },
-        [Family.MagicGladiator] = new short[] { 22, 41, 55, 56, 9, 14 },
+        [Family.MagicGladiator] = new short[] { 22, 41, 55, 236, 9, 14 },
         [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 22 },
         [Family.Summoner] = new short[] { 214, 215, 223, 224, 225, 230 },
         [Family.RageFighter] = new short[] { 260, 261, 262, 263, 264, 265 },
