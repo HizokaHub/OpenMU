@@ -1705,6 +1705,11 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             var attackableAttacker = attacker is AttackerSurrogate surrogate ? surrogate.Owner : (IAttackable)attacker;
 
             var reflectPercentage = this.Attributes[Stats.DamageReflection];
+            if (this.IsMobaClone)
+            {
+                reflectPercentage += (float)PlugIns.Moba.MobaBuffPower.ReflectOf(this);   // Damage Reflection of the Summoner: rank 1 15 % to rank 5 30 %
+            }
+
             if (PlugIns.Moba.MobaF10.Enabled && this.IsMobaClone)
             {
                 reflectPercentage = Math.Min(reflectPercentage, PlugIns.Moba.MobaF10.MaxReflect);

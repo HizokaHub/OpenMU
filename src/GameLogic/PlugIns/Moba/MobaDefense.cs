@@ -202,7 +202,7 @@ public static class MobaDefense
     /// <param name="skillNumber">The skill number, or 0 for a basic attack.</param>
     /// <param name="critMultiplier">The critical multiplier, applied before the per-hit cap and the burst brake (1 = no crit).</param>
     /// <returns>The post-mitigation damage (at least 1 if the input was positive).</returns>
-    public static int Apply(int rawDamage, Player defender, short skillNumber, double critMultiplier = 1.0)
+    public static int Apply(int rawDamage, Player defender, short skillNumber, double critMultiplier = 1.0, Player? attacker = null)
     {
         if (rawDamage <= 0)
         {
@@ -210,6 +210,11 @@ public static class MobaDefense
         }
 
         var mitigation = FinalMitigationOf(defender);
+        if (attacker is not null)
+        {
+            mitigation *= 1.0 - MobaBuffPower.IgnoredMitigationOf(attacker);   // Ignore Defense (2026-11-25)
+        }
+
         if (skillNumber != 0 && PenetrationBySkill.TryGetValue(skillNumber, out var pen))
         {
             mitigation *= 1.0 - pen;
@@ -222,7 +227,7 @@ public static class MobaDefense
             durability = 1.0 - MobaF10.DefenseOf(defender).DamageTaken;   // F10: the durability nodes and traits are already inside the pool
         }
 
-        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier));
+        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier * MobaBuffPower.DamageTakenFactorOf(defender)));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
         // max HP. Big burst still wins fights - it just can't delete a champion in one frame.

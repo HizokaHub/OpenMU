@@ -91,31 +91,39 @@ public static class MobaBuffs
 
             StripGaugeCosts(configuration);
 
-            // Defense: a milder cut for a much longer time.
-            if (configuration.Skills.FirstOrDefault(s => s.Number == Defense)?.MagicEffectDef is { } defense)
+            // 2026-11-25 buff rework: the S6 effects below are switched off in the configuration in memory, because the rank-scaled values of MobaBuffPower replace them
+            // (Defense and Soul Barrier cut the damage taken, Greater Defense / Greater Damage were flat numbers, Damage Reflection a flat 42 %, Increase Health +133 life,
+            // Swell Life +12 % at every rank, Berserker -32 % of the life with no damage bonus in the MOBA damage model).
+            foreach (var number in new short[] { Defense, 16, 27, 28, 217, 267, SwellLife })
             {
-                foreach (var powerUp in defense.PowerUpDefinitions.Concat(defense.PowerUpDefinitionsPvp))
+                if (configuration.Skills.FirstOrDefault(s => s.Number == number)?.MagicEffectDef is not { } effect)
                 {
-                    if (powerUp.TargetAttribute == Stats.DamageReceiveDecrement && powerUp.Boost is { } boost)
+                    continue;
+                }
+
+                foreach (var powerUp in effect.PowerUpDefinitions.Concat(effect.PowerUpDefinitionsPvp))
+                {
+                    var target = powerUp.TargetAttribute;
+                    if (powerUp.Boost is { } boost
+                        && (target == Stats.DamageReceiveDecrement || target == Stats.SoulBarrierReceiveDecrement || target == Stats.GreaterDefenseBonus || target == Stats.GreaterDamageBonus
+                            || target == Stats.DamageReflection || target == Stats.TotalVitality || target == Stats.SwellLifeHealthIncrease))
                     {
-                        boost.ConstantValue.Value = DefenseDamageTaken;
+                        boost.RelatedValues.Clear();
+                        boost.MaximumValue = 0;
+                        boost.ConstantValue.Value = target == Stats.DamageReceiveDecrement ? 1f : 0f;
                     }
                 }
             }
 
-            // Swell Life: the S6 boost grows with Energy (1 % per 20), Vitality (1 % per 100) and party members, capped at +200 %. With the flat
-            // stats of a champion (thousands of points) that made it x3 of the maximum life (found by the 1v1 duels, 2026-11-13: a Blade Knight
-            // went from 78,000 to 234,000 maximum life and died a second later). In a match it is a flat +12 % of the maximum life (rank 1 of the
-            // +12 -> +24 % the user decided; the rank scale comes with the buff rework).
-            if (configuration.Skills.FirstOrDefault(s => s.Number == SwellLife)?.MagicEffectDef is { } swellLife)
+            // Berserker: the cost is a flat 25 % of the maximum life (the damage bonus is the rank-scaled one of MobaBuffPower).
+            if (configuration.Skills.FirstOrDefault(s => s.Number == 218)?.MagicEffectDef is { } berserker)
             {
-                foreach (var powerUp in swellLife.PowerUpDefinitions.Concat(swellLife.PowerUpDefinitionsPvp))
+                foreach (var powerUp in berserker.PowerUpDefinitions.Concat(berserker.PowerUpDefinitionsPvp))
                 {
-                    if (powerUp.TargetAttribute == Stats.SwellLifeHealthIncrease && powerUp.Boost is { } boost)
+                    if (powerUp.TargetAttribute == Stats.BerserkerHealthDecrement && powerUp.Boost is { } boost)
                     {
                         boost.RelatedValues.Clear();
-                        boost.ConstantValue.Value = SwellLifeHealthBoost;
-                        boost.MaximumValue = SwellLifeHealthBoost;
+                        boost.ConstantValue.Value = -(float)MobaBuffPower.BerserkerHealthCost;
                     }
                 }
             }

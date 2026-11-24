@@ -84,7 +84,7 @@ public sealed partial class MobaBotPlayer
 
         if (fight && mana >= FightBuffMana)
         {
-            if (this.Has(18) && c.HpPct < DefenseBelowHp && await this.CastBuffAsync(18, this, c.Now).ConfigureAwait(false))
+            if (this.Has(18) && (c.HpPct < DefenseBelowHp || this.DuelBuffing) && await this.CastBuffAsync(18, this, c.Now).ConfigureAwait(false))
             {
                 return true;
             }

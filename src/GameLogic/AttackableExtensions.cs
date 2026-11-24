@@ -232,7 +232,7 @@ public static class AttackableExtensions
 
         // F10: the damage of the build is ONE factor (MobaF10.DamageFactor); the side channels below would count the same investment twice.
         var f10Single = isMobaChampionAttacker && PlugIns.Moba.MobaF10.Enabled;
-        if (!f10Single)
+        if (!f10Single && !isMobaChampionAttacker)
         {
             dmg += (int)attacker.Attributes[Stats.GreaterDamageBonus];
         }
@@ -312,7 +312,7 @@ public static class AttackableExtensions
         float manaToll = 0;
         var soulBarrierManaToll = defender.Attributes[Stats.SoulBarrierManaTollPerHit];
         if (soulBarrierManaToll > 0 && defender.Attributes[Stats.CurrentMana] > soulBarrierManaToll
-            && !(defender is Player { IsMobaClone: true } && PlugIns.Moba.MobaF10.Enabled))
+            && defender is not Player { IsMobaClone: true })
         {
             manaToll = soulBarrierManaToll;
             float soulBarrierReduction = defender.Attributes[Stats.SoulBarrierReceiveDecrement];
@@ -372,7 +372,7 @@ public static class AttackableExtensions
                 }
 
                 // The crit multiplies before the per-hit cap and the burst brake (it used to run after the cap).
-                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0), mobaCrit ? PlugIns.Moba.MobaBuffPower.CritMultiplierOf(mobaAtk) : 1.0);
+                dmg = PlugIns.Moba.MobaDefense.Apply(dmg, mobaDefender, (short)(skill?.Skill?.Number ?? 0), mobaCrit ? PlugIns.Moba.MobaBuffPower.CritMultiplierOf(mobaAtk) : 1.0, mobaAtk);
             }
         }
 
@@ -497,7 +497,12 @@ public static class AttackableExtensions
             {
                 var regenerationValue = player.Attributes.CreateElement(powerUpDefinition);
                 var value = regenerationValue.Value + (skillEntry.Level == 0 ? 0 : regenerationValue.Value * skillEntry.CalculateValue() / 100);
-                if (regeneration.CurrentAttribute == Stats.CurrentHealth)
+                if (regeneration.CurrentAttribute == Stats.CurrentHealth && player.IsMobaClone && skill.Number == PlugIns.Moba.MobaBuffPower.HealSkill)
+                {
+                    // MOBA: Heal gives back a share of the MAXIMUM life of the target (15 % at rank 1, 30 % at rank 5), not energy / 5.
+                    value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, target.Attributes[Stats.MaximumHealth] * PlugIns.Moba.MobaBuffPower.HealShare(skillEntry.Level) * PlugIns.Moba.MobaArchetype.HealPowerFactorOf(player));
+                }
+                else if (regeneration.CurrentAttribute == Stats.CurrentHealth)
                 {
                     value = (float)PlugIns.Moba.MobaItemTraits.ScaleHealing(target, value * PlugIns.Moba.MobaArchetype.HealPowerFactorOf(player));
                 }

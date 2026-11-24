@@ -32,7 +32,6 @@ public static class MobaCastEffects
     private static readonly Dictionary<short, (double MaxHpFraction, double Seconds)> ShieldSkills = new()
     {
         [27] = (0.18, 3.0), // Greater Defense
-        [26] = (0.12, 3.0), // Heal (also a small shield here)
         [16] = (0.22, 3.0), // Soul Barrier
         [18] = (0.15, 3.0), // Defense (BK)
     };
