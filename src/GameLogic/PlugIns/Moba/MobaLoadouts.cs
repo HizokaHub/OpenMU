@@ -77,7 +77,7 @@ public static class MobaLoadouts
         // Lord Emperor - scepter skills + basic slashes + buffs + Summon (Earthshake 62 / Chaotic 238 need the Dark Horse mount).
         // Force, Fire Burst, Force Wave, Electric Spike, Fire Scream, Falling Slash, Lunge, Uppercut, Cyclone, Slash,
         // Fire Blast, Plasma Storm, Defense, Increase Critical Damage, Summon
-        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76, 18, 64, 63 },
+        [Family.DarkLord] = new short[] { 60, 61, 66, 65, 78, 19, 20, 21, 22, 23, 74, 76, 18, 64, 63, 238 },
         // Summoner - full curse / nature kit + debuffs (Lightning Orb 216 & Blind 220 are not in the config).
         // Fire Ball, Ice, Meteorite, Power Wave, Lance, Drain Life, Chain Lightning, Explosion, Requiem, Pollution,
         // Lightning Shock, Plasma Storm, Damage Reflection, Berserker, Sleep, Weakness, Innovation, Recovery

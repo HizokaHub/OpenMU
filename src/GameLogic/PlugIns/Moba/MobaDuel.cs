@@ -95,6 +95,18 @@ public static class MobaDuel
     /// </summary>
     public static bool Utility { get; set; }
 
+    /// <summary>The hand-picked attacks of the duelists, by class (2026-11-25). The Blade Knight's three combo stages (Cyclone, Twisting Slash, Death Stab) are all in.</summary>
+    private static readonly Dictionary<byte, short[]> HandPicks = new()
+    {
+        [3] = new short[] { 38, 39, 3, 9 },          // Grand Master: Decay, Ice Storm, Lightning, Evil Spirit
+        [6] = new short[] { 43, 41, 42, 22 },        // Blade Knight: Death Stab, Twisting Slash, Rageful Blow, Cyclone
+        [11] = new short[] { 24, 51, 235, 52 },      // High Elf: Triple Shot, Ice Arrow, Multi-Shot, Penetration
+        [12] = new short[] { 237, 236, 3, 14 },      // Magic Gladiator: Gigantic Storm, Flame Strike, Lightning, Inferno
+        [16] = new short[] { 61, 238, 65, 78 },      // Lord Emperor: Fire Burst, Chaotic Diseier, Electric Spike, Fire Scream
+        [20] = new short[] { 215, 230, 214, 7 },     // Summoner: Chain Lightning, Lightning Shock, Drain Life, Ice
+        [24] = new short[] { 265, 264, 263, 262 },   // Rage Fighter: Dragon Slasher, Dragon Roar, Dark Side, Chain Drive (Phoenix Shot 270 is the fifth, not taken)
+    };
+
     /// <summary>
     /// The four attacks a duelist takes: the default attacks for the classes of combos (Blade Knight, Magic Gladiator: their stages need those skills), and for the others
     /// the four with the most damage per second of the skills a player can pick, without controls (unless <see cref="Utility"/>), buffs, summons or the Plasma Storm.
@@ -105,6 +117,14 @@ public static class MobaDuel
     public static IReadOnlyList<short> PicksFor(DataModel.Configuration.GameConfiguration configuration, byte classNumber)
     {
         var defaults = MobaLoadouts.BotPicksFor(classNumber);
+
+        // The four attacks chosen BY HAND by the designer on 2026-11-25 (they replace the automatic ranking below, which let Stun #67 into the Elf and Ice Storm into the
+        // Grand Master). They are the attacks a player of the class really takes into a fight; the controls among them (Ice Arrow, Ice Storm, Ice) stay on purpose.
+        if (HandPicks.TryGetValue(classNumber, out var chosen))
+        {
+            return chosen;
+        }
+
         if (classNumber is 4 or 6 or 7 or 12 or 13)   // Knight and Magic Gladiator families
         {
             return defaults;
