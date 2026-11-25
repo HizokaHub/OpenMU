@@ -2,6 +2,14 @@
 # Reinicia el servidor (con F10 encendido por MOBA_F10=1) y vuelve a entrar al MOBA con el bot. Sirve para limpiar la fuga de ids de objeto/memoria entre niveles.
 cd "$(dirname "$0")/.."
 export MSYS_NO_PATHCONV=1
+# parada pedida (crear tools/f10_parar.flag): en vez de reiniciar para el siguiente nivel se cierra todo; calibrar_todos genera las tablas y devuelve la IP
+if [ -f tools/f10_parar.flag ]; then
+  rm -f tools/f10_parar.flag
+  echo "parada pedida: no se calibra el siguiente nivel"
+  python -I tools/bot-pruebas/piloto.py cerrar
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/iniciar-todo.ps1 -Parar -Forzar
+  exit 1
+fi
 python -I tools/bot-pruebas/piloto.py cerrar
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/iniciar-todo.ps1 -Parar -Forzar
 sleep 5
