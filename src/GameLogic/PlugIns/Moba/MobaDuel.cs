@@ -20,7 +20,7 @@ using MUnique.OpenMU.Pathfinding;
 /// <param name="FullT3">Whether to run the pass with the full tier 3 build.</param>
 /// <param name="Level">The champion level of both duelists.</param>
 /// <param name="Parallel">How many duels run at once (each in its own corner of the arena).</param>
-public sealed record MobaDuelRequest(IReadOnlyList<(byte A, byte B)> Pairs, int Duels, bool Plain, bool FullT3, int Level, int Parallel);
+public sealed record MobaDuelRequest(IReadOnlyList<(byte A, byte B)> Pairs, int Duels, bool Plain, bool FullT3, int Level, int Parallel, bool Real = false);
 
 /// <summary>
 /// 1v1 duels between the classes (2026-11-13), without a client: two bots with the real bot AI (rotation of skills, combo, buffs, walking in and
@@ -156,6 +156,11 @@ public static class MobaDuel
         return picks.Count == MobaLoadouts.BotSkillCount ? picks : defaults;
     }
 
+    /// <summary>The shop tier a champion of the level wears in the F10 reference build: none before level 3, T1 up to 9, T2 up to 19, T3 from 20.</summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The tier, or <see langword="null"/> when it wears nothing yet.</returns>
+    public static MobaShopTier? TierForLevel(int level) => level < 3 ? null : level < 10 ? MobaShopTier.T1 : level < 20 ? MobaShopTier.T2 : MobaShopTier.T3;
+
     /// <summary>Asks the run to stop after the duels in progress.</summary>
     public static void Cancel() => Interlocked.Exchange(ref _cancel, 1);
 
@@ -246,20 +251,27 @@ public static class MobaDuel
                 throw new InvalidOperationException("No encontré ningún rincón libre de la arena para los duelos.");
             }
 
-            var passes = new List<bool>();
+            // Pass kinds: 0 = no items, 1 = the full T3 build, 2 = the REAL build of the level (2026-11-25): the skill ranks the points of that level buy and the gear of the tier a
+            // champion of that level has (T1 from level 3, T2 from 10, T3 from 20, as in the F10 reference build).
+            var passes = new List<int>();
+            if (request.Real)
+            {
+                passes.Add(2);
+            }
+
             if (request.Plain)
             {
-                passes.Add(false);
+                passes.Add(0);
             }
 
             if (request.FullT3)
             {
-                passes.Add(true);
+                passes.Add(1);
             }
 
-            foreach (var t3 in passes)
+            foreach (var pass in passes)
             {
-                var path = await RunPassAsync(gm, map, request, slots, t3).ConfigureAwait(false);
+                var path = await RunPassAsync(gm, map, request, slots, pass).ConfigureAwait(false);
                 reports.Add(path);
                 if (Volatile.Read(ref _cancel) == 1)
                 {
@@ -472,9 +484,9 @@ public static class MobaDuel
         }
     }
 
-    private static async ValueTask<string> RunPassAsync(Player gm, GameMap map, MobaDuelRequest request, IReadOnlyList<Point> slots, bool t3)
+    private static async ValueTask<string> RunPassAsync(Player gm, GameMap map, MobaDuelRequest request, IReadOnlyList<Point> slots, int t3)
     {
-        var passName = t3 ? "t3" : "sin_items";
+        var passName = t3 == 2 ? $"nivel{request.Level}" : t3 == 1 ? "t3" : "sin_items";
         var logger = gm.Logger;
         var started = DateTime.UtcNow;
         var queue = new ConcurrentQueue<Job>();
@@ -572,7 +584,7 @@ public static class MobaDuel
         return path;
     }
 
-    private static async ValueTask RunJobAsync(Player gm, GameMap map, Point slot, Job job, bool t3, int level, ConcurrentDictionary<(byte, byte), ConcurrentBag<(int, DuelRow)>> results)
+    private static async ValueTask RunJobAsync(Player gm, GameMap map, Point slot, Job job, int t3, int level, ConcurrentDictionary<(byte, byte), ConcurrentBag<(int, DuelRow)>> results)
     {
         // Odd duels swap the sides (blue / north against red / south), so the position is not an advantage of one class.
         var swap = job.Number % 2 == 1;
@@ -617,7 +629,7 @@ public static class MobaDuel
         }
     }
 
-    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, bool t3, int level)
+    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level)
     {
         var carrier = CarrierFor(gm, slot);
         var id = Interlocked.Increment(ref _nameCounter) % 100000;
@@ -633,14 +645,20 @@ public static class MobaDuel
             b = await MobaSkillProbe.SpawnAsync(carrier, classB, $"dB{id}", MobaTeam.Red, south, 1, dummy: false, duel: true).ConfigureAwait(false)
                 ?? throw new InvalidOperationException($"no se pudo crear la clase {classB}");
 
-            await a.PrepareDuelAsync(level, MobaSkills.SkillLevelCap).ConfigureAwait(false);
-            await b.PrepareDuelAsync(level, MobaSkills.SkillLevelCap).ConfigureAwait(false);
+            // The real build keeps the ranks the points of the level bought (rank 0 = do not overwrite); the other passes give every skill rank 5.
+            await a.PrepareDuelAsync(level, t3 == 2 ? 0 : MobaSkills.SkillLevelCap).ConfigureAwait(false);
+            await b.PrepareDuelAsync(level, t3 == 2 ? 0 : MobaSkills.SkillLevelCap).ConfigureAwait(false);
             var piecesA = 0;
             var piecesB = 0;
-            if (t3)
+            if (t3 == 1)
             {
                 piecesA = await a.EquipFullT3Async().ConfigureAwait(false);
                 piecesB = await b.EquipFullT3Async().ConfigureAwait(false);
+            }
+            else if (t3 == 2 && TierForLevel(level) is { } tier)
+            {
+                piecesA = await a.EquipFullT3Async(tier).ConfigureAwait(false);
+                piecesB = await b.EquipFullT3Async(tier).ConfigureAwait(false);
             }
 
             Refill(a);

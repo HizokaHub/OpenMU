@@ -67,9 +67,12 @@ public sealed partial class MobaBotPlayer
         this._nextDevelopUtc = default;
         await this.DevelopIfDueAsync().ConfigureAwait(false);
 
-        foreach (var entry in character.LearnedSkills.Where(e => e.Skill is not null))
+        if (rank > 0)
         {
-            entry.Level = Math.Max(entry.Level, rank);
+            foreach (var entry in character.LearnedSkills.Where(e => e.Skill is not null))
+            {
+                entry.Level = Math.Max(entry.Level, rank);
+            }
         }
 
         this.MobaSkillCooldowns.Clear();
@@ -87,7 +90,7 @@ public sealed partial class MobaBotPlayer
     /// the accessories (offensive ring, tank ring and resources pendant). What the champion wore in those slots is replaced.
     /// </summary>
     /// <returns>The number of pieces worn.</returns>
-    public async ValueTask<int> EquipFullT3Async()
+    public async ValueTask<int> EquipFullT3Async(MobaShopTier tier = MobaShopTier.T3)
     {
         if (this.SelectedCharacter?.CharacterClass is not { } characterClass || this.Inventory is not { } inventory)
         {
@@ -103,9 +106,9 @@ public sealed partial class MobaBotPlayer
         var family = MobaPassives.FamilyOf(this);
         bool OfFamily(MobaShopEntry e) => e.Families is { Length: > 0 } f && f[0] == family;
         var entries = new List<MobaShopEntry>();
-        entries.AddRange(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Weapons && OfFamily(e) && e.Tier == MobaShopTier.T3 && e.Variant == MobaShopVariant.Standard && e.Quantity == 1));
-        entries.AddRange(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Sets && OfFamily(e) && e.Tier == MobaShopTier.T3 && e.Variant == MobaShopVariant.Standard));
-        var offhands = MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && OfFamily(e) && e.Tier == MobaShopTier.T3 && e.Quantity == 1).ToList();
+        entries.AddRange(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Weapons && OfFamily(e) && e.Tier == tier && e.Variant == MobaShopVariant.Standard && e.Quantity == 1));
+        entries.AddRange(MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Sets && OfFamily(e) && e.Tier == tier && e.Variant == MobaShopVariant.Standard));
+        var offhands = MobaShopCatalog.Entries.Where(e => e.Category == MobaShopCategory.Offhand && OfFamily(e) && e.Tier == tier && e.Quantity == 1).ToList();
         if ((offhands.FirstOrDefault(e => e.Variant == MobaShopVariant.Bulwark) ?? offhands.FirstOrDefault()) is { } offhand)
         {
             entries.Add(offhand);
@@ -113,7 +116,7 @@ public sealed partial class MobaBotPlayer
 
         foreach (var role in new[] { MobaShopVariant.Aggressive, MobaShopVariant.Bulwark, MobaShopVariant.Sustain })
         {
-            if (MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Accessories && e.Tier == MobaShopTier.T3 && e.Variant == role) is { } accessory)
+            if (MobaShopCatalog.Entries.FirstOrDefault(e => e.Category == MobaShopCategory.Accessories && e.Tier == tier && e.Variant == role) is { } accessory)
             {
                 entries.Add(accessory);
             }

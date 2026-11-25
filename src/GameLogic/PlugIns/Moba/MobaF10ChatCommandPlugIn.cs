@@ -23,6 +23,10 @@ public class MobaF10ChatCommandArgs : ArgumentsBase
     /// <summary>Gets or sets the value of psi.</summary>
     [Argument("value", false)]
     public string? Value { get; set; }
+
+    /// <summary>Gets or sets the level knot (1, 5, 10, 15, 20, 25, 30) that psi, psit and pair change; empty changes every knot.</summary>
+    [Argument("level", false)]
+    public string? Level { get; set; }
 }
 
 /// <summary>
@@ -47,6 +51,7 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
     protected override async ValueTask DoHandleCommandAsync(Player player, MobaF10ChatCommandArgs arguments)
     {
         var action = arguments.Action?.Trim().ToLowerInvariant() ?? "status";
+        var knotLevel = int.TryParse(arguments.Level, out var parsedLevel) ? parsedLevel : 0;   // 0 = every level knot
         string message;
         switch (action)
         {
@@ -87,8 +92,8 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 message = FormattableString.Invariant($"auditoría: {orphans.Count} huérfanos {(orphans.Count > 0 ? string.Join(", ", orphans) : string.Empty)} | {pending.Count} pendientes de peso: {string.Join("; ", pending.Select(p => p.Split(" -> ")[0]))}");
                 break;
             case "psit" when ResolveFamily(arguments.Key) is { } tierFamily && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var vt):
-                MobaF10.SetPsiTier(tierFamily, Math.Clamp(vt, -3, 3));
-                message = FormattableString.Invariant($"psi con ítems {tierFamily} = {MobaF10.PsiTier(tierFamily)}");
+                MobaF10.SetPsiTier(tierFamily, Math.Clamp(vt, -3, 3), knotLevel);
+                message = FormattableString.Invariant($"psi con ítems {tierFamily} (nivel {knotLevel}) = {MobaF10.PsiTierAt(tierFamily, knotLevel <= 0 ? 30 : knotLevel)}");
                 break;
             case "kit" when arguments.Key is "full" or "picks":
                 MobaDuel.FullKit = arguments.Key == "full";
@@ -111,17 +116,25 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 message = FormattableString.Invariant($"escala global de vida = {MobaF10.HealthScale}");
                 break;
             case "pair" when string.Equals(arguments.Key, "clear", StringComparison.OrdinalIgnoreCase):
-                MobaF10.ClearPairPsi();
-                message = "tabla de cruces vaciada";
+                MobaF10.ClearPairPsi(knotLevel);
+                message = FormattableString.Invariant($"tabla de cruces vaciada (nivel {knotLevel})");
+                break;
+            case "dmgk" when int.TryParse(arguments.Key, out var dmgLevel) && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var dmgMul):
+                MobaF10.SetDamageKnot(dmgLevel, Math.Clamp(dmgMul, 0.05, 20));
+                message = FormattableString.Invariant($"daño del nivel {dmgLevel} = {MobaF10.DamageScaleAt(dmgLevel)}");
+                break;
+            case "hpk" when int.TryParse(arguments.Key, out var hpLevel) && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hpMul):
+                MobaF10.SetHealthKnot(hpLevel, Math.Clamp(hpMul, 0.05, 20));
+                message = FormattableString.Invariant($"vida del nivel {hpLevel} = {MobaF10.HealthScaleAt(hpLevel)}");
                 break;
             case "pair" when arguments.Key?.Split('-') is { Length: 2 } sides && ResolveFamily(sides[0]) is { } pairAttacker && ResolveFamily(sides[1]) is { } pairDefender
                              && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pairValue):
-                MobaF10.SetPairPsi(pairAttacker, pairDefender, Math.Clamp(pairValue, -2, 2));
-                message = FormattableString.Invariant($"cruce {pairAttacker}>{pairDefender} = {MobaF10.PairPsi(pairAttacker, pairDefender)}");
+                MobaF10.SetPairPsi(pairAttacker, pairDefender, Math.Clamp(pairValue, -2, 2), knotLevel);
+                message = FormattableString.Invariant($"cruce {pairAttacker}>{pairDefender} (nivel {knotLevel}) = {MobaF10.PairPsiAt(pairAttacker, pairDefender, knotLevel <= 0 ? 30 : knotLevel)}");
                 break;
             case "psi" when ResolveFamily(arguments.Key) is { } family && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v):
-                MobaF10.SetPsi(family, Math.Clamp(v, -3, 3));
-                message = FormattableString.Invariant($"psi {family} = {MobaF10.Psi(family)}");
+                MobaF10.SetPsi(family, Math.Clamp(v, -3, 3), knotLevel);
+                message = FormattableString.Invariant($"psi {family} (nivel {knotLevel}) = {MobaF10.PsiAt(family, knotLevel <= 0 ? 30 : knotLevel)}");
                 break;
             default:
                 var psis = string.Join(' ', Enum.GetValues<MobaFamily>().Select(f => FormattableString.Invariant($"{f}={MobaF10.Psi(f):F2}")));

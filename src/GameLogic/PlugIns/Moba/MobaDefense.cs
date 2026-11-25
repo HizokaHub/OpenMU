@@ -176,7 +176,7 @@ public static class MobaDefense
     /// life a low-life class was rescued by its own cap: the diagnosis of 2026-11-20 found that 92-96 % of what reached the Summoner and the Elf was cut).
     /// </summary>
     private static float ReferenceMaxHealth(Player defender)
-        => (float)(MobaProgression.HealthAt(Math.Clamp(defender.MobaLevel <= 0 ? 1 : defender.MobaLevel, 1, MobaLevels.MaxLevel)) * MobaF10.HealthScale);
+        => (float)(MobaProgression.HealthAt(Math.Clamp(defender.MobaLevel <= 0 ? 1 : defender.MobaLevel, 1, MobaLevels.MaxLevel)) * MobaF10.HealthScaleAt(defender.MobaLevel <= 0 ? 1 : defender.MobaLevel));
 
     /// <summary>
     /// Damage of a source that is not a hit (reflection, passive bolts, special damage) under F10: it goes through the mitigation and the durability of the

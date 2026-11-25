@@ -28,6 +28,10 @@ public class MobaDuelChatCommandArgs : ArgumentsBase
     /// <summary>Gets or sets how many duels run at once (default 6).</summary>
     [Argument("parallel", false)]
     public int Parallel { get; set; } = 6;
+
+    /// <summary>Gets or sets the champion level of both duelists (default 30, the maximum).</summary>
+    [Argument("level", false)]
+    public int Level { get; set; } = 30;
 }
 
 /// <summary>
@@ -38,7 +42,7 @@ public class MobaDuelChatCommandArgs : ArgumentsBase
 [Guid("5D2E8A71-9C34-4B6F-A1D0-3E7B4C8F1A92")]
 [PlugIn]
 [Display(Name = "MOBA: duels (GM)", Description = "'/mobaduel [all|a-b|class|stop] [duels] [both|plain|t3] [parallel]' - 1v1 duels between the classes with the real bot AI, without a client.")]
-[ChatCommandHelp(Command, "GM test: 1v1 duels between the classes at level 30 with the real bot AI, no client: /mobaduel [all|a-b|class|stop] [duels] [both|plain|t3] [parallel].", typeof(MobaDuelChatCommandArgs))]
+[ChatCommandHelp(Command, "GM test: 1v1 duels between the classes with the real bot AI, no client: /mobaduel [all|a-b|class|stop] [duels] [both|plain|t3|real] [parallel] [level]. 'real' = the ranks and the gear tier of the level.", typeof(MobaDuelChatCommandArgs))]
 public class MobaDuelChatCommandPlugIn : ChatCommandPlugInBase<MobaDuelChatCommandArgs>
 {
     private const string Command = "/mobaduel";
@@ -99,9 +103,10 @@ public class MobaDuelChatCommandPlugIn : ChatCommandPlugInBase<MobaDuelChatComma
         }
 
         var pass = arguments.Pass?.Trim().ToLowerInvariant();
+        var real = pass is "real";
         var plain = pass is null or "" or "both" or "plain";
         var t3 = pass is null or "" or "both" or "t3";
-        var request = new MobaDuelRequest(pairs, Math.Clamp(arguments.Duels, 1, 100), plain, t3, MobaLevels.MaxLevel, Math.Clamp(arguments.Parallel, 1, 60));
+        var request = new MobaDuelRequest(pairs, Math.Clamp(arguments.Duels, 1, 100), plain, t3, Math.Clamp(arguments.Level, 1, MobaLevels.MaxLevel), Math.Clamp(arguments.Parallel, 1, 60), real);
         await player.ShowBlueMessageAsync($"[mobaduel] Empieza: {pairs.Count} cruces x {request.Duels} duelos, pasadas: {(plain ? "sin ítems " : string.Empty)}{(t3 ? "T3" : string.Empty)}. Mira el log [MOBA-DUEL]; el informe queda en duelos_*.json.").ConfigureAwait(false);
 
         // runs in the background: the chat command must not block the game loop

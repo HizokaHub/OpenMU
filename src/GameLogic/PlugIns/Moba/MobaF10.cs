@@ -39,19 +39,84 @@ public static class MobaF10
 
     private const double ArmourPool = 3.3;
 
+    /// <summary>The levels where the per-level tables (class offsets, matchups, scales) hold a calibrated value; between two of them the value is interpolated (2026-11-25).</summary>
+    public static readonly int[] LevelKnots = { 1, 5, 10, 15, 20, 25, 30 };
+
     /// <summary>
     /// Class offsets calibrated with real duels (2026-11-20, level 30, no items, damage scale 1.5, 8 duels per pair, all classes 38-59 % against the field, duels of 10 s),
     /// AFTER the channels that F10 did not see were brought into the model (crowd-control rule, buff ledger, cap and brake against the reference life, reflection,
     /// passives, master tree): they went from +-3.5 to +-0.6. What is left is mostly positioning (range, kiting).
     /// </summary>
-    private static readonly double[] PsiByFamily = BuildPsi();
+    private static readonly double[][] PsiKnots = BuildKnots(BuildPsi());
 
     /// <summary>
     /// The class offset that comes WITH the items (2026-11-23): the traits of the pieces (spell power, life, durability, mana, regeneration) are not in the reference build,
     /// so a fully equipped champion carries a class-specific excess that the offset of the unequipped build (<see cref="Psi"/>) cannot see. It is scaled by the fraction
     /// of items the champion wears (<see cref="ItemFraction"/>) and calibrated on the T3 pass.
     /// </summary>
-    private static readonly double[] PsiTierByFamily = new double[Enum.GetValues<MobaFamily>().Length];
+    private static readonly double[][] PsiTierKnots = BuildKnots(new double[Enum.GetValues<MobaFamily>().Length]);
+
+    // Multipliers of the global damage / life scales at each knot (1 = the global scale): they bring the duels of every level to the designed length.
+    private static readonly double[] DamageKnots = Enumerable.Repeat(1.0, LevelKnots.Length).ToArray();
+    private static readonly double[] HealthKnots = Enumerable.Repeat(1.0, LevelKnots.Length).ToArray();
+
+    private static double[][] BuildKnots(double[] atMax) => LevelKnots.Select(_ => (double[])atMax.Clone()).ToArray();
+
+    private static int KnotOf(int level) => Array.IndexOf(LevelKnots, level) is var i && i >= 0 ? i : Array.FindIndex(LevelKnots, k => k >= level) is var j && j >= 0 ? j : LevelKnots.Length - 1;
+
+    private static double Interp(Func<int, double> atKnot, int level)
+    {
+        level = Math.Clamp(level, LevelKnots[0], LevelKnots[^1]);
+        for (var i = 0; i < LevelKnots.Length - 1; i++)
+        {
+            if (level <= LevelKnots[i + 1])
+            {
+                var t = (level - LevelKnots[i]) / (double)(LevelKnots[i + 1] - LevelKnots[i]);
+                return atKnot(i) + ((atKnot(i + 1) - atKnot(i)) * t);
+            }
+        }
+
+        return atKnot(LevelKnots.Length - 1);
+    }
+
+    private static IEnumerable<int> KnotsFor(int level) => level <= 0 ? Enumerable.Range(0, LevelKnots.Length) : new[] { KnotOf(level) };
+
+    /// <summary>The damage scale of the model at a level: the global scale times the multiplier of the level.</summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The scale.</returns>
+    public static double DamageScaleAt(int level) => DamageScale * Interp(i => DamageKnots[i], level);
+
+    /// <summary>The life scale of the model at a level: the global scale times the multiplier of the level.</summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The scale.</returns>
+    public static double HealthScaleAt(int level) => HealthScale * Interp(i => HealthKnots[i], level);
+
+    /// <summary>Sets the damage multiplier of a level knot (0 = every knot).</summary>
+    /// <param name="level">The knot level.</param>
+    /// <param name="value">The multiplier.</param>
+    public static void SetDamageKnot(int level, double value)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            DamageKnots[k] = value;
+        }
+    }
+
+    /// <summary>Sets the life multiplier of a level knot (0 = every knot).</summary>
+    /// <param name="level">The knot level.</param>
+    /// <param name="value">The multiplier.</param>
+    public static void SetHealthKnot(int level, double value)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            HealthKnots[k] = value;
+        }
+    }
+
+    static MobaF10()
+    {
+        MobaF10Calibration.Apply();   // the values calibrated by level (generated file)
+    }
 
     /// <summary>Gets or sets a value indicating whether the F10 model replaces the 45/20/35 blend (default: environment variable <c>MOBA_F10=1</c>).</summary>
     public static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("MOBA_F10") == "1";
@@ -81,29 +146,50 @@ public static class MobaF10
     // Calibrated 2026-11-25 (evening) with the static duels (4 hand-picked skills rotated by the bots, all buffs, no items, level 30, 60 at a time, life scale 1.35) with tools/calibrar_f10.py.
     // The matchup table (2026-11-25): a log factor on the damage of a family against ANOTHER one, [attacker, defender]. The class offsets (psi) move a family against EVERY rival, so
     // fixing one matchup moved all the others; this table moves one matchup only (the extreme counters are brought to 30-70 % without touching the classes that are already right).
-    private static readonly double[,] PairPsiTable = BuildPairPsi();
+    private static readonly double[][,] PairKnots = LevelKnots.Select(_ => BuildPairPsi()).ToArray();
 
     /// <summary>Gets the log factor on the damage of a family against another one (0 = none).</summary>
     /// <param name="attacker">The attacking family.</param>
     /// <param name="defender">The defending family.</param>
     /// <returns>The offset.</returns>
-    public static double PairPsi(MobaFamily attacker, MobaFamily defender) => PairPsiTable[(int)attacker, (int)defender];
+    public static double PairPsi(MobaFamily attacker, MobaFamily defender) => PairKnots[^1][(int)attacker, (int)defender];
+
+    /// <summary>Gets the log factor on the damage of a family against another one at a level (interpolated between the knots).</summary>
+    /// <param name="attacker">The attacking family.</param>
+    /// <param name="defender">The defending family.</param>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The offset.</returns>
+    public static double PairPsiAt(MobaFamily attacker, MobaFamily defender, int level) => Interp(i => PairKnots[i][(int)attacker, (int)defender], level);
 
     /// <summary>Sets the log factor on the damage of a family against another one.</summary>
     /// <param name="attacker">The attacking family.</param>
     /// <param name="defender">The defending family.</param>
     /// <param name="value">The offset.</param>
-    public static void SetPairPsi(MobaFamily attacker, MobaFamily defender, double value) => PairPsiTable[(int)attacker, (int)defender] = value;
+    /// <param name="level">The knot level (0 = every knot).</param>
+    public static void SetPairPsi(MobaFamily attacker, MobaFamily defender, double value, int level = 0)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            PairKnots[k][(int)attacker, (int)defender] = value;
+        }
+    }
 
     /// <summary>Clears the whole matchup table.</summary>
-    public static void ClearPairPsi() => Array.Clear(PairPsiTable);
+    /// <param name="level">The knot level (0 = every knot).</param>
+    public static void ClearPairPsi(int level = 0)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            Array.Clear(PairKnots[k]);
+        }
+    }
 
     /// <summary>The factor the matchup table puts on the damage of the attacker against the defender (1 when F10 is off).</summary>
     /// <param name="attacker">The attacking champion.</param>
     /// <param name="defender">The defending champion.</param>
     /// <returns>The factor.</returns>
     public static double PairFactorOf(Player attacker, Player defender)
-        => Enabled ? Math.Exp(PairPsi(MobaPassives.FamilyOf(attacker), MobaPassives.FamilyOf(defender))) : 1.0;
+        => Enabled ? Math.Exp(PairPsiAt(MobaPassives.FamilyOf(attacker), MobaPassives.FamilyOf(defender), attacker.MobaLevel)) : 1.0;
 
     // Calibrated 2026-11-25 with tools/calibrar_pares_f10.py: the matchups above 80 % (or below 20 %) were brought to 70 % (30 %).
     private static double[,] BuildPairPsi()
@@ -140,17 +226,36 @@ public static class MobaF10
     /// <summary>Gets the class power offset (log of the duel power), set by <c>/mobaf10 psi</c> from the duel calibration.</summary>
     /// <param name="family">The champion family.</param>
     /// <returns>The offset (0 = neutral).</returns>
-    public static double Psi(MobaFamily family) => PsiByFamily[(int)family];
+    public static double Psi(MobaFamily family) => PsiKnots[^1][(int)family];
+
+    /// <summary>Gets the class power offset at a level (interpolated between the knots).</summary>
+    /// <param name="family">The champion family.</param>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The offset.</returns>
+    public static double PsiAt(MobaFamily family, int level) => Interp(i => PsiKnots[i][(int)family], level);
 
     /// <summary>Gets the class offset that scales with the items worn (see <see cref="PsiTierByFamily"/>).</summary>
     /// <param name="family">The champion family.</param>
     /// <returns>The offset at full items.</returns>
-    public static double PsiTier(MobaFamily family) => PsiTierByFamily[(int)family];
+    public static double PsiTier(MobaFamily family) => PsiTierKnots[^1][(int)family];
+
+    /// <summary>Gets the class offset that scales with the items worn, at a level (interpolated between the knots).</summary>
+    /// <param name="family">The champion family.</param>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The offset at full items.</returns>
+    public static double PsiTierAt(MobaFamily family, int level) => Interp(i => PsiTierKnots[i][(int)family], level);
 
     /// <summary>Sets the class offset that scales with the items worn.</summary>
     /// <param name="family">The champion family.</param>
     /// <param name="value">The offset at full items.</param>
-    public static void SetPsiTier(MobaFamily family, double value) => PsiTierByFamily[(int)family] = value;
+    /// <param name="level">The knot level (0 = every knot).</param>
+    public static void SetPsiTier(MobaFamily family, double value, int level = 0)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            PsiTierKnots[k][(int)family] = value;
+        }
+    }
 
     /// <summary>The fraction of items a champion wears (0 = none, 1 = full T3): mean of the offense and defense item fractions.</summary>
     /// <param name="champion">The champion.</param>
@@ -161,12 +266,19 @@ public static class MobaF10
     /// <param name="champion">The champion.</param>
     /// <param name="family">Its family.</param>
     /// <returns>The offset.</returns>
-    public static double PsiOf(Player champion, MobaFamily family) => Psi(family) + (PsiTier(family) * ItemFraction(champion));
+    public static double PsiOf(Player champion, MobaFamily family) => PsiAt(family, champion.MobaLevel) + (PsiTierAt(family, champion.MobaLevel) * ItemFraction(champion));
 
     /// <summary>Sets the class power offset.</summary>
     /// <param name="family">The champion family.</param>
     /// <param name="value">The offset.</param>
-    public static void SetPsi(MobaFamily family, double value) => PsiByFamily[(int)family] = value;
+    /// <param name="level">The knot level (0 = every knot).</param>
+    public static void SetPsi(MobaFamily family, double value, int level = 0)
+    {
+        foreach (var k in KnotsFor(level))
+        {
+            PsiKnots[k][(int)family] = value;
+        }
+    }
 
     /// <summary>The pools of a champion.</summary>
     /// <param name="Offense">The offensive pool <c>O</c>.</param>
@@ -280,7 +392,7 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        return DamageScale * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family))) * CritRatio(champion) * CooldownRatio(champion);
+        return DamageScaleAt(champion.MobaLevel) * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family))) * CritRatio(champion) * CooldownRatio(champion);
     }
 
     /// <summary>Expected damage of the champion's critical chance over the expected damage of the reference chance (the live roll uses the reference).</summary>
@@ -312,7 +424,7 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        var factor = HealthScale * Math.Exp((KD * (pools.Life - reference.Life)) - (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family)));
+        var factor = HealthScaleAt(champion.MobaLevel) * Math.Exp((KD * (pools.Life - reference.Life)) - (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family)));
         return (float)(MobaProgression.HealthAt(champion.MobaLevel) * factor);
     }
 

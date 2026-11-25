@@ -261,13 +261,19 @@ def diferencia(a, b):
     return ImageStat.Stat(ImageChops.difference(pa, pb)).mean[0]
 
 
-def espera(descripcion, condicion, limite_s, respaldo_s=0.0):
+def espera(descripcion, condicion, limite_s, respaldo_s=0.0, critico=False):
     """Sondea cada 0,15 s hasta que la condicion se cumpla; si no llega, espera lo que esperaba el metodo viejo y sigue (nunca peor que antes)."""
     t0 = time.time()
     while time.time() - t0 < limite_s:
         if condicion():
             return time.time() - t0
         time.sleep(0.15)
+    if critico:
+        # sin esta senal no tiene sentido seguir (p. ej. la lista de servidores no llega si el servidor aun no esta listo): se cierra el cliente y se reintenta
+        print(f"  (aviso) {descripcion}: no llego la senal en {limite_s:.0f} s; cierro el cliente para reintentar")
+        cerrar()
+        time.sleep(3)
+        raise VentanaPerdida(descripcion)
     print(f"  (aviso) {descripcion}: no vi la senal en {limite_s:.0f} s, sigo igual")
     try:
         CAPTURAS.mkdir(exist_ok=True)
@@ -332,19 +338,19 @@ def _entrar(x_personaje=515, orden="/moba"):
 
     # 1) la pantalla de servidores: el boton "Valhalla" con su texto claro
     t = time.time()
-    espera("boton Valhalla", lambda: cuenta_pixeles(captura(hwnd), (452, 291, 557, 312), claro) > 25, 40, 4)
+    espera("boton Valhalla", lambda: cuenta_pixeles(captura(hwnd), (452, 291, 557, 312), claro) > 25, 25, 4, critico=True)
     paso("lista de servidores", time.time() - t)
 
     # 2) clic en el grupo: aparecen los servidores (texto naranja)
     clic_rapido(hwnd, *VALHALLA)
     t = time.time()
-    espera("servidores", lambda: cuenta_pixeles(captura(hwnd), (587, 291, 777, 365), naranja) > 40, 8, 1.5)
+    espera("servidores", lambda: cuenta_pixeles(captura(hwnd), (587, 291, 777, 365), naranja) > 40, 8, 1.5, critico=True)
     paso("servidores desplegados", time.time() - t)
 
     # 3) clic en el servidor: aparece la ventana de acceso (su aviso naranja "Only save the password...")
     clic_rapido(hwnd, *SERVIDOR)
     t = time.time()
-    espera("pantalla de acceso", lambda: cuenta_pixeles(captura(), (520, 560, 860, 640), naranja_texto) > 150, 12, 2.0)
+    espera("pantalla de acceso", lambda: cuenta_pixeles(captura(), (520, 560, 860, 640), naranja_texto) > 150, 12, 2.0, critico=True)
     paso("pantalla de acceso", time.time() - t)
 
     # 4) la cuenta: el servidor lo avisa con [MOBA-CLIENT] build (la primera vez, al entrar a la cuenta)

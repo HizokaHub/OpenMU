@@ -136,7 +136,7 @@ public static class MobaF10Ledger
         // Their damage taken reduction (Angel, Spirit, Panda, Unicorn) and speed stay live through DamageReceiveDecrement and the hit rate / movement.
         var petDamage = 0.0;
         var petLife = 0.0;
-        var refLife = MobaProgression.HealthAt(level) * MobaF10.HealthScale;
+        var refLife = MobaProgression.HealthAt(level) * MobaF10.HealthScaleAt(level);
         foreach (var number in MobaPets.ActiveUtilityNumbers(champion))
         {
             if (PetDamageGain.TryGetValue(number, out var g))
