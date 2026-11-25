@@ -42,14 +42,33 @@ def chat(texto):
     time.sleep(2.2)
 
 
+def reabrir_cliente():
+    """Cierra y vuelve a abrir el cliente: si alguien escribio mientras el bot mandaba un comando, la barra de chat queda desajustada. El servidor conserva sus valores."""
+    print("  (aviso) reabro el cliente", flush=True)
+    subprocess.run([sys.executable, "-I", str(PILOTO), "cerrar"], capture_output=True, timeout=60)
+    time.sleep(3)
+    subprocess.run([sys.executable, "-I", str(PILOTO), "entrar"], capture_output=True, timeout=180)
+    time.sleep(8)
+
+
+def escrito_desde(tam):
+    with open(LOG, "rb") as f:
+        f.seek(tam)
+        return f.read().decode("utf-8", errors="replace")
+
+
 def poner(comando, clave, valor, etiqueta):
     """Manda un comando /mobaf10 y comprueba en el log que el valor llego completo (el chat puede perder un digito); reintenta hasta 4 veces."""
-    for intento in range(4):
+    for intento in range(6):
+        if intento == 3:
+            reabrir_cliente()
         tam = LOG.stat().st_size
-        chat(comando)
-        with open(LOG, "rb") as f:
-            f.seek(tam)
-            nuevo = f.read().decode("utf-8", errors="replace")
+        try:
+            chat(comando)
+        except subprocess.SubprocessError:
+            reabrir_cliente()
+            continue
+        nuevo = escrito_desde(tam)
         for linea in nuevo.splitlines():
             if "[MOBA-F10]" in linea and etiqueta in linea and "=" in linea:
                 try:
@@ -81,7 +100,23 @@ def set_vida():
 
 def correr(duelos):
     antes = set(glob.glob(str(DEBUG / f"duelos_{nombre_json}_*.json")))
-    chat(f"/mobaduel all {duelos} real 60 {nivel}")
+    # se comprueba en el log que la tanda EMPEZO: el 2026-11-25 se perdio el comando y el script espero 18 minutos sin duelos
+    for intento in range(6):
+        if intento in (2, 4):
+            reabrir_cliente()
+        tam = LOG.stat().st_size
+        try:
+            chat(f"/mobaduel all {duelos} real 60 {nivel}")
+        except subprocess.SubprocessError:
+            continue
+        limite = time.time() + 40
+        while time.time() < limite and "[MOBA-DUEL]" not in escrito_desde(tam):
+            time.sleep(2)
+        if "[MOBA-DUEL]" in escrito_desde(tam):
+            break
+        print(f"  (aviso) la tanda no empezo (intento {intento + 1}); repito el comando", flush=True)
+    else:
+        raise SystemExit("no consegui lanzar la tanda de duelos")
     t0 = time.time()
     while time.time() - t0 < 2400:
         time.sleep(15)
