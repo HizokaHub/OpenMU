@@ -11,6 +11,7 @@ using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.NPC;
+using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.Moba;
 using MUnique.OpenMU.GameLogic.Views.NPC;
 
@@ -249,6 +250,102 @@ public static class MobaShop
 
         price = PriceOf(item);
         return true;
+    }
+
+    /// <summary>The most units a bought stack holds (the client shows the count in one byte).</summary>
+    public const int MaxBoughtStack = 250;
+
+    /// <summary>Whether the player chooses how many units of the offer to buy (potions and the other consumables; not the teleport scroll).</summary>
+    /// <param name="item">The offered item.</param>
+    /// <returns><see langword="true"/> if it is sold by quantity.</returns>
+    public static bool IsSoldByQuantity(Item item) => item.Definition is { Group: 14 } definition && definition.Number != MobaTeleport.ScrollNumber;
+
+    /// <summary>The price of some units of an offer: the price of one unit of the offer times the quantity.</summary>
+    /// <param name="offer">The offered item (it may hold a pack of several units).</param>
+    /// <param name="quantity">The number of units.</param>
+    /// <returns>The price.</returns>
+    public static long PriceOfUnits(Item offer, int quantity)
+        => Math.Max(1, (long)Math.Round(PriceOf(offer) * (double)quantity / Math.Max(1, (int)offer.Durability)));
+
+    /// <summary>
+    /// Buys the number of units the player typed (<c>C1 07 D5 3D slot quantity</c>): they fill the stacks of the same item and then new ones. It is all or nothing for
+    /// the gold; if the bag runs out of room, only what fits is bought and charged.
+    /// </summary>
+    /// <param name="player">The champion.</param>
+    /// <param name="slot">The slot of the offer in the shop grid.</param>
+    /// <param name="quantity">The number of units.</param>
+    /// <returns>A task.</returns>
+    public static async ValueTask BuyQuantityAsync(Player player, byte slot, int quantity)
+    {
+        if (quantity < 1 || player.Inventory is not { } inventory || !TryGetOffer(player, slot, out var offer, out _) || !IsSoldByQuantity(offer))
+        {
+            return;
+        }
+
+        var fullPrice = PriceOfUnits(offer, quantity);
+        if (fullPrice > player.Money)
+        {
+            await player.ShowBlueMessageAsync($"[Tienda] Te faltan {fullPrice - player.Money} de oro para comprar {quantity}.").ConfigureAwait(false);
+            return;
+        }
+
+        var placed = 0;
+        var toppedUp = false;
+        foreach (var stack in inventory.Items.Where(i => i.ItemSlot > InventoryConstants.LastEquippableItemSlotIndex && i.IsSameItemAs(offer) && i.Durability < MaxBoughtStack).ToList())
+        {
+            var add = Math.Min(quantity - placed, MaxBoughtStack - (int)stack.Durability);
+            if (add <= 0)
+            {
+                break;
+            }
+
+            stack.Durability += add;
+            placed += add;
+            toppedUp = true;
+            await player.InvokeViewPlugInAsync<IItemDurabilityChangedPlugIn>(p => p.ItemDurabilityChangedAsync(stack, false)).ConfigureAwait(false);
+        }
+
+        var created = new List<Item>();
+        while (placed < quantity)
+        {
+            var item = player.PersistenceContext.CreateNew<Item>();
+            item.AssignValues(offer);
+            item.Durability = Math.Min(quantity - placed, MaxBoughtStack);
+            if (inventory.CheckInvSpace(item) is not { } freeSlot)
+            {
+                await player.PersistenceContext.DeleteAsync(item).ConfigureAwait(false);
+                break;
+            }
+
+            item.ItemSlot = freeSlot;
+            await player.InvokeViewPlugInAsync<INpcItemBoughtPlugIn>(p => p.NpcItemBoughtAsync(item)).ConfigureAwait(false);
+            await inventory.AddItemAsync(item).ConfigureAwait(false);
+            created.Add(item);
+            placed += (int)item.Durability;
+        }
+
+        if (placed == 0)
+        {
+            await player.ShowBlueMessageAsync("[Tienda] No hay espacio en el inventario.").ConfigureAwait(false);
+            return;
+        }
+
+        var price = placed == quantity ? fullPrice : PriceOfUnits(offer, placed);
+        player.TryRemoveMoney((int)price);
+        if (!toppedUp && created.Count == 1)
+        {
+            MobaShopPreview.NoteBought(player, created[0], price);
+        }
+        else
+        {
+            MobaShopPreview.Forget(player);   // "undo" only takes back a single new stack
+        }
+
+        await player.InvokeViewPlugInAsync<IBuyNpcItemFailedPlugIn>(p => p.BuyNpcItemFailedAsync()).ConfigureAwait(false);
+        await player.InvokeViewPlugInAsync<IUpdateMoneyPlugIn>(p => p.UpdateMoneyAsync()).ConfigureAwait(false);
+        var note = placed == quantity ? string.Empty : $" (solo cabían {placed} de {quantity})";
+        player.Logger.LogInformation("[MOBA-SHOP] \"{Name}\" bought {Placed} x {Item} for {Price}.", player.SelectedCharacter?.Name, placed, offer.Definition?.Name, price);
+        await player.ShowBlueMessageAsync($"[Tienda] Compraste {placed} x {offer.Definition?.Name} por {price}{note}.").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -856,6 +953,13 @@ public static class MobaShop
         return item;
     }
 
+    // The price of one unit as the client shows it (it multiplies by the units of the stack). The recovery potions have their own MOBA price list: showing the
+    // native one made the shop show 77 for what it charged 9 (found 2026-11-25).
+    private static long ShownUnitPriceOf(Item item)
+        => item.Definition is { Group: 14 } potion && PotionPackPrices.TryGetValue((short)potion.Number, out var packPrice)
+            ? packPrice / MobaShopCatalog.PotionPackSize
+            : UnitPriceOf(item);
+
     private static async ValueTask SendPricesAsync(Player player, ShopView view)
     {
         var prices = new Dictionary<(ushort, byte, byte, bool, byte), MobaShopPrice>();
@@ -875,7 +979,7 @@ public static class MobaShop
                 HasLuck(item),
                 (byte)ExcellentCountOf(item),
                 perUnit,
-                (uint)Math.Clamp(perUnit ? UnitPriceOf(item) : PriceOf(item), 0, uint.MaxValue));
+                (uint)Math.Clamp(perUnit ? ShownUnitPriceOf(item) : PriceOf(item), 0, uint.MaxValue));
             prices[(price.ItemType, price.Level, price.OptionLevel, price.HasLuck, price.ExcellentCount)] = price;
         }
 

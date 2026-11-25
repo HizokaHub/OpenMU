@@ -432,7 +432,7 @@ internal static class MobaBotEconomy
 
             var number = numbers[Math.Min((int)tier, numbers.Length - 1)];
             var definition = bot.GameContext.Configuration.Items.FirstOrDefault(d => d.Group == 14 && d.Number == number);
-            var entry = new MobaShopEntry(MobaShopCategory.Consumables, null, 14, number, tier, MobaShopCatalog.PotionLevelOf(tier), MobaShopCatalog.PotionPackSize);
+            var entry = new MobaShopEntry(MobaShopCategory.Consumables, null, 14, number, tier, MobaShopCatalog.PotionLevelOf(tier), MobaShopCatalog.BotPotionPurchase);
             if (definition is null)
             {
                 continue;

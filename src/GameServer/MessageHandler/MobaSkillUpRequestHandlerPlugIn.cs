@@ -147,6 +147,13 @@ internal class MobaSkillUpRequestHandlerPlugIn : IPacketHandlerPlugIn
             return;
         }
 
+        if (span.Length >= 7 && span[3] == 0x3D)
+        {
+            // C1 07 D5 3D slot qtyLo qtyHi: buy that many units of the consumable offered in that slot of the shop.
+            await MobaShop.BuyQuantityAsync(player, span[4], span[5] | (span[6] << 8)).ConfigureAwait(false);
+            return;
+        }
+
         if (span.Length >= 5 && span[3] == 0x3B)
         {
             // C1 05 D5 3B slot: the "if you buy it" lines of the shop item of that slot.

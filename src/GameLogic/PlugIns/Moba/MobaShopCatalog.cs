@@ -22,6 +22,9 @@ public static class MobaShopCatalog
     /// <summary>Units of a recovery potion sold per pack.</summary>
     public const byte PotionPackSize = 100;
 
+    /// <summary>How many health potions (and how many mana potions) a bot buys when it has none left (the player chooses any quantity).</summary>
+    public const byte BotPotionPurchase = 20;
+
     /// <summary>Item level of the recovery potions per tier (+7 / +8 / +9): each level adds recovery and shortens the recovery time.</summary>
     /// <param name="tier">The tier.</param>
     /// <returns>The item level.</returns>
@@ -299,9 +302,9 @@ public static class MobaShopCatalog
             => entries.Add(new MobaShopEntry(MobaShopCategory.Consumables, null, 14, number, tier, level, quantity));
 
         void Potion(short number, MobaShopTier tier)
-            => Consumable(number, tier, PotionLevelOf(tier), PotionPackSize);
+            => Consumable(number, tier, PotionLevelOf(tier));
 
-        // Recovery potions come in packs of PotionPackSize at a fixed level per tier (+7 / +8 / +9: more recovery, faster).
+        // Recovery potions are sold one by one, in any quantity (the price list is per PotionPackSize units), at a fixed level per tier (+7 / +8 / +9: more recovery, faster).
         Potion(1, MobaShopTier.T1);   // Small Healing Potion
         Potion(4, MobaShopTier.T1);   // Small Mana Potion
         Potion(35, MobaShopTier.T1);  // Small Shield Potion

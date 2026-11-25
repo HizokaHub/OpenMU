@@ -53,6 +53,24 @@
    "pociones_vida": 6.5,
    "pociones_mana": 1.1,
    "informe": "duelos_nivel10_20261125_194713.json"
+  },
+  "uno-espejo": {
+   "duelos": 700,
+   "media": 9.87,
+   "mediana": 11.0,
+   "sin_fin": 0,
+   "pociones_vida": 2.9,
+   "pociones_mana": 0.6,
+   "gana_primero_en_espejo": {
+    "Grand Master": 0.77,
+    "Blade Knight": 0.9,
+    "High Elf": 0.88,
+    "Magic Gladiator": 1.0,
+    "Dark Lord": 0.915,
+    "Summoner": 0.71,
+    "Rage Fighter": 0.67
+   },
+   "informe": "duelos_nivel10_20261125_201222.json"
   }
  },
  "20": {
@@ -109,6 +127,24 @@
    "pociones_vida": 8.7,
    "pociones_mana": 1.6,
    "informe": "duelos_nivel20_20261125_195020.json"
+  },
+  "uno-espejo": {
+   "duelos": 700,
+   "media": 13.88,
+   "mediana": 13.7,
+   "sin_fin": 0,
+   "pociones_vida": 4.2,
+   "pociones_mana": 0.8,
+   "gana_primero_en_espejo": {
+    "Grand Master": 0.78,
+    "Blade Knight": 0.97,
+    "High Elf": 0.85,
+    "Magic Gladiator": 0.99,
+    "Dark Lord": 0.94,
+    "Summoner": 0.915,
+    "Rage Fighter": 0.63
+   },
+   "informe": "duelos_nivel20_20261125_201603.json"
   }
  },
  "30": {
@@ -165,6 +201,24 @@
    "pociones_vida": 9.9,
    "pociones_mana": 1.6,
    "informe": "duelos_nivel30_20261125_195427.json"
+  },
+  "uno-espejo": {
+   "duelos": 700,
+   "media": 13.83,
+   "mediana": 12.7,
+   "sin_fin": 0,
+   "pociones_vida": 4.7,
+   "pociones_mana": 0.7,
+   "gana_primero_en_espejo": {
+    "Grand Master": 0.685,
+    "Blade Knight": 0.81,
+    "High Elf": 0.93,
+    "Magic Gladiator": 0.91,
+    "Dark Lord": 0.98,
+    "Summoner": 1.0,
+    "Rage Fighter": 0.775
+   },
+   "informe": "duelos_nivel30_20261125_201932.json"
   }
  }
 }
