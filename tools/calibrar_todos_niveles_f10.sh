@@ -4,6 +4,6 @@
 cd "$(dirname "$0")/.."
 export MSYS_NO_PATHCONV=1
 for L in $1; do
-  python -I -X utf8 tools/calibrar_nivel_f10.py "$L" 20 60 || { echo "fallo en el nivel $L"; break; }
+  python -I -X utf8 tools/calibrar_nivel_f10.py "$L" 20 40 || { echo "fallo en el nivel $L"; break; }
 done
 python -I -X utf8 tools/generar_tablas_f10.py

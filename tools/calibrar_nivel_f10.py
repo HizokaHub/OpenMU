@@ -17,10 +17,10 @@ FAM = {3: "wiz", 6: "kn", 11: "elf", 12: "mg", 16: "dl", 20: "sum", 24: "rf"}
 NOM = {3: "GM", 6: "BK", 11: "FE", 12: "MG", 16: "DL", 20: "SUM", 24: "RF"}
 nivel = int(sys.argv[1])
 d_psi = int(sys.argv[2]) if len(sys.argv) > 2 else 20
-d_cruce = int(sys.argv[3]) if len(sys.argv) > 3 else 60
-tol_raza = float(sys.argv[4]) if len(sys.argv) > 4 else 0.06
-tol_cruce = float(sys.argv[5]) if len(sys.argv) > 5 else 0.10
-DUR_MIN, DUR_MAX, DUR_META = 10.0, 15.0, 12.5
+d_cruce = int(sys.argv[3]) if len(sys.argv) > 3 else 40
+tol_raza = float(sys.argv[4]) if len(sys.argv) > 4 else 0.12
+tol_cruce = float(sys.argv[5]) if len(sys.argv) > 5 else 0.20
+DUR_MIN, DUR_MAX, DUR_META = 10.0, 16.0, 12.5
 nombre_json = f"nivel{nivel}"
 
 # estado: por nivel -> {"psi": {clase: v}, "pares": {"a-b": v}, "dano": mult, "vida": mult}
@@ -74,6 +74,11 @@ def set_dano():
     poner(f"/mobaf10 dmgk {nivel} {e['dano']:.3f}", "dano del nivel", 1.5 * e["dano"], "del nivel")
 
 
+def set_vida():
+    # la escala de vida del nivel = global (1.35) * multiplicador
+    poner(f"/mobaf10 hpk {nivel} {e['vida']:.3f}", "vida del nivel", 1.35 * e["vida"], "vida del nivel")
+
+
 def correr(duelos):
     antes = set(glob.glob(str(DEBUG / f"duelos_{nombre_json}_*.json")))
     chat(f"/mobaduel all {duelos} real 60 {nivel}")
@@ -123,17 +128,18 @@ chat(f"/mobaf10 pair clear x {nivel}")
 for (a, b) in list(pares):
     set_cruce(a, b)
 set_dano()
+set_vida()
 
-# ---- 1. DURACION ----
+# ---- 1. DURACION ---- (con la VIDA del nivel: el dano casi no acorta el duelo, porque el tope por golpe y el freno de rafaga lo limitan y ambos son relativos a la vida)
 for it in range(4):
     arch = correr(d_psi)
     wr, cru, dur = analizar(arch)
-    print(f"dur {it}: duracion {dur:.1f} s | dano x{e['dano']:.2f}", flush=True)
+    print(f"dur {it}: duracion {dur:.1f} s | vida x{e['vida']:.2f}", flush=True)
     registrar("duracion", it, wr, cru, dur)
     if DUR_MIN <= dur <= DUR_MAX:
         break
-    e["dano"] = max(0.2, min(8.0, e["dano"] * dur / DUR_META))
-    set_dano()
+    e["vida"] = max(0.15, min(6.0, e["vida"] * DUR_META / dur))
+    set_vida()
 
 # ---- 2. PSI ----
 for it in range(10):
@@ -150,21 +156,25 @@ for it in range(10):
         psi[c] += max(-0.4, min(0.4, -gain * logit(wr[c])))
         set_psi(c)
 
-# ---- 3. CRUCES ----
-for it in range(8):
-    arch = correr(d_cruce)
-    wr, cru, dur = analizar(arch)
-    fuera = {k: v for k, v in cru.items() if abs(v - 0.5) > tol_cruce}
-    print(f"cruces {it}: duracion {dur:.1f} s | fuera de +-{tol_cruce:.2f}: {len(fuera)} de {len(cru)} | razas " + " ".join(f"{NOM[c]} {wr[c]:.2f}" for c in FAM), flush=True)
-    registrar("cruces", it, wr, cru, dur)
-    if not fuera:
-        break
-    for (a, b), v in fuera.items():
-        paso = max(-0.12, min(0.12, 0.04 * logit(v)))
-        pares[(a, b)] = max(-1.5, min(1.5, pares.get((a, b), 0.0) - paso))
-        pares[(b, a)] = max(-1.5, min(1.5, pares.get((b, a), 0.0) + paso))
-        set_cruce(a, b)
-        set_cruce(b, a)
-    guardar()
+# ---- 3. CRUCES ---- (por etapas: primero solo los extremos (+-0.30), luego la banda 30-70 % (+-0.20) y al final la pedida (+-tol_cruce); ajustar los 20 cruces a la vez
+# descontrolaba el sistema: cada paso es pequeno y solo toca los cruces que estan fuera de la etapa)
+for etapa in [t for t in (0.30, 0.20) if t > tol_cruce] + [tol_cruce]:
+    for it in range(5):
+        arch = correr(d_cruce)
+        wr, cru, dur = analizar(arch)
+        fuera = {k: v for k, v in cru.items() if abs(v - 0.5) > etapa}
+        print(f"cruces +-{etapa:.2f} it {it}: duracion {dur:.1f} s | fuera: {len(fuera)} de {len(cru)} | razas " + " ".join(f"{NOM[c]} {wr[c]:.2f}" for c in FAM), flush=True)
+        registrar(f"cruces{etapa}", it, wr, cru, dur)
+        if not fuera:
+            break
+        for (a, b), v in fuera.items():
+            # el paso crece con el error pero esta acotado; se corrige solo la parte que sobra sobre la etapa (hasta el borde de la banda)
+            borde = 0.5 + etapa * (1 if v > 0.5 else -1) * 0.8
+            paso = max(-0.08, min(0.08, 0.03 * (logit(v) - logit(borde))))
+            pares[(a, b)] = max(-1.5, min(1.5, pares.get((a, b), 0.0) - paso))
+            pares[(b, a)] = max(-1.5, min(1.5, pares.get((b, a), 0.0) + paso))
+            set_cruce(a, b)
+            set_cruce(b, a)
+        guardar()
 guardar()
-print(f"fin nivel {nivel}: psi", {NOM[c]: round(v, 3) for c, v in psi.items()}, "dano x", round(e["dano"], 3), flush=True)
+print(f"fin nivel {nivel}: psi", {NOM[c]: round(v, 3) for c, v in psi.items()}, "dano x", round(e["dano"], 3), "vida x", round(e["vida"], 3), flush=True)
