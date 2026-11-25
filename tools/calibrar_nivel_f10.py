@@ -195,6 +195,7 @@ for it in range(4):
     set_vida()
 
 # ---- 2. PSI ----
+previo = {}   # por raza: (error, paso) de la pasada anterior, para amortiguar las que cambian de lado
 for it in range(10):
     arch = correr(d_psi)
     wr, cru, dur = analizar(arch)
@@ -205,8 +206,16 @@ for it in range(10):
         break
     # ganancia adaptativa: con las builds equipadas los psi parten lejos (RF 0.02, BK 0.97) y 0.06 tardaba demasiado; cerca del objetivo vuelve a ser pequena (los duelos son muy empinados)
     gain = 0.16 if desv > 0.30 else 0.10 if desv > 0.18 else 0.05
+    # En nivel 1 un paso de 0,33 llevaba a una raza de 89 % a 10 % de victorias: si el error cambia de signo, su paso se reduce a la mitad; si no, puede crecer un poco
     for c in FAM:
-        psi[c] += max(-0.4, min(0.4, -gain * logit(wr[c])))
+        err = logit(wr[c])
+        paso = max(-0.4, min(0.4, -gain * err))
+        if c in previo:
+            err_ant, paso_ant = previo[c]
+            tope = abs(paso_ant) * (0.5 if err * err_ant < 0 else 1.3)
+            paso = max(-tope, min(tope, paso))
+        previo[c] = (err, paso if abs(paso) > 0.02 else 0.02)
+        psi[c] += paso
         set_psi(c)
 
 # ---- 3. CRUCES ---- (por etapas: primero solo los extremos (+-0.30), luego la banda 30-70 % (+-0.20) y al final la pedida (+-tol_cruce); ajustar los 20 cruces a la vez
