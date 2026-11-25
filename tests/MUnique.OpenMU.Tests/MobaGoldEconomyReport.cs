@@ -112,6 +112,7 @@ public class MobaGoldEconomyReport
         var perMinute = new double[4];
         var minutesInPhase = new double[4];
         var line = new StringBuilder();
+        var byLevel = new StringBuilder();
 
         for (var second = 5; second <= 60 * 60; second += 5)
         {
@@ -131,6 +132,7 @@ public class MobaGoldEconomyReport
                 gold += levelUp;
                 totalGold += levelUp;
                 perMinute[phase] += levelUp;
+                byLevel.Append($" {level}:{second / 60.0:0.0}m:{totalGold:0}");
             }
 
             phaseExp += Income(phaseProfile, phaseLevel, 1).Exp;
@@ -180,6 +182,7 @@ public class MobaGoldEconomyReport
         sb.AppendLine($"{profile.Name,-14} T1 completo min {F(t1),5} | T2 (mejora) min {F(t2),5} | T3 (mejora) min {F(t3),5} | fase T2 desde min {phaseStart[2]:0.0}, T3 desde min {phaseStart[3]:0.0}");
         sb.AppendLine($"               oro/min por fase: T1={Rate(perMinute, minutesInPhase, 1)} T2={Rate(perMinute, minutesInPhase, 2)} T3={Rate(perMinute, minutesInPhase, 3)} | oro total a 40 min no calculado aparte; total 60 min={totalGold:N0}");
         sb.AppendLine($"               nivel/fase:{line}");
+        sb.AppendLine($"               nivel:minuto:oro ganado hasta ahi:{byLevel}");
         return (t1, t2, t3);
 
         (double Gold, double Exp) Income(Profile p, int lvl, double phaseMult)
