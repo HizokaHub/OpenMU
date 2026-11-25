@@ -12,6 +12,7 @@ SALIDA = RAIZ / "tools/f10_pociones.json"
 niveles = [int(x) for x in sys.argv[1].split()]
 modos = sys.argv[2].split()
 duelos = int(sys.argv[3]) if len(sys.argv) > 3 else 20
+cruces = sys.argv[4] if len(sys.argv) > 4 else "all"   # "espejo" = cada raza contra si misma
 
 
 def ip(vieja, nueva):
@@ -56,7 +57,7 @@ def enviar(comando, senal, espera=12):
 
 def tanda(nivel):
     antes = set(glob.glob(str(DEBUG / f"duelos_nivel{nivel}_*.json")))
-    enviar(f"/mobaduel all {duelos} real 60 {nivel}", r"\[MOBA-DUEL\]", 40)
+    enviar(f"/mobaduel {cruces} {duelos} real 60 {nivel}", r"\[MOBA-DUEL\]", 40)
     limite = time.time() + 2400
     while time.time() < limite:
         time.sleep(5)
@@ -71,11 +72,12 @@ def resumen(arch):
     d = json.load(open(arch, encoding="utf-8"))
     filas = [x for p in d["pairs"] for x in p["duels"]]
     seg = [x["seconds"] for x in filas]
+    gana_primero = {p["aName"]: round(statistics.mean({"a": 1.0, "b": 0.0}.get(x["winner"], 0.5) for x in p["duels"]), 3) for p in d["pairs"] if p["a"] == p["b"]}
     vida = [x[k][0] for x in filas for k in ("aPotions", "bPotions")]
     mana = [x[k][1] for x in filas for k in ("aPotions", "bPotions")]
     return {"duelos": len(filas), "media": round(statistics.mean(seg), 2), "mediana": round(statistics.median(seg), 2),
             "sin_fin": sum(1 for s in seg if s >= d["timeoutSeconds"] - 1), "pociones_vida": round(statistics.mean(vida), 1),
-            "pociones_mana": round(statistics.mean(mana), 1), "informe": Path(arch).name}
+            "pociones_mana": round(statistics.mean(mana), 1), "gana_primero_en_espejo": gana_primero, "informe": Path(arch).name}
 
 
 resultados = json.load(open(SALIDA)) if SALIDA.exists() else {}
@@ -88,13 +90,17 @@ try:
     for modo in modos:
         if modo == "off":
             enviar("/mobaf10 beber off", r"MOBA-F10.*SIN pociones")
+        elif modo == "uno":
+            enviar("/mobaf10 beber uno", r"MOBA-F10.*SOLO el primero")
         else:
             enviar("/mobaf10 beber on", r"MOBA-F10.*CON pociones")
             enviar(f"/mobaf10 pocion {modo}", rf"MOBA-F10.*= {float(modo):g}")
         for nivel in niveles:
             r = resumen(tanda(nivel))
-            resultados.setdefault(str(nivel), {})[modo] = r
+            resultados.setdefault(str(nivel), {})[modo if cruces == "all" else f"{modo}-{cruces}"] = r
             json.dump(resultados, open(SALIDA, "w"), indent=1)
+            if modo == "uno" and cruces == "espejo":
+                print(f"espejo nivel {nivel} (gana quien bebe): " + " | ".join(f"{k} {v:.0%}" for k, v in r["gana_primero_en_espejo"].items()), flush=True)
             print(f"modo {modo} nivel {nivel}: media {r['media']} s | mediana {r['mediana']} s | sin fin {r['sin_fin']} | pociones por duelista: vida {r['pociones_vida']}, mana {r['pociones_mana']}", flush=True)
 finally:
     piloto("cerrar")

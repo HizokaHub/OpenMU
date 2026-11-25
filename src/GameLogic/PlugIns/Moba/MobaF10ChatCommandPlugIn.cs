@@ -99,9 +99,9 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 PlayerActions.ItemConsumeActions.RecoverConsumeHandlerPlugIn.MobaHealthPotionScale = Math.Clamp(potionScale, 0, 1);
                 message = FormattableString.Invariant($"escala de la poción de vida = {PlayerActions.ItemConsumeActions.RecoverConsumeHandlerPlugIn.MobaHealthPotionScale}");
                 break;
-            case "beber" when arguments.Key is "on" or "off":
-                MobaDuel.Drinking = arguments.Key == "on";
-                message = MobaDuel.Drinking ? "los duelos CON pociones" : "los duelos SIN pociones";
+            case "beber" when arguments.Key is "on" or "off" or "uno":
+                MobaDuel.Drinking = arguments.Key switch { "on" => MobaDuelDrinking.Both, "off" => MobaDuelDrinking.None, _ => MobaDuelDrinking.OnlyFirst };
+                message = arguments.Key switch { "on" => "los duelos CON pociones", "off" => "los duelos SIN pociones", _ => "en los duelos bebe SOLO el primero de cada cruce" };
                 break;
             case "kit" when arguments.Key is "full" or "picks":
                 MobaDuel.FullKit = arguments.Key == "full";

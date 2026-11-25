@@ -19,6 +19,9 @@ public sealed partial class MobaBotPlayer
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, int), bool> LoggedBuilds = new();
 
+    /// <summary>Gets or sets a value indicating whether this duelist keeps and drinks potions (see <see cref="MobaDuel.Drinking"/>).</summary>
+    public bool DuelDrinks { get; set; } = true;
+
     /// <summary>Gets or sets the health potions the duelist used in the current fight.</summary>
     public int DuelHealthPotions { get; set; }
 
@@ -103,7 +106,7 @@ public sealed partial class MobaBotPlayer
     {
         var gold = MobaTypicalBuild.GoldAt(level);
         var healthBefore = this.Attributes?[Stats.MaximumHealth] ?? 0f;
-        var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level), MobaDuel.Drinking).ConfigureAwait(false);
+        var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level), this.DuelDrinks).ConfigureAwait(false);
         if (this.Attributes is { } a)
         {
             a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
@@ -224,7 +227,7 @@ public sealed partial class MobaBotPlayer
             return;
         }
 
-        if (MobaDuel.Drinking)
+        if (this.DuelDrinks)
         {
             var drunk = await MobaBotEconomy.DrinkInDuelAsync(this).ConfigureAwait(false);
             this.DuelHealthPotions += drunk == MobaBotEconomy.PotionDrunk.Health ? 1 : 0;

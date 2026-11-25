@@ -81,6 +81,10 @@ public class MobaDuelChatCommandPlugIn : ChatCommandPlugInBase<MobaDuelChatComma
         {
             pairs = MobaDuel.AllPairs(MobaDuel.MainClasses);
         }
+        else if (what == "espejo")
+        {
+            pairs = MobaDuel.MainClasses.Select(c => (c, c)).ToList();
+        }
         else if (what.Contains('-', StringComparison.Ordinal))
         {
             var parts = what.Split('-', 2);

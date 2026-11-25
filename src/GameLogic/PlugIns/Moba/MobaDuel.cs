@@ -1,4 +1,4 @@
-// <copyright file="MobaDuel.cs" company="MUnique">
+﻿// <copyright file="MobaDuel.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -12,6 +12,19 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.Pathfinding;
+
+/// <summary>Who drinks potions in a balance duel.</summary>
+public enum MobaDuelDrinking
+{
+    /// <summary>Both duelists.</summary>
+    Both,
+
+    /// <summary>Nobody.</summary>
+    None,
+
+    /// <summary>Only the first class of each cross (with mirror crosses it measures what drinking is worth).</summary>
+    OnlyFirst,
+}
 
 /// <summary>What a duel run should measure.</summary>
 /// <param name="Pairs">The pairs of classes (a mirror is a pair of the same class).</param>
@@ -71,8 +84,8 @@ public static class MobaDuel
     /// <summary>Gets a value indicating whether a duel run is going on.</summary>
     public static bool IsRunning => Volatile.Read(ref _running) == 1;
 
-    /// <summary>Gets or sets a value indicating whether the duelists of the real build drink their potions (<c>/mobaf10 beber on|off</c>; off to measure what they add).</summary>
-    public static bool Drinking { get; set; } = true;
+    /// <summary>Gets or sets who drinks potions in the duels of the real build (<c>/mobaf10 beber on|off|uno</c>; the other modes measure what the potions are worth).</summary>
+    public static MobaDuelDrinking Drinking { get; set; } = MobaDuelDrinking.Both;
 
     /// <summary>
     /// Gets or sets a value indicating whether the duelists take the WHOLE kit of their class at rank 5 (the old way) instead of what a champion really takes into the
@@ -591,7 +604,10 @@ public static class MobaDuel
         // Odd duels swap the sides (blue / north against red / south), so the position is not an advantage of one class.
         var swap = job.Number % 2 == 1;
         var (classA, classB) = job.Pair;
-        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level).ConfigureAwait(false);
+        // who drinks is told from the side of the PAIR (the first class of the cross), so it follows the class when the sides are swapped
+        var firstDrinks = Drinking != MobaDuelDrinking.None;
+        var secondDrinks = Drinking == MobaDuelDrinking.Both;
+        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level, swap ? secondDrinks : firstDrinks, swap ? firstDrinks : secondDrinks).ConfigureAwait(false);
         if (swap)
         {
             row = row with
@@ -607,6 +623,10 @@ public static class MobaDuel
                 BForeign = row.AForeign,
                 AStat = row.BStat,
                 BStat = row.AStat,
+                ABuffs = row.BBuffs,
+                BBuffs = row.ABuffs,
+                APotions = row.BPotions,
+                BPotions = row.APotions,
             };
         }
 
@@ -631,7 +651,7 @@ public static class MobaDuel
         }
     }
 
-    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level)
+    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level, bool drinksA, bool drinksB)
     {
         var carrier = CarrierFor(gm, slot);
         var id = Interlocked.Increment(ref _nameCounter) % 100000;
@@ -646,6 +666,9 @@ public static class MobaDuel
                 ?? throw new InvalidOperationException($"no se pudo crear la clase {classA}");
             b = await MobaSkillProbe.SpawnAsync(carrier, classB, $"dB{id}", MobaTeam.Red, south, 1, dummy: false, duel: true).ConfigureAwait(false)
                 ?? throw new InvalidOperationException($"no se pudo crear la clase {classB}");
+
+            a.DuelDrinks = drinksA;
+            b.DuelDrinks = drinksB;
 
             // The real build keeps the ranks the points of the level bought (rank 0 = do not overwrite); the other passes give every skill rank 5.
             await a.PrepareDuelAsync(level, t3 == 2 ? 0 : MobaSkills.SkillLevelCap).ConfigureAwait(false);
