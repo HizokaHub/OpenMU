@@ -6,6 +6,16 @@ RAIZ = Path(__file__).resolve().parent.parent
 FAM = {3: "Wizard", 6: "Knight", 11: "Elf", 12: "MagicGladiator", 16: "DarkLord", 20: "Summoner", 24: "RageFighter"}
 estado = json.load(open(RAIZ / "tools/f10_calibracion.json"))
 filas = []
+# niveles intermedios: promedio de los dos niveles calibrados vecinos (solo si ambos existen)
+for medio, bajo, alto in ((5, 1, 10), (15, 10, 20), (25, 20, 30)):
+    if str(medio) not in estado and str(bajo) in estado and str(alto) in estado:
+        x, y = estado[str(bajo)], estado[str(alto)]
+        estado[str(medio)] = {
+            "psi": {c: (x["psi"][c] + y["psi"][c]) / 2 for c in x["psi"]},
+            "pares": {k: (x["pares"].get(k, 0.0) + y["pares"].get(k, 0.0)) / 2 for k in {*x["pares"], *y["pares"]}},
+            "dano": (x["dano"] + y["dano"]) / 2,
+            "vida": (x.get("vida", 1.0) + y.get("vida", 1.0)) / 2,
+        }
 for nivel in sorted(estado, key=int):
     e = estado[nivel]
     filas.append(f"        // nivel {nivel}")

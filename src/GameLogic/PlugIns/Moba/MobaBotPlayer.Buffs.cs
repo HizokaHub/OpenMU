@@ -158,7 +158,7 @@ public sealed partial class MobaBotPlayer
         }
     }
 
-    private bool Has(short skillNumber) => this.SkillList?.GetSkill((ushort)skillNumber)?.Skill is not null;
+    private bool Has(short skillNumber) => this.SkillList?.GetSkill((ushort)skillNumber) is { Skill: not null } entry && !MobaSkills.IsInactive(this, entry);
 
     /// <summary>The bot itself and the living teammates within reach of the Elf's buffs.</summary>
     private IEnumerable<Player> AlliesInReach(BotContext c)
@@ -166,7 +166,8 @@ public sealed partial class MobaBotPlayer
 
     private async ValueTask<bool> CastBuffAsync(short number, Player target, DateTime now)
     {
-        if (this.SkillList?.GetSkill((ushort)number) is not { Skill: { } skill }
+        if (this.SkillList?.GetSkill((ushort)number) is not { Skill: { } skill } learned
+            || MobaSkills.IsInactive(this, learned) // a buff without a buff point is not castable, like for a player (they start at champion level 5)
             || this._buffRetryUtc.TryGetValue(number, out var retryAt) && now < retryAt
             || MobaCooldowns.IsOnCooldown(this, number, now)
             || !target.IsActive())

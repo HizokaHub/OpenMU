@@ -170,11 +170,18 @@ for etapa in [t for t in (0.30, 0.20) if t > tol_cruce] + [tol_cruce]:
         for (a, b), v in fuera.items():
             # el paso crece con el error pero esta acotado; se corrige solo la parte que sobra sobre la etapa (hasta el borde de la banda)
             borde = 0.5 + etapa * (1 if v > 0.5 else -1) * 0.8
-            paso = max(-0.08, min(0.08, 0.03 * (logit(v) - logit(borde))))
+            # etapa fina (banda 30-70 %): pasos mas pequenos, porque el ruido de 40 duelos (+-0.08) hacia divergir el ajuste
+            g, tope = (0.03, 0.08) if etapa >= 0.30 else (0.015, 0.04)
+            paso = max(-tope, min(tope, g * (logit(v) - logit(borde))))
             pares[(a, b)] = max(-1.5, min(1.5, pares.get((a, b), 0.0) - paso))
             pares[(b, a)] = max(-1.5, min(1.5, pares.get((b, a), 0.0) + paso))
             set_cruce(a, b)
             set_cruce(b, a)
+        # las razas se mantienen centradas con el psi (los cruces son antisimetricos y no pueden corregir una raza entera: RF se quedaba en 0.75)
+        for c in FAM:
+            if abs(wr[c] - 0.5) > 0.10:
+                psi[c] += max(-0.10, min(0.10, -0.05 * logit(wr[c])))
+                set_psi(c)
         guardar()
 guardar()
 print(f"fin nivel {nivel}: psi", {NOM[c]: round(v, 3) for c, v in psi.items()}, "dano x", round(e["dano"], 3), "vida x", round(e["vida"], 3), flush=True)

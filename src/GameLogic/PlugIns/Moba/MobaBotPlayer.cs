@@ -2129,7 +2129,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
 
         var skills = this.SelectedCharacter?.LearnedSkills
-            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget)
+            .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget && !MobaSkills.IsInactive(this, s)) // same rule as a player: a kit skill without rank cannot be cast
             .ToList() ?? new List<SkillEntry>();
 
         // A combo class walks the steps of ITS combo definition (the server's, so the bot completes the same combo a player does: 2026-11-24 the stages were guessed and
