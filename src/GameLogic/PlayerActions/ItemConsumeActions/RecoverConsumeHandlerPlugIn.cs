@@ -40,8 +40,11 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
         return false;
     }
 
-    /// <summary>Fraction of the native health potion recovery that MOBA champions get.</summary>
-    public const double MobaHealthPotionScale = 0.36;
+    /// <summary>The time a MOBA champion waits between two potions (health or mana share it).</summary>
+    public static readonly TimeSpan MobaPotionCooldown = TimeSpan.FromSeconds(1);
+
+    /// <summary>Gets or sets the fraction of the native health potion recovery that MOBA champions get (tuned with <c>/mobaf10 pocion</c>).</summary>
+    public static double MobaHealthPotionScale { get; set; } = 0.36;
 
     /// <inheritdoc />
     public abstract object CreateDefaultConfig();
@@ -82,7 +85,7 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
             _ = this.RecoverByStepsAsync(player, delayReduction, configuration, totalRecoverAmount);
         }
 
-        player.PotionCooldownUntil = DateTime.UtcNow.Add(this.Configuration.CooldownTime);
+        player.PotionCooldownUntil = DateTime.UtcNow.Add(player.IsMobaClone ? MobaPotionCooldown : this.Configuration.CooldownTime);
     }
 
     /// <inheritdoc />

@@ -39,6 +39,9 @@ internal static class MobaBotEconomy
     private const int MaxLootAttempts = 3;
     private const double ManaPotionBelow = 0.30;
     private const double HealthPotionBelow = 0.40;
+
+    // In a balance duel the bot drinks like a diligent player: as soon as it misses a bit of life, not only when it is about to die.
+    private const double DuelHealthPotionBelow = 0.95;
     private static readonly TimeSpan PotionCooldown = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ShopInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan TeleportChannel = TimeSpan.FromSeconds(MobaRecall.ChannelSeconds + 0.4);
@@ -92,13 +95,14 @@ internal static class MobaBotEconomy
 
     /// <summary>
     /// Gives a champion a budget and lets it shop exactly like a bot (same priorities, resale included), as if it had spent that gold during the match. Used by the
-    /// balance duels. The potions are paid for but taken out of the bag afterwards (nobody drinks in a duel yet), and what is left of the budget is removed.
+    /// balance duels. What is left of the budget is removed.
     /// </summary>
     /// <param name="bot">The champion.</param>
     /// <param name="budget">The gold to spend.</param>
     /// <param name="potionTier">The shop phase, which decides the potions on sale.</param>
+    /// <param name="keepPotions">Whether the potions stay in the bag; otherwise they are paid for and thrown away (duels without drinking).</param>
     /// <returns>The gear and pets bought that are still worn, and the gold that could not be spent.</returns>
-    public static async ValueTask<(IReadOnlyList<Item> Worn, int Left)> BuyWithBudgetAsync(Player bot, int budget, MobaShopTier potionTier)
+    public static async ValueTask<(IReadOnlyList<Item> Worn, int Left)> BuyWithBudgetAsync(Player bot, int budget, MobaShopTier potionTier, bool keepPotions)
     {
         if (bot.Money > 0)
         {
@@ -115,7 +119,7 @@ internal static class MobaBotEconomy
             }
         }
 
-        while (bot.Inventory is { } inventory && FindPotion(bot, 1, 2, 3, 4, 5, 6) is { } potion)
+        while (!keepPotions && bot.Inventory is { } inventory && FindPotion(bot, 1, 2, 3, 4, 5, 6) is { } potion)
         {
             await inventory.RemoveItemAsync(potion).ConfigureAwait(false);
             await bot.PersistenceContext.DeleteAsync(potion).ConfigureAwait(false);
@@ -137,11 +141,19 @@ internal static class MobaBotEconomy
     /// <param name="inCombat">Whether the bot is fighting.</param>
     /// <returns>A task.</returns>
     public static async ValueTask DrinkPotionsAsync(Player bot, bool inCombat)
+        => await DrinkAsync(bot, inCombat, HealthPotionBelow).ConfigureAwait(false);
+
+    /// <summary>Drinks during a balance duel (see <see cref="MobaDuel.Drinking"/>).</summary>
+    /// <param name="bot">The duelist.</param>
+    /// <returns>Whether a health potion, a mana potion or nothing was used.</returns>
+    public static ValueTask<PotionDrunk> DrinkInDuelAsync(Player bot) => DrinkAsync(bot, true, DuelHealthPotionBelow);
+
+    private static async ValueTask<PotionDrunk> DrinkAsync(Player bot, bool inCombat, double healthBelow)
     {
         var state = States.GetOrCreateValue(bot);
-        if (bot.Attributes is not { } attributes || DateTime.UtcNow < state.NextPotionUtc)
+        if (bot.Attributes is not { } attributes || DateTime.UtcNow < state.NextPotionUtc || DateTime.UtcNow < bot.PotionCooldownUntil)
         {
-            return;
+            return PotionDrunk.None;
         }
 
         var mana = attributes[Stats.CurrentMana] / Math.Max(1f, attributes[Stats.MaximumMana]);
@@ -152,19 +164,35 @@ internal static class MobaBotEconomy
             potion = FindPotion(bot, 4, 5, 6);
         }
 
-        if (potion is null && inCombat && health < HealthPotionBelow)
+        if (potion is null && inCombat && health < healthBelow)
         {
             potion = FindPotion(bot, 1, 2, 3);
         }
 
         if (potion is null)
         {
-            return;
+            return PotionDrunk.None;
         }
 
         state.NextPotionUtc = DateTime.UtcNow + PotionCooldown;
+        var kind = potion.Definition!.Number <= 3 ? PotionDrunk.Health : PotionDrunk.Mana;
+        var doses = potion.Durability;
         var slot = (byte)potion.ItemSlot;
         await new ItemConsumeAction().HandleConsumeRequestAsync(bot, slot, slot, FruitUsage.Undefined).ConfigureAwait(false);
+        return potion.Durability < doses ? kind : PotionDrunk.None;
+    }
+
+    /// <summary>What a drinking attempt used.</summary>
+    public enum PotionDrunk
+    {
+        /// <summary>Nothing.</summary>
+        None,
+
+        /// <summary>A health potion.</summary>
+        Health,
+
+        /// <summary>A mana potion.</summary>
+        Mana,
     }
 
     /// <summary>

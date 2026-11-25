@@ -95,6 +95,14 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaF10.SetPsiTier(tierFamily, Math.Clamp(vt, -3, 3), knotLevel);
                 message = FormattableString.Invariant($"psi con ítems {tierFamily} (nivel {knotLevel}) = {MobaF10.PsiTierAt(tierFamily, knotLevel <= 0 ? 30 : knotLevel)}");
                 break;
+            case "pocion" when double.TryParse(arguments.Key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var potionScale):
+                PlayerActions.ItemConsumeActions.RecoverConsumeHandlerPlugIn.MobaHealthPotionScale = Math.Clamp(potionScale, 0, 1);
+                message = FormattableString.Invariant($"escala de la poción de vida = {PlayerActions.ItemConsumeActions.RecoverConsumeHandlerPlugIn.MobaHealthPotionScale}");
+                break;
+            case "beber" when arguments.Key is "on" or "off":
+                MobaDuel.Drinking = arguments.Key == "on";
+                message = MobaDuel.Drinking ? "los duelos CON pociones" : "los duelos SIN pociones";
+                break;
             case "kit" when arguments.Key is "full" or "picks":
                 MobaDuel.FullKit = arguments.Key == "full";
                 message = MobaDuel.FullKit ? "duelos con el kit COMPLETO de la clase (rango 5)" : "duelos con las 4 skills por defecto + buffs de la clase (como en la arena)";

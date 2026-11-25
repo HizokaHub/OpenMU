@@ -19,6 +19,12 @@ public sealed partial class MobaBotPlayer
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, int), bool> LoggedBuilds = new();
 
+    /// <summary>Gets or sets the health potions the duelist used in the current fight.</summary>
+    public int DuelHealthPotions { get; set; }
+
+    /// <summary>Gets or sets the mana potions the duelist used in the current fight.</summary>
+    public int DuelManaPotions { get; set; }
+
     /// <summary>Gets or sets a value indicating whether this bot only lives for a duel: it does nothing until <see cref="DuelOpponent"/> is set.</summary>
     public bool DuelMode { get; set; }
 
@@ -97,7 +103,7 @@ public sealed partial class MobaBotPlayer
     {
         var gold = MobaTypicalBuild.GoldAt(level);
         var healthBefore = this.Attributes?[Stats.MaximumHealth] ?? 0f;
-        var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level)).ConfigureAwait(false);
+        var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level), MobaDuel.Drinking).ConfigureAwait(false);
         if (this.Attributes is { } a)
         {
             a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
@@ -216,6 +222,13 @@ public sealed partial class MobaBotPlayer
             // Preparation: both duelists raise every buff before the first blow (nobody attacks while the other is still buffing).
             this.DuelBuffIdleTicks = await this.TickBuffsAsync(ctx).ConfigureAwait(false) ? 0 : this.DuelBuffIdleTicks + 1;
             return;
+        }
+
+        if (MobaDuel.Drinking)
+        {
+            var drunk = await MobaBotEconomy.DrinkInDuelAsync(this).ConfigureAwait(false);
+            this.DuelHealthPotions += drunk == MobaBotEconomy.PotionDrunk.Health ? 1 : 0;
+            this.DuelManaPotions += drunk == MobaBotEconomy.PotionDrunk.Mana ? 1 : 0;
         }
 
         await this.TickUtilityAsync(ctx).ConfigureAwait(false);

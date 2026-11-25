@@ -71,6 +71,9 @@ public static class MobaDuel
     /// <summary>Gets a value indicating whether a duel run is going on.</summary>
     public static bool IsRunning => Volatile.Read(ref _running) == 1;
 
+    /// <summary>Gets or sets a value indicating whether the duelists of the real build drink their potions (<c>/mobaf10 beber on|off</c>; off to measure what they add).</summary>
+    public static bool Drinking { get; set; } = true;
+
     /// <summary>
     /// Gets or sets a value indicating whether the duelists take the WHOLE kit of their class at rank 5 (the old way) instead of what a champion really takes into the
     /// arena: the 4 default attacks plus the buffs of the class (Teleport of the Soul Master included). Default <see langword="false"/> since 2026-11-24: the duels with the
@@ -329,7 +332,9 @@ public static class MobaDuel
         int[]? BBuffs = null,
         double PrepSeconds = 0,
         Dictionary<string, object?>? AStat = null,
-        Dictionary<string, object?>? BStat = null);
+        Dictionary<string, object?>? BStat = null,
+        int[]? APotions = null,
+        int[]? BPotions = null);
 
     /// <summary>The measurements of one duelist during the blows (see <see cref="Measures"/>).</summary>
     private sealed class DuelStats
@@ -553,6 +558,8 @@ public static class MobaDuel
                     ["aBuffs"] = r.ABuffs,
                     ["bBuffs"] = r.BBuffs,
                     ["prepSeconds"] = Math.Round(r.PrepSeconds, 1),
+                    ["aPotions"] = r.APotions,
+                    ["bPotions"] = r.BPotions,
                     ["aX"] = r.AStat,
                     ["bX"] = r.BStat,
                 }).ToList(),
@@ -689,6 +696,7 @@ public static class MobaDuel
             Measures[b] = new DuelStats();
             a.DuelCasts.Clear();
             b.DuelCasts.Clear();
+            (a.DuelHealthPotions, a.DuelManaPotions, b.DuelHealthPotions, b.DuelManaPotions) = (0, 0, 0, 0);
             var clock = Stopwatch.StartNew();
             while (a.IsAlive && b.IsAlive && clock.Elapsed.TotalSeconds < TimeoutSeconds && Volatile.Read(ref _cancel) == 0)
             {
@@ -716,7 +724,9 @@ public static class MobaDuel
                 buffsB,
                 prepSeconds,
                 Snapshot(a),
-                Snapshot(b));
+                Snapshot(b),
+                new[] { a.DuelHealthPotions, a.DuelManaPotions },
+                new[] { b.DuelHealthPotions, b.DuelManaPotions });
         }
         finally
         {
