@@ -19,6 +19,7 @@ for medio, bajo, alto in ((5, 1, 10), (15, 10, 20), (25, 20, 30)):
 for nivel in sorted(estado, key=int):
     e = estado[nivel]
     filas.append(f"        // nivel {nivel}")
+    filas.append(f"        MobaF10.ClearPairPsi({nivel});")
     for c, v in sorted(e["psi"].items(), key=lambda kv: int(kv[0])):
         filas.append(f"        MobaF10.SetPsi(MobaFamily.{FAM[int(c)]}, {v:.4f}, {nivel});")
     for k, v in sorted(e["pares"].items()):

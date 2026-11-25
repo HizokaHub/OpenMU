@@ -114,9 +114,27 @@ def logit(x):
     return math.log(x / (1 - x))
 
 
+def fuera_de(cru, banda):
+    return sum(1 for v in cru.values() if abs(v - 0.5) > banda + 1e-9)
+
+
+def puntaje(wr, cru, dur):
+    """Menor es mejor, en este orden: duracion fuera de rango, cruces sobre 80 %, cruces fuera de 30-70 %, raza mas desviada."""
+    return (0 if DUR_MIN <= dur <= DUR_MAX else 1, fuera_de(cru, 0.30), fuera_de(cru, 0.20), round(max(abs(v - 0.5) for v in wr.values()), 3))
+
+
+# pasadas de cruces de ESTA corrida (todas con la misma cantidad de duelos): (puntaje, nombre, valores con los que se midio)
+candidatas = []
+
+
 def registrar(fase, it, wr, cru, dur):
+    # se llama antes de ajustar nada, asi que estos son los valores con los que se midio la pasada
+    medidos = {"psi": {str(c): v for c, v in psi.items()}, "pares": {f"{a}-{b}": v for (a, b), v in pares.items()}, "dano": e["dano"], "vida": e["vida"]}
     e["registro"].append({"fase": fase, "it": it, "duracion": dur, "razas": {NOM[c]: round(v, 3) for c, v in wr.items()},
-                          "peor_cruce": round(max(abs(v - 0.5) for v in cru.values()), 3)})
+                          "peor_cruce": round(max(abs(v - 0.5) for v in cru.values()), 3),
+                          "sobre80": fuera_de(cru, 0.30), "fuera3070": fuera_de(cru, 0.20), "valores": medidos})
+    if fase.startswith("cruces"):
+        candidatas.append((puntaje(wr, cru, dur), f"{fase} it {it}", medidos))
     guardar()
 
 
@@ -183,5 +201,13 @@ for etapa in [t for t in (0.30, 0.20) if t > tol_cruce] + [tol_cruce]:
                 psi[c] += max(-0.10, min(0.10, -0.05 * logit(wr[c])))
                 set_psi(c)
         guardar()
+# se guarda la MEJOR pasada medida, no los ultimos valores (que ademas llevaban un ajuste sin medir)
+mejor, cual, valores = min(candidatas, key=lambda x: x[0])
+psi.update({int(c): v for c, v in valores["psi"].items()})
+pares.clear()
+pares.update({tuple(int(x) for x in k.split("-")): v for k, v in valores["pares"].items()})
+e["dano"], e["vida"] = valores["dano"], valores["vida"]
+e["mejor"] = {"pasada": cual, "sobre80": mejor[1], "fuera3070": mejor[2], "raza_desv": mejor[3]}
 guardar()
+print(f"mejor pasada del nivel {nivel}: {cual} | sobre 80 %: {mejor[1]} | fuera de 30-70 %: {mejor[2]} de 21 | raza mas desviada {mejor[3]:.2f}", flush=True)
 print(f"fin nivel {nivel}: psi", {NOM[c]: round(v, 3) for c, v in psi.items()}, "dano x", round(e["dano"], 3), "vida x", round(e["vida"], 3), flush=True)
