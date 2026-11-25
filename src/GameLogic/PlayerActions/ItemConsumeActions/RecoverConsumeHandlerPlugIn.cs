@@ -44,7 +44,11 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
     public static readonly TimeSpan MobaPotionCooldown = TimeSpan.FromSeconds(1);
 
     /// <summary>Gets or sets the fraction of the native health potion recovery that MOBA champions get (tuned with <c>/mobaf10 pocion</c>).</summary>
-    public static double MobaHealthPotionScale { get; set; } = 0.36;
+    /// <remarks>
+    /// 0.14 chosen on 2026-11-25 (the user's rule: one potion per second, adding about 2 s to a duel). Measured with the duels of levels 10, 20 and 30: mean duration
+    /// +1.2 / +2.1 / +3.7 s (median +1.2 / +2.6 / +1.2 s) against no potions. With it a medium potion +7 gives about 3.8 % of the maximum life and a large one 5.3-5.5 %.
+    /// </remarks>
+    public static double MobaHealthPotionScale { get; set; } = 0.14;
 
     /// <inheritdoc />
     public abstract object CreateDefaultConfig();
@@ -67,8 +71,7 @@ public abstract class RecoverConsumeHandlerPlugIn : BaseConsumeHandlerPlugIn, IS
         var additionalRecover = Math.Max(0, configuration.AdditionalRecoverMinusCharacterLevel - player.Attributes[Stats.Level]);
         var totalRecoverAmount = (player.Attributes[this.MaximumAttribute] * recoverPercentage / 100.0) + additionalRecover;
 
-        // MOBA: potions heal about a third of the native amount (a +8 medium potion went from ~28 % to ~10 % of the maximum life);
-        // bots drinking one per second were healing ~25 % of their life per second and were practically unkillable.
+        // MOBA: potions heal a small share of the native amount (see MobaHealthPotionScale): at one per second the native ~28 % made champions practically unkillable.
         if (player.IsMobaClone && this.CurrentAttribute == Stats.CurrentHealth)
         {
             totalRecoverAmount *= MobaHealthPotionScale;

@@ -1,0 +1,170 @@
+{
+ "10": {
+  "off": {
+   "duelos": 560,
+   "media": 9.21,
+   "mediana": 9.2,
+   "sin_fin": 0,
+   "pociones_vida": 0,
+   "pociones_mana": 0,
+   "informe": "duelos_nivel10_20261125_190002.json"
+  },
+  "0.03": {
+   "duelos": 560,
+   "media": 9.24,
+   "mediana": 9.2,
+   "sin_fin": 0,
+   "pociones_vida": 5.6,
+   "pociones_mana": 1.0,
+   "informe": "duelos_nivel10_20261125_190727.json"
+  },
+  "0.08": {
+   "duelos": 560,
+   "media": 9.72,
+   "mediana": 9.6,
+   "sin_fin": 0,
+   "pociones_vida": 5.9,
+   "pociones_mana": 1.0,
+   "informe": "duelos_nivel10_20261125_191516.json"
+  },
+  "0.16": {
+   "duelos": 560,
+   "media": 10.74,
+   "mediana": 10.2,
+   "sin_fin": 0,
+   "pociones_vida": 6.7,
+   "pociones_mana": 1.1,
+   "informe": "duelos_nivel10_20261125_192513.json"
+  },
+  "0.24": {
+   "duelos": 560,
+   "media": 11.97,
+   "mediana": 11.05,
+   "sin_fin": 0,
+   "pociones_vida": 7.6,
+   "pociones_mana": 1.2,
+   "informe": "duelos_nivel10_20261125_193455.json"
+  },
+  "0.14": {
+   "duelos": 560,
+   "media": 10.43,
+   "mediana": 10.4,
+   "sin_fin": 0,
+   "pociones_vida": 6.5,
+   "pociones_mana": 1.1,
+   "informe": "duelos_nivel10_20261125_194713.json"
+  }
+ },
+ "20": {
+  "off": {
+   "duelos": 560,
+   "media": 11.81,
+   "mediana": 10.8,
+   "sin_fin": 0,
+   "pociones_vida": 0,
+   "pociones_mana": 0,
+   "informe": "duelos_nivel20_20261125_190244.json"
+  },
+  "0.03": {
+   "duelos": 560,
+   "media": 12.24,
+   "mediana": 11.65,
+   "sin_fin": 0,
+   "pociones_vida": 7.5,
+   "pociones_mana": 1.3,
+   "informe": "duelos_nivel20_20261125_191010.json"
+  },
+  "0.08": {
+   "duelos": 560,
+   "media": 12.73,
+   "mediana": 12.0,
+   "sin_fin": 0,
+   "pociones_vida": 7.7,
+   "pociones_mana": 1.3,
+   "informe": "duelos_nivel20_20261125_191812.json"
+  },
+  "0.16": {
+   "duelos": 560,
+   "media": 14.1,
+   "mediana": 13.3,
+   "sin_fin": 0,
+   "pociones_vida": 8.8,
+   "pociones_mana": 1.6,
+   "informe": "duelos_nivel20_20261125_192820.json"
+  },
+  "0.24": {
+   "duelos": 560,
+   "media": 16.15,
+   "mediana": 14.9,
+   "sin_fin": 0,
+   "pociones_vida": 9.8,
+   "pociones_mana": 1.9,
+   "informe": "duelos_nivel20_20261125_193822.json"
+  },
+  "0.14": {
+   "duelos": 560,
+   "media": 13.91,
+   "mediana": 13.4,
+   "sin_fin": 0,
+   "pociones_vida": 8.7,
+   "pociones_mana": 1.6,
+   "informe": "duelos_nivel20_20261125_195020.json"
+  }
+ },
+ "30": {
+  "off": {
+   "duelos": 560,
+   "media": 11.05,
+   "mediana": 9.85,
+   "sin_fin": 0,
+   "pociones_vida": 0,
+   "pociones_mana": 0,
+   "informe": "duelos_nivel30_20261125_190509.json"
+  },
+  "0.03": {
+   "duelos": 560,
+   "media": 11.25,
+   "mediana": 9.65,
+   "sin_fin": 0,
+   "pociones_vida": 7.8,
+   "pociones_mana": 0.9,
+   "informe": "duelos_nivel30_20261125_191254.json"
+  },
+  "0.08": {
+   "duelos": 560,
+   "media": 12.16,
+   "mediana": 9.9,
+   "sin_fin": 0,
+   "pociones_vida": 8.2,
+   "pociones_mana": 1.0,
+   "informe": "duelos_nivel30_20261125_192119.json"
+  },
+  "0.16": {
+   "duelos": 560,
+   "media": 14.47,
+   "mediana": 10.9,
+   "sin_fin": 0,
+   "pociones_vida": 9.7,
+   "pociones_mana": 1.7,
+   "informe": "duelos_nivel30_20261125_193208.json"
+  },
+  "0.24": {
+   "duelos": 560,
+   "media": 18.91,
+   "mediana": 12.65,
+   "sin_fin": 4,
+   "pociones_vida": 12.2,
+   "pociones_mana": 2.8,
+   "informe": "duelos_nivel30_20261125_194318.json"
+  },
+  "0.14": {
+   "duelos": 560,
+   "media": 14.73,
+   "mediana": 11.0,
+   "sin_fin": 0,
+   "pociones_vida": 9.9,
+   "pociones_mana": 1.6,
+   "informe": "duelos_nivel30_20261125_195427.json"
+  }
+ }
+}
