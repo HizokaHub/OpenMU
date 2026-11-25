@@ -156,11 +156,6 @@ public static class MobaDuel
         return picks.Count == MobaLoadouts.BotSkillCount ? picks : defaults;
     }
 
-    /// <summary>The shop tier a champion of the level wears in the F10 reference build: none before level 3, T1 up to 9, T2 up to 19, T3 from 20.</summary>
-    /// <param name="level">The champion level.</param>
-    /// <returns>The tier, or <see langword="null"/> when it wears nothing yet.</returns>
-    public static MobaShopTier? TierForLevel(int level) => level < 3 ? null : level < 10 ? MobaShopTier.T1 : level < 20 ? MobaShopTier.T2 : MobaShopTier.T3;
-
     /// <summary>Asks the run to stop after the duels in progress.</summary>
     public static void Cancel() => Interlocked.Exchange(ref _cancel, 1);
 
@@ -251,8 +246,8 @@ public static class MobaDuel
                 throw new InvalidOperationException("No encontré ningún rincón libre de la arena para los duelos.");
             }
 
-            // Pass kinds: 0 = no items, 1 = the full T3 build, 2 = the REAL build of the level (2026-11-25): the skill ranks the points of that level buy and the gear of the tier a
-            // champion of that level has (T1 from level 3, T2 from 10, T3 from 20, as in the F10 reference build).
+            // Pass kinds: 0 = no items, 1 = the full T3 build, 2 = the REAL build of the level (2026-11-25): the skill ranks the points of that level buy and the gear a typical
+            // champion can have bought with its gold (MobaTypicalBuild: the economy report's average profile, the buying order of the bots, mixed tiers, wings and pets).
             var passes = new List<int>();
             if (request.Real)
             {
@@ -655,10 +650,10 @@ public static class MobaDuel
                 piecesA = await a.EquipFullT3Async().ConfigureAwait(false);
                 piecesB = await b.EquipFullT3Async().ConfigureAwait(false);
             }
-            else if (t3 == 2 && TierForLevel(level) is { } tier)
+            else if (t3 == 2)
             {
-                piecesA = await a.EquipFullT3Async(tier).ConfigureAwait(false);
-                piecesB = await b.EquipFullT3Async(tier).ConfigureAwait(false);
+                piecesA = await a.BuyTypicalBuildAsync(level).ConfigureAwait(false);
+                piecesB = await b.BuyTypicalBuildAsync(level).ConfigureAwait(false);
             }
 
             Refill(a);

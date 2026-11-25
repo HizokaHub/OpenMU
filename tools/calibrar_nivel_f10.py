@@ -26,7 +26,15 @@ nombre_json = f"nivel{nivel}"
 # estado: por nivel -> {"psi": {clase: v}, "pares": {"a-b": v}, "dano": mult, "vida": mult}
 estado = json.load(open(ESTADO)) if ESTADO.exists() else {}
 ini_psi = {3: 0.575, 6: -0.006, 11: -0.173, 12: 0.353, 16: 0.354, 20: -0.386, 24: -0.718}
-e = estado.setdefault(str(nivel), {"psi": {str(c): v for c, v in ini_psi.items()}, "pares": {}, "dano": 1.0, "vida": 1.0, "registro": []})
+if str(nivel) not in estado:
+    # un nivel sin calibrar parte del valor que ya usa el servidor: el interpolado entre los calibrados mas cercanos
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from f10_tablas import calibrados, interpolar
+    hechos = calibrados()
+    base = interpolar(hechos, nivel) if hechos else {"psi": {str(c): v for c, v in ini_psi.items()}, "pares": {}, "dano": 1.0, "vida": 1.0}
+    estado[str(nivel)] = {"psi": dict(base["psi"]), "pares": dict(base["pares"]), "dano": base["dano"], "vida": base.get("vida", 1.0), "registro": []}
+e = estado[str(nivel)]
+e.setdefault("registro", [])
 psi = {int(k): v for k, v in e["psi"].items()}
 pares = {tuple(int(x) for x in k.split("-")): v for k, v in e["pares"].items()}
 

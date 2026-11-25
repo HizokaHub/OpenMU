@@ -83,11 +83,53 @@ internal static class MobaBotEconomy
         state.NextShopUtc = DateTime.UtcNow + ShopInterval;
         for (var i = 0; i < 12 && PlanNextPurchase(bot) is { } plan; i++)
         {
-            if (!await BuyAsync(bot, plan).ConfigureAwait(false))
+            if (await BuyAsync(bot, plan).ConfigureAwait(false) is null)
             {
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Gives a champion a budget and lets it shop exactly like a bot (same priorities, resale included), as if it had spent that gold during the match. Used by the
+    /// balance duels. The potions are paid for but taken out of the bag afterwards (nobody drinks in a duel yet), and what is left of the budget is removed.
+    /// </summary>
+    /// <param name="bot">The champion.</param>
+    /// <param name="budget">The gold to spend.</param>
+    /// <param name="potionTier">The shop phase, which decides the potions on sale.</param>
+    /// <returns>The gear and pets bought that are still worn, and the gold that could not be spent.</returns>
+    public static async ValueTask<(IReadOnlyList<Item> Worn, int Left)> BuyWithBudgetAsync(Player bot, int budget, MobaShopTier potionTier)
+    {
+        if (bot.Money > 0)
+        {
+            bot.TryRemoveMoney(bot.Money);
+        }
+
+        bot.TryAddMoney(budget);
+        var before = bot.Inventory?.Items.ToList() ?? new List<Item>();
+        for (var i = 0; i < 80 && PlanNextPurchase(bot, potionTier) is { } plan; i++)
+        {
+            if (await BuyAsync(bot, plan).ConfigureAwait(false) is null)
+            {
+                break;
+            }
+        }
+
+        while (bot.Inventory is { } inventory && FindPotion(bot, 1, 2, 3, 4, 5, 6) is { } potion)
+        {
+            await inventory.RemoveItemAsync(potion).ConfigureAwait(false);
+            await bot.PersistenceContext.DeleteAsync(potion).ConfigureAwait(false);
+        }
+
+        var left = bot.Money;
+        if (left > 0)
+        {
+            bot.TryRemoveMoney(left);
+        }
+
+        // what is worn now and was not before (equipment slots only; the starting weapon that was not replaced does not count)
+        var worn = bot.Inventory?.Items.Where(i => i.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex && !before.Contains(i)).ToList() ?? new List<Item>();
+        return (worn, left);
     }
 
     /// <summary>Drinks a mana or health potion when the bot is running low.</summary>
@@ -253,7 +295,7 @@ internal static class MobaBotEconomy
             .FirstOrDefault();
 
     /// <summary>The next thing the bot would buy and can afford, or <see langword="null"/>.</summary>
-    private static Purchase? PlanNextPurchase(Player bot)
+    private static Purchase? PlanNextPurchase(Player bot, MobaShopTier? potionTier = null)
     {
         if (bot.SelectedCharacter?.CharacterClass is not { } characterClass || bot.Inventory is not { } inventory)
         {
@@ -265,7 +307,7 @@ internal static class MobaBotEconomy
         var ranks = SlotRanks(bot, candidates);
         var weaponRank = ranks.GetValueOrDefault((byte)0);
 
-        if (weaponRank >= 1 && PotionPurchase(bot, gold) is { } potions)
+        if (weaponRank >= 1 && PotionPurchase(bot, gold, potionTier ?? MobaArena.Of(bot).Phase) is { } potions)
         {
             return potions;
         }
@@ -351,9 +393,8 @@ internal static class MobaBotEconomy
     }
 
     /// <summary>A pack of the best affordable potions the bot is missing (healing, then mana).</summary>
-    private static Purchase? PotionPurchase(Player bot, long gold)
+    private static Purchase? PotionPurchase(Player bot, long gold, MobaShopTier tier)
     {
-        var tier = MobaArena.Of(bot).Phase;
         foreach (var numbers in new[] { new short[] { 1, 2, 3 }, new short[] { 4, 5, 6 } })
         {
             if (FindPotion(bot, numbers) is not null)
@@ -380,30 +421,35 @@ internal static class MobaBotEconomy
         return null;
     }
 
-    private static async ValueTask<bool> BuyAsync(Player bot, Purchase plan)
+    private static async ValueTask<Item?> BuyAsync(Player bot, Purchase plan)
     {
         if (bot.Inventory is not { } inventory)
         {
-            return false;
+            return null;
         }
 
         var cost = plan.Price - plan.Resale;
         if (bot.Money < cost)
         {
-            return false;
+            return null;
         }
+
+        // Its OWN copy, like a player buying at the vendor: the template of the plan is cached per class, and handing the same object to every bot of the class
+        // mixed their gear up (found 2026-11-25 with 60 duels buying at once).
+        var item = bot.PersistenceContext.CreateNew<Item>();
+        item.AssignValues(plan.Template);
 
         if (plan.Slot == byte.MaxValue)
         {
-            var bagSlot = inventory.CheckInvSpace(plan.Template);
+            var bagSlot = inventory.CheckInvSpace(item);
             if (bagSlot is null || !bot.TryRemoveMoney((int)plan.Price))
             {
-                return false;
+                return null;
             }
 
-            await inventory.AddItemAsync((byte)bagSlot, plan.Template).ConfigureAwait(false);
-            bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" bought {Item} x{Qty} for {Price}.", bot.SelectedCharacter?.Name, plan.Template.Definition?.Name, plan.Template.Durability, plan.Price);
-            return true;
+            await inventory.AddItemAsync((byte)bagSlot, item).ConfigureAwait(false);
+            bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" bought {Item} x{Qty} for {Price}.", bot.SelectedCharacter?.Name, item.Definition?.Name, item.Durability, plan.Price);
+            return item;
         }
 
         if (plan.Current is not null)
@@ -413,12 +459,18 @@ internal static class MobaBotEconomy
 
         if (!bot.TryRemoveMoney((int)plan.Price))
         {
-            return false;
+            return null;
         }
 
-        await inventory.AddItemAsync(plan.Slot, plan.Template).ConfigureAwait(false);
+        if (!await inventory.AddItemAsync(plan.Slot, item).ConfigureAwait(false))
+        {
+            bot.Logger.LogWarning("[MOBA-BOT-ECON] \"{Name}\" could not equip {Item} into slot {Slot}.", bot.SelectedCharacter?.Name, item.Definition?.Name, plan.Slot);
+            bot.TryAddMoney((int)plan.Price);
+            return null;
+        }
+
         bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" bought {Item} for {Price} into slot {Slot} (resold {Old} for {Resale}); gold left {Gold}.", bot.SelectedCharacter?.Name, plan.Template.Definition?.Name, plan.Price, plan.Slot, plan.Current?.Definition?.Name ?? "-", plan.Resale, bot.Money);
-        return true;
+        return item;
     }
 
     private static async ValueTask SellAsync(Player bot, Item item)

@@ -1,31 +1,17 @@
 """Escribe MobaF10Calibration.g.cs (los valores por defecto del servidor para F10 por nivel) a partir de tools/f10_calibracion.json.
 Uso: python -I -X utf8 tools/generar_tablas_f10.py"""
-import json
+import sys
 from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 FAM = {3: "Wizard", 6: "Knight", 11: "Elf", 12: "MagicGladiator", 16: "DarkLord", 20: "Summoner", 24: "RageFighter"}
-estado = json.load(open(RAIZ / "tools/f10_calibracion.json"))
-# mejor pasada reconstruida de los niveles calibrados antes de que se guardara sola (tools/recuperar_mejor_f10.py); una calibracion nueva (con "mejor") manda sobre ella
-recuperado = RAIZ / "tools/f10_recuperado.json"
-if recuperado.exists():
-    for nivel, e in json.load(open(recuperado)).items():
-        if "mejor" not in estado.get(nivel, {}):
-            estado[nivel] = e
-            print(f"nivel {nivel}: uso la mejor pasada recuperada ({e['mejor']['pasada']})")
+sys.path.insert(0, str(RAIZ / "tools"))
+from f10_tablas import NIVELES, calibrados, interpolar
+
+estado = calibrados()
 filas = []
-# niveles intermedios: promedio de los dos niveles calibrados vecinos (solo si ambos existen)
-for medio, bajo, alto in ((5, 1, 10), (15, 10, 20), (25, 20, 30)):
-    if str(medio) not in estado and str(bajo) in estado and str(alto) in estado:
-        x, y = estado[str(bajo)], estado[str(alto)]
-        estado[str(medio)] = {
-            "psi": {c: (x["psi"][c] + y["psi"][c]) / 2 for c in x["psi"]},
-            "pares": {k: (x["pares"].get(k, 0.0) + y["pares"].get(k, 0.0)) / 2 for k in {*x["pares"], *y["pares"]}},
-            "dano": (x["dano"] + y["dano"]) / 2,
-            "vida": (x.get("vida", 1.0) + y.get("vida", 1.0)) / 2,
-        }
-for nivel in sorted(estado, key=int):
-    e = estado[nivel]
-    filas.append(f"        // nivel {nivel}")
+for nivel in NIVELES:
+    e = interpolar(estado, nivel)
+    filas.append(f"        // nivel {nivel}" + ("" if str(nivel) in estado else " (interpolado)"))
     filas.append(f"        MobaF10.ClearPairPsi({nivel});")
     for c, v in sorted(e["psi"].items(), key=lambda kv: int(kv[0])):
         filas.append(f"        MobaF10.SetPsi(MobaFamily.{FAM[int(c)]}, {v:.4f}, {nivel});")
@@ -35,6 +21,7 @@ for nivel in sorted(estado, key=int):
             filas.append(f"        MobaF10.SetPairPsi(MobaFamily.{FAM[a]}, MobaFamily.{FAM[b]}, {v:.4f}, {nivel});")
     filas.append(f"        MobaF10.SetDamageKnot({nivel}, {e['dano']:.4f});")
     filas.append(f"        MobaF10.SetHealthKnot({nivel}, {e.get('vida', 1.0):.4f});")
+print("niveles calibrados:", " ".join(sorted(estado, key=int)))
 codigo = f'''// <copyright file="MobaF10Calibration.g.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>

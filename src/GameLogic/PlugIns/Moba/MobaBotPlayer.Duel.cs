@@ -17,6 +17,8 @@ using MUnique.OpenMU.GameLogic.PlayerActions.Skills;
 /// </summary>
 public sealed partial class MobaBotPlayer
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, int), bool> LoggedBuilds = new();
+
     /// <summary>Gets or sets a value indicating whether this bot only lives for a duel: it does nothing until <see cref="DuelOpponent"/> is set.</summary>
     public bool DuelMode { get; set; }
 
@@ -83,6 +85,41 @@ public sealed partial class MobaBotPlayer
             a[Stats.CurrentMana] = a[Stats.MaximumMana];
             a[Stats.CurrentShield] = a[Stats.MaximumShield];
         }
+    }
+
+    /// <summary>
+    /// Buys what a typical champion of the level can have: the gold of <see cref="MobaTypicalBuild"/> spent like a bot would. The first duel of every class and level
+    /// writes what it bought to the log (<c>[MOBA-BUILD]</c>).
+    /// </summary>
+    /// <param name="level">The champion level.</param>
+    /// <returns>The number of pieces (gear and pets) bought and worn.</returns>
+    public async ValueTask<int> BuyTypicalBuildAsync(int level)
+    {
+        var gold = MobaTypicalBuild.GoldAt(level);
+        var healthBefore = this.Attributes?[Stats.MaximumHealth] ?? 0f;
+        var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level)).ConfigureAwait(false);
+        if (this.Attributes is { } a)
+        {
+            a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
+            a[Stats.CurrentMana] = a[Stats.MaximumMana];
+            a[Stats.CurrentShield] = a[Stats.MaximumShield];
+        }
+
+        if (this.SelectedCharacter?.CharacterClass is { } characterClass && LoggedBuilds.TryAdd((characterClass.Number, level), true))
+        {
+            this.Logger.LogInformation(
+                "[MOBA-BUILD] level {Level} class {Class}: gold {Gold}, unspent {Left}, maxHP {HealthBefore:0}->{HealthAfter:0}, {Count} pieces: {Pieces}",
+                level,
+                characterClass.Name,
+                gold,
+                left,
+                healthBefore,
+                this.Attributes?[Stats.MaximumHealth] ?? 0f,
+                worn.Count,
+                string.Join(" | ", worn.OrderBy(i => i.ItemSlot).Select(i => $"{i.ItemSlot}:{i.Definition?.Name}+{i.Level} {MobaShop.PriceOf(i)}")));
+        }
+
+        return worn.Count;
     }
 
     /// <summary>

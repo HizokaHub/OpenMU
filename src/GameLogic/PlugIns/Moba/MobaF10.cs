@@ -39,8 +39,11 @@ public static class MobaF10
 
     private const double ArmourPool = 3.3;
 
-    /// <summary>The levels where the per-level tables (class offsets, matchups, scales) hold a calibrated value; between two of them the value is interpolated (2026-11-25).</summary>
-    public static readonly int[] LevelKnots = { 1, 5, 10, 15, 20, 25, 30 };
+    /// <summary>
+    /// The levels that hold their own value in the per-level tables (class offsets, matchups, scales): every champion level (2026-11-25; before, one every five), because
+    /// each level brings something new (a skill point, stats, gear). The levels without their own calibration get values interpolated by tools/generar_tablas_f10.py.
+    /// </summary>
+    public static readonly int[] LevelKnots = Enumerable.Range(1, MobaLevels.MaxLevel).ToArray();
 
     /// <summary>
     /// Class offsets calibrated with real duels (2026-11-20, level 30, no items, damage scale 1.5, 8 duels per pair, all classes 38-59 % against the field, duels of 10 s),
