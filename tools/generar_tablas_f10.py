@@ -5,6 +5,13 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 FAM = {3: "Wizard", 6: "Knight", 11: "Elf", 12: "MagicGladiator", 16: "DarkLord", 20: "Summoner", 24: "RageFighter"}
 estado = json.load(open(RAIZ / "tools/f10_calibracion.json"))
+# mejor pasada reconstruida de los niveles calibrados antes de que se guardara sola (tools/recuperar_mejor_f10.py); una calibracion nueva (con "mejor") manda sobre ella
+recuperado = RAIZ / "tools/f10_recuperado.json"
+if recuperado.exists():
+    for nivel, e in json.load(open(recuperado)).items():
+        if "mejor" not in estado.get(nivel, {}):
+            estado[nivel] = e
+            print(f"nivel {nivel}: uso la mejor pasada recuperada ({e['mejor']['pasada']})")
 filas = []
 # niveles intermedios: promedio de los dos niveles calibrados vecinos (solo si ambos existen)
 for medio, bajo, alto in ((5, 1, 10), (15, 10, 20), (25, 20, 30)):
