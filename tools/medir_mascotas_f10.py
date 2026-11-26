@@ -1,7 +1,7 @@
 """Mide lo que valen el Dark Horse y el Dark Raven frente a gastar ese oro en equipo: duelos DL contra DL, un lado compra las mascotas y el otro no.
 Tres comparaciones por nivel (contra un DL sin mascotas): las dos, solo el caballo y solo el cuervo. Ademas cuenta los golpes sin skill de cada lado
 (ataque basico + cuervo) para ver si el cuervo ataca de verdad.
-Limite: los duelistas pelean con sus 4 skills elegidas, asi que NO lanzan Terremoto (la skill del caballo).
+El lado con caballo lanza Terremoto ademas de sus 4 skills (sin el empuje, porque los duelos son estaticos).
 Uso: python -I -X utf8 tools/medir_mascotas_f10.py ["20 25 30"] [duelos=100]
 Abre el juego y al final lo cierra. MUEVE EL MOUSE Y EL TECLADO. Guarda en tools/f10_mascotas.json."""
 import glob, json, os, statistics, subprocess, sys, time
@@ -53,6 +53,9 @@ def analizar(arch):
 
     return {"duelos": len(filas), "gana_con_mascotas": round(gana, 3), "duracion": round(statistics.mean(x["seconds"] for x in filas), 1),
             "dano_por_s": [round(dano("a")), round(dano("b"))], "golpes_sin_skill_por_s": [round(por_segundo("a", 0), 2), round(por_segundo("b", 0), 2)],
+            "terremotos_por_duelo": [round(statistics.mean(x[lado + "X"]["casts"].get("62", 0) for x in filas), 2) for lado in ("a", "b")],
+            "parte_del_dano_terremoto": round(statistics.mean(x["aDamage"].get("62", 0) / max(sum(x["aDamage"].values()), 1) for x in filas), 3),
+            "parte_de_duelos_con_2_terremotos": round(statistics.mean(x["aX"]["casts"].get("62", 0) >= 2 for x in filas), 3),
             "piezas": [filas[0]["aPieces"], filas[0]["bPieces"]], "informe": Path(arch).name}
 
 
@@ -71,7 +74,8 @@ try:
             resultados.setdefault(str(nivel), {})[plan] = r
             json.dump(resultados, open(SALIDA, "w", encoding="utf-8"), indent=1)
             base["avisar"](f"nivel {nivel}, {nombre}: gana el que compra mascotas {r['gana_con_mascotas']:.0%} | dano por segundo {r['dano_por_s'][0]} contra {r['dano_por_s'][1]}"
-                           f" | golpes sin skill por segundo {r['golpes_sin_skill_por_s'][0]} contra {r['golpes_sin_skill_por_s'][1]} | piezas {r['piezas'][0]} contra {r['piezas'][1]}")
+                           f" | golpes sin skill por segundo {r['golpes_sin_skill_por_s'][0]} contra {r['golpes_sin_skill_por_s'][1]} | piezas {r['piezas'][0]} contra {r['piezas'][1]}"
+                           f" | duracion {r['duracion']} s | terremotos por duelo {r['terremotos_por_duelo'][0]} (con 2 o mas: {r['parte_de_duelos_con_2_terremotos']:.0%}), su parte del dano {r['parte_del_dano_terremoto']:.0%}")
 except (base["Detenida"], OSError, subprocess.SubprocessError) as error:
     base["avisar"](f"DETENIDA: {error}")
     codigo_salida = 1

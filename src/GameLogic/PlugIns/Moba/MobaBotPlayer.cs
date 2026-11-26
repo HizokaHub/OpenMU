@@ -2132,6 +2132,12 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
             .Where(s => s.Skill is { } sk && (int)sk.SkillType <= (int)SkillType.AreaSkillExplicitTarget && !MobaSkills.IsInactive(this, s)) // same rule as a player: a kit skill without rank cannot be cast
             .ToList() ?? new List<SkillEntry>();
 
+        // The Earthshake comes with the Dark Horse (it is not a learned skill): the bot casts it like the player who has the horse switched on.
+        if (MobaPets.IsHorseActive(this) && this.SkillList?.GetSkill((ushort)MobaPets.EarthshakeSkill) is { Skill: not null } quake)
+        {
+            skills.Add(quake);
+        }
+
         // A combo class walks the steps of ITS combo definition (the server's, so the bot completes the same combo a player does: 2026-11-24 the stages were guessed and
         // stage 2 asked for skills that only count as a first step, so no combo was ever completed). Each step needs one of its skills, different from the one of the step
         // before; if a later step has nothing ready the combo is abandoned (skipping a step would break it) and the normal rotation goes on.

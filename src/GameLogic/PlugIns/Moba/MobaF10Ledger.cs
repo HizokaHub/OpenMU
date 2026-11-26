@@ -168,10 +168,10 @@ public static class MobaF10Ledger
         }
 
         // The Dark Lord's pets are part of its kit but the reference (the bots) switches none on: what they add is a share of the total damage.
+        // The Horse has no term since 2026-11-26: its Earthshake is cast for real (the duel bots too), so a term here would count it twice.
         if (family == MobaFamily.DarkLord)
         {
-            var (earthshake, raven) = MobaPets.DarkLordPetShare(level, 3);
-            petDamage += MobaPets.IsHorseActive(champion) ? earthshake / (1.0 - earthshake) : 0.0;
+            var (_, raven) = MobaPets.DarkLordPetShare(level, 3);
             petDamage += MobaPets.IsRavenActive(champion) ? raven / (1.0 - raven) : 0.0;
         }
 
@@ -304,7 +304,7 @@ public static class MobaF10Ledger
         new("rule:leech", LedgerChannel.Life, "MobaVampAndSpecial (class intrinsic, absorbed by the class offset)"),
         new("pet:utility", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Imp, Demon, Skeleton damage; Angel, Spirit life; damage taken stays live; Demon speed in the hit rate)"),
         new("pet:fenrir", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (black +10 % damage, gold +5 % damage and life; blue less damage taken stays live; speed live)"),
-        new("pet:darkLordPets", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Earthshake and Raven shares of DarkLordPetShare, the reference has none)"),
+        new("pet:darkLordPets", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Raven share of DarkLordPetShare, the reference has none; Earthshake is a real cast)"),
         new("aura:command banner", LedgerChannel.Live, "adds attack speed to the allies in range: counted by HitRateRatio like any attack speed"),
         new("buff:ledger", LedgerChannel.Offense, "MobaF10.PoolsOf (buff ledger 2026-11-20)"),
     };

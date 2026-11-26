@@ -48,7 +48,10 @@ public static class MobaPets
     private const byte PetSlotOfRaven = 1;
     private const short HorseNumber = 4;
     private const short RavenNumber = 5;
-    private const short EarthshakeSkill = 62;
+
+    /// <summary>The skill of the Dark Horse.</summary>
+    public const short EarthshakeSkill = 62;
+
     /// <summary>The numbers (group 13) of the utility pets which can be switched on from the inventory, in the bit order of <see cref="ExtraMaskOf"/>.</summary>
     private static readonly short[] UtilityPetNumbers = { 0, 1, 64, 65, 67, 80, 106, 123 };
 
@@ -343,6 +346,14 @@ public static class MobaPets
     /// <returns><see langword="true"/> for the Dark Horse and the Dark Raven.</returns>
     public static bool IsInventoryPet(ItemDefinition definition)
         => definition.Group == 13 && (definition.Number == HorseNumber || definition.Number == RavenNumber);
+
+    /// <summary>
+    /// The rank of Earthshake. It comes with the pet, so no skill points go into it: it follows the champion level (1 up to level 17, then one rank every three
+    /// levels up to 5 at level 27), which sets its cooldown (12 / 11 / 10 / 9 / 8 s) and its damage.
+    /// </summary>
+    /// <param name="championLevel">The champion level.</param>
+    /// <returns>The rank, 1..5.</returns>
+    public static int EarthshakeRankAt(int championLevel) => Math.Clamp(1 + ((championLevel - 15) / 3), 1, 5);
 
     /// <summary>Whether the pet of the inventory is the Dark Horse.</summary>
     /// <param name="definition">The item definition.</param>

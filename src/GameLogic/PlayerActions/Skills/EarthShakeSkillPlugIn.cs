@@ -29,6 +29,12 @@ public class EarthShakeSkillPlugIn : IAreaSkillPlugIn
             return;
         }
 
+        // The static balance duels have no movement: a duelist pushed out of reach could never walk back (a melee class would just stand there).
+        if (target is PlugIns.Moba.MobaBotPlayer { DuelStatic: true })
+        {
+            return;
+        }
+
         skillEntry.ThrowNotInitializedProperty(skillEntry.Skill is null, nameof(skillEntry.Skill));
 
         var startingPoint = attacker.Position;

@@ -138,7 +138,8 @@ public static class AttackableExtensions
         {
             if (skill?.Skill is { } mobaSkill)
             {
-                PlugIns.Moba.MobaSkillDamage.GetSkillBaseDamage(mobaChampion, (short)mobaSkill.Number, skill.Level, out baseMinDamage, out baseMaxDamage);
+                var mobaRank = mobaSkill.Number == PlugIns.Moba.MobaPets.EarthshakeSkill ? PlugIns.Moba.MobaPets.EarthshakeRankAt(mobaChampion.MobaLevel) : skill.Level;
+                PlugIns.Moba.MobaSkillDamage.GetSkillBaseDamage(mobaChampion, (short)mobaSkill.Number, mobaRank, out baseMinDamage, out baseMaxDamage);
             }
             else
             {

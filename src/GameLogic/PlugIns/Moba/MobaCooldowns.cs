@@ -66,7 +66,7 @@ public static class MobaCooldowns
         [7] = new[] { 9.0, 8.25, 7.5, 6.75, 6.0 },  // Ice (slow AoE)
         [9] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },    // Evil Spirit
         [46] = new[] { 9.0, 8.0, 7.0, 6.0, 5.0 },   // Starfall (big burst)
-        [62] = new[] { 10.0, 9.0, 8.0, 7.0, 6.0 },  // Earthshake
+        [62] = new[] { 12.0, 11.0, 10.0, 9.0, 8.0 }, // Earthshake (rank by champion level, see MobaPets.EarthshakeRankAt)
         [214] = new[] { 8.0, 7.5, 7.0, 6.5, 6.0 },  // Drain Life
 
         // --- The Elf's creature (the seven appearances share the cooldown) ---
@@ -131,7 +131,10 @@ public static class MobaCooldowns
         var learned = character.LearnedSkills.FirstOrDefault(s => s.Skill?.Number == skill.Number);
         if (learned is null)
         {
-            return TimeSpan.Zero;
+            // The Earthshake of the Dark Horse is given by the pet, so it is never learned: until 2026-11-26 it had NO cooldown at all.
+            return skill.Number == MobaPets.EarthshakeSkill
+                ? TimeSpan.FromSeconds(SecondsOf(MobaPets.EarthshakeSkill, MobaPets.EarthshakeRankAt(champion.MobaLevel)))
+                : TimeSpan.Zero;
         }
 
         var perRank = PerRankSeconds.TryGetValue((short)skill.Number, out var table) ? table : DefaultPerRank;
