@@ -14,7 +14,7 @@ SALIDA = RAIZ / "tools/f10_mascotas.json"
 CASOS = [("todas", "las dos"), ("caballo", "solo caballo"), ("cuervo", "solo cuervo")]
 
 # se reutiliza el manejo del juego de la medicion de los 30 niveles (reinicio, chat comprobado en el log, IP), sin ejecutar su programa principal
-codigo = (RAIZ / "tools/medir_30_niveles_f10.py").read_text(encoding="utf-8").replace("sys.exit(main())", "")
+codigo = (RAIZ / "tools/medir_30_niveles_f10.py").read_text(encoding="utf-8")
 base = {"__file__": str(RAIZ / "tools/medir_30_niveles_f10.py"), "__name__": "base"}
 argv, sys.argv = sys.argv, ["base", "--duelos", str(duelos)]
 exec(compile(codigo, "medir_30_niveles_f10.py", "exec"), base)
