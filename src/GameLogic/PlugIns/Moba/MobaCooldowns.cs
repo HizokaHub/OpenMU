@@ -26,10 +26,10 @@ public static class MobaCooldowns
     /// </summary>
     public static readonly TimeSpan GraceWindow = TimeSpan.FromSeconds(3);
 
-    /// <summary>The grace window of a skill: none for the Rush (a second jump inside the window would make it a permanent closing).</summary>
+    /// <summary>The grace window of a skill: none for the Rush (a second jump inside the window would make it a permanent closing) nor the Earthshake (once per cooldown).</summary>
     /// <param name="skillNumber">The skill number.</param>
     /// <returns>The grace window.</returns>
-    public static TimeSpan GraceOf(short skillNumber) => skillNumber == MobaRush.SkillNumber ? TimeSpan.Zero : GraceWindow;
+    public static TimeSpan GraceOf(short skillNumber) => skillNumber is MobaRush.SkillNumber or MobaPets.EarthshakeSkill ? TimeSpan.Zero : GraceWindow;
 
     /// <summary>Cooldown per rank (seconds, index 0 = rank 1) for a skill with no explicit entry.</summary>
     private static readonly double[] DefaultPerRank = { 6.5, 6.0, 5.5, 5.0, 4.5 };
