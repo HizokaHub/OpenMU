@@ -1,0 +1,244 @@
+{
+ "tiers": {
+  "kn 10": 1,
+  "mg 10": 1,
+  "kn 15": 1,
+  "mg 15": 1,
+  "kn 20": 1,
+  "mg 20": 1,
+  "kn 25": 2,
+  "mg 25": 2,
+  "kn 30": 2,
+  "mg 30": 3
+ },
+ "tandas": {
+  "kn 10 0.000": {
+   "gana_dos_armas": 0.015,
+   "duracion": 18.2,
+   "informe": "duelos_nivel10_20261126_194156.json"
+  },
+  "mg 10 0.000": {
+   "gana_dos_armas": 0.025,
+   "duracion": 24.3,
+   "informe": "duelos_nivel10_20261126_194328.json"
+  },
+  "kn 15 0.000": {
+   "gana_dos_armas": 0.075,
+   "duracion": 14.3,
+   "informe": "duelos_nivel15_20261126_194433.json"
+  },
+  "mg 15 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 22.5,
+   "informe": "duelos_nivel15_20261126_194601.json"
+  },
+  "kn 20 0.000": {
+   "gana_dos_armas": 0.02,
+   "duracion": 12.3,
+   "informe": "duelos_nivel20_20261126_194653.json"
+  },
+  "mg 20 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 23.3,
+   "informe": "duelos_nivel20_20261126_194824.json"
+  },
+  "kn 25 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 8.2,
+   "informe": "duelos_nivel25_20261126_194904.json"
+  },
+  "mg 25 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 15.0,
+   "informe": "duelos_nivel25_20261126_195004.json"
+  },
+  "kn 30 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 7.3,
+   "informe": "duelos_nivel30_20261126_195044.json"
+  },
+  "mg 30 0.000": {
+   "gana_dos_armas": 0.0,
+   "duracion": 20.0,
+   "informe": "duelos_nivel30_20261126_195208.json"
+  },
+  "kn 10 0.225": {
+   "gana_dos_armas": 0.345,
+   "duracion": 17.2,
+   "informe": "duelos_nivel10_20261126_195320.json"
+  },
+  "kn 15 0.225": {
+   "gana_dos_armas": 0.551,
+   "duracion": 13.6,
+   "informe": "duelos_nivel15_20261126_195418.json"
+  },
+  "kn 20 0.225": {
+   "gana_dos_armas": 0.025,
+   "duracion": 12.7,
+   "informe": "duelos_nivel20_20261126_195518.json"
+  },
+  "kn 10 0.374": {
+   "gana_dos_armas": 0.707,
+   "duracion": 16.6,
+   "informe": "duelos_nivel10_20261126_195625.json"
+  },
+  "kn 15 0.374": {
+   "gana_dos_armas": 0.835,
+   "duracion": 11.8,
+   "informe": "duelos_nivel15_20261126_195720.json"
+  },
+  "kn 20 0.374": {
+   "gana_dos_armas": 0.17,
+   "duracion": 11.3,
+   "informe": "duelos_nivel20_20261126_195812.json"
+  },
+  "kn 10 0.337": {
+   "gana_dos_armas": 0.61,
+   "duracion": 15.9,
+   "informe": "duelos_nivel10_20261126_195921.json"
+  },
+  "kn 15 0.337": {
+   "gana_dos_armas": 0.795,
+   "duracion": 12.5,
+   "informe": "duelos_nivel15_20261126_200018.json"
+  },
+  "kn 20 0.337": {
+   "gana_dos_armas": 0.21,
+   "duracion": 11.7,
+   "informe": "duelos_nivel20_20261126_200113.json"
+  },
+  "kn 10 0.309": {
+   "gana_dos_armas": 0.712,
+   "duracion": 16.3,
+   "informe": "duelos_nivel10_20261126_200221.json"
+  },
+  "kn 15 0.309": {
+   "gana_dos_armas": 0.692,
+   "duracion": 12.5,
+   "informe": "duelos_nivel15_20261126_200317.json"
+  },
+  "kn 20 0.309": {
+   "gana_dos_armas": 0.148,
+   "duracion": 11.8,
+   "informe": "duelos_nivel20_20261126_200411.json"
+  },
+  "kn 25 0.248": {
+   "gana_dos_armas": 0.021,
+   "duracion": 8.0,
+   "informe": "duelos_nivel25_20261126_200456.json"
+  },
+  "kn 30 0.248": {
+   "gana_dos_armas": 0.03,
+   "duracion": 7.4,
+   "informe": "duelos_nivel30_20261126_200536.json"
+  },
+  "kn 25 0.498": {
+   "gana_dos_armas": 0.0,
+   "duracion": 8.1,
+   "informe": "duelos_nivel25_20261126_200620.json"
+  },
+  "kn 30 0.498": {
+   "gana_dos_armas": 0.13,
+   "duracion": 7.2,
+   "informe": "duelos_nivel30_20261126_200701.json"
+  },
+  "kn 25 0.748": {
+   "gana_dos_armas": 0.0,
+   "duracion": 8.1,
+   "informe": "duelos_nivel25_20261126_200746.json"
+  },
+  "kn 30 0.748": {
+   "gana_dos_armas": 0.03,
+   "duracion": 7.1,
+   "informe": "duelos_nivel30_20261126_200821.json"
+  },
+  "kn 25 0.998": {
+   "gana_dos_armas": 0.0,
+   "duracion": 8.4,
+   "informe": "duelos_nivel25_20261126_200907.json"
+  },
+  "mg 10 0.248": {
+   "gana_dos_armas": 0.525,
+   "duracion": 23.5,
+   "informe": "duelos_nivel10_20261126_201151.json"
+  },
+  "mg 15 0.248": {
+   "gana_dos_armas": 0.0,
+   "duracion": 22.7,
+   "informe": "duelos_nivel15_20261126_201314.json"
+  },
+  "mg 20 0.248": {
+   "gana_dos_armas": 0.105,
+   "duracion": 24.4,
+   "informe": "duelos_nivel20_20261126_201447.json"
+  },
+  "mg 10 0.458": {
+   "gana_dos_armas": 0.995,
+   "duracion": 19.5,
+   "informe": "duelos_nivel10_20261126_201607.json"
+  },
+  "mg 15 0.458": {
+   "gana_dos_armas": 0.13,
+   "duracion": 22.3,
+   "informe": "duelos_nivel15_20261126_201734.json"
+  },
+  "mg 20 0.458": {
+   "gana_dos_armas": 0.8,
+   "duracion": 22.5,
+   "informe": "duelos_nivel20_20261126_201900.json"
+  },
+  "mg 10 0.385": {
+   "gana_dos_armas": 0.935,
+   "duracion": 20.6,
+   "informe": "duelos_nivel10_20261126_202026.json"
+  },
+  "mg 15 0.385": {
+   "gana_dos_armas": 0.04,
+   "duracion": 22.5,
+   "informe": "duelos_nivel15_20261126_202153.json"
+  },
+  "mg 20 0.385": {
+   "gana_dos_armas": 0.59,
+   "duracion": 23.6,
+   "informe": "duelos_nivel20_20261126_202321.json"
+  }
+ },
+ "bonos": {
+  "kn T1": {
+   "bono": 0.225,
+   "ganan": {
+    "10": 0.345,
+    "15": 0.551,
+    "20": 0.025
+   },
+   "fuera3070": 1,
+   "peor": 0.475,
+   "puntaje": -1.304,
+   "niveles": [
+    10,
+    15,
+    20
+   ],
+   "pasos": 5,
+   "gana_de_mas_con_cero": false
+  },
+  "mg T1": {
+   "bono": 0.385,
+   "ganan": {
+    "10": 0.935,
+    "15": 0.04,
+    "20": 0.59
+   },
+   "fuera3070": 2,
+   "peor": 0.46,
+   "puntaje": -0.049,
+   "niveles": [
+    10,
+    15,
+    20
+   ],
+   "pasos": 4,
+   "gana_de_mas_con_cero": false
+  }
+ }
+}
