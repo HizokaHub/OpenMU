@@ -138,7 +138,10 @@ internal static class MobaBotEconomy
         }
 
         // what is worn now and was not before (equipment slots only; the starting weapon that was not replaced does not count)
-        var worn = bot.Inventory?.Items.Where(i => i.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex && !before.Contains(i)).ToList() ?? new List<Item>();
+        // (plus the Horse and the Raven, which work from the bag)
+        var worn = bot.Inventory?.Items
+            .Where(i => (i.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex || (i.Definition is { } d && MobaPets.IsInventoryPet(d))) && !before.Contains(i))
+            .ToList() ?? new List<Item>();
         return (worn, left);
     }
 
@@ -415,6 +418,17 @@ internal static class MobaBotEconomy
 
             var template = MobaShop.CreateItem(definition, entry);
             var price = MobaShop.PriceOf(template);
+            if (MobaPets.IsInventoryPet(definition))
+            {
+                // The Horse and the Raven are not worn: bought into the bag and switched on from there, like the player's right click.
+                if (!inventory.Items.Any(i => i.Definition == definition) && gold >= price)
+                {
+                    return new Purchase(template, byte.MaxValue, price, null, 0);
+                }
+
+                continue;
+            }
+
             var current = inventory.GetItem(slot);
             if (current is not null && MobaShop.PriceOf(current) >= price)
             {
@@ -488,6 +502,11 @@ internal static class MobaBotEconomy
 
             await inventory.AddItemAsync((byte)bagSlot, item).ConfigureAwait(false);
             bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" bought {Item} x{Qty} for {Price}.", bot.SelectedCharacter?.Name, item.Definition?.Name, item.Durability, plan.Price);
+            if (item.Definition is { } bought && MobaPets.IsInventoryPet(bought))
+            {
+                await MobaPets.ToggleFromInventoryAsync(bot, item.ItemSlot).ConfigureAwait(false);
+            }
+
             return item;
         }
 
@@ -612,7 +631,7 @@ internal static class MobaBotEconomy
 
     /// <summary>
     /// The slots a bot uses an item in. Hands (2026-11-25): ONE weapon (the bow for the Elf; the Elf bot takes no crossbow nor buys arrows) and the other hand only
-    /// for the shield / book (or the Raven of the Dark Lord); two weapons only with <see cref="DualWields"/>, which then takes no shield. Before this, every purchase
+    /// for the shield / book (the Horse and the Raven of the Dark Lord work from the bag); two weapons only with <see cref="DualWields"/>, which then takes no shield. Before this, every purchase
     /// went to the hand with the cheapest piece: an old staff replaced the shield and the Elf bought her bow after the whole set.
     /// </summary>
     private static byte[] SlotsFor(Player bot, ItemDefinition definition)

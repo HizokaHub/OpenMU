@@ -17,7 +17,7 @@ for intento in 1 2 3 4; do
   tam=$(stat -c %s logs/servidor.log)
   python -I tools/bot-pruebas/piloto.py chat "/mobaf10 manos $M"
   sleep 3
-  tail -c +$((tam+1)) logs/servidor.log | grep -q "MOBA-F10\] duelos" && break
+  tail -c +$((tam+1)) logs/servidor.log | grep -q "MOBA-F10.*duelos: " && break
   [ "$intento" = 4 ] && { echo "no pude elegir las manos ($M)"; exit 1; }
 done
 for L in $1; do

@@ -103,6 +103,11 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaDuel.Drinking = arguments.Key switch { "on" => MobaDuelDrinking.Both, "off" => MobaDuelDrinking.None, _ => MobaDuelDrinking.OnlyFirst };
                 message = arguments.Key switch { "on" => "los duelos CON pociones", "off" => "los duelos SIN pociones", _ => "en los duelos bebe SOLO el primero de cada cruce" };
                 break;
+            case "doblebono" when ResolveFamily(arguments.Key) is { } dualFamily
+                                  && double.TryParse(arguments.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var dualBonus)
+                                  && MobaDualWield.SetBonus(dualFamily, Math.Clamp(dualBonus, 0, 2), knotLevel):
+                message = FormattableString.Invariant($"bono de dos armas {dualFamily} (arma T{knotLevel}, 0 = todas) = {MobaDualWield.BonusOf(dualFamily, knotLevel <= 0 ? 3 : knotLevel)}");
+                break;
             case "manos" when arguments.Key is "escudo" or "doble" or "uno":
                 MobaDuel.Hands = arguments.Key switch { "doble" => MobaDuelHands.TwoWeapons, "uno" => MobaDuelHands.OnlyFirst, _ => MobaDuelHands.Shield };
                 message = arguments.Key switch { "doble" => "duelos: BK y MG con DOS ARMAS", "uno" => "duelos: solo el primero de cada cruce lleva dos armas (BK y MG)", _ => "duelos: BK y MG con arma y ESCUDO" };
