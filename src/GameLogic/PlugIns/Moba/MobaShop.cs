@@ -450,6 +450,19 @@ public static class MobaShop
         => BuildItems(configuration, characterClass, new[] { category }, out overflow);
 
     /// <summary>
+    /// Like <see cref="BuildCategoryItems(GameConfiguration, CharacterClass, MobaShopCategory, out int)"/> for one tier only. Whoever needs the WHOLE catalog of a class
+    /// must ask tier by tier: all the sets together don't fit on one merchant grid.
+    /// </summary>
+    /// <param name="configuration">The game configuration.</param>
+    /// <param name="characterClass">The class of the champion.</param>
+    /// <param name="category">The category.</param>
+    /// <param name="tier">The tier.</param>
+    /// <param name="overflow">The number of catalog items which didn't fit on the grid.</param>
+    /// <returns>The items of the category and tier.</returns>
+    public static IReadOnlyList<Item> BuildCategoryItems(GameConfiguration configuration, CharacterClass characterClass, MobaShopCategory category, MobaShopTier tier, out int overflow)
+        => BuildItems(configuration, characterClass, new[] { category }, out overflow, tier);
+
+    /// <summary>
     /// Builds the items a class sees on one menu page (one or more catalog categories sharing
     /// a single merchant grid, categories in the given order, cheapest tier first in each).
     /// </summary>

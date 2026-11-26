@@ -672,11 +672,21 @@ internal static class MobaBotEconomy
             var list = new List<Candidate>();
             foreach (var category in GearCategories)
             {
-                foreach (var template in MobaShop.BuildCategoryItems(bot.GameContext.Configuration, characterClass, category, out int overflow))
+                // Tier by tier (2026-11-25): asked all at once, the sets did not fit on the grid and the bots never bought most tier 3 pieces.
+                foreach (var tier in Enum.GetValues<MobaShopTier>())
                 {
-                    if (template.Definition?.ItemSlot?.ItemSlots is { Count: > 0 } slots)
+                    int overflow;
+                    foreach (var template in MobaShop.BuildCategoryItems(bot.GameContext.Configuration, characterClass, category, tier, out overflow))
                     {
-                        list.Add(new Candidate(template, slots.Select(s => (byte)s).ToArray(), MobaShop.PriceOf(template)));
+                        if (template.Definition?.ItemSlot?.ItemSlots is { Count: > 0 } slots)
+                        {
+                            list.Add(new Candidate(template, slots.Select(s => (byte)s).ToArray(), MobaShop.PriceOf(template)));
+                        }
+                    }
+
+                    if (overflow > 0)
+                    {
+                        bot.Logger.LogWarning("[MOBA-BOT-ECON] {Overflow} item(s) of {Category} {Tier} of class {Class} didn't fit on the grid: the bots can't buy them.", overflow, category, tier, characterClass.Name);
                     }
                 }
             }
