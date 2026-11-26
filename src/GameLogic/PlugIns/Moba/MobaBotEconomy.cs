@@ -420,6 +420,11 @@ internal static class MobaBotEconomy
             var price = MobaShop.PriceOf(template);
             if (MobaPets.IsInventoryPet(definition))
             {
+                if (bot is MobaBotPlayer plan && !plan.Wants(definition))
+                {
+                    continue; // measurement of the pets (duels): this side spends that gold on gear
+                }
+
                 // The Horse and the Raven are not worn: bought into the bag and switched on from there, like the player's right click.
                 if (!inventory.Items.Any(i => i.Definition == definition) && gold >= price)
                 {

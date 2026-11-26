@@ -25,6 +25,16 @@ public sealed partial class MobaBotPlayer
     /// </summary>
     public bool DualWield { get; set; }
 
+    /// <summary>Gets or sets which pets of the inventory a Dark Lord bot buys (to measure what they are worth against the gear that gold buys).</summary>
+    public MobaDuelPets InventoryPets { get; set; } = MobaDuelPets.Both;
+
+    /// <summary>Whether the bot buys the Horse or Raven.</summary>
+    /// <param name="pet">The definition of the pet.</param>
+    /// <returns><see langword="true"/> if it is in the bot's plan.</returns>
+    public bool Wants(MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition pet) => MobaPets.IsHorse(pet)
+        ? this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Horse
+        : this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Raven;
+
     /// <summary>Gets or sets a value indicating whether this duelist keeps and drinks potions (see <see cref="MobaDuel.Drinking"/>).</summary>
     public bool DuelDrinks { get; set; } = true;
 
@@ -120,7 +130,8 @@ public sealed partial class MobaBotPlayer
             a[Stats.CurrentShield] = a[Stats.MaximumShield];
         }
 
-        if (this.SelectedCharacter?.CharacterClass is { } characterClass && LoggedBuilds.TryAdd((characterClass.Number, level, MobaBotEconomy.DualWields(this)), true))
+        // a pet measurement logs nothing: both sides are Dark Lords with different plans
+        if (this.InventoryPets == MobaDuelPets.Both && this.SelectedCharacter?.CharacterClass is { } characterClass && LoggedBuilds.TryAdd((characterClass.Number, level, MobaBotEconomy.DualWields(this)), true))
         {
             this.Logger.LogInformation(
                 "[MOBA-BUILD] level {Level} class {Class}: gold {Gold}, unspent {Left}, maxHP {Health:0}, two weapons {Dual}, {Count} pieces: {Pieces}",

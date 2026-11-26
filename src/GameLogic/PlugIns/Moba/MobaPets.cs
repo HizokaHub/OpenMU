@@ -344,6 +344,11 @@ public static class MobaPets
     public static bool IsInventoryPet(ItemDefinition definition)
         => definition.Group == 13 && (definition.Number == HorseNumber || definition.Number == RavenNumber);
 
+    /// <summary>Whether the pet of the inventory is the Dark Horse.</summary>
+    /// <param name="definition">The item definition.</param>
+    /// <returns><see langword="true"/> for the Dark Horse.</returns>
+    public static bool IsHorse(ItemDefinition definition) => definition.Group == 13 && definition.Number == HorseNumber;
+
     /// <summary>Whether the Dark Raven of the champion is switched on (from the inventory).</summary>
     /// <param name="player">The champion.</param>
     /// <returns><see langword="true"/> while it works.</returns>

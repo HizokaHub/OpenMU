@@ -108,6 +108,11 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                                   && MobaDualWield.SetBonus(dualFamily, Math.Clamp(dualBonus, 0, 2), knotLevel):
                 message = FormattableString.Invariant($"bono de dos armas {dualFamily} (arma T{knotLevel}, 0 = todas) = {MobaDualWield.BonusOf(dualFamily, knotLevel <= 0 ? 3 : knotLevel)}");
                 break;
+            case "mascotas" when ParsePets(arguments.Key) is { } firstPets && ParsePets(arguments.Value) is { } secondPets:
+                MobaDuel.FirstPets = firstPets;
+                MobaDuel.SecondPets = secondPets;
+                message = $"mascotas del DL en los duelos: primero {firstPets}, segundo {secondPets}";
+                break;
             case "manos" when arguments.Key is "escudo" or "doble" or "uno":
                 MobaDuel.Hands = arguments.Key switch { "doble" => MobaDuelHands.TwoWeapons, "uno" => MobaDuelHands.OnlyFirst, _ => MobaDuelHands.Shield };
                 message = arguments.Key switch { "doble" => "duelos: BK y MG con DOS ARMAS", "uno" => "duelos: solo el primero de cada cruce lleva dos armas (BK y MG)", _ => "duelos: BK y MG con arma y ESCUDO" };
@@ -172,6 +177,15 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
         "dl" => MobaFamily.DarkLord,
         "sum" => MobaFamily.Summoner,
         "rf" => MobaFamily.RageFighter,
+        _ => null,
+    };
+
+    private static MobaDuelPets? ParsePets(string? text) => text switch
+    {
+        "todas" => MobaDuelPets.Both,
+        "ninguna" => MobaDuelPets.None,
+        "caballo" => MobaDuelPets.Horse,
+        "cuervo" => MobaDuelPets.Raven,
         _ => null,
     };
 }

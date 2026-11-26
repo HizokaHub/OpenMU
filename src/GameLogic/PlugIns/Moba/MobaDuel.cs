@@ -39,6 +39,22 @@ public enum MobaDuelHands
     OnlyFirst,
 }
 
+/// <summary>The pets of the inventory (Dark Horse and Dark Raven) a duelist buys.</summary>
+public enum MobaDuelPets
+{
+    /// <summary>Both.</summary>
+    Both,
+
+    /// <summary>None: that gold goes to gear.</summary>
+    None,
+
+    /// <summary>Only the Dark Horse.</summary>
+    Horse,
+
+    /// <summary>Only the Dark Raven.</summary>
+    Raven,
+}
+
 /// <summary>What a duel run should measure.</summary>
 /// <param name="Pairs">The pairs of classes (a mirror is a pair of the same class).</param>
 /// <param name="Duels">The duels of every pair.</param>
@@ -105,6 +121,12 @@ public static class MobaDuel
     /// (<c>/mobaf10 manos escudo|doble|uno</c>; with mirror crosses "uno" measures one option against the other).
     /// </summary>
     public static MobaDuelHands Hands { get; set; } = MobaDuelHands.Shield;
+
+    /// <summary>Gets or sets the pets of the inventory the first class of each cross buys (<c>/mobaf10 mascotas first second</c>; only the Dark Lord has them).</summary>
+    public static MobaDuelPets FirstPets { get; set; } = MobaDuelPets.Both;
+
+    /// <summary>Gets or sets the pets of the inventory the second class of each cross buys.</summary>
+    public static MobaDuelPets SecondPets { get; set; } = MobaDuelPets.Both;
 
     /// <summary>
     /// Gets or sets a value indicating whether the duelists take the WHOLE kit of their class at rank 5 (the old way) instead of what a champion really takes into the
@@ -607,6 +629,7 @@ public static class MobaDuel
             ["rank"] = MobaSkills.SkillLevelCap,
             ["duelsPerPair"] = request.Duels,
             ["hands"] = Hands.ToString(),
+            ["pets"] = $"{FirstPets}/{SecondPets}",
             ["timeoutSeconds"] = TimeoutSeconds,
             ["cancelled"] = Volatile.Read(ref _cancel) == 1,
             ["pairs"] = pairs,
@@ -629,7 +652,7 @@ public static class MobaDuel
         var secondDrinks = Drinking == MobaDuelDrinking.Both;
         var firstDual = Hands != MobaDuelHands.Shield;
         var secondDual = Hands == MobaDuelHands.TwoWeapons;
-        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level, swap ? secondDrinks : firstDrinks, swap ? firstDrinks : secondDrinks, swap ? secondDual : firstDual, swap ? firstDual : secondDual).ConfigureAwait(false);
+        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level, swap ? secondDrinks : firstDrinks, swap ? firstDrinks : secondDrinks, swap ? secondDual : firstDual, swap ? firstDual : secondDual, swap ? SecondPets : FirstPets, swap ? FirstPets : SecondPets).ConfigureAwait(false);
         if (swap)
         {
             row = row with
@@ -673,7 +696,7 @@ public static class MobaDuel
         }
     }
 
-    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level, bool drinksA, bool drinksB, bool dualA, bool dualB)
+    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level, bool drinksA, bool drinksB, bool dualA, bool dualB, MobaDuelPets petsA, MobaDuelPets petsB)
     {
         var carrier = CarrierFor(gm, slot);
         var id = Interlocked.Increment(ref _nameCounter) % 100000;
@@ -693,6 +716,8 @@ public static class MobaDuel
             b.DuelDrinks = drinksB;
             a.DualWield = dualA;
             b.DualWield = dualB;
+            a.InventoryPets = petsA;
+            b.InventoryPets = petsB;
 
             // The real build keeps the ranks the points of the level bought (rank 0 = do not overwrite); the other passes give every skill rank 5.
             await a.PrepareDuelAsync(level, t3 == 2 ? 0 : MobaSkills.SkillLevelCap).ConfigureAwait(false);
