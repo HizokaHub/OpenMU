@@ -1,0 +1,224 @@
+{
+ "20": {
+  "todas": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.54,
+   "duracion": 15.7,
+   "dano_por_s": [
+    2633,
+    2772
+   ],
+   "golpes_sin_skill_por_s": [
+    2.73,
+    2.14
+   ],
+   "terremotos_por_duelo": [
+    2,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.046,
+   "parte_de_duelos_con_2_terremotos": 1,
+   "piezas": [
+    13,
+    11
+   ],
+   "informe": "duelos_nivel20_20261126_001618.json"
+  },
+  "caballo": {
+   "duelos": 98,
+   "gana_con_mascotas": 0.954,
+   "duracion": 14.3,
+   "dano_por_s": [
+    2765,
+    2695
+   ],
+   "golpes_sin_skill_por_s": [
+    2.07,
+    2.13
+   ],
+   "terremotos_por_duelo": [
+    2,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.063,
+   "parte_de_duelos_con_2_terremotos": 1,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel20_20261126_002048.json"
+  },
+  "cuervo": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.515,
+   "duracion": 15.0,
+   "dano_por_s": [
+    2631,
+    2697
+   ],
+   "golpes_sin_skill_por_s": [
+    2.76,
+    2.12
+   ],
+   "terremotos_por_duelo": [
+    0,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.0,
+   "parte_de_duelos_con_2_terremotos": 0,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel20_20261126_002538.json"
+  }
+ },
+ "25": {
+  "todas": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.085,
+   "duracion": 22.7,
+   "dano_por_s": [
+    2235,
+    2387
+   ],
+   "golpes_sin_skill_por_s": [
+    2.66,
+    2.03
+   ],
+   "terremotos_por_duelo": [
+    3.32,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.06,
+   "parte_de_duelos_con_2_terremotos": 1,
+   "piezas": [
+    13,
+    11
+   ],
+   "informe": "duelos_nivel25_20261126_001745.json"
+  },
+  "caballo": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.55,
+   "duracion": 24.0,
+   "dano_por_s": [
+    2333,
+    2359
+   ],
+   "golpes_sin_skill_por_s": [
+    2.05,
+    2.03
+   ],
+   "terremotos_por_duelo": [
+    3.57,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.07,
+   "parte_de_duelos_con_2_terremotos": 1,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel25_20261126_002223.json"
+  },
+  "cuervo": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.04,
+   "duracion": 22.4,
+   "dano_por_s": [
+    2147,
+    2379
+   ],
+   "golpes_sin_skill_por_s": [
+    2.61,
+    1.96
+   ],
+   "terremotos_por_duelo": [
+    0,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.0,
+   "parte_de_duelos_con_2_terremotos": 0,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel25_20261126_002704.json"
+  }
+ },
+ "30": {
+  "todas": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.815,
+   "duracion": 31.3,
+   "dano_por_s": [
+    1815,
+    1515
+   ],
+   "golpes_sin_skill_por_s": [
+    1.96,
+    1.44
+   ],
+   "terremotos_por_duelo": [
+    5.63,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.074,
+   "parte_de_duelos_con_2_terremotos": 1,
+   "piezas": [
+    13,
+    11
+   ],
+   "informe": "duelos_nivel30_20261126_001942.json"
+  },
+  "caballo": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.24,
+   "duracion": 35.0,
+   "dano_por_s": [
+    1497,
+    1511
+   ],
+   "golpes_sin_skill_por_s": [
+    1.28,
+    1.4
+   ],
+   "terremotos_por_duelo": [
+    6.22,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.098,
+   "parte_de_duelos_con_2_terremotos": 0.99,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel30_20261126_002432.json"
+  },
+  "cuervo": {
+   "duelos": 100,
+   "gana_con_mascotas": 0.565,
+   "duracion": 33.3,
+   "dano_por_s": [
+    1669,
+    1511
+   ],
+   "golpes_sin_skill_por_s": [
+    2.12,
+    1.46
+   ],
+   "terremotos_por_duelo": [
+    0,
+    0
+   ],
+   "parte_del_dano_terremoto": 0.0,
+   "parte_de_duelos_con_2_terremotos": 0,
+   "piezas": [
+    12,
+    11
+   ],
+   "informe": "duelos_nivel30_20261126_002908.json"
+  }
+ }
+}
