@@ -10,7 +10,9 @@ Meta por nivel: duelo medio de 10 a 15 s; cruces ideales en 45-55 %, minimo 30-7
   REVISAR = algun cruce fuera de 30-70 %
   OK      = todos los cruces en 30-70 % y duracion en rango
 
-Uso: python -I -X utf8 tools/medir_30_niveles_f10.py [--duelos 40] [--niveles "1 2 3"] [--rehacer] [--resumen]"""
+--manos elige que llevan BK y MG: escudo (por defecto), doble (dos armas) o uno (solo el primero de cada cruce lleva dos armas).
+
+Uso: python -I -X utf8 tools/medir_30_niveles_f10.py [--duelos 40] [--niveles "1 2 3"] [--manos escudo|doble|uno] [--rehacer] [--resumen]"""
 import argparse, glob, json, os, subprocess, sys, time
 from pathlib import Path
 
@@ -30,11 +32,12 @@ ESPERA_TANDA_S = 1800
 ap = argparse.ArgumentParser()
 ap.add_argument("--duelos", type=int, default=40)
 ap.add_argument("--niveles", default=" ".join(str(n) for n in range(1, 31)))
+ap.add_argument("--manos", choices=("escudo", "doble", "uno"), default="escudo")
 ap.add_argument("--rehacer", action="store_true")
 ap.add_argument("--resumen", action="store_true", help="solo imprime el resumen de lo ya medido")
 args = ap.parse_args()
 niveles = [int(x) for x in args.niveles.split()]
-SALIDA = RAIZ / f"tools/f10_medicion_{args.duelos}.json"
+SALIDA = RAIZ / f"tools/f10_medicion_{args.duelos}{'' if args.manos == 'escudo' else '_' + args.manos}.json"
 medidos = json.load(open(SALIDA, encoding="utf-8")) if SALIDA.exists() else {}
 
 
@@ -159,6 +162,9 @@ def reiniciar():
     time.sleep(8)   # el cliente aun carga la arena justo despues de /moba
     if not any(mandar("/mobaf10 on", "F10 ACTIV", 6) for _ in range(5)):
         raise Detenida("no se pudo encender F10")
+    senal = "DOS ARMAS" if args.manos == "doble" else "lleva dos armas"
+    if args.manos != "escudo" and not any(mandar(f"/mobaf10 manos {args.manos}", senal, 6) for _ in range(3)):
+        raise Detenida("no se pudo elegir las manos")
 
 
 def correr(nivel):

@@ -103,6 +103,10 @@ public class MobaF10ChatCommandPlugIn : ChatCommandPlugInBase<MobaF10ChatCommand
                 MobaDuel.Drinking = arguments.Key switch { "on" => MobaDuelDrinking.Both, "off" => MobaDuelDrinking.None, _ => MobaDuelDrinking.OnlyFirst };
                 message = arguments.Key switch { "on" => "los duelos CON pociones", "off" => "los duelos SIN pociones", _ => "en los duelos bebe SOLO el primero de cada cruce" };
                 break;
+            case "manos" when arguments.Key is "escudo" or "doble" or "uno":
+                MobaDuel.Hands = arguments.Key switch { "doble" => MobaDuelHands.TwoWeapons, "uno" => MobaDuelHands.OnlyFirst, _ => MobaDuelHands.Shield };
+                message = arguments.Key switch { "doble" => "duelos: BK y MG con DOS ARMAS", "uno" => "duelos: solo el primero de cada cruce lleva dos armas (BK y MG)", _ => "duelos: BK y MG con arma y ESCUDO" };
+                break;
             case "kit" when arguments.Key is "full" or "picks":
                 MobaDuel.FullKit = arguments.Key == "full";
                 message = MobaDuel.FullKit ? "duelos con el kit COMPLETO de la clase (rango 5)" : "duelos con las 4 skills por defecto + buffs de la clase (como en la arena)";

@@ -49,6 +49,12 @@ internal static class MobaBotEconomy
     /// <summary>Equipment slots in buying priority: weapon, armor, pants, helm, gloves, boots, shield / book, wings, pendant, rings.</summary>
     private static readonly byte[] SlotPriority = { 0, 3, 4, 2, 5, 6, 1, 7, 9, 10, 11 };
 
+    /// <summary>The same priorities for the Elf, whose weapon (the bow) goes to the other hand: the arrows stay in the first one.</summary>
+    private static readonly byte[] ElfSlotPriority = { 1, 3, 4, 2, 5, 6, 0, 7, 9, 10, 11 };
+
+    private static readonly Lazy<HashSet<(byte Group, short Number)>> CatalogWeapons = new(() => CatalogItemsOf(MobaShopCategory.Weapons));
+    private static readonly Lazy<HashSet<(byte Group, short Number)>> CatalogOffhands = new(() => CatalogItemsOf(MobaShopCategory.Offhand));
+
     private static readonly MobaShopCategory[] GearCategories =
     {
         MobaShopCategory.Weapons, MobaShopCategory.Offhand, MobaShopCategory.Sets, MobaShopCategory.Wings, MobaShopCategory.Accessories,
@@ -331,9 +337,14 @@ internal static class MobaBotEconomy
         }
 
         var gold = bot.Money;
-        var candidates = CandidatesFor(bot, characterClass);
+        var candidates = CandidatesFor(bot, characterClass)
+            .Select(c => c with { Slots = SlotsFor(bot, c.Template.Definition!) })
+            .Where(c => c.Slots.Length > 0)
+            .ToList();
         var ranks = SlotRanks(bot, candidates);
-        var weaponRank = ranks.GetValueOrDefault((byte)0);
+        var weaponHand = MainHandOf(bot);
+        var wielded = inventory.GetItem(weaponHand);
+        var weaponRank = RankOf(candidates, weaponHand, wielded is null ? 0 : MobaShop.PriceOf(wielded)); // also when the weapon is already the best one
 
         if (weaponRank >= 1 && PotionPurchase(bot, gold, potionTier ?? MobaArena.Of(bot).Phase) is { } potions)
         {
@@ -351,7 +362,7 @@ internal static class MobaBotEconomy
             return pet;
         }
 
-        foreach (var slot in SlotPriority)
+        foreach (var slot in weaponHand == InventoryConstants.RightHandSlot ? ElfSlotPriority : SlotPriority)
         {
             if (!ranks.TryGetValue(slot, out var rank) || rank != lowest)
             {
@@ -570,17 +581,71 @@ internal static class MobaBotEconomy
         return current is null || MobaShop.PriceOf(item) > MobaShop.PriceOf(current);
     }
 
-    /// <summary>The equipment slot a definition would go to: the listed slot holding the cheapest piece.</summary>
+    /// <summary>The equipment slot a definition would go to: of the slots the champion uses it in (see <see cref="SlotsFor"/>), the one holding the cheapest piece.</summary>
     private static byte? BestSlotFor(Player bot, ItemDefinition definition)
     {
-        var slots = definition.ItemSlot?.ItemSlots;
-        if (slots is null || slots.Count == 0)
+        var slots = SlotsFor(bot, definition);
+        if (slots.Length == 0)
         {
             return null;
         }
 
-        return slots.Select(s => (byte)s).OrderBy(s => bot.Inventory?.GetItem(s) is { } worn ? MobaShop.PriceOf(worn) : 0).First();
+        return slots.OrderBy(s => bot.Inventory?.GetItem(s) is { } worn ? MobaShop.PriceOf(worn) : 0).First();
     }
+
+    /// <summary>Whether the champion fights with a weapon in each hand: the Rage Fighter always, the Blade Knight and the Magic Gladiator when they chose it over the shield.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <returns><see langword="true"/> with two weapons.</returns>
+    public static bool DualWields(Player champion) => MobaPassives.FamilyOf(champion) switch
+    {
+        MobaFamily.RageFighter => true,
+        MobaFamily.Knight or MobaFamily.MagicGladiator => champion is MobaBotPlayer bot ? bot.DualWield : WearsTwoWeapons(champion),
+        _ => false,
+    };
+
+    private static bool WearsTwoWeapons(Player champion)
+        => new[] { InventoryConstants.LeftHandSlot, InventoryConstants.RightHandSlot }
+            .All(slot => champion.Inventory?.GetItem(slot)?.Definition is { } d && CatalogWeapons.Value.Contains((d.Group, d.Number)));
+
+    private static byte MainHandOf(Player champion)
+        => MobaPassives.FamilyOf(champion) == MobaFamily.Elf ? InventoryConstants.RightHandSlot : InventoryConstants.LeftHandSlot;
+
+    /// <summary>
+    /// The slots a bot uses an item in. Hands (2026-11-25): ONE weapon (the bow for the Elf; the Elf bot takes no crossbow nor buys arrows) and the other hand only
+    /// for the shield / book (or the Raven of the Dark Lord); two weapons only with <see cref="DualWields"/>, which then takes no shield. Before this, every purchase
+    /// went to the hand with the cheapest piece: an old staff replaced the shield and the Elf bought her bow after the whole set.
+    /// </summary>
+    private static byte[] SlotsFor(Player bot, ItemDefinition definition)
+    {
+        if (definition.ItemSlot?.ItemSlots is not { Count: > 0 } listed)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var slots = listed.Select(s => (byte)s).ToArray();
+        var key = (definition.Group, definition.Number);
+        if (CatalogWeapons.Value.Contains(key))
+        {
+            if (definition.IsAmmunition)
+            {
+                return Array.Empty<byte>();
+            }
+
+            return DualWields(bot)
+                ? slots.Where(s => s == InventoryConstants.LeftHandSlot || s == InventoryConstants.RightHandSlot).ToArray()
+                : slots.Where(s => s == MainHandOf(bot)).ToArray();
+        }
+
+        if (CatalogOffhands.Value.Contains(key))
+        {
+            return DualWields(bot) ? Array.Empty<byte>() : slots.Where(s => s == InventoryConstants.RightHandSlot).ToArray();
+        }
+
+        return slots;
+    }
+
+    private static HashSet<(byte Group, short Number)> CatalogItemsOf(MobaShopCategory category)
+        => MobaShopCatalog.Entries.Where(e => e.Category == category).Select(e => (e.Group, e.Number)).ToHashSet();
 
     private static IReadOnlyList<Candidate> CandidatesFor(Player bot, CharacterClass characterClass)
         => CandidatesByClass.GetOrAdd(characterClass.Number, _ =>

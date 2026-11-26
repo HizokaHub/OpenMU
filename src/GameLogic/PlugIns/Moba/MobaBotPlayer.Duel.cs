@@ -17,7 +17,13 @@ using MUnique.OpenMU.GameLogic.PlayerActions.Skills;
 /// </summary>
 public sealed partial class MobaBotPlayer
 {
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, int), bool> LoggedBuilds = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, int, bool), bool> LoggedBuilds = new();
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a Blade Knight or Magic Gladiator bot buys a second weapon instead of a shield
+    /// (see <see cref="MobaBotEconomy.DualWields"/>; the other classes ignore it).
+    /// </summary>
+    public bool DualWield { get; set; }
 
     /// <summary>Gets or sets a value indicating whether this duelist keeps and drinks potions (see <see cref="MobaDuel.Drinking"/>).</summary>
     public bool DuelDrinks { get; set; } = true;
@@ -105,8 +111,8 @@ public sealed partial class MobaBotPlayer
     public async ValueTask<int> BuyTypicalBuildAsync(int level)
     {
         var gold = MobaTypicalBuild.GoldAt(level);
-        var healthBefore = this.Attributes?[Stats.MaximumHealth] ?? 0f;
         var (worn, left) = await MobaBotEconomy.BuyWithBudgetAsync(this, gold, MobaTypicalBuild.PhaseAt(level), this.DuelDrinks).ConfigureAwait(false);
+        MobaItemCaps.Apply(this); // sets the life the champion really fights with (F10 pins it), so that the log below tells the truth
         if (this.Attributes is { } a)
         {
             a[Stats.CurrentHealth] = a[Stats.MaximumHealth];
@@ -114,16 +120,16 @@ public sealed partial class MobaBotPlayer
             a[Stats.CurrentShield] = a[Stats.MaximumShield];
         }
 
-        if (this.SelectedCharacter?.CharacterClass is { } characterClass && LoggedBuilds.TryAdd((characterClass.Number, level), true))
+        if (this.SelectedCharacter?.CharacterClass is { } characterClass && LoggedBuilds.TryAdd((characterClass.Number, level, MobaBotEconomy.DualWields(this)), true))
         {
             this.Logger.LogInformation(
-                "[MOBA-BUILD] level {Level} class {Class}: gold {Gold}, unspent {Left}, maxHP {HealthBefore:0}->{HealthAfter:0}, {Count} pieces: {Pieces}",
+                "[MOBA-BUILD] level {Level} class {Class}: gold {Gold}, unspent {Left}, maxHP {Health:0}, two weapons {Dual}, {Count} pieces: {Pieces}",
                 level,
                 characterClass.Name,
                 gold,
                 left,
-                healthBefore,
                 this.Attributes?[Stats.MaximumHealth] ?? 0f,
+                MobaBotEconomy.DualWields(this),
                 worn.Count,
                 string.Join(" | ", worn.OrderBy(i => i.ItemSlot).Select(i => $"{i.ItemSlot}:{i.Definition?.Name}+{i.Level} {MobaShop.PriceOf(i)}")));
         }

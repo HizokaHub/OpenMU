@@ -26,6 +26,19 @@ public enum MobaDuelDrinking
     OnlyFirst,
 }
 
+/// <summary>Who takes two weapons instead of weapon and shield in the duels (Blade Knight and Magic Gladiator).</summary>
+public enum MobaDuelHands
+{
+    /// <summary>Everybody takes the shield.</summary>
+    Shield,
+
+    /// <summary>Everybody who can takes two weapons.</summary>
+    TwoWeapons,
+
+    /// <summary>Only the first class of each cross takes two weapons.</summary>
+    OnlyFirst,
+}
+
 /// <summary>What a duel run should measure.</summary>
 /// <param name="Pairs">The pairs of classes (a mirror is a pair of the same class).</param>
 /// <param name="Duels">The duels of every pair.</param>
@@ -86,6 +99,12 @@ public static class MobaDuel
 
     /// <summary>Gets or sets who drinks potions in the duels of the real build (<c>/mobaf10 beber on|off|uno</c>; the other modes measure what the potions are worth).</summary>
     public static MobaDuelDrinking Drinking { get; set; } = MobaDuelDrinking.Both;
+
+    /// <summary>
+    /// Gets or sets who fights with two weapons instead of weapon and shield, among the Blade Knights and Magic Gladiators of the real build
+    /// (<c>/mobaf10 manos escudo|doble|uno</c>; with mirror crosses "uno" measures one option against the other).
+    /// </summary>
+    public static MobaDuelHands Hands { get; set; } = MobaDuelHands.Shield;
 
     /// <summary>
     /// Gets or sets a value indicating whether the duelists take the WHOLE kit of their class at rank 5 (the old way) instead of what a champion really takes into the
@@ -587,6 +606,7 @@ public static class MobaDuel
             ["level"] = request.Level,
             ["rank"] = MobaSkills.SkillLevelCap,
             ["duelsPerPair"] = request.Duels,
+            ["hands"] = Hands.ToString(),
             ["timeoutSeconds"] = TimeoutSeconds,
             ["cancelled"] = Volatile.Read(ref _cancel) == 1,
             ["pairs"] = pairs,
@@ -607,7 +627,9 @@ public static class MobaDuel
         // who drinks is told from the side of the PAIR (the first class of the cross), so it follows the class when the sides are swapped
         var firstDrinks = Drinking != MobaDuelDrinking.None;
         var secondDrinks = Drinking == MobaDuelDrinking.Both;
-        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level, swap ? secondDrinks : firstDrinks, swap ? firstDrinks : secondDrinks).ConfigureAwait(false);
+        var firstDual = Hands != MobaDuelHands.Shield;
+        var secondDual = Hands == MobaDuelHands.TwoWeapons;
+        var row = await DuelAsync(gm, swap ? classB : classA, swap ? classA : classB, slot, t3, level, swap ? secondDrinks : firstDrinks, swap ? firstDrinks : secondDrinks, swap ? secondDual : firstDual, swap ? firstDual : secondDual).ConfigureAwait(false);
         if (swap)
         {
             row = row with
@@ -651,7 +673,7 @@ public static class MobaDuel
         }
     }
 
-    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level, bool drinksA, bool drinksB)
+    private static async ValueTask<DuelRow> DuelAsync(Player gm, byte classA, byte classB, Point slot, int t3, int level, bool drinksA, bool drinksB, bool dualA, bool dualB)
     {
         var carrier = CarrierFor(gm, slot);
         var id = Interlocked.Increment(ref _nameCounter) % 100000;
@@ -669,6 +691,8 @@ public static class MobaDuel
 
             a.DuelDrinks = drinksA;
             b.DuelDrinks = drinksB;
+            a.DualWield = dualA;
+            b.DualWield = dualB;
 
             // The real build keeps the ranks the points of the level bought (rank 0 = do not overwrite); the other passes give every skill rank 5.
             await a.PrepareDuelAsync(level, t3 == 2 ? 0 : MobaSkills.SkillLevelCap).ConfigureAwait(false);
