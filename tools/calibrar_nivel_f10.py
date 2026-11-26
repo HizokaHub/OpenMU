@@ -21,6 +21,9 @@ d_cruce = int(sys.argv[3]) if len(sys.argv) > 3 else 40
 tol_raza = float(sys.argv[4]) if len(sys.argv) > 4 else 0.12
 tol_cruce = float(sys.argv[5]) if len(sys.argv) > 5 else 0.20
 DUR_MIN, DUR_MAX, DUR_META = 10.0, 16.0, 12.5
+# criterio del usuario (2026-11-26): un cruce en el que se gana por muy poco (vida + SD del ganador, con signo y promediada, de 10 % o menos) ya esta parejo
+MARGEN = 0.10
+MARGENES = {}   # cruce -> margen medio de la ultima tanda analizada
 nombre_json = f"nivel{nivel}"
 
 # estado: por nivel -> {"psi": {clase: v}, "pares": {"a-b": v}, "dano": mult, "vida": mult}
@@ -137,6 +140,7 @@ def correr(duelos):
 def analizar(arch):
     d = json.load(open(arch, encoding="utf-8"))
     tot, cru, dur, n = {c: [0.0, 0] for c in FAM}, {}, 0.0, 0
+    MARGENES.clear()
     for p in d["pairs"]:
         a, b = p["a"], p["b"]
         wsum = 0.0
@@ -149,6 +153,7 @@ def analizar(arch):
             tot[a][0] += w; tot[a][1] += 1; tot[b][0] += 1 - w; tot[b][1] += 1
         if a != b:
             cru[(a, b)] = wsum / len(p["duels"])
+            MARGENES[(a, b)] = sum(x["aLeft"] if x["winner"] == "a" else -x["bLeft"] if x["winner"] == "b" else 0.0 for x in p["duels"]) / len(p["duels"])
     return {c: v[0] / max(v[1], 1) for c, v in tot.items()}, cru, dur / max(n, 1)
 
 
@@ -157,8 +162,12 @@ def logit(x):
     return math.log(x / (1 - x))
 
 
+def desparejo(cruce, v, banda):
+    return abs(v - 0.5) > banda + 1e-9 and abs(MARGENES.get(cruce, 1.0)) > MARGEN + 1e-9
+
+
 def fuera_de(cru, banda):
-    return sum(1 for v in cru.values() if abs(v - 0.5) > banda + 1e-9)
+    return sum(1 for k, v in cru.items() if desparejo(k, v, banda))
 
 
 def puntaje(wr, cru, dur):
@@ -232,7 +241,7 @@ for etapa in [t for t in (0.30, 0.20) if t > tol_cruce] + [tol_cruce]:
     for it in range(5):
         arch = correr(d_cruce)
         wr, cru, dur = analizar(arch)
-        fuera = {k: v for k, v in cru.items() if abs(v - 0.5) > etapa}
+        fuera = {k: v for k, v in cru.items() if desparejo(k, v, etapa)}
         print(f"cruces +-{etapa:.2f} it {it}: duracion {dur:.1f} s | fuera: {len(fuera)} de {len(cru)} | razas " + " ".join(f"{NOM[c]} {wr[c]:.2f}" for c in FAM), flush=True)
         registrar(f"cruces{etapa}", it, wr, cru, dur)
         if not fuera:

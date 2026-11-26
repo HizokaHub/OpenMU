@@ -1276,8 +1276,8 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         if (this.IsMobaClone
             && PlugIns.Moba.MobaCooldowns.GetCooldown(this, skillEntry) is { Ticks: > 0 } baseCooldown)
         {
-            // Gloves and boots: cooldown reduction.
-            var cooldown = TimeSpan.FromTicks((long)(baseCooldown.Ticks * (1 - PlugIns.Moba.MobaItemTraits.CooldownReductionOf(this))));
+            // Gloves and boots: cooldown reduction (the Earthshake ignores it).
+            var cooldown = TimeSpan.FromTicks((long)(baseCooldown.Ticks * (1 - PlugIns.Moba.MobaCooldowns.ReductionOf(this, skill.Number))));
             var now = DateTime.UtcNow;
 
             // Only the first cast of a fresh cycle arms the cooldown; recasts during the

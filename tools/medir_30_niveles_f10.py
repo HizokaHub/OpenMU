@@ -9,6 +9,8 @@ Meta por nivel: duelo medio de 10 a 15 s; cruces ideales en 45-55 %, minimo 30-7
   FALLA   = algun cruce sobre 80 % (o bajo 20 %) o duracion fuera de 10-15 s
   REVISAR = algun cruce fuera de 30-70 %
   OK      = todos los cruces en 30-70 % y duracion en rango
+Un cruce PAREJO POR VIDA no cuenta como fuera de rango aunque las victorias lo esten (criterio del usuario, 2026-11-26: gana uno, pero por muy poco):
+la vida + SD que le queda al ganador, con signo segun quien gana y promediada en el cruce, es de 10 % o menos (--margen; 0 lo desactiva).
 
 --manos elige que llevan BK y MG: escudo (por defecto), doble (dos armas) o uno (solo el primero de cada cruce lleva dos armas).
 
@@ -34,6 +36,7 @@ ap.add_argument("--duelos", type=int, default=40)
 ap.add_argument("--niveles", default=" ".join(str(n) for n in range(1, 31)))
 ap.add_argument("--manos", choices=("escudo", "doble", "uno"), default="escudo")
 ap.add_argument("--rehacer", action="store_true")
+ap.add_argument("--margen", type=float, default=0.10, help="vida del ganador (con signo, promedio del cruce) con la que un cruce cuenta como parejo; 0 = no usar")
 ap.add_argument("--resumen", action="store_true", help="solo imprime el resumen de lo ya medido")
 args = ap.parse_args()
 niveles = [int(x) for x in args.niveles.split()]
@@ -49,9 +52,15 @@ def avisar(texto):
     print(f"{time.strftime('%H:%M:%S')} {texto}", flush=True)
 
 
+def margen_de(duelo):
+    """Vida + SD (fraccion) que le queda al ganador, positiva si gana el primero del cruce y negativa si gana el segundo."""
+    return duelo["aLeft"] if duelo["winner"] == "a" else -duelo["bLeft"] if duelo["winner"] == "b" else 0.0
+
+
 def analizar(arch):
     d = json.load(open(arch, encoding="utf-8"))
     tot, cru, dur, n, sin_ganador = {c: [0.0, 0] for c in NOM}, {}, 0.0, 0, 0
+    margenes = {}
     for p in d["pairs"]:
         a, b = p["a"], p["b"]
         suma = 0.0
@@ -64,12 +73,18 @@ def analizar(arch):
                 tot[a][0] += w; tot[a][1] += 1; tot[b][0] += 1 - w; tot[b][1] += 1
         if a != b:
             cru[f"{NOM[a]}-{NOM[b]}"] = round(suma / len(p["duels"]), 3)
-    return {"razas": {NOM[c]: round(v[0] / max(v[1], 1), 3) for c, v in tot.items()}, "cruces": cru, "duracion": round(dur / max(n, 1), 1),
+            margenes[f"{NOM[a]}-{NOM[b]}"] = round(sum(margen_de(x) for x in p["duels"]) / len(p["duels"]), 3)
+    return {"razas": {NOM[c]: round(v[0] / max(v[1], 1), 3) for c, v in tot.items()}, "cruces": cru, "margenes": margenes, "duracion": round(dur / max(n, 1), 1),
             "total_duelos": n, "sin_ganador": sin_ganador, "informe": Path(arch).name}
 
 
+def parejo(r, cruce):
+    """Si en el cruce se gana por muy poco (las mediciones antiguas no guardaban el margen)."""
+    return args.margen > 0 and abs(r.get("margenes", {}).get(cruce, 1.0)) <= args.margen + 1e-9
+
+
 def fuera(r, banda):
-    return sum(1 for v in r["cruces"].values() if abs(v - 0.5) > banda + 1e-9)
+    return sum(1 for k, v in r["cruces"].items() if abs(v - 0.5) > banda + 1e-9 and not parejo(r, k))
 
 
 def veredicto(r):
@@ -89,7 +104,7 @@ def fila(nivel, r):
     total = len(r["cruces"])
     razas = r["razas"]
     mejor_raza, peor_raza = max(razas, key=razas.get), min(razas, key=razas.get)
-    return (f"nivel {nivel:>2} | {r['duracion']:5.1f} s | en 45-55: {total - fuera(r, 0.05):>2}/{total} | fuera 30-70: {fuera(r, 0.20):>2} | sobre 80: {fuera(r, 0.30):>2} | "
+    return (f"nivel {nivel:>2} | {r['duracion']:5.1f} s | en 45-55: {total - fuera(r, 0.05):>2}/{total} | parejos por vida: {sum(parejo(r, k) for k in r['cruces']):>2} | fuera 30-70: {fuera(r, 0.20):>2} | sobre 80: {fuera(r, 0.30):>2} | "
             f"peor {peor(r):<12} | razas {peor_raza} {razas[peor_raza]:.0%} a {mejor_raza} {razas[mejor_raza]:.0%} | {veredicto(r)}"
             + (f" | empates: {r['sin_ganador']}" if r.get("sin_ganador") else ""))
 

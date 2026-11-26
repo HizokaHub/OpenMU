@@ -31,6 +31,13 @@ public static class MobaCooldowns
     /// <returns>The grace window.</returns>
     public static TimeSpan GraceOf(short skillNumber) => skillNumber is MobaRush.SkillNumber or MobaPets.EarthshakeSkill ? TimeSpan.Zero : GraceWindow;
 
+    /// <summary>The cooldown reduction of the champion's pieces for a skill: none for the Earthshake (2026-11-26), which always takes the seconds of its rank.</summary>
+    /// <param name="champion">The champion.</param>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <returns>The fraction cut from the cooldown.</returns>
+    public static double ReductionOf(Player champion, short skillNumber)
+        => skillNumber == MobaPets.EarthshakeSkill ? 0.0 : MobaItemTraits.CooldownReductionOf(champion);
+
     /// <summary>Cooldown per rank (seconds, index 0 = rank 1) for a skill with no explicit entry.</summary>
     private static readonly double[] DefaultPerRank = { 6.5, 6.0, 5.5, 5.0, 4.5 };
 
