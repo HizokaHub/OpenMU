@@ -1,0 +1,58 @@
+[
+ {
+  "tanda": 0,
+  "nivel": 15,
+  "retraso_ms": 280,
+  "segundos": 248,
+  "proceso": [
+   1135,
+   212,
+   26,
+   1870
+  ],
+  "enlaces": 12984,
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel15_20261127_135534.json"
+ },
+ {
+  "tanda": 1,
+  "nivel": 28,
+  "retraso_ms": 280,
+  "segundos": 259,
+  "proceso": [
+   1735,
+   488,
+   23,
+   1875
+  ],
+  "enlaces": 16668,
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_135953.json"
+ },
+ {
+  "tanda": 2,
+  "nivel": 28,
+  "retraso_ms": 280,
+  "segundos": 259,
+  "proceso": [
+   2198,
+   726,
+   30,
+   1999
+  ],
+  "enlaces": 16304,
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_140413.json"
+ },
+ {
+  "tanda": 3,
+  "nivel": 28,
+  "retraso_ms": 280,
+  "segundos": 261,
+  "proceso": [
+   2677,
+   998,
+   23,
+   2006
+  ],
+  "enlaces": 18231,
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_140834.json"
+ }
+]

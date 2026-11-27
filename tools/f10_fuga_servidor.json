@@ -1,0 +1,142 @@
+[
+ {
+  "brazo": "sin_liberar",
+  "tanda": 0,
+  "nivel": 15,
+  "retraso_ms": 280,
+  "segundos": 325,
+  "proceso": [
+   1272,
+   240,
+   28,
+   1865
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel15_20261127_125823.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 1,
+  "nivel": 28,
+  "retraso_ms": 279,
+  "segundos": 313,
+  "proceso": [
+   2226,
+   571,
+   27,
+   1959
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_130337.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 2,
+  "nivel": 28,
+  "retraso_ms": 279,
+  "segundos": 308,
+  "proceso": [
+   2964,
+   1052,
+   33,
+   2121
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_130845.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 3,
+  "nivel": 28,
+  "retraso_ms": 280,
+  "segundos": 310,
+  "proceso": [
+   3829,
+   1549,
+   29,
+   2201
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_131355.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 4,
+  "nivel": 28,
+  "retraso_ms": 280,
+  "segundos": 310,
+  "proceso": [
+   4703,
+   2219,
+   30,
+   2266
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_131905.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 5,
+  "nivel": 28,
+  "retraso_ms": 281,
+  "segundos": 310,
+  "proceso": [
+   5596,
+   3020,
+   28,
+   2337
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_132416.json"
+ },
+ {
+  "brazo": "sin_liberar",
+  "tanda": 6,
+  "nivel": 28,
+  "retraso_ms": 282,
+  "segundos": 320,
+  "proceso": [
+   6348,
+   3894,
+   31,
+   2373
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_132935.json"
+ },
+ {
+  "brazo": "liberando",
+  "tanda": 0,
+  "nivel": 15,
+  "retraso_ms": 280,
+  "segundos": 319,
+  "proceso": [
+   1246,
+   222,
+   28,
+   1813
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel15_20261127_133527.json"
+ },
+ {
+  "brazo": "liberando",
+  "tanda": 1,
+  "nivel": 28,
+  "retraso_ms": 279,
+  "segundos": 307,
+  "proceso": [
+   1839,
+   551,
+   28,
+   1888
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_134034.json"
+ },
+ {
+  "brazo": "liberando",
+  "tanda": 2,
+  "nivel": 28,
+  "retraso_ms": 279,
+  "segundos": 310,
+  "proceso": [
+   2841,
+   986,
+   27,
+   1949
+  ],
+  "informe": "C:\\Users\\aruiz\\Proyectos\\openmu-aram\\src\\Startup\\bin\\Debug\\duelos_nivel28_20261127_134544.json"
+ }
+]

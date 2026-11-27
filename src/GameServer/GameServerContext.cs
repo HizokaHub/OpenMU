@@ -247,7 +247,9 @@ public class GameServerContext : GameContext, IGameServerContext
     {
         try
         {
-            if (player is not { SelectedCharacter: { } selectedCharacter })
+            // MOBA bots have neither friends nor a guild: telling the friend and guild servers about them only raced their lists and ran the database out of
+            // connections when the 60 duels of a balance run started at once (2026-11-27).
+            if (player is MUnique.OpenMU.GameLogic.PlugIns.Moba.MobaBotPlayer || player is not { SelectedCharacter: { } selectedCharacter })
             {
                 return;
             }
@@ -262,7 +264,7 @@ public class GameServerContext : GameContext, IGameServerContext
 
     private async ValueTask PlayerLeftWorldAsync(Player player)
     {
-        if (player is not { SelectedCharacter: { } selectedCharacter })
+        if (player is MUnique.OpenMU.GameLogic.PlugIns.Moba.MobaBotPlayer || player is not { SelectedCharacter: { } selectedCharacter })
         {
             return;
         }

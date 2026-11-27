@@ -1,12 +1,12 @@
 """Mide el balance 1v1 "real" (ranks, equipo y pociones del nivel) de los 30 niveles con las tablas que el servidor tiene compiladas, y resume cruces y duracion.
 NO ajusta nada. Los niveles que fallen se calibran despues con tools/calibrar_nivel_f10.py.
 
-Hace todo solo: apunta el cliente al servidor local, reinicia servidor y cliente (y otra vez cada 10 niveles), mide, resume y al terminar (o al cortarse) cierra
-todo y devuelve la IP. MUEVE EL MOUSE Y EL TECLADO: nadie debe usar el PC. Para detenerlo al terminar el nivel en curso: crear tools/f10_parar.flag.
+Hace todo solo: reinicia el servidor en modo de pedidos, mide, resume y al terminar (o al cortarse) lo apaga. Los duelos corren SIN CLIENTE:
+no usa el mouse ni el teclado. Para detenerlo al terminar el nivel en curso: crear tools/f10_parar.flag.
 Es reanudable: los niveles ya medidos con la misma cantidad de duelos se saltan (--rehacer los repite).
 
-Meta por nivel: duelo medio de 10 a 15 s; cruces ideales en 45-55 %, minimo 30-70 %, ninguno sobre 80 %.
-  FALLA   = algun cruce sobre 80 % (o bajo 20 %) o duracion fuera de 10-15 s
+Meta por nivel: duelo medio de 10 a 17 s; cruces ideales en 45-55 %, minimo 30-70 %, ninguno sobre 80 %.
+  FALLA   = algun cruce sobre 80 % (o bajo 20 %) o duracion fuera de 10-17 s
   REVISAR = algun cruce fuera de 30-70 %
   OK      = todos los cruces en 30-70 % y duracion en rango
 Un cruce PAREJO POR VIDA no cuenta como fuera de rango aunque las victorias lo esten (criterio del usuario, 2026-11-26: gana uno, pero por muy poco):
@@ -15,19 +15,17 @@ la vida + SD que le queda al ganador, con signo segun quien gana y promediada en
 --manos elige que llevan BK y MG: escudo (por defecto), doble (dos armas) o uno (solo el primero de cada cruce lleva dos armas).
 
 Uso: python -I -X utf8 tools/medir_30_niveles_f10.py [--duelos 40] [--niveles "1 2 3"] [--manos escudo|doble|uno] [--rehacer] [--resumen]"""
-import argparse, ctypes, glob, json, os, re, subprocess, sys, time
+import argparse, ctypes, json, os, subprocess, sys, time
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-PILOTO = RAIZ / "tools/bot-pruebas/piloto.py"
-INICIAR = RAIZ / "tools/iniciar-todo.ps1"
+sys.path.insert(0, str(RAIZ / "tools"))
+import f10_servidor as servidor
 DEBUG = RAIZ / "src/Startup/bin/Debug"
 LOG = RAIZ / "logs/servidor.log"
-SALIDA_PILOTO = RAIZ / "logs/medir_f10_piloto.log"
 PARAR = RAIZ / "tools/f10_parar.flag"
-INI = RAIZ.parent / "mu-main/out/build/windows-x64/src/Release/config.ini"
 NOM = {3: "GM", 6: "BK", 11: "FE", 12: "MG", 16: "DL", 20: "SUM", 24: "RF"}
-DUR_MIN, DUR_MAX = 10.0, 15.0
+DUR_MIN, DUR_MAX = 10.0, 17.0   # hasta 17 s el duelo es valido (usuario, 2026-11-27)
 NIVELES_POR_REINICIO = 4    # el servidor se atrasa con las pasadas (2026-11-27, con las mascotas de mochila: 316-486 ms desde la 5a pasada de un nivel alto) y pierde ids de objeto tras ~35
 ESPERA_TANDA_S = 1800
 RETRASO_MAX_MS = 320        # separacion media entre acciones de los bots (ideal 280)
@@ -120,92 +118,63 @@ def resumen():
     for v in ("OK", "REVISAR", "FALLA"):
         grupo = [n for n in hechos if veredicto(medidos[str(n)]) == v]
         lineas.append(f"{v}: {len(grupo)} -> {' '.join(map(str, grupo)) or '-'}")
-    lineas.append("duracion fuera de 10-15 s: " + (" ".join(str(n) for n in hechos if not DUR_MIN <= medidos[str(n)]["duracion"] <= DUR_MAX) or "-"))
+    lineas.append("duracion fuera de 10-17 s: " + (" ".join(str(n) for n in hechos if not DUR_MIN <= medidos[str(n)]["duracion"] <= DUR_MAX) or "-"))
     texto = "\n".join(lineas)
     SALIDA.with_suffix(".txt").write_text(texto + "\n", encoding="utf-8")
     return texto
 
 
+# Los duelos corren SIN CLIENTE (tools/f10_servidor.py): no usan el mouse ni el teclado. piloto() y mandar() conservan su forma de antes porque
+# otros scripts de medicion los usan.
 def piloto(*orden, limite=240):
-    # la salida va a un archivo y no a una tuberia: un proceso hijo que herede la tuberia dejaria colgado el script
-    with open(SALIDA_PILOTO, "a", encoding="utf-8") as f:
-        return subprocess.run([sys.executable, "-I", str(PILOTO), *orden], stdout=f, stderr=f, timeout=limite).returncode == 0
-
-
-def iniciar_todo(*opciones):
-    with open(SALIDA_PILOTO, "a", encoding="utf-8") as f:
-        return subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(INICIAR), *opciones], stdout=f, stderr=f,
-                              env={**os.environ, "MOBA_F10": "1"}, timeout=240).returncode == 0
+    """Antes manejaba el juego: ahora "chat" manda el comando al servidor y "cerrar"/"entrar" no hacen nada."""
+    if orden and orden[0] == "chat":
+        servidor.mandar([orden[1]], limite_s=limite)
+    return True
 
 
 def cerrar_todo():
-    try:
-        piloto("cerrar", limite=60)
-    except subprocess.SubprocessError:
-        pass
-    iniciar_todo("-Parar", "-Forzar")
+    servidor.parar()
 
 
 def escrito_desde(tam):
-    with open(LOG, "rb") as f:
-        f.seek(tam)
-        return f.read().decode("utf-8", errors="replace")
+    return servidor.log_desde(tam)
 
 
 def mandar(texto, senal, espera_s):
-    """Manda un comando por el chat y dice si la senal aparecio en el log del servidor."""
+    """Manda un comando al servidor y dice si la senal aparecio en su log (sin esperar a que terminen los duelos)."""
     tam = LOG.stat().st_size
-    try:
-        piloto("chat", texto, limite=120)
-    except subprocess.SubprocessError:
-        return False
+    servidor.encolar([texto])
     limite = time.time() + espera_s
     while time.time() < limite:
         if senal in escrito_desde(tam):
             return True
-        time.sleep(2)
+        time.sleep(1)
     return False
 
 
 def reiniciar():
-    avisar("reiniciando servidor y cliente (1-2 min)")
-    cerrar_todo()
-    time.sleep(5)
-    if not iniciar_todo("-SinPortal"):
-        raise Detenida("el servidor no arranco")
-    time.sleep(10)
-    if not piloto("entrar"):
-        time.sleep(5)
-        if not piloto("entrar"):
-            raise Detenida("el bot no pudo entrar al juego")
-    time.sleep(8)   # el cliente aun carga la arena justo despues de /moba
-    if not any(mandar("/mobaf10 on", "F10 ACTIV", 6) for _ in range(5)):
-        raise Detenida("no se pudo encender F10")
-    senal = "DOS ARMAS" if args.manos == "doble" else "lleva dos armas"
-    if args.manos != "escudo" and not any(mandar(f"/mobaf10 manos {args.manos}", senal, 6) for _ in range(3)):
-        raise Detenida("no se pudo elegir las manos")
+    avisar("reiniciando el servidor (1 min)")
+    try:
+        servidor.arrancar()
+    except servidor.Detenida as error:
+        raise Detenida(str(error))
+    if args.manos != "escudo":
+        servidor.mandar([f"/mobaf10 manos {args.manos}"], limite_s=60, senal="DOS ARMAS" if args.manos == "doble" else "lleva dos armas")
 
 
-def correr(nivel):
-    patron = str(DEBUG / f"duelos_nivel{nivel}_*.json")
-    antes = set(glob.glob(patron))
-    inicio_log = LOG.stat().st_size
-    if not any(mandar(f"/mobaduel all {args.duelos} real 60 {nivel}", "[MOBA-DUEL]", 40) for _ in range(3)):
-        raise Detenida(f"la tanda del nivel {nivel} no empezo")
-    limite = time.time() + ESPERA_TANDA_S
-    while time.time() < limite:
-        time.sleep(10)
-        nuevos = set(glob.glob(patron)) - antes
-        if nuevos:
-            time.sleep(2)
-            retraso = re.findall(r"salud del servidor: .*?separacion media (\d+) ms", escrito_desde(inicio_log))
-            return max(nuevos, key=os.path.getmtime), int(retraso[-1]) if retraso else None
-    raise Detenida(f"los duelos del nivel {nivel} no terminaron en {ESPERA_TANDA_S // 60} min")
+SALIDA_PILOTO = servidor.SALIDA_ARRANQUE
 
 
 def poner_ip(vieja, nueva):
-    datos = INI.read_bytes()
-    INI.write_bytes(datos.replace(f"ServerIP={vieja}".encode(), f"ServerIP={nueva}".encode()))
+    """Sin cliente no hay que tocar la IP del juego (se conserva la funcion porque otros scripts la llaman)."""
+
+
+def correr(nivel):
+    try:
+        return servidor.duelos("all", args.duelos, nivel, limite_s=ESPERA_TANDA_S)
+    except servidor.Detenida as error:
+        raise Detenida(str(error))
 
 
 def main():
@@ -218,8 +187,6 @@ def main():
         return 0
     avisar(f"INICIO: {len(pendientes)} niveles, {args.duelos} duelos por cruce")
     PARAR.unlink(missing_ok=True)
-    SALIDA_PILOTO.parent.mkdir(exist_ok=True)
-    poner_ip("127.127.127.127", "127.0.0.1")
     codigo, en_sesion, inicio = 0, NIVELES_POR_REINICIO, time.time()
     if os.name == "nt":
         # mientras mide, ni el PC ni la pantalla se suspenden (no cambia ningun ajuste: se anula solo al terminar el proceso)
@@ -256,10 +223,7 @@ def main():
         avisar(f"DETENIDA: {error}")
         codigo = 1
     finally:
-        try:
-            cerrar_todo()
-        finally:
-            poner_ip("127.0.0.1", "127.127.127.127")
+        cerrar_todo()
     avisar(f"FIN ({'con error' if codigo else 'sin errores'})")
     print(resumen(), flush=True)
     return codigo

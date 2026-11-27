@@ -3,7 +3,7 @@ Tres comparaciones por nivel (contra un DL sin mascotas): las dos, solo el cabal
 (ataque basico + cuervo) para ver si el cuervo ataca de verdad.
 El lado con caballo lanza Terremoto ademas de sus 4 skills (sin el empuje, porque los duelos son estaticos).
 Uso: python -I -X utf8 tools/medir_mascotas_f10.py ["20 25 30"] [duelos=100]
-Abre el juego y al final lo cierra. MUEVE EL MOUSE Y EL TECLADO. Guarda en tools/f10_mascotas.json."""
+Los duelos corren sin cliente (no usa mouse ni teclado). Guarda en tools/f10_mascotas.json."""
 import glob, json, os, statistics, subprocess, sys, time
 from pathlib import Path
 

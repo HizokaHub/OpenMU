@@ -298,6 +298,19 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
     }
 
+    /// <summary>
+    /// Turns a started bot into the game master of the headless duel jobs: it stands where it is without a brain and no clean-up of the bots of the arena removes it.
+    /// </summary>
+    internal async ValueTask BecomeHostAsync()
+    {
+        ActiveBots.TryRemove(this, out _);
+        if (this._brain is { } brain)
+        {
+            this._brain = null;
+            await brain.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
     /// <inheritdoc />
     public override async ValueTask StopAsync()
     {

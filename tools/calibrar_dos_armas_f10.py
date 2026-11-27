@@ -6,7 +6,7 @@ asi que cada (familia, tier) se ajusta con los niveles que caen en el. Los grupo
 El comando no admite bonos negativos: si con bono 0 las dos armas ya ganan de mas, el grupo queda marcado y no se toca.
 
 Es reanudable (cada tanda medida queda en tools/f10_dos_armas.json), se detiene con tools/f10_parar.flag y al terminar cierra juego y servidor.
-MUEVE EL MOUSE Y EL TECLADO: nadie debe usar el PC.
+Los duelos corren sin cliente (no usa mouse ni teclado): nadie debe usar el PC.
 Uso: python -I -X utf8 tools/calibrar_dos_armas_f10.py ["10 15 20 25 30"] [duelos=100] [--resumen]"""
 import glob, json, math, os, re, statistics, subprocess, sys, time
 from pathlib import Path

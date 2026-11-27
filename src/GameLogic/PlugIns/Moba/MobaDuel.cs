@@ -94,6 +94,7 @@ public static class MobaDuel
     /// <summary>Maximum length of the buff preparation phase before the blows.</summary>
     private const double BuffPhaseMaxSeconds = 20;
     private const int CarrierLife = 20;
+    private static readonly TimeSpan ReleaseDelay = TimeSpan.FromSeconds(15);
 
     private static readonly ConcurrentDictionary<MobaBotPlayer, ConcurrentDictionary<int, long>> Damage = new();
 
@@ -499,8 +500,9 @@ public static class MobaDuel
             ["disabled"] = s.Disabled,
             ["slowed"] = s.Slowed,
             ["lowMana"] = s.LowMana,
-            // the live damage reduction of the equipment and the pets (wings, Angel...) at the END of the duel: the [MOBA-BUILD] line reads it too early
-            ["taken"] = bot.Attributes?[Stats.DamageReceiveDecrement] ?? 1f,
+            // the live damage reduction of the equipment and the pets (Angel...; not the wings under F10) against the rival at the END of the duel: the [MOBA-BUILD]
+            // line reads it too early
+            ["taken"] = MobaF10.DamageTakenFromChampions(bot),
             ["f10"] = MobaF10.Enabled ? new[] { MobaF10.DamageFactor(bot), bot.Attributes?[Stats.MaximumHealth] ?? 0, bot.Attributes?[Stats.MaximumShield] ?? 0, MobaF10.DefenseOf(bot).Mitigation, MobaF10.DefenseOf(bot).DamageTaken } : null,
         };
     }
@@ -640,6 +642,7 @@ public static class MobaDuel
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
         var (tickCount, tickMean, tickSkipped, tickBuckets) = MobaBotPlayer.TakeTickStats();
         logger.LogInformation("[MOBA-DUEL] salud del servidor: {Count} ticks de bots, separacion media {Mean:F0} ms (ideal 280), {Skipped} saltados; <=350 ms {B0}, <=500 {B1}, <=1000 {B2}, mas {B3}.", tickCount, tickMean, tickSkipped, tickBuckets[0], tickBuckets[1], tickBuckets[2], tickBuckets[3]);
+        logger.LogInformation("[MOBA-DUEL] enlaces de personajes en la configuracion compartida: {Count} (se acumulan si no se liberan los bots).", SharedConfigurationListeners(gm.GameContext.Configuration));
         logger.LogInformation("[MOBA-DUEL] report={Path}", path);
         return path;
     }
@@ -689,7 +692,11 @@ public static class MobaDuel
         {
             if (!Carriers.TryGetValue(slot, out var entry) || entry.Uses >= CarrierLife)
             {
-                // the old one is not disposed here: its bots are stopped, the context goes with the GC (disposing it while a stopping bot touches it is worse)
+                if (entry.Carrier is { } spent)
+                {
+                    ReleaseLater(spent);   // later: its last bots are still stopping and may touch its persistence context
+                }
+
                 entry = (new MobaBotPlayer(gm.GameContext, MobaTeam.Blue, isDummy: true), 0);
             }
 
@@ -818,6 +825,7 @@ public static class MobaDuel
                 try
                 {
                     await bot.StopAsync().ConfigureAwait(false);
+                    ReleaseLater(bot);
                 }
                 catch
                 {
@@ -825,6 +833,40 @@ public static class MobaDuel
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// How many listeners the values of the item options of the shared configuration have: every power-up of an equipped item adds one until its character is
+    /// disposed, so a number which only grows between runs means leaked champions (a leak check for the health line of a pass).
+    /// </summary>
+    private static long SharedConfigurationListeners(DataModel.Configuration.GameConfiguration configuration)
+    {
+        var changed = typeof(MUnique.OpenMU.AttributeSystem.SimpleElement).GetField("ValueChanged", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var options = configuration.ItemOptions.SelectMany(definition => definition.PossibleOptions).ToList();
+        var values = options.Select(option => option.PowerUpDefinition)
+            .Concat(options.OfType<DataModel.Configuration.Items.IncreasableItemOption>().SelectMany(option => option.LevelDependentOptions).Select(level => level.PowerUpDefinition))
+            .Select(powerUp => powerUp?.Boost?.ConstantValue)
+            .OfType<MUnique.OpenMU.AttributeSystem.SimpleElement>()
+            .Distinct();
+        return values.Sum(value => (long)((changed?.GetValue(value) as Delegate)?.GetInvocationList().Length ?? 0));
+    }
+
+    // Stopping only disconnects: nobody disposes a bot (the game server does it for the real players), so its persistence context, movement and buff timers
+    // stayed alive and piled up duel after duel. It is disposed some seconds later, when the casts it had in flight are over.
+    private static void ReleaseLater(MobaBotPlayer bot)
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(ReleaseDelay).ConfigureAwait(false);
+            try
+            {
+                await bot.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                bot.Logger.LogDebug(ex, "[MOBA-DUEL] un bot no se pudo liberar.");
+            }
+        });
     }
 
     private static double Left(Player p)

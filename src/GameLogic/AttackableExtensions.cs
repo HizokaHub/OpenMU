@@ -274,7 +274,10 @@ public static class AttackableExtensions
         dmg = f10Single ? dmg : (int)(dmg * attacker.Attributes[Stats.AttackDamageIncrease]);
         if (dmg > 1)
         {
-            dmg = (int)(dmg * defender.Attributes[Stats.DamageReceiveDecrement]);
+            // MOBA (F10): between champions the wings count only as a piece of the defense pools, not also with their native absorption.
+            dmg = (int)(dmg * (isMobaChampionAttacker && defender is Player { IsMobaClone: true } wingedDefender
+                ? PlugIns.Moba.MobaF10.DamageTakenFromChampions(wingedDefender)
+                : defender.Attributes[Stats.DamageReceiveDecrement]));
         }
 
         if (skill != null)

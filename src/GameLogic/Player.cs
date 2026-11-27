@@ -1543,6 +1543,10 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         this._observerToWorldViewAdapter.Dispose();
         this._movement.Dispose();
         await this.MagicEffectList.DisposeAsync().ConfigureAwait(false);
+
+        // The power-ups of the equipped items listen to values of the shared game configuration: without this, the configuration kept every disposed player alive
+        // (found with the bots of the MOBA duels, 2026-11-27: some 800 MB and a growing CPU cost per run of 1120 duels).
+        this.Attributes?.Dispose();
         this._respawnAfterDeathCts?.Dispose();
         (this._viewPlugIns as IDisposable)?.Dispose();
 

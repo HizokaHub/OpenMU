@@ -87,14 +87,22 @@ public class MobaDuelChatCommandPlugIn : ChatCommandPlugInBase<MobaDuelChatComma
         }
         else if (what.Contains('-', StringComparison.Ordinal))
         {
-            var parts = what.Split('-', 2);
-            if (MobaBotChatCommandPlugIn.ResolveClassNumber(parts[0]) is not { } a || MobaBotChatCommandPlugIn.ResolveClassNumber(parts[1]) is not { } b)
+            // one cross or a list of them ("bk-rf,gm-dl"): the calibration repeats only the crosses which are still uneven
+            var list = new List<(byte A, byte B)>();
+            foreach (var cross in what.Split(',', StringSplitOptions.RemoveEmptyEntries))
             {
-                await player.ShowBlueMessageAsync("[mobaduel] Cruce desconocido. Ej: bk-rf.").ConfigureAwait(false);
-                return;
+                var parts = cross.Split('-', 2);
+                if (parts.Length != 2 || MobaBotChatCommandPlugIn.ResolveClassNumber(parts[0]) is not { } a || MobaBotChatCommandPlugIn.ResolveClassNumber(parts[1]) is not { } b)
+                {
+                    player.Logger.LogWarning("[MOBA-DUEL] cruce desconocido: {Cross}", cross);
+                    await player.ShowBlueMessageAsync("[mobaduel] Cruce desconocido. Ej: bk-rf o bk-rf,gm-dl.").ConfigureAwait(false);
+                    return;
+                }
+
+                list.Add((a, b));
             }
 
-            pairs = new[] { (a, b) };
+            pairs = list;
         }
         else if (MobaBotChatCommandPlugIn.ResolveClassNumber(what) is { } one)
         {

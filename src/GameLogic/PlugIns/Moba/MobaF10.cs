@@ -4,7 +4,11 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using MUnique.OpenMU.AttributeSystem;
+using MUnique.OpenMU.DataModel.Attributes;
+using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.GameLogic.Attributes;
+using MUnique.OpenMU.Persistence;
 
 /// <summary>
 /// Formula F10 ("conservation law of the duel power"), ported from <c>tools/balance_sim/f10_conservacion.py</c> and validated in the balance simulator
@@ -429,6 +433,56 @@ public static class MobaF10
         var xm = MitigationShare * x * ((1.0 + MagicMitigationShare) / 2.0);
         var xt = (1.0 - MitigationShare) * x;
         return (1.0 - ((1.0 - BaseMitigation) * Math.Exp(-xm)), Math.Exp(-xt));
+    }
+
+    /// <summary>
+    /// The live damage-taken factor of a champion against the hit of another champion. Under F10 the absorption of its own wings is taken out (2026-11-27, decided
+    /// by the designer): the wings already count as a piece in the defense pools, which only apply between champions, so their native absorption counted them twice -
+    /// and not equally (the capes of the Dark Lord and the Rage Fighter absorb much less than the wings). Pets, buffs and the options of other pieces stay live.
+    /// Against creeps, structures and monsters the pools do not apply and the wings keep their absorption.
+    /// </summary>
+    /// <param name="champion">The champion who is hit.</param>
+    /// <returns>The factor on the damage taken (1 = none).</returns>
+    public static float DamageTakenFromChampions(Player champion)
+    {
+        if (champion.Attributes is not { } attributes)
+        {
+            return 1f;
+        }
+
+        var live = attributes[Stats.DamageReceiveDecrement];
+        if (!Enabled)
+        {
+            return live;
+        }
+
+        var wings = WingAbsorptionOf(champion);
+        return wings > 0.01f && wings < 1f ? Math.Min(1f, live / wings) : live;
+    }
+
+    /// <summary>The factor the worn wings put on the damage taken by their own absorption (1 = none), computed like <see cref="ItemPowerUpFactory"/> does.</summary>
+    private static float WingAbsorptionOf(Player champion)
+    {
+        if (champion.Inventory?.GetItem(InventoryConstants.WingsSlot) is not { Definition: { } definition, Durability: > 0 } wings)
+        {
+            return 1f;
+        }
+
+        var factor = 1f;
+        foreach (var powerUp in definition.BasePowerUpAttributes)
+        {
+            if (powerUp.TargetAttribute != Stats.DamageReceiveDecrement || powerUp.BaseValueElement is not { } baseValue)
+            {
+                continue;
+            }
+
+            var levelBonus = (powerUp.BonusPerLevelTable?.BonusPerLevel ?? Enumerable.Empty<LevelBonus>())
+                .FirstOrDefault(bonus => bonus.Level == wings.Level)?
+                .GetAdditionalValueElement(powerUp.AggregateType);
+            factor *= levelBonus is null ? baseValue.Value : new CombinedElement(baseValue, levelBonus).Value;
+        }
+
+        return factor;
     }
 
     /// <summary>A one-line description of a champion under the model, for <c>/mobaf10 status</c>.</summary>
