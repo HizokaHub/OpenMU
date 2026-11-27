@@ -116,7 +116,8 @@ public static class MobaF10Ledger
         var usageAsRegen = usage / (1.0 - usage);   // a cost cut of u gives the same endurance as u/(1-u) more regeneration
         var manaGain = ManaDependence(family) * DrySharePerHorizon(horizon) * ((0.6 * manaPool) + (0.8 * (manaRegen + usageAsRegen)));
 
-        // (2) COOLDOWN is already in DamageFactor (CooldownRatio); crit in CritRatio; spell power in the base pool.
+        // (2) COOLDOWN reduction is live (the cooldowns really get shorter), so it has no term (2026-11-26: DamageFactor also multiplied by it, counting it
+        // twice). Crit is in CritRatio; spell power in the base pool.
 
         // (3) SD (a third of the life): the weapon pierces it, the wings skip it, the armour makes it absorb more. The victim's shield is a quarter of its pool.
         const double SdShare = 0.25;
@@ -268,10 +269,10 @@ public static class MobaF10Ledger
         new("trait:HealPower", LedgerChannel.Life, "MobaF10Ledger.ExtraOf (over the life buffs 26 and 234)"),
         new("trait:CritChance", LedgerChannel.Offense, "MobaF10.CritRatio (expected damage of the crit chance)"),
         new("trait:HealthRegen", LedgerChannel.Life, "MobaF10Ledger.ExtraOf (x horizon)"),
-        new("trait:Cooldown", LedgerChannel.Offense, "MobaF10.CooldownRatio"),
+        new("trait:Cooldown", LedgerChannel.Offense, "live: the cooldowns really get shorter (Player, MobaCooldowns.ReductionOf)"),
         new("item:AntiHeal", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (10 % of the rival sustain)"),
         new("item:CcResist", LedgerChannel.Gate, "MobaCc.ShapeHardCc (shortens every hard control)"),
-        new("item:CooldownReduction", LedgerChannel.Offense, "MobaF10.CooldownRatio"),
+        new("item:CooldownReduction", LedgerChannel.Offense, "live: the cooldowns really get shorter (Player, MobaCooldowns.ReductionOf)"),
         new("item:AssistGold", LedgerChannel.OutsideCombat, "economy"),
         new("item:PassiveGold", LedgerChannel.OutsideCombat, "economy"),
         new("item:SdPierce", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf"),

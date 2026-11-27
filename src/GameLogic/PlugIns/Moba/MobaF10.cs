@@ -395,7 +395,7 @@ public static class MobaF10
         var family = MobaPassives.FamilyOf(champion);
         var pools = PoolsOf(champion);
         var reference = ReferencePools(champion.MobaLevel, family);
-        return DamageScaleAt(champion.MobaLevel) * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family))) * CritRatio(champion) * CooldownRatio(champion);
+        return DamageScaleAt(champion.MobaLevel) * Math.Exp((KO * (pools.Offense - reference.Offense)) + (0.5 * Lean(family)) + (0.5 * PsiOf(champion, family))) * CritRatio(champion);
     }
 
     /// <summary>Expected damage of the champion's critical chance over the expected damage of the reference chance (the live roll uses the reference).</summary>
@@ -405,18 +405,6 @@ public static class MobaF10
     {
         var m = MobaCombatStats.CritMultiplier - 1.0;
         return (1.0 + (MobaCombatStats.FinalCritChanceOf(champion) * m)) / (1.0 + (CritReference * m));
-    }
-
-    /// <summary>
-    /// The skills of the champion come back sooner with cooldown reduction (pieces, traits): half of its damage is bound to cooldowns,
-    /// so the damage per second grows by half of the extra casts.
-    /// </summary>
-    /// <param name="champion">The champion.</param>
-    /// <returns>The factor (1 = no reduction).</returns>
-    public static double CooldownRatio(Player champion)
-    {
-        var cdr = Math.Clamp(MobaItemTraits.CooldownReductionOf(champion), 0.0, 0.65);
-        return 1.0 + (0.5 * cdr / (1.0 - cdr));
     }
 
     /// <summary>Gets the maximum life the model gives a champion.</summary>

@@ -388,12 +388,12 @@ internal static class MobaBotEconomy
     }
 
     /// <summary>
-    /// The pets a bot buys, by shop tier: the damage pets a human would pick (the Dark Lord takes both its mount and its
-    /// Raven, every other class one pet slot upgraded tier by tier). A tier-t pet is bought once all the gear is at tier t - 1.
+    /// The pets a bot buys, by shop tier: the damage pets a human would pick (the Dark Lord takes its Horse and its Raven, which work from the bag, and then
+    /// a Fenrir for the pet slot they leave free; every other class one pet slot upgraded tier by tier). A tier-t pet is bought once all the gear is at tier t - 1.
     /// </summary>
     private static IEnumerable<(short Number, MobaShopVariant Variant, int Tier)> WantedPets(Player bot)
         => MobaPassives.FamilyOf(bot) == MobaFamily.DarkLord
-            ? new[] { ((short)4, MobaShopVariant.Standard, 2), ((short)5, MobaShopVariant.Standard, 3) }
+            ? new[] { ((short)4, MobaShopVariant.Standard, 2), ((short)5, MobaShopVariant.Standard, 3), ((short)37, MobaShopVariant.Aggressive, 3) }
             : new[] { ((short)1, MobaShopVariant.Standard, 1), ((short)3, MobaShopVariant.Standard, 2), ((short)37, MobaShopVariant.Aggressive, 3) };
 
     /// <summary>The next pet the bot wants and can afford, or <see langword="null"/>.</summary>
