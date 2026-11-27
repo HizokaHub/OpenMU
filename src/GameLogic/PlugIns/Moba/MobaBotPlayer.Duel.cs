@@ -31,9 +31,11 @@ public sealed partial class MobaBotPlayer
     /// <summary>Whether the bot buys the Horse or Raven.</summary>
     /// <param name="pet">The definition of the pet.</param>
     /// <returns><see langword="true"/> if it is in the bot's plan.</returns>
-    public bool Wants(MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition pet) => MobaPets.IsHorse(pet)
-        ? this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Horse
-        : this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Raven;
+    public bool Wants(MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition pet)
+        => !MobaPets.IsInventoryPet(pet)   // the plan is about the Horse and the Raven of the Dark Lord; every side buys the utility pets
+           || (MobaPets.IsHorse(pet)
+               ? this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Horse
+               : this.InventoryPets is MobaDuelPets.Both or MobaDuelPets.Raven);
 
     /// <summary>Gets or sets a value indicating whether this duelist keeps and drinks potions (see <see cref="MobaDuel.Drinking"/>).</summary>
     public bool DuelDrinks { get; set; } = true;

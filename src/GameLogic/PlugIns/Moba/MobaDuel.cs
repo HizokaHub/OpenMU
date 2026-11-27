@@ -499,6 +499,8 @@ public static class MobaDuel
             ["disabled"] = s.Disabled,
             ["slowed"] = s.Slowed,
             ["lowMana"] = s.LowMana,
+            // the live damage reduction of the equipment and the pets (wings, Angel...) at the END of the duel: the [MOBA-BUILD] line reads it too early
+            ["taken"] = bot.Attributes?[Stats.DamageReceiveDecrement] ?? 1f,
             ["f10"] = MobaF10.Enabled ? new[] { MobaF10.DamageFactor(bot), bot.Attributes?[Stats.MaximumHealth] ?? 0, bot.Attributes?[Stats.MaximumShield] ?? 0, MobaF10.DefenseOf(bot).Mitigation, MobaF10.DefenseOf(bot).DamageTaken } : null,
         };
     }

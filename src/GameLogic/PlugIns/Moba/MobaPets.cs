@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlugIns.Moba;
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.AttributeSystem;
@@ -82,7 +83,8 @@ public static class MobaPets
 
         public Item? Raven { get; set; }
 
-        public Dictionary<short, UtilityPet> Utility { get; } = new();
+        // Concurrent: F10 and the match tick read it while the champion is still buying and switching pets on (many duels at once).
+        public ConcurrentDictionary<short, UtilityPet> Utility { get; } = new();
     }
 
     /// <summary>A utility pet (Angel, Imp, Demon, Spirit, Rudolf, Panda, Unicorn, Skeleton) the champion switched on: its item and its bonuses.</summary>
@@ -319,7 +321,9 @@ public static class MobaPets
     /// <returns>The mask (0 when none).</returns>
     public static ushort ExtraMaskOf(Player player)
     {
-        if (!ActiveByPlayer.TryGetValue(player, out var active))
+        // The pets of the duel bots are not sent: nobody has to see them, and drawing some eight per champion on 60 duels loaded the observing client of the same
+        // PC so much that the server fell behind (2026-11-26: bot ticks every 731 ms instead of 280).
+        if (player is MobaBotPlayer { DuelMode: true } || !ActiveByPlayer.TryGetValue(player, out var active))
         {
             return 0;
         }
@@ -346,6 +350,13 @@ public static class MobaPets
     /// <returns><see langword="true"/> for the Dark Horse and the Dark Raven.</returns>
     public static bool IsInventoryPet(ItemDefinition definition)
         => definition.Group == 13 && (definition.Number == HorseNumber || definition.Number == RavenNumber);
+
+    /// <summary>Whether the pet works from the bag, switched on with the right click: the Dark Horse, the Dark Raven and the utility pets (not the mounts Uniria,
+    /// Dinorant and Fenrir, which are worn in the pet slot).</summary>
+    /// <param name="definition">The item definition.</param>
+    /// <returns><see langword="true"/> for a pet of the bag.</returns>
+    public static bool WorksFromBag(ItemDefinition definition)
+        => IsInventoryPet(definition) || (definition.Group == 13 && Array.IndexOf(UtilityPetNumbers, definition.Number) >= 0);
 
     /// <summary>
     /// The rank of Earthshake. It comes with the pet, so no skill points go into it: it follows the champion level (1 up to level 17, then one rank every three
@@ -516,14 +527,19 @@ public static class MobaPets
             return;
         }
 
-        var powerUps = player.GameContext.ItemPowerUpFactory.GetPowerUps(item, player.Attributes!).ToList();
+        // NOT the item power-up factory: it gives nothing for an item outside the equipment slots, so until 2026-11-26 a pet of the bag gave no bonus at all.
+        // The same base bonuses as the worn pet (rewritten to the MOBA numbers by EnsureConfigured).
+        var powerUps = definition.BasePowerUpAttributes
+            .Where(p => p.TargetAttribute is not null)
+            .Select(p => new PowerUpWrapper(new SimpleElement(p.BaseValue, p.AggregateType), p.TargetAttribute!, player.Attributes!))
+            .ToList();
         active.Utility[number] = new UtilityPet(item, powerUps);
         await player.ShowBlueMessageAsync($"[MOBA] {definition.Name} activado: se ve a tu lado y da su bonificación. Clic derecho otra vez para desactivarlo.").ConfigureAwait(false);
     }
 
     private static void DeactivateUtility(ActivePets active, short number)
     {
-        if (active.Utility.Remove(number, out var utility))
+        if (active.Utility.TryRemove(number, out var utility))
         {
             foreach (var powerUp in utility.PowerUps)
             {

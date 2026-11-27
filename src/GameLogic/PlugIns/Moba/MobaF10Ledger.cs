@@ -133,12 +133,19 @@ public static class MobaF10Ledger
         // (5) ANTI-HEAL of the weapon: cuts the sustain the rival would have (the reference sustain of a rival is ~10 % of its life).
         var antiHeal = MobaItemTraits.AntiHealOf(champion) * 0.10;
 
-        // (6) PETS: the damage of the utility pets (Imp, Demon, Skeleton) was a parallel channel that F10 switches off, and their +75 life is pinned out.
+        // (6) PETS: the damage of the pets (Imp, Demon, Skeleton, Dinorant) was a parallel channel that F10 switches off, and their +75 life is pinned out. It counts
+        // both the ones switched on from the bag and the one worn in the pet slot (until 2026-11-26 the worn one gave no damage at all under F10).
         // Their damage taken reduction (Angel, Spirit, Panda, Unicorn) and speed stay live through DamageReceiveDecrement and the hit rate / movement.
         var petDamage = 0.0;
         var petLife = 0.0;
         var refLife = MobaProgression.HealthAt(level) * MobaF10.HealthScaleAt(level);
-        foreach (var number in MobaPets.ActiveUtilityNumbers(champion))
+        var petNumbers = new HashSet<short>(MobaPets.ActiveUtilityNumbers(champion));
+        if (champion.Inventory?.GetItem(InventoryConstants.PetSlot) is { Definition: { Group: 13 } wornPet })
+        {
+            petNumbers.Add((short)wornPet.Number);
+        }
+
+        foreach (var number in petNumbers)
         {
             if (PetDamageGain.TryGetValue(number, out var g))
             {
@@ -243,6 +250,7 @@ public static class MobaF10Ledger
     private static readonly Dictionary<short, double> PetDamageGain = new()
     {
         [1] = 0.05,    // Imp
+        [3] = 0.06,    // Dinorant (a mount: it only works worn in the pet slot)
         [64] = 0.08,   // Demon
         [123] = 0.04,  // Skeleton
     };
@@ -298,7 +306,7 @@ public static class MobaF10Ledger
         new("rule:flatDefense400", LedgerChannel.Durability, "AttackableExtensions: under F10 the flat defense of the level is 0 (it only erased small hits); the mitigation is the percent of the pools"),
         new("rule:penetration", LedgerChannel.Offense, "MobaDefense.PenetrationBySkill (kit, absorbed by the class offset)"),
         new("rule:leech", LedgerChannel.Life, "MobaVampAndSpecial (class intrinsic, absorbed by the class offset)"),
-        new("pet:utility", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Imp, Demon, Skeleton damage; Angel, Spirit life; damage taken stays live; Demon speed in the hit rate)"),
+        new("pet:utility", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (Imp, Demon, Skeleton, Dinorant damage, from the bag or the pet slot; Angel, Spirit life; damage taken stays live; Demon speed in the hit rate)"),
         new("pet:fenrir", LedgerChannel.Offense, "MobaF10Ledger.ExtraOf (black +10 % damage, gold +5 % damage and life; blue less damage taken stays live; speed live)"),
         new("pet:darkLordPets", LedgerChannel.Offense, "live: the Raven attacks and the Earthshake is a real cast, so MobaF10Ledger adds nothing"),
         new("aura:command banner", LedgerChannel.Live, "adds attack speed to the allies in range: counted by HitRateRatio like any attack speed"),

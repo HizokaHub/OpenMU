@@ -138,9 +138,9 @@ internal static class MobaBotEconomy
         }
 
         // what is worn now and was not before (equipment slots only; the starting weapon that was not replaced does not count)
-        // (plus the Horse and the Raven, which work from the bag)
+        // (plus the pets which work from the bag)
         var worn = bot.Inventory?.Items
-            .Where(i => (i.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex || (i.Definition is { } d && MobaPets.IsInventoryPet(d))) && !before.Contains(i))
+            .Where(i => (i.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex || (i.Definition is { } d && MobaPets.WorksFromBag(d))) && !before.Contains(i))
             .ToList() ?? new List<Item>();
         return (worn, left);
     }
@@ -388,13 +388,28 @@ internal static class MobaBotEconomy
     }
 
     /// <summary>
-    /// The pets a bot buys, by shop tier: the damage pets a human would pick (the Dark Lord takes its Horse and its Raven, which work from the bag, and then
-    /// a Fenrir for the pet slot they leave free; every other class one pet slot upgraded tier by tier). A tier-t pet is bought once all the gear is at tier t - 1.
+    /// The pets a bot buys, by shop tier, as a human would (2026-11-26): all the utility pets of the shop, which work from the bag all at once, and the pets of
+    /// the pet slot: Dinorant and then Fenrir (the Dark Lord takes its Horse and its Raven, from the bag, and then a Fenrir in the slot they leave free). A tier-t
+    /// pet is bought once all the gear is at tier t - 1; within a tier the ones that fight come first.
     /// </summary>
     private static IEnumerable<(short Number, MobaShopVariant Variant, int Tier)> WantedPets(Player bot)
-        => MobaPassives.FamilyOf(bot) == MobaFamily.DarkLord
-            ? new[] { ((short)4, MobaShopVariant.Standard, 2), ((short)5, MobaShopVariant.Standard, 3), ((short)37, MobaShopVariant.Aggressive, 3) }
-            : new[] { ((short)1, MobaShopVariant.Standard, 1), ((short)3, MobaShopVariant.Standard, 2), ((short)37, MobaShopVariant.Aggressive, 3) };
+    {
+        var darkLord = MobaPassives.FamilyOf(bot) == MobaFamily.DarkLord;
+        yield return (1, MobaShopVariant.Standard, 1);                   // Imp
+        yield return (0, MobaShopVariant.Standard, 1);                   // Guardian Angel
+        yield return (darkLord ? (short)4 : (short)3, MobaShopVariant.Standard, 2);   // Dark Horse / Dinorant
+        yield return (123, MobaShopVariant.Standard, 2);                 // Skeleton
+        yield return (80, MobaShopVariant.Standard, 2);                  // Panda
+        yield return (106, MobaShopVariant.Standard, 2);                 // Unicorn
+        if (darkLord)
+        {
+            yield return (5, MobaShopVariant.Standard, 3);               // Dark Raven
+        }
+
+        yield return (37, MobaShopVariant.Aggressive, 3);                // Black Fenrir
+        yield return (64, MobaShopVariant.Standard, 3);                  // Demon
+        yield return (65, MobaShopVariant.Standard, 3);                  // Spirit of Guardian
+    }
 
     /// <summary>The next pet the bot wants and can afford, or <see langword="null"/>.</summary>
     private static Purchase? PetPurchase(Player bot, long gold, int lowestGearRank)
@@ -418,14 +433,14 @@ internal static class MobaBotEconomy
 
             var template = MobaShop.CreateItem(definition, entry);
             var price = MobaShop.PriceOf(template);
-            if (MobaPets.IsInventoryPet(definition))
+            if (MobaPets.WorksFromBag(definition))
             {
                 if (bot is MobaBotPlayer plan && !plan.Wants(definition))
                 {
                     continue; // measurement of the pets (duels): this side spends that gold on gear
                 }
 
-                // The Horse and the Raven are not worn: bought into the bag and switched on from there, like the player's right click.
+                // The pets of the bag are not worn: bought into the bag and switched on from there, like the player's right click.
                 if (!inventory.Items.Any(i => i.Definition == definition) && gold >= price)
                 {
                     return new Purchase(template, byte.MaxValue, price, null, 0);
@@ -507,7 +522,7 @@ internal static class MobaBotEconomy
 
             await inventory.AddItemAsync((byte)bagSlot, item).ConfigureAwait(false);
             bot.Logger.LogInformation("[MOBA-BOT-ECON] \"{Name}\" bought {Item} x{Qty} for {Price}.", bot.SelectedCharacter?.Name, item.Definition?.Name, item.Durability, plan.Price);
-            if (item.Definition is { } bought && MobaPets.IsInventoryPet(bought))
+            if (item.Definition is { } bought && MobaPets.WorksFromBag(bought))
             {
                 await MobaPets.ToggleFromInventoryAsync(bot, item.ItemSlot).ConfigureAwait(false);
             }

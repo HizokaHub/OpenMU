@@ -15,7 +15,7 @@ la vida + SD que le queda al ganador, con signo segun quien gana y promediada en
 --manos elige que llevan BK y MG: escudo (por defecto), doble (dos armas) o uno (solo el primero de cada cruce lleva dos armas).
 
 Uso: python -I -X utf8 tools/medir_30_niveles_f10.py [--duelos 40] [--niveles "1 2 3"] [--manos escudo|doble|uno] [--rehacer] [--resumen]"""
-import argparse, glob, json, os, subprocess, sys, time
+import argparse, ctypes, glob, json, os, re, subprocess, sys, time
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -30,6 +30,7 @@ NOM = {3: "GM", 6: "BK", 11: "FE", 12: "MG", 16: "DL", 20: "SUM", 24: "RF"}
 DUR_MIN, DUR_MAX = 10.0, 15.0
 NIVELES_POR_REINICIO = 10   # el servidor pierde ids de objeto tras ~35 pasadas ("Maximum object id exceeded")
 ESPERA_TANDA_S = 1800
+RETRASO_MAX_MS = 320        # separacion media entre acciones de los bots (ideal 280)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--duelos", type=int, default=40)
@@ -106,7 +107,8 @@ def fila(nivel, r):
     mejor_raza, peor_raza = max(razas, key=razas.get), min(razas, key=razas.get)
     return (f"nivel {nivel:>2} | {r['duracion']:5.1f} s | en 45-55: {total - fuera(r, 0.05):>2}/{total} | parejos por vida: {sum(parejo(r, k) for k in r['cruces']):>2} | fuera 30-70: {fuera(r, 0.20):>2} | sobre 80: {fuera(r, 0.30):>2} | "
             f"peor {peor(r):<12} | razas {peor_raza} {razas[peor_raza]:.0%} a {mejor_raza} {razas[mejor_raza]:.0%} | {veredicto(r)}"
-            + (f" | empates: {r['sin_ganador']}" if r.get("sin_ganador") else ""))
+            + (f" | empates: {r['sin_ganador']}" if r.get("sin_ganador") else "")
+            + (f" | retraso {r['retraso_ms']} ms" if r.get("retraso_ms") else ""))
 
 
 def resumen():
@@ -185,6 +187,7 @@ def reiniciar():
 def correr(nivel):
     patron = str(DEBUG / f"duelos_nivel{nivel}_*.json")
     antes = set(glob.glob(patron))
+    inicio_log = LOG.stat().st_size
     if not any(mandar(f"/mobaduel all {args.duelos} real 60 {nivel}", "[MOBA-DUEL]", 40) for _ in range(3)):
         raise Detenida(f"la tanda del nivel {nivel} no empezo")
     limite = time.time() + ESPERA_TANDA_S
@@ -193,7 +196,8 @@ def correr(nivel):
         nuevos = set(glob.glob(patron)) - antes
         if nuevos:
             time.sleep(2)
-            return max(nuevos, key=os.path.getmtime)
+            retraso = re.findall(r"salud del servidor: .*?separacion media (\d+) ms", escrito_desde(inicio_log))
+            return max(nuevos, key=os.path.getmtime), int(retraso[-1]) if retraso else None
     raise Detenida(f"los duelos del nivel {nivel} no terminaron en {ESPERA_TANDA_S // 60} min")
 
 
@@ -215,6 +219,9 @@ def main():
     SALIDA_PILOTO.parent.mkdir(exist_ok=True)
     poner_ip("127.127.127.127", "127.0.0.1")
     codigo, en_sesion, inicio = 0, NIVELES_POR_REINICIO, time.time()
+    if os.name == "nt":
+        # mientras mide, ni el PC ni la pantalla se suspenden (no cambia ningun ajuste: se anula solo al terminar el proceso)
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001 | 0x00000002)
     try:
         for i, nivel in enumerate(pendientes):
             if PARAR.exists():
@@ -226,7 +233,7 @@ def main():
                     if en_sesion >= NIVELES_POR_REINICIO:
                         reiniciar()
                         en_sesion = 0
-                    arch = correr(nivel)
+                    arch, retraso = correr(nivel)
                     break
                 except (Detenida, OSError, subprocess.SubprocessError) as error:
                     if intento == 2:
@@ -235,6 +242,10 @@ def main():
                     en_sesion = NIVELES_POR_REINICIO
             en_sesion += 1
             medidos[str(nivel)] = analizar(arch)
+            medidos[str(nivel)]["retraso_ms"] = retraso
+            if retraso is None or retraso > RETRASO_MAX_MS:
+                # con el servidor atrasado los bots lanzan menos skills y el duelo no es el mismo (2026-11-26: 731 ms con las mascotas dibujadas en el cliente)
+                avisar(f"AVISO nivel {nivel}: servidor atrasado o sin dato ({retraso} ms por accion de bot; lo normal es 280): esa medicion no es fiable")
             json.dump(medidos, open(SALIDA, "w", encoding="utf-8"), indent=1)
             resumen()
             restan = (time.time() - inicio) / (i + 1) * (len(pendientes) - i - 1) / 60
