@@ -227,7 +227,7 @@ public static class MobaDefense
             durability = 1.0 - MobaF10.DefenseOf(defender).DamageTaken;   // F10: the durability nodes and traits are already inside the pool
         }
 
-        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier * MobaBuffPower.DamageTakenFactorOf(defender) * (attacker is null ? 1.0 : MobaF10.PairFactorOf(attacker, defender) * MobaDualWield.DamageFactorOf(attacker))));
+        var final = Math.Max(1, (int)(rawDamage * (1.0 - mitigation) * (1.0 - durability) * critMultiplier * MobaBuffPower.DamageTakenFactorOf(defender) * (attacker is null ? 1.0 : MobaDualWield.DamageFactorOf(attacker))));
 
         // Anti-one-shot: no single hit removes more than a fixed fraction of the target's
         // max HP. Big burst still wins fights - it just can't delete a champion in one frame.
@@ -249,6 +249,13 @@ public static class MobaDefense
         }
 
         StageObserver?.Invoke(defender, skillNumber, rawDamage, final, afterCap, capped);
+
+        // The matchup table of F10 comes AFTER the cap and the brake (2026-11-27): applied before them, they swallowed it for the classes they cut the most
+        // (the crosses of the Elf did not move with any value), so no number could calibrate those crosses. A cross in favour may pass the per-hit cap by its factor.
+        if (attacker is not null)
+        {
+            capped = Math.Max(1, (int)(capped * MobaF10.PairFactorOf(attacker, defender)));
+        }
 
         var trace = LastMitigation.GetOrCreateValue(defender);
         trace.Raw = rawDamage;
