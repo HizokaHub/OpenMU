@@ -28,7 +28,7 @@ PARAR = RAIZ / "tools/f10_parar.flag"
 INI = RAIZ.parent / "mu-main/out/build/windows-x64/src/Release/config.ini"
 NOM = {3: "GM", 6: "BK", 11: "FE", 12: "MG", 16: "DL", 20: "SUM", 24: "RF"}
 DUR_MIN, DUR_MAX = 10.0, 15.0
-NIVELES_POR_REINICIO = 10   # el servidor pierde ids de objeto tras ~35 pasadas ("Maximum object id exceeded")
+NIVELES_POR_REINICIO = 4    # el servidor se atrasa con las pasadas (2026-11-27, con las mascotas de mochila: 316-486 ms desde la 5a pasada de un nivel alto) y pierde ids de objeto tras ~35
 ESPERA_TANDA_S = 1800
 RETRASO_MAX_MS = 320        # separacion media entre acciones de los bots (ideal 280)
 
@@ -39,7 +39,9 @@ ap.add_argument("--manos", choices=("escudo", "doble", "uno"), default="escudo")
 ap.add_argument("--rehacer", action="store_true")
 ap.add_argument("--margen", type=float, default=0.10, help="vida del ganador (con signo, promedio del cruce) con la que un cruce cuenta como parejo; 0 = no usar")
 ap.add_argument("--resumen", action="store_true", help="solo imprime el resumen de lo ya medido")
+ap.add_argument("--reinicio", type=int, default=NIVELES_POR_REINICIO, help="niveles entre reinicios del servidor y el cliente")
 args = ap.parse_args()
+NIVELES_POR_REINICIO = max(1, args.reinicio)
 niveles = [int(x) for x in args.niveles.split()]
 SALIDA = RAIZ / f"tools/f10_medicion_{args.duelos}{'' if args.manos == 'escudo' else '_' + args.manos}.json"
 medidos = json.load(open(SALIDA, encoding="utf-8")) if SALIDA.exists() else {}
