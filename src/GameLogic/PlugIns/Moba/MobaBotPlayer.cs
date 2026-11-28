@@ -475,6 +475,13 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         }
 
         MobaBotObjectives.Tick(map);
+
+        // Getting out of a turret's fire comes before anything else the bot could do.
+        if (await this.TryLeaveTurretFireAsync(map).ConfigureAwait(false))
+        {
+            return;
+        }
+
         var ctx = this.BuildContext(map, pos, now);
         // Dominant by levels, or by a big death surplus (a team that keeps killing a respawning enemy without levelling past it).
         this._isDominant = ctx.AllyAvgLevel - ctx.EnemyAvgLevel >= DominanceLevels || ctx.DeathDeficit <= -DominanceDeaths || IsLateGame;
@@ -1379,6 +1386,11 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
     /// <summary>Approach to attack range (kiting for ranged classes) then cast / basic attack.</summary>
     private async ValueTask EngageAsync(BotContext c, IAttackable target)
     {
+        if (target is NPC.Monster monster && await this.TryWaitForMinionsAsync(c, monster).ConfigureAwait(false))
+        {
+            return;
+        }
+
         var pos = c.Pos;
         var dist = target.GetDistanceTo(pos);
         var range = Math.Max(2, this.GetMeleeAttackRange());
@@ -1648,10 +1660,7 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         {
             var turretProgress = this.Progress(frontTurret.Position.X, frontTurret.Position.Y);
             var beyond = this.Progress(wp.X, wp.Y) > turretProgress - (TurretDangerTiles - 1);
-            var wave = map.GetAttackablesInRange(frontTurret.Position, TurretDangerTiles + 3)
-                .OfType<NPC.Monster>()
-                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
-            if (beyond && !wave)
+            if (beyond && !this.IsCoveredByWave(map, frontTurret))
             {
                 wp = this.AtProgress(turretProgress - (TurretDangerTiles + 1), 0);
             }
@@ -1838,10 +1847,9 @@ public sealed partial class MobaBotPlayer : OfflinePlayer
         {
             // Turret alive: the wave only decides whether we stop SHORT of it or may body it -
             // never a pass to run past.
-            var waveTanking = map.GetAttackablesInRange(turret.Position, TurretDangerTiles + 3)
-                .OfType<NPC.Monster>()
-                .Any(m => !MobaStructures.IsStructure(m) && MobaTeams.AreAllies(this, m));
-            var margin = waveTanking || this._isDominant ? TurretBodyMargin : -LaneLimitMargin;
+            // A dominant bot may still press on a structure that does not shoot, never under a turret without cover.
+            var mayClose = this.IsCoveredByWave(map, turret) || (this._isDominant && !IsShootingTurret(turret));
+            var margin = mayClose ? TurretBodyMargin : -LaneLimitMargin;
             limit = this.Progress(turret.Position.X, turret.Position.Y) + margin;
         }
         else

@@ -64,6 +64,10 @@ public sealed class MobaStructureIntelligence : BasicMonsterIntelligence
     }
 
     /// <inheritdoc />
+    /// <remarks>A structure keeps its own target (the base one is never set).</remarks>
+    public override bool IsTargetingPlayer(Player player) => ReferenceEquals(this._target, player);
+
+    /// <inheritdoc />
     protected override void OnStart()
     {
         base.OnStart();

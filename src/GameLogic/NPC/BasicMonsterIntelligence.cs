@@ -93,7 +93,7 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
     /// </summary>
     /// <param name="player">The player to check.</param>
     /// <returns>True if the player is the current target; otherwise, false.</returns>
-    public bool IsTargetingPlayer(Player player) => this.CurrentTarget == player;
+    public virtual bool IsTargetingPlayer(Player player) => this.CurrentTarget == player;
 
     /// <summary>
     /// Called when the intelligence starts.
