@@ -29,6 +29,9 @@ DUR_MIN, DUR_MAX = 10.0, 17.0   # hasta 17 s el duelo es valido (usuario, 2026-1
 NIVELES_POR_REINICIO = 4    # el servidor se atrasa con las pasadas (2026-11-27, con las mascotas de mochila: 316-486 ms desde la 5a pasada de un nivel alto) y pierde ids de objeto tras ~35
 ESPERA_TANDA_S = 1800
 RETRASO_MAX_MS = 320        # separacion media entre acciones de los bots (ideal 280)
+# los 21 cruces sin los 7 espejos (no dicen nada del balance y son un cuarto del tiempo); "he" es la High Elf ("fe" es la elfa inicial)
+_ALIAS = ["gm", "bk", "he", "mg", "dl", "sum", "rf"]
+SOLO_CRUCES = ",".join(f"{x}-{y}" for i, x in enumerate(_ALIAS) for y in _ALIAS[i + 1:])
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--duelos", type=int, default=40)
@@ -172,7 +175,7 @@ def poner_ip(vieja, nueva):
 
 def correr(nivel):
     try:
-        return servidor.duelos("all", args.duelos, nivel, limite_s=ESPERA_TANDA_S)
+        return servidor.duelos(SOLO_CRUCES, args.duelos, nivel, limite_s=ESPERA_TANDA_S)
     except servidor.Detenida as error:
         raise Detenida(str(error))
 
