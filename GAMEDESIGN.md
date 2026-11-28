@@ -3709,3 +3709,19 @@ Resultados de `/mobastress` (no existen todavía) · CPU, RAM y tráfico por par
 - OBS quedó con un perfil y una colección nuevos «MOBA prueba» (captura de juego + audio del PC, sin micrófono, F13 detiene la grabación, videos en `C:\Users\aruiz\Videos\MOBA prueba`). La configuración que ya tenía el usuario se restauró. No se aceptó la actualización que OBS ofreció.
 
 **Pendiente.** (1) Que el usuario confirme lo que oyó (pasos 1 a 4: campeón, pelea lejana, niebla, `Y`). Sin probar: que los sonidos propios se oigan al mirar lejos. (2) Aprobar la especificación y sus 8 decisiones. (3) Reanudar el balance (niveles 11-30): `python -I -X utf8 -u tools/medir_30_niveles_f10.py --duelos 100` (apaga el servidor normal).
+
+## Sesión 2026-11-28: confirmación F10 con 100 duelos TERMINADA (30 niveles)
+
+**Hecho.** Niveles 11 a 30 medidos de 00:15 a 03:22 (`tools/medir_30_niveles_f10.py --duelos 100`), sin errores, reintentos ni atrasos (280 ms). Antes se comprobó que los cambios de cámara no tocaron el servidor ni el balance (mismo compilado que los niveles 1 a 10). Datos en `tools/f10_medicion_100.json`. **El servidor y el portal quedan apagados.**
+
+**Victorias reales (630 cruces; un duelo sin ganador cuenta medio; 2.484 de 63.000).** 45-55 %: 188 (29,8 %). 30-70 %: 520 (82,5 %). Fuera de 30-70 %: 110 (17,5 %). Con un lado sobre 80 %: 27 (4,3 %); sobre 90 %: 8. Duración media por nivel 11,5 a 15,2 s.
+
+**Parejos por vida, aparte.** Margen 10 %: 16 desparejos (2,5 %); de los 110 fuera de 30-70 % perdona 97, incluidos 24 de los 27 sobre 80 %. Margen 5 %: 163 desparejos (25,9 %); aún perdona 37, incluidos 5 sobre 80 %.
+
+**La equivalencia «10 % de vida ≈ 70/30» no se cumple cruce por cruce.** `calibrar_rapido_f10.py` tiene como meta |vida| <= 0,10 y no exige victorias. Con 5-10 % de vida el favorecido gana 68 % de media, pero hasta 98,5 % (nivel 26, BK-RF, 5,3 % de vida). Con 2-5 % de vida hay casos de hasta 93,5 %.
+
+**Por raza.** Promedio de los 30 niveles: RF 47,5 %, FE 46,9 %, SUM 50,0 %, GM 50,1 %, MG 50,5 %, DL 51,3 %, BK 53,5 %. En un nivel suelto va de 25 % (RF, nivel 30) a 80 % (RF, nivel 28). Niveles más desparejos por cruces entre 30 y 70 %: 8 y 28 (12 de 21; el 28 tiene 5 sobre 80 %) y 30 (14 de 21). La causa de los saltos de raza entre niveles vecinos no se investigó.
+
+**Ojo.** El resumen del script («en 45-55», «fuera 30-70», «sobre 80», «OK») no cuenta los cruces parejos por vida: da OK a 20 niveles, incluido el 28. No usarlo como medida de victorias.
+
+**Pendiente (decide el usuario).** El margen. Opciones: (a) dejar 10 % tal cual; (b) 5 % (recalibrar ~6 h sin garantía; no arregla todos los casos extremos); (c) propuesta de la sesión: 10 % de vida MÁS tope de victorias de 80 % y recalibrar solo los cruces que lo pasen (27; sin probar si el calibrador puede, hay que ensayarlo primero). Después siguen, en orden: bono de dos armas; freno de ráfaga, daño pasivo y tope de golpe; peleas de equipo, árbol maestro, publicar el cliente nuevo y pruebas en juego.
